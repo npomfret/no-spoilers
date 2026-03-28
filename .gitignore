@@ -4,3 +4,10 @@
 .DS_store
 .gstack/
 .build/
+
+# Xcode user data
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
