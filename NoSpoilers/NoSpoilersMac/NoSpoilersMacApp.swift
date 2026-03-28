@@ -112,6 +112,10 @@ struct NoSpoilersMacApp: App {
     @StateObject private var store = ScheduleStore(appGroupID: appGroupID)
     private let refreshTimer = Timer.publish(every: 6 * 3600, on: .main, in: .common).autoconnect()
 
+    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
+    @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
+    @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
+
     var body: some Scene {
         MenuBarExtra {
             WeekendPopoverView(store: store)
@@ -122,7 +126,7 @@ struct NoSpoilersMacApp: App {
             HStack(spacing: 5) {
                 Image(nsImage: f1MenuBarLogo)
                     .interpolation(.none)
-                let label = store.menuBarLabel
+                let label = store.menuBarLabel(showFlag: showFlag, showSession: showSession, showCountdown: showCountdown)
                 if !label.isEmpty {
                     Text(label)
                         .font(.system(size: 12, weight: .medium))
@@ -131,5 +135,10 @@ struct NoSpoilersMacApp: App {
             .fixedSize()
         }
         .menuBarExtraStyle(.window)
+
+        Window("Settings", id: "settings") {
+            SettingsView()
+        }
+        .windowResizability(.contentSize)
     }
 }

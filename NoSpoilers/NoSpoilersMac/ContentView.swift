@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import ServiceManagement
 import NoSpoilersCore
 
 private let f1Red = Color(red: 0.93, green: 0, blue: 0)
@@ -7,18 +8,38 @@ private let f1Red = Color(red: 0.93, green: 0, blue: 0)
 struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
     @State private var now: Date = Date()
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         let now = self.now
         let current = store.weekends
             .sorted { $0.round < $1.round }
-            .first(where: { $0.allSessions.contains { $0.endsAt >= now } })
+            .first(where: { weekend in
+                guard weekend.allSessions.contains(where: { $0.endsAt >= now }) else { return false }
+                let first = weekend.allSessions.first
+                let started  = first.map { $0.startsAt <= now } ?? false
+                let imminent = first.map { $0.startsAt.timeIntervalSince(now) <= 5 * 86_400 } ?? false
+                return started || imminent
+            })
 
-        Group {
-            if let weekend = current {
-                weekendView(weekend, now: now)
-            } else {
-                noDataView
+        VStack(spacing: 0) {
+            Group {
+                if let weekend = current {
+                    weekendView(weekend, now: now)
+                } else {
+                    noDataView
+                }
+            }
+            Divider()
+            HStack {
+                Spacer()
+                Button { openWindow(id: "settings") } label: {
+                    Image(systemName: "gear")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(10)
             }
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
@@ -56,7 +77,7 @@ struct WeekendPopoverView: View {
                 Text(weekend.countryFlag)
                     .font(.system(size: 26))
             }
-            // Row 2: round pill · location
+            // Row 2: round pill · location · date range
             HStack(alignment: .center, spacing: 6) {
                 Text("R\(weekend.round)")
                     .font(.caption2)
@@ -70,6 +91,14 @@ struct WeekendPopoverView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
+                if let first = weekend.allSessions.first, let last = weekend.allSessions.last {
+                    let fmt = Date.FormatStyle().day().month(.abbreviated)
+                    let start = first.startsAt.formatted(fmt)
+                    let end   = last.startsAt.formatted(fmt)
+                    Text(start == end ? start : "\(start) → \(end)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -197,5 +226,83 @@ struct WeekendPopoverView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
+    }
+}
+
+struct SettingsView: View {
+    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
+    @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
+    @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // ── Header ──────────────────────────────────────────
+            VStack(spacing: 8) {
+                F1Logo()
+                    .fill(f1Red)
+                    .frame(width: 52, height: 13)
+                Text("No Spoilers")
+                    .font(.title3).fontWeight(.bold)
+                Text("F1 schedule · spoiler free")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .background(f1Red.opacity(0.06))
+
+            Divider()
+
+            // ── Rows ─────────────────────────────────────────────
+            settingRow("Launch at Login") {
+                Toggle("", isOn: Binding(
+                    get: { SMAppService.mainApp.status == .enabled },
+                    set: { on in
+                        if on { try? SMAppService.mainApp.register() }
+                        else  { try? SMAppService.mainApp.unregister() }
+                    }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+            sectionLabel("Menu Bar")
+            settingRow("Flag")      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            settingRow("Session")   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            settingRow("Countdown") { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+
+            Divider()
+
+            // ── Footer ────────────────────────────────────────────
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .controlSize(.small)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+        }
+        .frame(width: 280)
+    }
+
+    private func settingRow<C: View>(_ label: String, @ViewBuilder control: () -> C) -> some View {
+        HStack {
+            Text(label).font(.body)
+            Spacer()
+            control()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.caption2).fontWeight(.semibold)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
     }
 }
