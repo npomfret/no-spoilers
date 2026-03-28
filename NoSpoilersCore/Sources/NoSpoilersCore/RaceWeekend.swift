@@ -17,6 +17,33 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
 
     public var id: Int { round }
     public var grandPrixName: String { "\(name) Grand Prix" }
+    public var countryFlag: String {
+        switch name {
+        case "Australian":          return "🇦🇺"
+        case "Chinese":             return "🇨🇳"
+        case "Japanese":            return "🇯🇵"
+        case "Miami":               return "🇺🇸"
+        case "Canadian":            return "🇨🇦"
+        case "Monaco":              return "🇲🇨"
+        case "Barcelona-Catalunya": return "🇪🇸"
+        case "Austrian":            return "🇦🇹"
+        case "British":             return "🇬🇧"
+        case "Belgian":             return "🇧🇪"
+        case "Hungarian":           return "🇭🇺"
+        case "Dutch":               return "🇳🇱"
+        case "Italian":             return "🇮🇹"
+        case "Spanish":             return "🇪🇸"
+        case "Azerbaijan":          return "🇦🇿"
+        case "Singapore":           return "🇸🇬"
+        case "United States":       return "🇺🇸"
+        case "Mexican":             return "🇲🇽"
+        case "Brazilian":           return "🇧🇷"
+        case "Las Vegas":           return "🇺🇸"
+        case "Qatar":               return "🇶🇦"
+        case "Abu Dhabi":           return "🇦🇪"
+        default:                    return "🏁"
+        }
+    }
 
     enum CodingKeys: String, CodingKey {
         case round, name, location, sessions

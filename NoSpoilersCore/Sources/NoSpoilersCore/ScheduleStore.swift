@@ -21,15 +21,16 @@ public class ScheduleStore: ObservableObject {
                             .flatMap { w in w.allSessions.map { (session: $0, weekend: w) } }
                             .sorted { $0.session.startsAt < $1.session.startsAt }
         if let live = pairs.first(where: { $0.session.startsAt <= now && now < $0.session.endsAt }) {
-            return "F1 \(live.weekend.name) — now"
+            return "\(live.weekend.countryFlag) \(live.session.kind.shortName) — now"
         }
-        guard let next = pairs.first(where: { $0.session.startsAt > now }) else { return "F1" }
+        guard let next = pairs.first(where: { $0.session.startsAt > now }) else { return "" }
         let secs = Int(next.session.startsAt.timeIntervalSince(now))
         let days = secs / 86_400
-        if days >= 1 { return "F1 \(next.weekend.name) in \(days) days" }
+        if days >= 1 { return "\(next.weekend.countryFlag) in \(days)d" }
         let h = secs / 3600
         let m = (secs % 3600) / 60
-        return "F1 \(next.weekend.name) in \(h > 0 ? "\(h)h" : "\(m)m")"
+        let timeStr = h > 0 ? "\(h)h \(m)m" : "\(m)m"
+        return "\(next.weekend.countryFlag) \(next.session.kind.shortName) · \(timeStr)"
     }
 
     /// Fetch → save to cache → update published state.
