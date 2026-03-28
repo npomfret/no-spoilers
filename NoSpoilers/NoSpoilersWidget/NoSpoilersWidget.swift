@@ -132,9 +132,58 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
     }
 }
 
-private func makeEntry(at now: Date) -> NoSpoilersEntry {
+private struct WidgetDataSnapshot {
+    let weekends: [RaceWeekend]
+    let allSessions: [Session]
+    let confirmedEndDates: [String: Date]
+}
+
+private func loadWidgetData() -> WidgetDataSnapshot {
     let weekends = (try? ScheduleCache().load(for: NoSpoilersConfig.appGroupID)) ?? []
-    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
+    return WidgetDataSnapshot(
+        weekends: weekends,
+        allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
+        confirmedEndDates: SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
+    )
+}
+
+private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
+    let placeholderWeekend = RaceWeekend(
+        round: 16,
+        name: "Japanese",
+        location: "Suzuka",
+        sessions: [
+            .freePractice1: now.addingTimeInterval(-4 * 3600),
+            .freePractice2: now.addingTimeInterval(2 * 3600),
+            .freePractice3: now.addingTimeInterval(20 * 3600),
+            .qualifying: now.addingTimeInterval(29 * 3600),
+            .race: now.addingTimeInterval(52 * 3600)
+        ]
+    )
+
+    return NoSpoilersEntry(
+        date: now,
+        weekend: placeholderWeekend,
+        sessions: [
+            SessionViewModel(id: "placeholder-fp1", name: SessionKind.freePractice1.displayName, shortName: SessionKind.freePractice1.shortName, state: .finished(ago: "42m ago")),
+            SessionViewModel(id: "placeholder-fp2", name: SessionKind.freePractice2.displayName, shortName: SessionKind.freePractice2.shortName, state: .upcoming(countdown: "in 2h 15m")),
+            SessionViewModel(id: "placeholder-fp3", name: SessionKind.freePractice3.displayName, shortName: SessionKind.freePractice3.shortName, state: .upcoming(countdown: "in 20h")),
+            SessionViewModel(id: "placeholder-quali", name: SessionKind.qualifying.displayName, shortName: SessionKind.qualifying.shortName, state: .upcoming(countdown: "in 1d 5h")),
+            SessionViewModel(id: "placeholder-race", name: SessionKind.race.displayName, shortName: SessionKind.race.shortName, state: .upcoming(countdown: "in 2d 4h"))
+        ],
+        offSeasonNextRace: nil,
+        nextWeekend: UpcomingWeekendViewModel(
+            round: 17,
+            flag: "🇶🇦",
+            name: "Qatar Grand Prix",
+            countdown: "in 7d"
+        )
+    )
+}
+
+private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntry {
+    let weekends = data.weekends
+    let confirmedEndDates = data.confirmedEndDates
 
     guard let weekend = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates),
           let firstActiveSession = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates)
@@ -176,10 +225,9 @@ private func makeEntry(at now: Date) -> NoSpoilersEntry {
     return NoSpoilersEntry(date: now, weekend: weekend, sessions: sessionVMs, offSeasonNextRace: nil, nextWeekend: nextWeekend)
 }
 
-private func nextReloadDate(after now: Date) -> Date {
-    let allSessions = ((try? ScheduleCache().load(for: NoSpoilersConfig.appGroupID)) ?? [])
-        .flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
-    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
+private func nextReloadDate(after now: Date, data: WidgetDataSnapshot) -> Date {
+    let allSessions = data.allSessions
+    let confirmedEndDates = data.confirmedEndDates
     // Find the inProgress session (if any) using the resolver
     let currentIdx = allSessions.indices.first(where: { i in
         let next = i + 1 < allSessions.count ? allSessions[i + 1] : nil
@@ -201,16 +249,24 @@ private func nextReloadDate(after now: Date) -> Date {
 
 struct NoSpoilersTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> NoSpoilersEntry {
-        NoSpoilersEntry(date: Date(), weekend: nil, sessions: [], offSeasonNextRace: nil, nextWeekend: nil)
+        placeholderEntry()
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NoSpoilersEntry) -> Void) {
-        completion(makeEntry(at: Date()))
+        let now = Date()
+        guard !context.isPreview else {
+            completion(placeholderEntry(at: now))
+            return
+        }
+
+        let data = loadWidgetData()
+        completion(makeEntry(at: now, data: data))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NoSpoilersEntry>) -> Void) {
         let now = Date()
-        completion(Timeline(entries: [makeEntry(at: now)], policy: .after(nextReloadDate(after: now))))
+        let data = loadWidgetData()
+        completion(Timeline(entries: [makeEntry(at: now, data: data)], policy: .after(nextReloadDate(after: now, data: data))))
     }
 }
 
