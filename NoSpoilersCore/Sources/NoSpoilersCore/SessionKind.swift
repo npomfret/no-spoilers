@@ -21,6 +21,18 @@ public enum SessionKind: String, Codable, Hashable, CaseIterable {
         }
     }
 
+    public var shortName: String {
+        switch self {
+        case .freePractice1:    return "FP1"
+        case .freePractice2:    return "FP2"
+        case .freePractice3:    return "FP3"
+        case .qualifying:       return "Quali"
+        case .sprintQualifying: return "Sprint Quali"
+        case .sprint:           return "Sprint"
+        case .race:             return "Race"
+        }
+    }
+
     public var defaultDuration: TimeInterval {
         switch self {
         case .freePractice1, .freePractice2, .freePractice3: return 3600
