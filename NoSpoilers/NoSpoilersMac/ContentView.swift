@@ -118,7 +118,7 @@ struct WeekendPopoverView: View {
                     .foregroundStyle(f1Red)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(f1Red.opacity(0.1))
+                    .background(BrandPalette.blush.opacity(0.7))
                     .clipShape(Capsule())
                 Text(weekend.location)
                     .font(.caption)
@@ -181,7 +181,7 @@ struct WeekendPopoverView: View {
             let m = (secs % 3600) / 60
             Text("Finished \(h > 0 ? "\(h)h" : "\(m)m") ago")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.successGreen)
         case .inProgress:
             Text(Strings.Popover.inProgress)
                 .font(.caption)
@@ -194,10 +194,10 @@ struct WeekendPopoverView: View {
         case .upcoming:
             Text(countdown(to: session.startsAt, from: now))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.secondaryText)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.secondary.opacity(0.08))
+                .background(BrandPalette.blush.opacity(0.55))
                 .clipShape(Capsule())
         }
     }
@@ -244,7 +244,7 @@ struct WeekendPopoverView: View {
                 .foregroundStyle(f1Red)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(f1Red.opacity(0.1))
+                .background(BrandPalette.blush.opacity(0.7))
                 .clipShape(Capsule())
         }
         .padding(.horizontal, 16)

@@ -3,14 +3,14 @@ import SwiftUI
 import NoSpoilersCore
 
 private let widgetRed = BrandPalette.signalRed
-private let widgetCream = BrandPalette.ivory
 
 private enum WidgetLayout {
-    static let outerPadding: CGFloat = 18
-    static let sectionSpacing: CGFloat = 14
-    static let cardSpacing: CGFloat = 12
-    static let cardHorizontalPadding: CGFloat = 14
-    static let cardVerticalPadding: CGFloat = 14
+    static let outerPadding: CGFloat = 16
+    static let sectionSpacing: CGFloat = 12
+    static let cardSpacing: CGFloat = 10
+    static let cardHorizontalPadding: CGFloat = 10
+    static let cardVerticalPadding: CGFloat = 10
+    static let cardCornerRadius: CGFloat = 14
 }
 
 // MARK: - Shared Mark
@@ -304,7 +304,7 @@ struct NoSpoilersWidgetEntryView: View {
                     .foregroundStyle(widgetRed)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(widgetRed.opacity(0.12))
+                    .background(BrandPalette.blush.opacity(0.7))
                     .clipShape(Capsule())
                 Spacer()
                 Image(systemName: "flag.checkered.2.crossed")
@@ -366,7 +366,7 @@ struct NoSpoilersWidgetEntryView: View {
             return false
         }
 
-        VStack(alignment: .leading, spacing: WidgetLayout.sectionSpacing) {
+        VStack(alignment: .leading, spacing: 8) {
             if let weekend = entry.weekend {
                 mediumHeader(weekend)
             }
@@ -392,6 +392,7 @@ struct NoSpoilersWidgetEntryView: View {
                     )
                 }
             }
+            .frame(maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(WidgetLayout.outerPadding)
@@ -418,10 +419,6 @@ struct NoSpoilersWidgetEntryView: View {
                     .padding(.horizontal, 4)
             }
             Spacer(minLength: 0)
-            if let nextWeekend = entry.nextWeekend {
-                Divider()
-                upcomingFooter(nextWeekend)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(WidgetLayout.outerPadding)
@@ -444,27 +441,6 @@ struct NoSpoilersWidgetEntryView: View {
         .padding(WidgetLayout.outerPadding)
     }
 
-    private func compactHeader(_ weekend: RaceWeekend) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
-                Text("R\(weekend.round)")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(widgetRed)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(widgetRed.opacity(0.12))
-                    .clipShape(Capsule())
-                Spacer()
-                Text(weekend.countryFlag)
-                    .font(.title3)
-            }
-            Text(weekend.grandPrixName)
-                .font(.headline)
-                .fontWeight(.semibold)
-                .lineLimit(2)
-        }
-    }
-
     private func fullHeader(_ weekend: RaceWeekend) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 10) {
@@ -473,7 +449,7 @@ struct NoSpoilersWidgetEntryView: View {
                     .foregroundStyle(widgetRed)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(widgetRed.opacity(0.12))
+                    .background(BrandPalette.blush.opacity(0.7))
                     .clipShape(Capsule())
                 Text(weekend.location)
                     .font(.caption)
@@ -527,23 +503,14 @@ struct NoSpoilersWidgetEntryView: View {
     }
 
     private func mediumSessionCard(session: SessionViewModel, accent: Color, emphasize: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(accent)
-                .frame(width: 4)
+                .frame(width: 3)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Spacer(minLength: 0)
-                    if case .live = session.state {
-                        Circle()
-                            .fill(accent)
-                            .frame(width: 7, height: 7)
-                    }
-                }
-
+            VStack(alignment: .leading, spacing: 5) {
                 Text(session.shortName)
-                    .font(.system(size: emphasize ? 25 : 22, weight: .black, design: .rounded))
+                    .font(.system(size: emphasize ? 24 : 20, weight: .black, design: .rounded))
                     .foregroundStyle(BrandPalette.smoke)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -556,18 +523,20 @@ struct NoSpoilersWidgetEntryView: View {
                         .minimumScaleFactor(0.85)
                 }
 
+                Spacer(minLength: 0)
+
                 mediumStatusLine(session.state, accent: accent, emphasize: emphasize)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, WidgetLayout.cardHorizontalPadding)
         .padding(.vertical, WidgetLayout.cardVerticalPadding)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .fill(Color.white.opacity(emphasize ? 0.82 : 0.74))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
         )
     }
@@ -598,15 +567,15 @@ struct NoSpoilersWidgetEntryView: View {
                 .foregroundStyle(BrandPalette.tertiaryText)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, WidgetLayout.cardHorizontalPadding)
         .padding(.vertical, WidgetLayout.cardVerticalPadding)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .fill(Color.white.opacity(0.74))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
         )
     }
@@ -637,15 +606,15 @@ struct NoSpoilersWidgetEntryView: View {
                 .foregroundStyle(BrandPalette.tertiaryText)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, minHeight: 88, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, WidgetLayout.cardHorizontalPadding)
         .padding(.vertical, WidgetLayout.cardVerticalPadding)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .fill(Color.white.opacity(0.74))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: WidgetLayout.cardCornerRadius, style: .continuous)
                 .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
         )
     }
@@ -654,7 +623,7 @@ struct NoSpoilersWidgetEntryView: View {
         HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(accentColor(for: session.state))
-                .frame(width: 3, height: 28)
+                .frame(width: 3, height: 26)
             Text(session.name)
                 .font(.caption)
                 .fontWeight(.medium)
@@ -662,8 +631,12 @@ struct NoSpoilersWidgetEntryView: View {
             Spacer(minLength: 8)
             stateLabel(session.state)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(0.65))
+        )
     }
 
     private func sessionDateRange(for weekend: RaceWeekend) -> String {
@@ -674,32 +647,6 @@ struct NoSpoilersWidgetEntryView: View {
         let start = first.startsAt.formatted(format)
         let end = last.startsAt.formatted(format)
         return start == end ? start : "\(start) → \(end)"
-    }
-
-    private func upcomingFooter(_ weekend: UpcomingWeekendViewModel) -> some View {
-        HStack(spacing: 10) {
-            Text(weekend.flag)
-                .font(.title3)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Coming up...")
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
-                Text(weekend.name)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                Text(weekend.countdown)
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.tertiaryText)
-            }
-            Spacer()
-            Text("R\(weekend.round)")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(widgetRed)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 4)
-                .background(widgetRed.opacity(0.12))
-                .clipShape(Capsule())
-        }
     }
 
     private func accentColor(for state: SessionState) -> Color {
@@ -770,10 +717,9 @@ struct NoSpoilersWidgetEntryView: View {
     private func stateLabel(_ state: SessionState) -> some View {
         switch state {
         case .finished(let ago):
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("Finished").font(.caption2).foregroundStyle(BrandPalette.successGreen)
-                Text(ago).font(.caption2).foregroundStyle(BrandPalette.secondaryText)
-            }
+            Text("Finished · \(ago)")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(BrandPalette.successGreen)
         case .live:
             Text("In Progress")
                 .font(.caption2.weight(.bold))
@@ -788,7 +734,7 @@ struct NoSpoilersWidgetEntryView: View {
                 .foregroundStyle(BrandPalette.secondaryText)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(BrandPalette.blush.opacity(0.7))
+                .background(BrandPalette.blush.opacity(0.55))
                 .clipShape(Capsule())
         case .offSeason(let d):
             Text(d)
@@ -796,46 +742,7 @@ struct NoSpoilersWidgetEntryView: View {
                 .foregroundStyle(BrandPalette.secondaryText)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(BrandPalette.blush.opacity(0.7))
-                .clipShape(Capsule())
-        }
-    }
-
-    @ViewBuilder
-    private func stateBadge(_ state: SessionState) -> some View {
-        switch state {
-        case .finished(let ago):
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Finished")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(BrandPalette.successGreen)
-                Text(ago)
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
-            }
-        case .live:
-            Text("In Progress")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(widgetRed)
-                .clipShape(Capsule())
-        case .upcoming(let c):
-            Text(c)
-                .font(.caption)
-                .foregroundStyle(BrandPalette.secondaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(BrandPalette.blush.opacity(0.7))
-                .clipShape(Capsule())
-        case .offSeason(let d):
-            Text(d)
-                .font(.caption)
-                .foregroundStyle(BrandPalette.secondaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(BrandPalette.blush.opacity(0.7))
+                .background(BrandPalette.blush.opacity(0.55))
                 .clipShape(Capsule())
         }
     }
@@ -871,46 +778,6 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    @ViewBuilder
-    private func mediumStateBadge(_ state: SessionState, emphasize: Bool) -> some View {
-        switch state {
-        case .finished(let ago):
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Finished")
-                    .font((emphasize ? Font.caption : .caption2).weight(.semibold))
-                    .foregroundStyle(BrandPalette.successGreen)
-                Text(ago)
-                    .font(emphasize ? .caption : .caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
-            }
-        case .live:
-            Text("In Progress")
-                .font((emphasize ? Font.caption : .caption2).weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, emphasize ? 10 : 8)
-                .padding(.vertical, emphasize ? 5 : 4)
-                .background(widgetRed)
-                .clipShape(Capsule())
-        case .upcoming(let countdown):
-            Text(countdown)
-                .font((emphasize ? Font.caption : .caption2).weight(.semibold))
-                .foregroundStyle(BrandPalette.secondaryText)
-                .lineLimit(2)
-                .padding(.horizontal, emphasize ? 10 : 8)
-                .padding(.vertical, emphasize ? 5 : 4)
-                .background(BrandPalette.blush.opacity(0.7))
-                .clipShape(Capsule())
-        case .offSeason(let daysUntil):
-            Text(daysUntil)
-                .font((emphasize ? Font.caption : .caption2).weight(.semibold))
-                .foregroundStyle(BrandPalette.secondaryText)
-                .lineLimit(2)
-                .padding(.horizontal, emphasize ? 10 : 8)
-                .padding(.vertical, emphasize ? 5 : 4)
-                .background(BrandPalette.blush.opacity(0.7))
-                .clipShape(Capsule())
-        }
-    }
 }
 
 // MARK: - Widget
