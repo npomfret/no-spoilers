@@ -3,7 +3,6 @@ import SwiftUI
 import WidgetKit
 import NoSpoilersCore
 
-private let f1Red = Color(red: 0.93, green: 0, blue: 0)
 private let offSeasonThreshold: TimeInterval = 7 * 86_400
 
 struct ContentView: View {
@@ -15,6 +14,7 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    appHeader
                     if let weekend = RaceWeekendResolver.firstActiveWeekend(in: store.weekends, at: now),
                        let firstSession = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now) {
                         if firstSession.startsAt.timeIntervalSince(now) > offSeasonThreshold {
@@ -30,16 +30,6 @@ struct ContentView: View {
             }
             .refreshable { await refresh() }
             .background(backgroundGradient)
-            .navigationTitle("No Spoilers")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await refresh() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-            }
         }
         .task { await refresh() }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
@@ -54,13 +44,36 @@ struct ContentView: View {
     private var backgroundGradient: some View {
         LinearGradient(
             colors: [
-                Color(red: 0.97, green: 0.98, blue: 1.0),
-                Color(red: 0.92, green: 0.94, blue: 0.98)
+                BrandPalette.ivory,
+                BrandPalette.blush.opacity(0.72),
+                Color.white
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
         .ignoresSafeArea()
+    }
+
+    private var appHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("No Spoilers")
+                .font(.largeTitle)
+                .fontWeight(.bold)
+                .foregroundStyle(BrandPalette.smoke)
+
+            Spacer()
+
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.8), lineWidth: 1)
+                )
+                .shadow(color: BrandPalette.deepMaroon.opacity(0.12), radius: 10, x: 0, y: 6)
+        }
     }
 
     private func weekendView(_ weekend: RaceWeekend) -> some View {
@@ -81,18 +94,26 @@ struct ContentView: View {
         let statusLine = nextSession.map { nextSessionStatus(for: $0, in: sessions) } ?? "Weekend complete"
 
         return VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                F1Logo()
+                    .fill(BrandPalette.signalRed)
+                    .frame(width: 72, height: 18)
+                Spacer()
+            }
+
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Round \(weekend.round)")
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(f1Red)
+                        .foregroundStyle(BrandPalette.signalRed)
                     Text(weekend.grandPrixName)
                         .font(.title2)
                         .fontWeight(.bold)
+                        .foregroundStyle(BrandPalette.smoke)
                     Text(weekend.location)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BrandPalette.secondaryText)
                 }
                 Spacer()
                 Text(weekend.countryFlag)
@@ -101,23 +122,32 @@ struct ContentView: View {
 
             Text(statusLine)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.secondaryText)
 
             if let first = sessions.first, let last = sessions.last {
                 Text(dateRange(from: first.startsAt, to: last.startsAt))
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(BrandPalette.tertiaryText)
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.82))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: BrandPalette.deepMaroon.opacity(0.08), radius: 20, x: 0, y: 12)
     }
 
     private func sessionCard(sessions: [Session]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Sessions")
                 .font(.headline)
+                .foregroundStyle(BrandPalette.smoke)
 
             ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                 let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
@@ -131,9 +161,10 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(session.kind.displayName)
                             .font(.body.weight(.semibold))
+                            .foregroundStyle(BrandPalette.smoke)
                         Text(session.startsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BrandPalette.secondaryText)
                     }
 
                     Spacer()
@@ -143,12 +174,21 @@ struct ContentView: View {
 
                 if session.id != sessions.last?.id {
                     Divider()
+                        .overlay(BrandPalette.mistGrey.opacity(0.6))
                 }
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: BrandPalette.deepMaroon.opacity(0.08), radius: 18, x: 0, y: 10)
     }
 
     private func nextWeekendCard(_ weekend: RaceWeekend) -> some View {
@@ -157,69 +197,98 @@ struct ContentView: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text("Coming up...")
                 .font(.headline)
+                .foregroundStyle(BrandPalette.smoke)
             HStack(spacing: 12) {
                 Text(weekend.countryFlag)
                     .font(.title)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(weekend.grandPrixName)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BrandPalette.smoke)
                     if let firstSession {
                         Text(countdown(to: firstSession.startsAt))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BrandPalette.secondaryText)
                     } else {
                         Text(weekend.location)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BrandPalette.secondaryText)
                     }
                 }
                 Spacer()
                 Text("R\(weekend.round)")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(f1Red)
+                    .foregroundStyle(BrandPalette.signalRed)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(f1Red.opacity(0.12), in: Capsule())
+                    .background(BrandPalette.blush.opacity(0.7), in: Capsule())
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: BrandPalette.deepMaroon.opacity(0.08), radius: 18, x: 0, y: 10)
     }
 
     private func offSeasonView(weekend: RaceWeekend, session: Session) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Off-season")
                 .font(.headline)
+                .foregroundStyle(BrandPalette.signalRed)
             Text(weekend.grandPrixName)
                 .font(.title2.weight(.bold))
+                .foregroundStyle(BrandPalette.smoke)
             Text("Next session \(countdown(to: session.startsAt))")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.secondaryText)
             Text(weekend.location)
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(BrandPalette.tertiaryText)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.82))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: BrandPalette.deepMaroon.opacity(0.08), radius: 20, x: 0, y: 12)
     }
 
     private var unavailableView: some View {
         VStack(spacing: 12) {
             Image(systemName: "flag.checkered.2.crossed")
                 .font(.system(size: 34))
-                .foregroundStyle(f1Red)
+                .foregroundStyle(BrandPalette.signalRed)
             Text("Schedule unavailable")
                 .font(.headline)
+                .foregroundStyle(BrandPalette.smoke)
             Text("Pull to refresh or open the app again to update the shared widget cache.")
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.secondaryText)
         }
         .padding(32)
         .frame(maxWidth: .infinity)
-        .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.9))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+        )
+        .shadow(color: BrandPalette.deepMaroon.opacity(0.08), radius: 18, x: 0, y: 10)
     }
 
     @ViewBuilder
@@ -228,21 +297,21 @@ struct ContentView: View {
         case .finished:
             Text("Finished \(finishedAgo(since: session.endsAt))")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(.green)
+                .foregroundStyle(BrandPalette.successGreen)
         case .inProgress:
             Text("In Progress")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(f1Red, in: Capsule())
+                .background(BrandPalette.signalRed, in: Capsule())
         case .upcoming:
             Text(countdown(to: session.startsAt))
                 .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BrandPalette.secondaryText)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Color.secondary.opacity(0.12), in: Capsule())
+                .background(BrandPalette.blush.opacity(0.55), in: Capsule())
         }
     }
 
@@ -302,11 +371,11 @@ struct ContentView: View {
     private func statusColor(_ status: SessionStatus) -> Color {
         switch status {
         case .finished:
-            return .green
+            return BrandPalette.successGreen
         case .inProgress:
-            return f1Red
+            return BrandPalette.signalRed
         case .upcoming:
-            return .blue
+            return BrandPalette.deepMaroon.opacity(0.55)
         }
     }
 

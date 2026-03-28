@@ -22,6 +22,7 @@ Read these when the task touches their area:
 - `@docs/guides/swift-patterns.md`
 - `@docs/guides/building.md`
 - `@docs/guides/testing.md`
+- `@docs/brand.md` — when touching colours, typography, or visual style in any target or on the web
 
 ## Project state
 

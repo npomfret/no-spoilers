@@ -1,6 +1,6 @@
 # No Spoilers
 
-A spoiler-safe F1 race weekend widget for iPhone and macOS.
+**[nospoilers.app](https://npomfret.github.io/no-spoilers)** — a spoiler-safe F1 race weekend widget for iPhone and macOS.
 
 Shows the full race weekend timeline — past sessions (watchable now) and upcoming sessions (countdown) — with a hard guarantee that race results never appear. Not hidden by default. Never requested. Never in the data model.
 

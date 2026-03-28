@@ -17,6 +17,33 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
 
     public var id: Int { round }
     public var grandPrixName: String { "\(name) Grand Prix" }
+    public var countryName: String {
+        switch name {
+        case "Australian":          return "Australia"
+        case "Chinese":             return "China"
+        case "Japanese":            return "Japan"
+        case "Miami":               return "United States"
+        case "Canadian":            return "Canada"
+        case "Monaco":              return "Monaco"
+        case "Barcelona-Catalunya": return "Spain"
+        case "Austrian":            return "Austria"
+        case "British":             return "United Kingdom"
+        case "Belgian":             return "Belgium"
+        case "Hungarian":           return "Hungary"
+        case "Dutch":               return "Netherlands"
+        case "Italian":             return "Italy"
+        case "Spanish":             return "Spain"
+        case "Azerbaijan":          return "Azerbaijan"
+        case "Singapore":           return "Singapore"
+        case "United States":       return "United States"
+        case "Mexican":             return "Mexico"
+        case "Brazilian":           return "Brazil"
+        case "Las Vegas":           return "United States"
+        case "Qatar":               return "Qatar"
+        case "Abu Dhabi":           return "United Arab Emirates"
+        default:                    return name
+        }
+    }
     public var countryFlag: String {
         switch name {
         case "Australian":          return "🇦🇺"

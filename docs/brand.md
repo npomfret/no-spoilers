@@ -31,6 +31,28 @@ The goal is simple:
 - Use `Blush` for gradients, tinted cards, and gentle atmospheric fills.
 - Use `Success Green` only for completed or safe-to-watch state. Do not replace the brand accent with it.
 
-## GitHub Pages
+## Implementation
 
-The GitHub Pages landing page in `docs/index.html` should use this palette directly via CSS custom properties. If the page visual style changes later, keep the color names and intent aligned with this document rather than introducing a parallel palette.
+### Swift (iOS app, macOS app, widget)
+
+All Swift targets consume colours via the shared `BrandPalette` enum in `NoSpoilersCore`:
+
+```swift
+import NoSpoilersCore
+
+Text("...").foregroundStyle(BrandPalette.signalRed)
+```
+
+**Do not** define colour constants in individual targets. `BrandPalette` in `NoSpoilersCore` is the single source of truth for Swift. If you need a new colour, add it there first, then reference it.
+
+### Web (GitHub Pages)
+
+The GitHub Pages landing page in `docs/index.html` uses the palette via CSS custom properties. Keep the colour names and intent aligned with this document rather than introducing a parallel palette.
+
+```css
+:root {
+  --signal-red: #ef2b2d;
+  --ivory: #fff7f2;
+  /* ... */
+}
+```

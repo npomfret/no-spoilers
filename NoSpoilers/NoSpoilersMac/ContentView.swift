@@ -3,7 +3,29 @@ import Combine
 import ServiceManagement
 import NoSpoilersCore
 
-private let f1Red = Color(red: 0.93, green: 0, blue: 0)
+private let f1Red = BrandPalette.signalRed
+
+// MARK: - MenuRowButtonStyle
+
+private struct MenuRowButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isHovered
+                          ? Color.secondary.opacity(0.10)
+                          : Color.clear)
+            )
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: isHovered)
+            .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
+            .onHover { isHovered = $0 }
+    }
+}
 
 struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
@@ -28,17 +50,32 @@ struct WeekendPopoverView: View {
                 updateBanner
             }
             Divider()
-            HStack {
-                Spacer()
+            VStack(spacing: 0) {
                 Button { openWindow(id: "settings") } label: {
-                    Image(systemName: "gear")
+                    Label(Strings.Popover.settings, systemImage: "gear")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.plain)
-                .padding(10)
+                .buttonStyle(MenuRowButtonStyle())
+                Button { NSApplication.shared.terminate(nil) } label: {
+                    Label(Strings.Popover.quit, systemImage: "power")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(MenuRowButtonStyle())
             }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 4)
         }
+        .background(
+            LinearGradient(
+                colors: [BrandPalette.ivory, BrandPalette.blush.opacity(0.45), Color.white],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
             self.now = tick
         }
@@ -99,35 +136,40 @@ struct WeekendPopoverView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .background(BrandPalette.blush.opacity(0.3))
     }
 
     private func sessionList(_ weekend: RaceWeekend, now: Date) -> some View {
         let sessions = weekend.allSessions
-        return VStack(spacing: 1) {
+        return VStack(spacing: 4) {
             ForEach(sessions.indices, id: \.self) { i in
                 let next = i + 1 < sessions.count ? sessions[i + 1] : nil
                 sessionRow(sessions[i], nextSession: next, at: now)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
     }
 
     private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(status == .finished ? Color.green.opacity(0.6) : status == .inProgress ? f1Red : Color.accentColor.opacity(0.6))
+                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? f1Red : BrandPalette.mistGrey)
                 .frame(width: 3, height: 28)
             Text(session.kind.displayName)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(status == .finished ? Color.green : .primary)
+                .foregroundStyle(status == .finished ? BrandPalette.successGreen : .primary)
                 .frame(minWidth: 100, alignment: .leading)
             Spacer()
             statusBadge(status: status, session: session, at: now)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(0.65))
+        )
     }
 
     @ViewBuilder
@@ -141,7 +183,7 @@ struct WeekendPopoverView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         case .inProgress:
-            Text("In Progress")
+            Text(Strings.Popover.inProgress)
                 .font(.caption)
                 .fontWeight(.bold)
                 .foregroundStyle(.white)
@@ -214,11 +256,11 @@ struct WeekendPopoverView: View {
             Image(systemName: "arrow.up.circle.fill")
                 .foregroundStyle(.orange)
                 .font(.system(size: 12))
-            Text("Update available")
+            Text(Strings.Popover.updateAvailable)
                 .font(.caption)
                 .foregroundStyle(.primary)
             Spacer()
-            Text("brew upgrade no-spoilers")
+            Text(Strings.Popover.brewUpgrade)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
@@ -232,9 +274,9 @@ struct WeekendPopoverView: View {
         VStack(spacing: 10) {
             Text("🏁")
                 .font(.system(size: 36))
-            Text("Off season")
+            Text(Strings.Popover.offSeason)
                 .font(.headline)
-            Text("No upcoming sessions found")
+            Text(Strings.Popover.noSessions)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -257,19 +299,19 @@ struct SettingsView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 56, height: 56)
-                Text("No Spoilers")
+                Text(Strings.Settings.appName)
                     .font(.title3).fontWeight(.bold)
-                Text("F1 schedule · spoiler free")
+                Text(Strings.Settings.tagline)
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 20)
-            .background(f1Red.opacity(0.06))
+            .background(BrandPalette.blush.opacity(0.5))
 
             Divider()
 
             // ── Rows ─────────────────────────────────────────────
-            settingRow("Launch at Login") {
+            settingRow(Strings.Settings.launchAtLogin) {
                 Toggle("", isOn: Binding(
                     get: { SMAppService.mainApp.status == .enabled },
                     set: { on in
@@ -281,17 +323,17 @@ struct SettingsView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
             }
-            sectionLabel("Menu Bar")
-            settingRow("Flag")      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
-            settingRow("Session")   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
-            settingRow("Countdown") { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            sectionLabel(Strings.Settings.menuBar)
+            settingRow(Strings.Settings.showFlag)      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            settingRow(Strings.Settings.showSession)   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            settingRow(Strings.Settings.showCountdown) { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
 
             Divider()
 
             // ── Footer ────────────────────────────────────────────
             HStack {
                 Spacer()
-                Button("Done") { dismiss() }
+                Button(Strings.Settings.done) { dismiss() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.small)
             }
@@ -301,7 +343,7 @@ struct SettingsView: View {
         .frame(width: 280)
     }
 
-    private func settingRow<C: View>(_ label: String, @ViewBuilder control: () -> C) -> some View {
+    private func settingRow<C: View>(_ label: LocalizedStringKey, @ViewBuilder control: () -> C) -> some View {
         HStack {
             Text(label).font(.body)
             Spacer()
@@ -311,8 +353,9 @@ struct SettingsView: View {
         .padding(.vertical, 9)
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text.uppercased())
+    private func sectionLabel(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .textCase(.uppercase)
             .font(.caption2).fontWeight(.semibold)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
