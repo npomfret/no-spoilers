@@ -42,7 +42,14 @@ struct WeekendPopoverView: View {
     @ViewBuilder
     private func stateLabel(for session: Session, at now: Date) -> some View {
         if session.endsAt < now {
-            Text("Watchable").font(.callout).foregroundStyle(.green)
+            let secs = Int(now.timeIntervalSince(session.endsAt))
+            let h = secs / 3600
+            let m = (secs % 3600) / 60
+            let ago = h > 0 ? "\(h)h ago" : "\(m)m ago"
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("Finished").font(.callout).foregroundStyle(.green)
+                Text(ago).font(.caption2).foregroundStyle(.secondary)
+            }
         } else if session.startsAt <= now {
             Text("Now").font(.callout).foregroundStyle(.orange)
         } else {

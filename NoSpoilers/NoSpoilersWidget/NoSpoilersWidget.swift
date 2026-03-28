@@ -22,7 +22,7 @@ struct SessionViewModel: Identifiable {
 }
 
 enum SessionState {
-    case watchable
+    case finished(ago: String)         // "2h ago"
     case live
     case upcoming(countdown: String)   // "in 4h 23m"
     case offSeason(daysUntil: String)  // "in 12 days"
@@ -32,7 +32,10 @@ enum SessionState {
 
 private func sessionState(for session: Session, at now: Date) -> SessionState {
     if session.endsAt < now {
-        return .watchable
+        let secs = Int(now.timeIntervalSince(session.endsAt))
+        let h = secs / 3600
+        let m = (secs % 3600) / 60
+        return .finished(ago: h > 0 ? "\(h)h ago" : "\(m)m ago")
     } else if session.startsAt <= now {
         return .live
     } else {
@@ -125,7 +128,7 @@ struct NoSpoilersWidgetEntryView: View {
 
     @ViewBuilder
     private var smallView: some View {
-        let next = entry.sessions.first { if case .watchable = $0.state { return false }; return true }
+        let next = entry.sessions.first { if case .finished = $0.state { return false }; return true }
                    ?? entry.sessions.first
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.weekend?.name ?? "").font(.caption).foregroundStyle(.secondary)
@@ -161,7 +164,11 @@ struct NoSpoilersWidgetEntryView: View {
     @ViewBuilder
     private func stateLabel(_ state: SessionState) -> some View {
         switch state {
-        case .watchable:         Text("Watchable").font(.caption2).foregroundStyle(.green)
+        case .finished(let ago):
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("Finished").font(.caption2).foregroundStyle(.green)
+                Text(ago).font(.caption2).foregroundStyle(.secondary)
+            }
         case .live:              Text("Now").font(.caption2).foregroundStyle(.orange)
         case .upcoming(let c):   Text(c).font(.caption2).foregroundStyle(.secondary)
         case .offSeason(let d):  Text(d).font(.caption2).foregroundStyle(.secondary)
