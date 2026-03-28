@@ -28,7 +28,10 @@ public class ScheduleStore: ObservableObject {
         guard showFlag || showSession || showCountdown else { return "" }
         let now = Date()
         let pairs = sortedSessionPairs()
-        if let live = pairs.first(where: { $0.session.startsAt <= now && now < $0.session.endsAt }) {
+        if let live = pairs.indices.first(where: { i in
+            let next = i + 1 < pairs.count ? pairs[i + 1].session : nil
+            return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next) == .inProgress
+        }).map({ pairs[$0] }) {
             var label = ""
             if showFlag    { label = live.weekend.countryFlag }
             if showSession { label = label.isEmpty ? live.session.kind.shortName : "\(label) \(live.session.kind.shortName)" }

@@ -16,8 +16,12 @@ struct WeekendPopoverView: View {
         let current = store.weekends
             .sorted { $0.round < $1.round }
             .first(where: { weekend in
-                guard weekend.allSessions.contains(where: { $0.endsAt >= now }) else { return false }
-                let first = weekend.allSessions.first
+                let s = weekend.allSessions
+                let hasActive = s.indices.contains(where: { i in
+                    SessionResolver.status(for: s[i], at: now, nextSession: i + 1 < s.count ? s[i + 1] : nil) != .finished
+                })
+                guard hasActive else { return false }
+                let first = s.first
                 let started  = first.map { $0.startsAt <= now } ?? false
                 let imminent = first.map { $0.startsAt.timeIntervalSince(now) <= 5 * 86_400 } ?? false
                 return started || imminent
@@ -111,55 +115,54 @@ struct WeekendPopoverView: View {
     }
 
     private func sessionList(_ weekend: RaceWeekend, now: Date) -> some View {
-        VStack(spacing: 1) {
-            ForEach(weekend.allSessions) { session in
-                sessionRow(session, at: now)
+        let sessions = weekend.allSessions
+        return VStack(spacing: 1) {
+            ForEach(sessions.indices, id: \.self) { i in
+                let next = i + 1 < sessions.count ? sessions[i + 1] : nil
+                sessionRow(sessions[i], nextSession: next, at: now)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
 
-    private func sessionRow(_ session: Session, at now: Date) -> some View {
-        let done = session.endsAt < now
-        let live = !done && session.startsAt <= now
+    private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
+        let status = SessionResolver.status(for: session, at: now, nextSession: nextSession)
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(done ? Color.green.opacity(0.6) : live ? f1Red : Color.accentColor.opacity(0.6))
+                .fill(status == .finished ? Color.green.opacity(0.6) : status == .inProgress ? f1Red : Color.accentColor.opacity(0.6))
                 .frame(width: 3, height: 28)
             Text(session.kind.displayName)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(done ? Color.green : .primary)
+                .foregroundStyle(status == .finished ? Color.green : .primary)
                 .frame(minWidth: 100, alignment: .leading)
             Spacer()
-            statusBadge(for: session, at: now)
+            statusBadge(status: status, session: session, at: now)
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 2)
     }
 
     @ViewBuilder
-    private func statusBadge(for session: Session, at now: Date) -> some View {
-        if session.endsAt < now {
+    private func statusBadge(status: SessionStatus, session: Session, at now: Date) -> some View {
+        switch status {
+        case .finished:
             let secs = Int(now.timeIntervalSince(session.endsAt))
             let h = secs / 3600
             let m = (secs % 3600) / 60
             Text("Finished \(h > 0 ? "\(h)h" : "\(m)m") ago")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-        } else if session.startsAt <= now {
-            HStack(spacing: 3) {
-                Circle().fill(Color.white).frame(width: 5, height: 5)
-                Text("LIVE")
-                    .font(.caption)
-                    .fontWeight(.bold)
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(f1Red)
-            .clipShape(Capsule())
-        } else {
+        case .inProgress:
+            Text("In Progress")
+                .font(.caption)
+                .fontWeight(.bold)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(f1Red)
+                .clipShape(Capsule())
+        case .upcoming:
             Text(countdown(to: session.startsAt, from: now))
                 .font(.caption)
                 .foregroundStyle(.secondary)

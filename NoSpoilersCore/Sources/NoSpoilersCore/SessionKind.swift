@@ -33,6 +33,16 @@ public enum SessionKind: String, Codable, Hashable, CaseIterable {
         }
     }
 
+    public var gracePeriod: TimeInterval {
+        switch self {
+        case .freePractice1, .freePractice2, .freePractice3: return 30 * 60
+        case .qualifying:       return 30 * 60
+        case .sprintQualifying: return 25 * 60
+        case .sprint:           return 25 * 60
+        case .race:             return 90 * 60
+        }
+    }
+
     public var defaultDuration: TimeInterval {
         switch self {
         case .freePractice1, .freePractice2, .freePractice3: return 3600

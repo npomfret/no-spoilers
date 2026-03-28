@@ -30,15 +30,16 @@ enum SessionState {
 
 // MARK: - Helpers
 
-private func sessionState(for session: Session, at now: Date) -> SessionState {
-    if session.endsAt < now {
+private func sessionState(for session: Session, nextSession: Session?, at now: Date) -> SessionState {
+    switch SessionResolver.status(for: session, at: now, nextSession: nextSession) {
+    case .finished:
         let secs = Int(now.timeIntervalSince(session.endsAt))
         let h = secs / 3600
         let m = (secs % 3600) / 60
         return .finished(ago: h > 0 ? "\(h)h ago" : "\(m)m ago")
-    } else if session.startsAt <= now {
+    case .inProgress:
         return .live
-    } else {
+    case .upcoming:
         let secs = Int(session.startsAt.timeIntervalSince(now))
         let h = secs / 3600
         let m = (secs % 3600) / 60
@@ -49,24 +50,34 @@ private func sessionState(for session: Session, at now: Date) -> SessionState {
 private func makeEntry(at now: Date) -> NoSpoilersEntry {
     let weekends = (try? ScheduleCache().load(for: appGroupID)) ?? []
 
-    // First weekend that still has at least one session with endsAt >= now
+    // First weekend that still has at least one session not yet finished (per resolver)
     guard let weekend = weekends.sorted(by: { $0.round < $1.round })
-            .first(where: { $0.allSessions.contains { $0.endsAt >= now } })
+            .first(where: { w in
+                let s = w.allSessions
+                return s.indices.contains(where: { i in
+                    SessionResolver.status(for: s[i], at: now, nextSession: i + 1 < s.count ? s[i + 1] : nil) != .finished
+                })
+            })
     else {
         return NoSpoilersEntry(date: now, weekend: nil, sessions: [], offSeasonNextRace: nil)
     }
 
-    // If next un-ended session is >7 days away, show off-season card
-    if let nextSession = weekend.allSessions.first(where: { $0.endsAt >= now }),
-       nextSession.startsAt.timeIntervalSince(now) > 7 * 86_400 {
+    let sorted = weekend.allSessions
+    // First session that isn't finished
+    if let firstActiveIdx = sorted.indices.first(where: { i in
+        SessionResolver.status(for: sorted[i], at: now, nextSession: i + 1 < sorted.count ? sorted[i + 1] : nil) != .finished
+    }), sorted[firstActiveIdx].startsAt.timeIntervalSince(now) > 7 * 86_400 {
+        let nextSession = sorted[firstActiveIdx]
         let days = Int(nextSession.startsAt.timeIntervalSince(now) / 86_400)
         let vm = SessionViewModel(id: nextSession.id, name: weekend.grandPrixName,
                                   state: .offSeason(daysUntil: "in \(days) days"))
         return NoSpoilersEntry(date: now, weekend: nil, sessions: [], offSeasonNextRace: vm)
     }
 
-    let sessionVMs = weekend.allSessions.map { s in
-        SessionViewModel(id: s.id, name: s.kind.displayName, state: sessionState(for: s, at: now))
+    let sessionVMs = sorted.indices.map { i in
+        let s = sorted[i]
+        let next = i + 1 < sorted.count ? sorted[i + 1] : nil
+        return SessionViewModel(id: s.id, name: s.kind.displayName, state: sessionState(for: s, nextSession: next, at: now))
     }
     return NoSpoilersEntry(date: now, weekend: weekend, sessions: sessionVMs, offSeasonNextRace: nil)
 }
@@ -74,9 +85,19 @@ private func makeEntry(at now: Date) -> NoSpoilersEntry {
 private func nextReloadDate(after now: Date) -> Date {
     let allSessions = ((try? ScheduleCache().load(for: appGroupID)) ?? [])
         .flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
-    let current = allSessions.first { $0.startsAt <= now && now < $0.endsAt }
-    let next    = allSessions.first { $0.startsAt > now }
-    return [current?.endsAt, next?.startsAt].compactMap { $0 }.min()
+    // Find the inProgress session (if any) using the resolver
+    let currentIdx = allSessions.indices.first(where: { i in
+        let next = i + 1 < allSessions.count ? allSessions[i + 1] : nil
+        return SessionResolver.status(for: allSessions[i], at: now, nextSession: next) == .inProgress
+    })
+    let nextSession = allSessions.first { $0.startsAt > now }
+    if let idx = currentIdx {
+        // Reload at end of grace window or next session start, whichever is sooner
+        let graceEnd = allSessions[idx].endsAt + allSessions[idx].kind.gracePeriod
+        return [graceEnd, nextSession?.startsAt].compactMap { $0 }.min()
+            ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
+    }
+    return nextSession?.startsAt
         ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
 }
 
