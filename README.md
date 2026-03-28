@@ -86,6 +86,14 @@ Feed URL: `https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.jso
 
 The feed schema has been verified to contain no result data. See `tasks/01-verify-feed-schema.md`.
 
+## Install
+
+```bash
+brew install --cask npomfret/tap/no-spoilers
+```
+
+This installs the macOS menu bar app. Updates via `brew upgrade`.
+
 ## Development
 
 Open in Xcode. No dependencies beyond the Swift standard library and Apple frameworks.
@@ -93,6 +101,23 @@ Open in Xcode. No dependencies beyond the Swift standard library and Apple frame
 Required entitlements (iOS):
 - `com.apple.security.network.client`
 - `com.apple.security.application-groups` (shared between app and widget extension)
+
+### Releasing
+
+To cut a new macOS release:
+
+1. Bump `MARKETING_VERSION` in Xcode (target → General → Version)
+2. Run the release script:
+   ```bash
+   bash scripts/release-mac.sh <version>
+   ```
+   This archives, signs with Developer ID, notarizes with Apple, and staples the ticket. Outputs the zip path and SHA256.
+3. Create a GitHub release and attach the zip:
+   ```bash
+   git tag v<version> && git push origin v<version>
+   gh release create v<version> --title "v<version>" --notes "" /tmp/NoSpoilers-<version>.zip
+   ```
+4. Update `homebrew-tap/Casks/no-spoilers.rb` with the new `version` and `sha256`, then push.
 
 ## Design Document
 
