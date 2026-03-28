@@ -2,3 +2,4 @@
 /node_modules
 /research
 .DS_store
+.gstack/

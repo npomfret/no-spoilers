@@ -45,20 +45,39 @@ NoSpoilersCore/          (Swift Package, local, shared by all targets)
 
 3. **Create the local Swift Package** `NoSpoilersCore` at the repo root. Add it to the Xcode project. All three targets depend on it.
 
-4. **Implement the domain model** in `NoSpoilersCore` (after task 01 confirms the schema):
+4. **Implement the domain model** in `NoSpoilersCore` (schema confirmed in task 01):
    ```swift
    struct Session: Codable, Identifiable, Hashable {
        var id: String { "\(round)-\(kind.rawValue)" }
        let round: Int
-       let grandPrixName: String
-       let circuitName: String
+       let grandPrixName: String   // constructed: "\(race.name) Grand Prix"
        let location: String
        let kind: SessionKind
        let startsAt: Date
-       let endsAt: Date
+       var endsAt: Date { startsAt.addingTimeInterval(kind.defaultDuration) }
+   }
+
+   enum SessionKind: String, Codable {
+       case freePractice1 = "fp1"
+       case freePractice2 = "fp2"
+       case freePractice3 = "fp3"
+       case qualifying = "qualifying"
+       case sprintQualifying = "sprintQualifying"  // camelCase — matches feed key exactly
+       case sprint = "sprint"
+       case race = "gp"                            // feed key is "gp", not "race"
+
+       var defaultDuration: TimeInterval {
+           switch self {
+           case .freePractice1, .freePractice2, .freePractice3: return 3600
+           case .qualifying: return 3600
+           case .sprintQualifying: return 2700
+           case .sprint: return 1800
+           case .race: return 7200
+           }
+       }
    }
    ```
-   No result fields. If you find yourself adding one, stop.
+   No result fields. `circuitName` is not in the feed — do not add it. If you find yourself adding a result field, stop.
 
 5. **Configure App Group:**
    - In Xcode, add the `App Groups` capability to both `NoSpoilersApp` and `NoSpoilersWidget`

@@ -22,7 +22,7 @@ If the decoder encounters unexpected keys that look like result data, it must ig
 https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json
 ```
 
-Bundled fallback: a copy of this JSON file checked into the repo at `NoSpoilersCore/Resources/2026.json`. Loaded via `Bundle.module`.
+No bundled fallback — the calendar changes mid-season (cancellations, reschedules) so shipping a stale JSON copy creates more problems than it solves. The blank first-launch state is acceptable for a personal tool.
 
 ## Components to Build
 
@@ -35,7 +35,7 @@ actor ScheduleFetcher {
 ```
 
 - Fetches the f1calendar.com feed
-- Decodes using `JSONDecoder` with `.iso8601` date strategy (verify date format in task 01)
+- Decodes using `JSONDecoder` with `.iso8601` date strategy (confirmed in task 01: `"2026-03-06T01:30:00Z"` format)
 - Returns `[RaceWeekend]` sorted by date
 - On failure, throws — caller decides whether to fall back to cache or bundle
 
@@ -47,7 +47,6 @@ struct ScheduleCache {
     // macOS: reads/writes to app container
     func save(_ weekends: [RaceWeekend], for appGroupID: String?) throws
     func load(for appGroupID: String?) throws -> [RaceWeekend]
-    func loadBundled() throws -> [RaceWeekend]
 }
 ```
 
@@ -63,8 +62,7 @@ class ScheduleStore: ObservableObject {
     func refresh() async
     // 1. Try fetch
     // 2. On failure, load from cache
-    // 3. On cache miss, load from bundle
-    // Never returns empty if bundle is present
+    // 3. On cache miss, show blank state ("Schedule unavailable — open app to refresh")
 }
 ```
 
@@ -73,18 +71,12 @@ class ScheduleStore: ObservableObject {
 - Cache valid for 24 hours
 - Widget extension: read from cache only, never fetch
 - App: fetch on launch, write to cache, reload WidgetKit timelines via `WidgetCenter.shared.reloadAllTimelines()`
-- If cache is stale and fetch fails: use stale cache (better than bundle)
-- If no cache: use bundle
-
-## Bundled JSON
-
-Check in `NoSpoilersCore/Resources/2026.json` (copy of the verified feed). This is the offline guarantee — the widget never shows a blank state even on first launch with no network.
-
-Update this file manually when F1 adds or reschedules events mid-season.
+- If cache is stale and fetch fails: use stale cache (still better than blank)
+- If no cache and fetch fails: blank state — "Schedule unavailable — open app to refresh"
 
 ## Acceptance Criteria
 
 - `ScheduleFetcher.fetch()` returns correct `[RaceWeekend]` for the current season
 - `ScheduleCache` round-trips data correctly via App Group container (verify with a unit test)
-- `ScheduleStore` falls back to bundle when fetch fails and cache is empty
+- `ScheduleStore` shows blank state when fetch fails and cache is empty (not a crash, not stale invented data)
 - No result fields in any decoded type — enforced by the model, not by filtering
