@@ -1,6 +1,6 @@
 # Task 10: Basic iOS App And Home Screen Widget
 
-**Status:** In Progress
+**Status:** Done
 **Depends on:** Existing `NoSpoilersCore` schedule fetch/cache flow
 **Effort:** ~3-5 hours
 **Priority:** High
@@ -94,9 +94,11 @@ Where macOS and iOS show the same concept, they should use the same resolver and
 - macOS popover, iOS app, and widget use one shared weekend-selection boundary
 - changed code has build/test evidence at the smallest meaningful scope
 
-## Verification Plan
+## Verification
+1. `swift test`
+   Working directory: `NoSpoilersCore`
+   Result: passed
 
-1. Run `swift test` for `NoSpoilersCore`
-2. Run a minimal `xcodebuild` build for the iOS app scheme with a workspace-local derived data path
-3. Confirm the widget extension still builds as part of the iOS app scheme
-
+2. `xcodebuild -project NoSpoilers/NoSpoilers.xcodeproj -scheme NoSpoilersApp -destination 'generic/platform=iOS' -derivedDataPath /tmp/no-spoilers-derived CODE_SIGNING_ALLOWED=NO build`
+   Result: passed
+   Note: the build included `NoSpoilersWidgetExtension` as an explicit dependency of `NoSpoilersApp`

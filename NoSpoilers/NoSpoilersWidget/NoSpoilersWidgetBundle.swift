@@ -12,7 +12,5 @@ import SwiftUI
 struct NoSpoilersWidgetBundle: WidgetBundle {
     var body: some Widget {
         NoSpoilersWidget()
-        NoSpoilersWidgetControl()
-        NoSpoilersWidgetLiveActivity()
     }
 }

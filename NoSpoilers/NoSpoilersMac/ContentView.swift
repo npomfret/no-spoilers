@@ -13,19 +13,7 @@ struct WeekendPopoverView: View {
 
     var body: some View {
         let now = self.now
-        let current = store.weekends
-            .sorted { $0.round < $1.round }
-            .first(where: { weekend in
-                let s = weekend.allSessions
-                let hasActive = s.indices.contains(where: { i in
-                    SessionResolver.status(for: s[i], at: now, nextSession: i + 1 < s.count ? s[i + 1] : nil) != .finished
-                })
-                guard hasActive else { return false }
-                let first = s.first
-                let started  = first.map { $0.startsAt <= now } ?? false
-                let imminent = first.map { $0.startsAt.timeIntervalSince(now) <= 5 * 86_400 } ?? false
-                return started || imminent
-            })
+        let current = RaceWeekendResolver.currentWeekend(in: store.weekends, at: now, confirmedEndDates: store.confirmedEndDates)
 
         VStack(spacing: 0) {
             Group {
@@ -57,8 +45,7 @@ struct WeekendPopoverView: View {
     }
 
     private func weekendView(_ weekend: RaceWeekend, now: Date) -> some View {
-        let sorted = store.weekends.sorted { $0.round < $1.round }
-        let nextWeekend = sorted.first(where: { $0.round > weekend.round })
+        let nextWeekend = RaceWeekendResolver.nextWeekend(after: weekend, in: store.weekends)
         return VStack(spacing: 0) {
             header(weekend)
             Divider()
@@ -127,7 +114,7 @@ struct WeekendPopoverView: View {
     }
 
     private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
-        let status = SessionResolver.status(for: session, at: now, nextSession: nextSession)
+        let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(status == .finished ? Color.green.opacity(0.6) : status == .inProgress ? f1Red : Color.accentColor.opacity(0.6))
@@ -266,9 +253,10 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // ── Header ──────────────────────────────────────────
             VStack(spacing: 8) {
-                F1Logo()
-                    .fill(f1Red)
-                    .frame(width: 52, height: 13)
+                Image("nospoilers-icon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 56, height: 56)
                 Text("No Spoilers")
                     .font(.title3).fontWeight(.bold)
                 Text("F1 schedule · spoiler free")

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>No Spoilers — Spoiler-safe F1 for macOS</title>
+  <meta name="description" content="A macOS menu bar app that shows the F1 race weekend schedule with a hard guarantee that results never appear.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --signal-red: #ef2b2d;
+      --deep-maroon: #7a0c0f;
+      --ivory: #fff7f2;
+      --smoke: #1f1a1a;
+      --mist-grey: #d9d2cf;
+      --blush: #f6d7d4;
+      --success-green: #2e9b63;
+      --mid: #5f5754;
+      --light: #827876;
+      --bg: linear-gradient(180deg, #fff7f2 0%, #fbe8e5 54%, #fff1ee 100%);
+      --card: rgba(255, 255, 255, 0.88);
+      --border: rgba(122, 12, 15, 0.12);
+      --radius: 16px;
+      --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--smoke);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    /* ── Hero ─────────────────────────────────────────────── */
+    .hero {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 80px 24px 56px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero-icon {
+      width: 120px;
+      height: 120px;
+      border-radius: 26px;
+      margin-bottom: 28px;
+      box-shadow: 0 20px 48px rgba(122, 12, 15, 0.22);
+      border: 2px solid rgba(255, 255, 255, 0.75);
+    }
+
+    .hero h1 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--mid);
+      max-width: 480px;
+      margin: 0 auto 40px;
+    }
+
+    /* ── Install block ────────────────────────────────────── */
+    .install-wrap {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .install-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--light);
+    }
+
+    .install-cmd {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--smoke), var(--deep-maroon));
+      color: #fdf8f6;
+      border-radius: 10px;
+      padding: 14px 20px;
+      box-shadow: 0 14px 30px rgba(31, 26, 26, 0.22);
+    }
+
+    .install-cmd code {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      color: #f3dedd;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: var(--mono);
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .copy-btn:hover { border-color: #fff; color: #fff; }
+    .copy-btn.copied { border-color: var(--success-green); color: #9df3c7; }
+
+    .install-note {
+      font-size: 0.82rem;
+      color: var(--light);
+    }
+
+    /* ── Divider ─────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* ── Features ────────────────────────────────────────── */
+    .features {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 56px 24px;
+    }
+
+    .features h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+    }
+
+    .feature-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--mid);
+      line-height: 1.5;
+    }
+
+    /* ── How it works ────────────────────────────────────── */
+    .how {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px 56px;
+    }
+
+    .how h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 24px;
+    }
+
+    .how-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--card);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+    }
+
+    .how-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 24px;
+    }
+
+    .how-step + .how-step {
+      border-top: 1px solid var(--border);
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--signal-red), var(--deep-maroon));
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+
+    .step-body h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .step-body p {
+      font-size: 0.88rem;
+      color: var(--mid);
+      line-height: 1.5;
+    }
+
+    /* ── Guarantee ───────────────────────────────────────── */
+    .guarantee {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px 56px;
+    }
+
+    .guarantee-box {
+      background: linear-gradient(180deg, rgba(255, 247, 242, 0.92), rgba(246, 215, 212, 0.72));
+      border: 1px solid rgba(239, 43, 45, 0.2);
+      border-left: 4px solid var(--signal-red);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+    }
+
+    .guarantee-box h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--signal-red);
+      margin-bottom: 10px;
+    }
+
+    .guarantee-box p {
+      font-size: 0.92rem;
+      color: var(--mid);
+      line-height: 1.6;
+    }
+
+    .guarantee-box code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: rgba(239, 43, 45, 0.1);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: var(--deep-maroon);
+    }
+
+    /* ── Palette ─────────────────────────────────────────── */
+    .palette {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px 56px;
+    }
+
+    .palette h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+
+    .palette-intro {
+      color: var(--mid);
+      margin-bottom: 24px;
+      max-width: 560px;
+    }
+
+    .palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .swatch {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+      backdrop-filter: blur(18px);
+    }
+
+    .swatch-color {
+      height: 96px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .swatch-body {
+      padding: 16px;
+    }
+
+    .swatch-body h3 {
+      font-size: 0.95rem;
+      margin-bottom: 2px;
+    }
+
+    .swatch-hex {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--deep-maroon);
+      background: rgba(239, 43, 45, 0.08);
+      padding: 3px 6px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .swatch-body p {
+      font-size: 0.86rem;
+      color: var(--mid);
+      line-height: 1.5;
+    }
+
+    /* ── Footer ─────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 0.82rem;
+      color: var(--light);
+    }
+
+    footer a {
+      color: var(--mid);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 2rem; }
+      .install-cmd code { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <img class="hero-icon" src="icon.png" alt="No Spoilers icon">
+    <h1>No Spoilers</h1>
+    <p>The F1 race weekend schedule for your Mac menu bar — with a hard guarantee that results never appear.</p>
+
+    <div class="install-wrap">
+      <span class="install-label">Install with Homebrew</span>
+      <div class="install-cmd">
+        <code id="brew-cmd">brew install --cask npomfret/tap/no-spoilers</code>
+        <button class="copy-btn" onclick="copyCmd(this)" aria-label="Copy install command">copy</button>
+      </div>
+      <span class="install-note">macOS Sequoia 15+ &nbsp;·&nbsp; Updates via <code style="font-family:var(--mono);font-size:inherit">brew upgrade</code></span>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <section class="features">
+    <h2>What you get</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🏎</div>
+        <h3>Full weekend at a glance</h3>
+        <p>FP1 through the race — every session, its local start time, and a live countdown to the next one.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔕</div>
+        <h3>Spoiler-proof by design</h3>
+        <p>Results are not hidden behind a toggle. The app's data model has no result fields — they simply don't exist.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📍</div>
+        <h3>Always in your menu bar</h3>
+        <p>Click the icon in the macOS menu bar to see the current race weekend. One click, no context switching.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡️</div>
+        <h3>Native and lightweight</h3>
+        <p>Written in Swift, uses only Apple frameworks. No Electron, no background daemons, no telemetry.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2>How it works</h2>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Install once</h4>
+          <p>Run the Homebrew command above. The app lands in your Applications folder and adds itself to your menu bar.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Click the menu bar icon</h4>
+          <p>A popover shows the current race weekend — all sessions, local times, and a countdown to the next live session. Sessions that have already ended are marked as ready to watch.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Watch on your schedule</h4>
+          <p>Check whether a session has finished — safely — without any risk of stumbling across a result. Then watch whenever you're ready.</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Stay up to date</h4>
+          <p>Schedule data comes from the community-maintained <a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a> feed, updated each season. Run <code style="font-family:var(--mono);font-size:0.9em">brew upgrade</code> to get new app versions.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="guarantee">
+    <div class="guarantee-box">
+      <h3>The spoiler guarantee</h3>
+      <p>
+        Most "spoiler-free" apps hide results behind a setting. No Spoilers goes further:
+        the domain model has no result fields at all — not optional, not ignored, not hidden.
+        The data source (<a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a>)
+        is schedule-only by design. A <code>Session</code> has a name, a start time, and an end time.
+        That's it. There is no code path that could ever surface a result, because the data to
+        hold one doesn't exist anywhere in the app.
+      </p>
+    </div>
+  </section>
+
+  <section class="palette">
+    <h2>Brand palette</h2>
+    <p class="palette-intro">The site and product visuals inherit their colors from the app icon: warm ivory surfaces, one strong race-day red, and a darker maroon for contrast and depth.</p>
+    <div class="palette-grid">
+      <div class="swatch">
+        <div class="swatch-color" style="background:#ef2b2d"></div>
+        <div class="swatch-body">
+          <h3>Signal Red</h3>
+          <span class="swatch-hex">#EF2B2D</span>
+          <p>Primary accent for highlights, calls to action, and core brand moments.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#7a0c0f"></div>
+        <div class="swatch-body">
+          <h3>Deep Maroon</h3>
+          <span class="swatch-hex">#7A0C0F</span>
+          <p>Dark contrast color for depth, outlines, and stronger emphasis.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#fff7f2"></div>
+        <div class="swatch-body">
+          <h3>Ivory</h3>
+          <span class="swatch-hex">#FFF7F2</span>
+          <p>Warm base surface that keeps the UI soft and avoids flat pure white.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#f6d7d4"></div>
+        <div class="swatch-body">
+          <h3>Blush</h3>
+          <span class="swatch-hex">#F6D7D4</span>
+          <p>Secondary tint for atmospheric backgrounds, subtle cards, and soft emphasis.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#1f1a1a"></div>
+        <div class="swatch-body">
+          <h3>Smoke</h3>
+          <span class="swatch-hex">#1F1A1A</span>
+          <p>Primary text and dense UI chrome for readable, grounded contrast.</p>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-color" style="background:#d9d2cf"></div>
+        <div class="swatch-body">
+          <h3>Mist Grey</h3>
+          <span class="swatch-hex">#D9D2CF</span>
+          <p>Low-noise border and divider color that supports the warm neutral system.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      <a href="https://github.com/npomfret/no-spoilers" target="_blank" rel="noopener">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="brand.md">Brand palette</a>
+      &nbsp;·&nbsp;
+      Schedule data from <a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a>
+    </p>
+  </footer>
+
+  <script>
+    function copyCmd(btn) {
+      const text = document.getElementById('brew-cmd').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  </script>
+
+</body>
+</html>

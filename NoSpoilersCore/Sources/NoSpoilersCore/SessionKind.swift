@@ -33,6 +33,19 @@ public enum SessionKind: String, Codable, Hashable, CaseIterable {
         }
     }
 
+    /// Session name used by the OpenF1 API `session_name` field.
+    public var openF1SessionName: String {
+        switch self {
+        case .freePractice1:    return "Practice 1"
+        case .freePractice2:    return "Practice 2"
+        case .freePractice3:    return "Practice 3"
+        case .qualifying:       return "Qualifying"
+        case .sprintQualifying: return "Sprint Qualifying"
+        case .sprint:           return "Sprint"
+        case .race:             return "Race"
+        }
+    }
+
     public var gracePeriod: TimeInterval {
         switch self {
         case .freePractice1, .freePractice2, .freePractice3: return 30 * 60

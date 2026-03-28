@@ -2,7 +2,8 @@ import WidgetKit
 import SwiftUI
 import NoSpoilersCore
 
-private let appGroupID = "group.pomocorp.no-spoilers"
+private let widgetRed = Color(red: 0.93, green: 0, blue: 0)
+private let widgetCream = Color(red: 0.99, green: 0.97, blue: 0.95)
 
 // MARK: - Entry
 
@@ -30,8 +31,8 @@ enum SessionState {
 
 // MARK: - Helpers
 
-private func sessionState(for session: Session, nextSession: Session?, at now: Date) -> SessionState {
-    switch SessionResolver.status(for: session, at: now, nextSession: nextSession) {
+private func sessionState(for session: Session, nextSession: Session?, at now: Date, confirmedEndDates: [String: Date]) -> SessionState {
+    switch SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: confirmedEndDates[session.id]) {
     case .finished:
         let secs = Int(now.timeIntervalSince(session.endsAt))
         let h = secs / 3600
@@ -48,28 +49,19 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
 }
 
 private func makeEntry(at now: Date) -> NoSpoilersEntry {
-    let weekends = (try? ScheduleCache().load(for: appGroupID)) ?? []
+    let weekends = (try? ScheduleCache().load(for: NoSpoilersConfig.appGroupID)) ?? []
+    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
 
-    // First weekend that still has at least one session not yet finished (per resolver)
-    guard let weekend = weekends.sorted(by: { $0.round < $1.round })
-            .first(where: { w in
-                let s = w.allSessions
-                return s.indices.contains(where: { i in
-                    SessionResolver.status(for: s[i], at: now, nextSession: i + 1 < s.count ? s[i + 1] : nil) != .finished
-                })
-            })
+    guard let weekend = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates),
+          let firstActiveSession = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates)
     else {
         return NoSpoilersEntry(date: now, weekend: nil, sessions: [], offSeasonNextRace: nil)
     }
 
     let sorted = weekend.allSessions
-    // First session that isn't finished
-    if let firstActiveIdx = sorted.indices.first(where: { i in
-        SessionResolver.status(for: sorted[i], at: now, nextSession: i + 1 < sorted.count ? sorted[i + 1] : nil) != .finished
-    }), sorted[firstActiveIdx].startsAt.timeIntervalSince(now) > 7 * 86_400 {
-        let nextSession = sorted[firstActiveIdx]
-        let days = Int(nextSession.startsAt.timeIntervalSince(now) / 86_400)
-        let vm = SessionViewModel(id: nextSession.id, name: weekend.grandPrixName,
+    if firstActiveSession.startsAt.timeIntervalSince(now) > 7 * 86_400 {
+        let days = Int(firstActiveSession.startsAt.timeIntervalSince(now) / 86_400)
+        let vm = SessionViewModel(id: firstActiveSession.id, name: weekend.grandPrixName,
                                   state: .offSeason(daysUntil: "in \(days) days"))
         return NoSpoilersEntry(date: now, weekend: nil, sessions: [], offSeasonNextRace: vm)
     }
@@ -77,24 +69,26 @@ private func makeEntry(at now: Date) -> NoSpoilersEntry {
     let sessionVMs = sorted.indices.map { i in
         let s = sorted[i]
         let next = i + 1 < sorted.count ? sorted[i + 1] : nil
-        return SessionViewModel(id: s.id, name: s.kind.displayName, state: sessionState(for: s, nextSession: next, at: now))
+        return SessionViewModel(id: s.id, name: s.kind.displayName, state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
     }
     return NoSpoilersEntry(date: now, weekend: weekend, sessions: sessionVMs, offSeasonNextRace: nil)
 }
 
 private func nextReloadDate(after now: Date) -> Date {
-    let allSessions = ((try? ScheduleCache().load(for: appGroupID)) ?? [])
+    let allSessions = ((try? ScheduleCache().load(for: NoSpoilersConfig.appGroupID)) ?? [])
         .flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
+    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
     // Find the inProgress session (if any) using the resolver
     let currentIdx = allSessions.indices.first(where: { i in
         let next = i + 1 < allSessions.count ? allSessions[i + 1] : nil
-        return SessionResolver.status(for: allSessions[i], at: now, nextSession: next) == .inProgress
+        return SessionResolver.status(for: allSessions[i], at: now, nextSession: next, confirmedEndAt: confirmedEndDates[allSessions[i].id]) == .inProgress
     })
     let nextSession = allSessions.first { $0.startsAt > now }
     if let idx = currentIdx {
-        // Reload at end of grace window or next session start, whichever is sooner
-        let graceEnd = allSessions[idx].endsAt + allSessions[idx].kind.gracePeriod
-        return [graceEnd, nextSession?.startsAt].compactMap { $0 }.min()
+        let session = allSessions[idx]
+        // If we have a confirmed end, reload at that time; otherwise use grace window end
+        let reloadAt = confirmedEndDates[session.id] ?? (session.endsAt + session.kind.gracePeriod)
+        return [reloadAt, nextSession?.startsAt].compactMap { $0 }.min()
             ?? Calendar.current.date(byAdding: .hour, value: 1, to: now)!
     }
     return nextSession?.startsAt
@@ -136,50 +130,198 @@ struct NoSpoilersWidgetEntryView: View {
 
     @ViewBuilder
     private func offSeasonView(_ next: SessionViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Off-season").font(.caption).foregroundStyle(.secondary)
-            Text(next.name).font(.headline)
-            if case .offSeason(let d) = next.state {
-                Text(d).font(.subheadline).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Off-season")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(widgetRed)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(widgetRed.opacity(0.12))
+                    .clipShape(Capsule())
+                Spacer()
+                Image(systemName: "flag.checkered.2.crossed")
+                    .foregroundStyle(widgetRed)
             }
+            Text(next.name)
+                .font(.headline)
+                .fontWeight(.semibold)
+            if case .offSeason(let d) = next.state {
+                Text(d)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Text("The next race weekend will appear here as soon as it gets close enough to matter.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding()
+        .padding(16)
     }
 
     @ViewBuilder
     private var smallView: some View {
         let next = entry.sessions.first { if case .finished = $0.state { return false }; return true }
                    ?? entry.sessions.first
-        VStack(alignment: .leading, spacing: 4) {
-            Text(entry.weekend?.name ?? "").font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            if let weekend = entry.weekend {
+                compactHeader(weekend)
+            }
             if let s = next {
-                Text(s.name).font(.headline)
-                stateLabel(s.state)
+                featuredSessionCard(s)
+            }
+            if let weekend = entry.weekend {
+                Text(sessionDateRange(for: weekend))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
     }
 
     @ViewBuilder
     private var mediumView: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(entry.weekend?.grandPrixName ?? "")
-                .font(.caption).foregroundStyle(.secondary).padding(.bottom, 2)
-            ForEach(entry.sessions) { s in
-                HStack { Text(s.name).font(.caption2); Spacer(); stateLabel(s.state) }
+        VStack(alignment: .leading, spacing: 10) {
+            if let weekend = entry.weekend {
+                fullHeader(weekend)
+            }
+            VStack(spacing: 6) {
+                ForEach(entry.sessions.prefix(5)) { session in
+                    sessionRow(session)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding()
+        .padding(14)
     }
 
     @ViewBuilder
     private var noDataView: some View {
-        Text("Schedule unavailable\nOpen app to refresh")
-            .font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        VStack(spacing: 10) {
+            Image(systemName: "flag.checkered.2.crossed")
+                .font(.system(size: 28))
+                .foregroundStyle(widgetRed)
+            Text("Schedule unavailable")
+                .font(.headline)
+            Text("Open the app to refresh the shared schedule cache.")
+                .font(.caption)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(16)
+    }
+
+    private func compactHeader(_ weekend: RaceWeekend) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text("R\(weekend.round)")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(widgetRed)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(widgetRed.opacity(0.12))
+                    .clipShape(Capsule())
+                Spacer()
+                Text(weekend.countryFlag)
+                    .font(.title3)
+            }
+            Text(weekend.grandPrixName)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .lineLimit(2)
+        }
+    }
+
+    private func fullHeader(_ weekend: RaceWeekend) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("R\(weekend.round)")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(widgetRed)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(widgetRed.opacity(0.12))
+                    .clipShape(Capsule())
+                Text(weekend.location)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer()
+                Text(weekend.countryFlag)
+                    .font(.title2)
+            }
+
+            Text(weekend.grandPrixName)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+
+            Text(sessionDateRange(for: weekend))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private func featuredSessionCard(_ session: SessionViewModel) -> some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(accentColor(for: session.state))
+                .frame(width: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(session.name)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                stateBadge(session.state)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.58))
+        )
+    }
+
+    private func sessionRow(_ session: SessionViewModel) -> some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(accentColor(for: session.state))
+                .frame(width: 3, height: 28)
+            Text(session.name)
+                .font(.caption)
+                .fontWeight(.medium)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            stateLabel(session.state)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+    }
+
+    private func sessionDateRange(for weekend: RaceWeekend) -> String {
+        guard let first = weekend.allSessions.first, let last = weekend.allSessions.last else {
+            return weekend.location
+        }
+        let format = Date.FormatStyle().day().month(.abbreviated)
+        let start = first.startsAt.formatted(format)
+        let end = last.startsAt.formatted(format)
+        return start == end ? start : "\(start) → \(end)"
+    }
+
+    private func accentColor(for state: SessionState) -> Color {
+        switch state {
+        case .finished:
+            return .green.opacity(0.75)
+        case .live:
+            return widgetRed
+        case .upcoming, .offSeason:
+            return .blue.opacity(0.7)
+        }
     }
 
     @ViewBuilder
@@ -190,9 +332,69 @@ struct NoSpoilersWidgetEntryView: View {
                 Text("Finished").font(.caption2).foregroundStyle(.green)
                 Text(ago).font(.caption2).foregroundStyle(.secondary)
             }
-        case .live:              Text("Now").font(.caption2).foregroundStyle(.orange)
-        case .upcoming(let c):   Text(c).font(.caption2).foregroundStyle(.secondary)
-        case .offSeason(let d):  Text(d).font(.caption2).foregroundStyle(.secondary)
+        case .live:
+            Text("In Progress")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(widgetRed)
+                .clipShape(Capsule())
+        case .upcoming(let c):
+            Text(c)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(Capsule())
+        case .offSeason(let d):
+            Text(d)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(Capsule())
+        }
+    }
+
+    @ViewBuilder
+    private func stateBadge(_ state: SessionState) -> some View {
+        switch state {
+        case .finished(let ago):
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Finished")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.green)
+                Text(ago)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        case .live:
+            Text("In Progress")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(widgetRed)
+                .clipShape(Capsule())
+        case .upcoming(let c):
+            Text(c)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(Capsule())
+        case .offSeason(let d):
+            Text(d)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color.secondary.opacity(0.12))
+                .clipShape(Capsule())
         }
     }
 }
@@ -205,7 +407,17 @@ struct NoSpoilersWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NoSpoilersTimelineProvider()) { entry in
             NoSpoilersWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(for: .widget) {
+                    LinearGradient(
+                        colors: [
+                            widgetCream,
+                            Color.white,
+                            widgetRed.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
         }
         .configurationDisplayName("No Spoilers")
         .description("F1 race weekend sessions — no results.")

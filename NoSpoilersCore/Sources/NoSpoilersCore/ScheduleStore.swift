@@ -6,13 +6,23 @@ public class ScheduleStore: ObservableObject {
 
     private let appGroupID: String?
     private let cache = ScheduleCache()
+    private let confirmer: SessionEndConfirmer
+
+    /// Confirmed actual end dates for sessions, keyed by `Session.id`.
+    /// Populated by the OpenF1 free-tier poller once data enters the historical window.
+    public var confirmedEndDates: [String: Date] { confirmer.confirmedEndDates }
 
     public init(appGroupID: String? = nil) {
         self.appGroupID = appGroupID
+        self.confirmer = SessionEndConfirmer(appGroupID: appGroupID)
         // Eagerly load from cache so UI has data before refresh() completes.
         if let cached = try? cache.load(for: appGroupID) {
             self.weekends = cached
         }
+        // Forward confirmer updates to our own objectWillChange so views re-render.
+        confirmer.onChange = { [weak self] in self?.objectWillChange.send() }
+        // Kick off overrun polling with whatever data we have now.
+        confirmer.update(weekends: self.weekends)
         // Kick off a fetch immediately so the menu bar label is populated on
         // launch without waiting for the popover to be opened.
         Task { await refresh() }
@@ -30,7 +40,8 @@ public class ScheduleStore: ObservableObject {
         let pairs = sortedSessionPairs()
         if let live = pairs.indices.first(where: { i in
             let next = i + 1 < pairs.count ? pairs[i + 1].session : nil
-            return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next) == .inProgress
+            let confirmed = confirmer.confirmedEndDates[pairs[i].session.id]
+            return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next, confirmedEndAt: confirmed) == .inProgress
         }).map({ pairs[$0] }) {
             var label = ""
             if showFlag    { label = live.weekend.countryFlag }
@@ -66,5 +77,6 @@ public class ScheduleStore: ObservableObject {
             }
             // else: keep whatever is already published (may be stale cache from init, or stay empty)
         }
+        confirmer.update(weekends: self.weekends)
     }
 }

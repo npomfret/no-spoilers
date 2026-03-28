@@ -3,8 +3,6 @@ import Combine
 import AppKit
 import NoSpoilersCore
 
-private let appGroupID = "group.pomocorp.no-spoilers"
-
 // MARK: - F1 Logo Shape (120 × 30 coordinate space)
 
 struct F1Logo: Shape {
@@ -109,7 +107,7 @@ private let f1MenuBarLogo: NSImage = {
 
 @main
 struct NoSpoilersMacApp: App {
-    @StateObject private var store = ScheduleStore(appGroupID: appGroupID)
+    @StateObject private var store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
     @StateObject private var updateChecker = UpdateChecker()
     private let refreshTimer = Timer.publish(every: 6 * 3600, on: .main, in: .common).autoconnect()
 
