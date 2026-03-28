@@ -110,6 +110,7 @@ private let f1MenuBarLogo: NSImage = {
 @main
 struct NoSpoilersMacApp: App {
     @StateObject private var store = ScheduleStore(appGroupID: appGroupID)
+    @StateObject private var updateChecker = UpdateChecker()
     private let refreshTimer = Timer.publish(every: 6 * 3600, on: .main, in: .common).autoconnect()
 
     @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
@@ -118,9 +119,10 @@ struct NoSpoilersMacApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            WeekendPopoverView(store: store)
+            WeekendPopoverView(store: store, updateChecker: updateChecker)
                 .frame(width: 300)
                 .task { await store.refresh() }
+                .task { await updateChecker.check() }
                 .onReceive(refreshTimer) { _ in Task { await store.refresh() } }
         } label: {
             HStack(spacing: 5) {
@@ -130,6 +132,11 @@ struct NoSpoilersMacApp: App {
                 if !label.isEmpty {
                     Text(label)
                         .font(.system(size: 12, weight: .medium))
+                }
+                if updateChecker.isUpdateAvailable {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5, height: 5)
                 }
             }
             .fixedSize()

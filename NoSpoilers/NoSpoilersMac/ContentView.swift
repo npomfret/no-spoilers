@@ -7,6 +7,7 @@ private let f1Red = Color(red: 0.93, green: 0, blue: 0)
 
 struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
+    @ObservedObject var updateChecker: UpdateChecker
     @State private var now: Date = Date()
     @Environment(\.openWindow) private var openWindow
 
@@ -29,6 +30,10 @@ struct WeekendPopoverView: View {
                 } else {
                     noDataView
                 }
+            }
+            if updateChecker.isUpdateAvailable {
+                Divider()
+                updateBanner
             }
             Divider()
             HStack {
@@ -212,6 +217,25 @@ struct WeekendPopoverView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var updateBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.up.circle.fill")
+                .foregroundStyle(.orange)
+                .font(.system(size: 12))
+            Text("Update available")
+                .font(.caption)
+                .foregroundStyle(.primary)
+            Spacer()
+            Text("brew upgrade no-spoilers")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.orange.opacity(0.08))
     }
 
     private var noDataView: some View {
