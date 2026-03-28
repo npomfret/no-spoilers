@@ -86,39 +86,29 @@ Move session status resolution into a single shared boundary in `NoSpoilersCore`
 
 ### Proposed model
 
-Introduce a shared status resolver that returns something like:
-
 ```swift
-enum ResolvedSessionState {
+public enum SessionStatus {
     case upcoming
-    case live
-    case overrunGrace
+    case inProgress   // scheduled window OR within grace period
     case finished
 }
 ```
 
-The exact type name can follow the repo's existing naming once implementation begins, but the important point is one shared source of truth.
+Three states only. The distinction between "scheduled live" and "grace period" is an internal resolver detail — both mean the same thing to the user: *something may still be happening, don't look at results*. Exposing a separate `overrunGrace` case to UI would imply we have authoritative live data, which we don't.
 
-### Proposed rules
+### Proposed rules (internal to resolver)
 
-1. Before `startsAt`
-   - status is `upcoming`
+1. `now < startsAt` → `.upcoming`
+2. `startsAt <= now < endsAt` → `.inProgress` (scheduled window)
+3. `endsAt <= now < endsAt + gracePeriod` → `.inProgress` (grace window)
+4. `now >= endsAt + gracePeriod` → `.finished`
+5. Override: if the next chronological session has already started → `.finished` (strongest available signal)
 
-2. From `startsAt` until scheduled end
-   - status is `live`
-
-3. After scheduled end, do not immediately switch to `finished`
-   - enter a conservative post-schedule state such as `overrunGrace` or `possiblyStillRunning`
-
-4. Only mark `finished` when one of these is true
-   - a configured grace window has elapsed beyond the scheduled end
-   - the next session in chronological order has started
-
-The second rule is important because if the next session has started, the previous one must be over for our product purposes.
+Rule 5 matters because if the next session is running, the previous one must be over for our purposes regardless of grace window.
 
 ### Why this is the right tradeoff
 
-It is better to show a session as still live for slightly too long than to show it as finished too early.
+It is better to show a session as in progress for slightly too long than to show it as finished too early.
 
 False positive `Finished` states are more harmful than conservative lag because the user explicitly wants to avoid being told something has ended when it has not.
 
@@ -126,59 +116,91 @@ False positive `Finished` states are more harmful than conservative lag because 
 
 Keep this logic out of the widget and app views.
 
-### Step 1: Add a shared resolver in `NoSpoilersCore`
+### Step 1: Add `gracePeriod` to `SessionKind`
 
-Introduce a small plain-Swift type responsible for:
+Add alongside `defaultDuration` in `NoSpoilersCore/Sources/NoSpoilersCore/SessionKind.swift`:
 
-- evaluating one session against `now`
-- optionally looking at the next chronological session
-- deciding whether the session is upcoming, live, in overrun grace, or finished
+```swift
+public var gracePeriod: TimeInterval {
+    switch self {
+    case .freePractice1, .freePractice2, .freePractice3: return 30 * 60
+    case .qualifying:       return 30 * 60
+    case .sprintQualifying: return 25 * 60
+    case .sprint:           return 25 * 60
+    case .race:             return 90 * 60
+    }
+}
+```
 
-This boundary should own:
+Grace values are defined here — not scattered in UI code.
+
+### Step 2: Add `SessionStatus` and `SessionResolver` to `NoSpoilersCore`
+
+New file `NoSpoilersCore/Sources/NoSpoilersCore/SessionStatus.swift`:
+
+```swift
+public enum SessionStatus {
+    case upcoming
+    case inProgress
+    case finished
+}
+
+public struct SessionResolver {
+    public static func status(
+        for session: Session,
+        at now: Date,
+        nextSession: Session? = nil
+    ) -> SessionStatus {
+        if now < session.startsAt { return .upcoming }
+        if let next = nextSession, now >= next.startsAt { return .finished }
+        let graceEnd = session.endsAt + session.kind.gracePeriod
+        if now < graceEnd { return .inProgress }
+        return .finished
+    }
+}
+```
+
+This boundary owns:
 
 - the grace-window policy
 - the transition rules
 - the canonical definition of "current" versus "finished"
 
-### Step 2: Replace direct `endsAt` comparisons
+### Step 3: Replace direct `endsAt` comparisons at all call sites
 
-Update all current call sites to use the shared resolver instead of open-coding:
+Update every open-coded `session.endsAt < now` / `session.startsAt <= now && now < session.endsAt` check to use `SessionResolver.status(for:at:nextSession:)` instead.
 
-- `session.endsAt < now`
-- `session.startsAt <= now && now < session.endsAt`
-- `weekend.allSessions.contains { $0.endsAt >= now }`
-- reload calculations that use `current.endsAt`
+Call sites:
 
-### Step 3: Keep presentation separate from resolution
+- `NoSpoilersCore/Sources/NoSpoilersCore/ScheduleStore.swift` — `menuBarLabel`
+- `NoSpoilers/NoSpoilersMac/ContentView.swift` — `sessionRow`, `statusBadge`, current weekend selection
+- `NoSpoilers/NoSpoilersWidget/NoSpoilersWidget.swift` — `sessionState(for:at:)`, `makeEntry(at:)`, `nextReloadDate(after:)`
 
-UI surfaces can map shared states into their own labels:
+### Step 4: Keep presentation separate from resolution
 
-- widget:
-  - `live` -> `Now`
-  - `overrunGrace` -> `Live`
-  - `finished` -> `Finished`
-- macOS popover:
-  - `overrunGrace` should visually behave like live, not done
-- menu bar:
-  - overrun grace should prefer the live label rather than moving to the next session countdown
+UI surfaces map `SessionStatus` to their own labels:
 
-## Grace Window Recommendation
+| Status | macOS popover badge | Menu bar | Widget |
+|--------|--------------------|-----------| -------|
+| `.upcoming` | countdown pill | countdown | countdown |
+| `.inProgress` | "In Progress" (accent color) | session name | "Now" |
+| `.finished` | "Finished Xh ago" (green) | next session countdown | "Finished" |
 
-Start with a simple fixed grace window in the shared core.
+"In Progress" replaces the hard "LIVE" red badge — we don't have authoritative live data, so we shouldn't imply it.
 
-Recommended first pass:
+## Grace Window Values
 
-- practice / qualifying: 30 minutes beyond scheduled end
-- sprint qualifying / sprint: 20-30 minutes beyond scheduled end
-- race: 90-120 minutes beyond scheduled end
+Defined in `SessionKind.gracePeriod` (see Step 1 above). Initial values:
 
-The exact values should be chosen once implementation begins, but the initial standard should be intentionally conservative.
+| Kind | Grace |
+|------|-------|
+| freePractice1/2/3 | 30 min |
+| qualifying | 30 min |
+| sprintQualifying | 25 min |
+| sprint | 25 min |
+| race | 90 min |
 
-If that feels too blunt, the first implementation can use:
-
-- a session-kind-specific grace duration, defined beside `SessionKind`
-
-Do not scatter these durations across UI code.
+These are intentionally conservative. Do not scatter them across UI code.
 
 ## Important Edge Cases
 
@@ -188,9 +210,9 @@ A long gap before the next scheduled session must not force the current session 
 
 ### Reload timing
 
-The widget currently reloads using `min(nextSession.startsAt, currentSession.endsAt)`.
+The widget currently reloads at `currentSession.endsAt`.
 
-That will become incorrect once we stop trusting synthetic end times. Reload policy should instead be derived from the shared resolver so that an active overrun period keeps the widget in the current session state.
+Replace with `min(currentSession.endsAt + currentSession.kind.gracePeriod, nextSession?.startsAt ?? .distantFuture)`. The widget must stay in `inProgress` state until the resolver returns `.finished`, not until the scheduled end passes.
 
 ### Weekend selection
 
@@ -212,26 +234,26 @@ This task does not produce perfect live-status accuracy. It produces conservativ
 ## Acceptance Criteria
 
 - No UI surface marks a session `Finished` immediately when the synthetic scheduled duration expires
-- Widget, menu bar, and macOS popover all use one shared status rule
-- Overrun handling is conservative and consistent across platforms
+- Widget, menu bar, and macOS popover all use `SessionResolver` — no open-coded `endsAt` comparisons remain
+- The three-state model (`upcoming` / `inProgress` / `finished`) is the only public contract; grace logic is internal
 - The current weekend remains visible while a session is plausibly still running
-- The menu bar does not jump to the next session countdown while the current session is still within the shared overrun window
-- Widget reload timing is based on the shared status model, not raw estimated end time alone
+- The menu bar shows the current session name (not the next session countdown) while a session is within its grace window
+- Widget reload uses `endsAt + gracePeriod`, not bare `endsAt`
 
 ## Verification Plan
 
-1. Add targeted unit tests in `NoSpoilersCore` for the shared resolver:
-   - upcoming before start
-   - live during scheduled duration
-   - overrun grace after scheduled end
-   - finished after grace window expires
-   - finished when next session starts
+1. Unit tests in `NoSpoilersCore` for `SessionResolver`:
+   - `.upcoming` before `startsAt`
+   - `.inProgress` during scheduled window (`startsAt` to `endsAt`)
+   - `.inProgress` during grace window (`endsAt` to `endsAt + gracePeriod`)
+   - `.finished` after grace window expires
+   - `.finished` when next session has started (override rule)
 
 2. Manual spot checks with synthetic timestamps:
-   - race session 1 minute after scheduled end should not show `Finished`
-   - race session well past grace window should show `Finished`
-   - menu bar should keep current session state during grace
-   - widget should not advance to next session at the synthetic end boundary
+   - race session 1 minute after scheduled end → "In Progress", not "Finished"
+   - race session 91 minutes after scheduled end → "Finished"
+   - menu bar keeps session name during grace, not countdown to next session
+   - widget does not advance to next session at the synthetic `endsAt` boundary
 
 3. Real weekend validation:
    - confirm the app does not prematurely flip to finished if a session runs long
