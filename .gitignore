@@ -3,3 +3,4 @@
 /research
 .DS_store
 .gstack/
+.build/
