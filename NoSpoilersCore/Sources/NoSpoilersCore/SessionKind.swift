@@ -9,6 +9,18 @@ public enum SessionKind: String, Codable, Hashable, CaseIterable {
     case sprint           = "sprint"
     case race             = "gp"                  // feed key is "gp", not "race"
 
+    public var displayName: String {
+        switch self {
+        case .freePractice1:    return "Free Practice 1"
+        case .freePractice2:    return "Free Practice 2"
+        case .freePractice3:    return "Free Practice 3"
+        case .qualifying:       return "Qualifying"
+        case .sprintQualifying: return "Sprint Qualifying"
+        case .sprint:           return "Sprint"
+        case .race:             return "Race"
+        }
+    }
+
     public var defaultDuration: TimeInterval {
         switch self {
         case .freePractice1, .freePractice2, .freePractice3: return 3600
