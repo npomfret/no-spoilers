@@ -1,15 +1,32 @@
 import Foundation
 
-/// Shared schedule state. Full implementation in Task 03.
 @MainActor
 public class ScheduleStore: ObservableObject {
-    public static let shared = ScheduleStore()
-
     @Published public var weekends: [RaceWeekend] = []
 
-    public init() {}
+    private let appGroupID: String?
+    private let cache = ScheduleCache()
 
+    public init(appGroupID: String? = nil) {
+        self.appGroupID = appGroupID
+        // Eagerly load from cache so UI has data before refresh() completes.
+        if let cached = try? cache.load(for: appGroupID) {
+            self.weekends = cached
+        }
+    }
+
+    /// Fetch → save to cache → update published state.
+    /// On failure: use cache (even stale). On cache miss: blank state.
     public func refresh() async {
-        // Task 03: fetch → cache → blank state fallback
+        do {
+            let weekends = try await ScheduleFetcher().fetch()
+            try? cache.save(weekends, for: appGroupID)
+            self.weekends = weekends
+        } catch {
+            if self.weekends.isEmpty, let cached = try? cache.load(for: appGroupID) {
+                self.weekends = cached
+            }
+            // else: keep whatever is already published (may be stale cache from init, or stay empty)
+        }
     }
 }

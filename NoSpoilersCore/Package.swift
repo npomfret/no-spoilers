@@ -12,5 +12,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "NoSpoilersCore"),
+        .testTarget(name: "NoSpoilersCoreTests", dependencies: ["NoSpoilersCore"]),
     ]
 )

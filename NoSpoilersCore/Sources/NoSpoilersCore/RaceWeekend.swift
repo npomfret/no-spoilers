@@ -22,6 +22,13 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
         case round, name, location, sessions
     }
 
+    public init(round: Int, name: String, location: String, sessions: [SessionKind: Date]) {
+        self.round    = round
+        self.name     = name
+        self.location = location
+        self.sessions = sessions
+    }
+
     public init(from decoder: Decoder) throws {
         let c    = try decoder.container(keyedBy: CodingKeys.self)
         round    = try c.decode(Int.self,    forKey: .round)
