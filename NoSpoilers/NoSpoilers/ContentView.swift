@@ -33,6 +33,9 @@ struct ContentView: View {
             guard newPhase == .active else { return }
             Task { await refresh() }
         }
+        .onReceive(Timer.publish(every: 3600, on: .main, in: .common).autoconnect()) { _ in
+            Task { await refresh() }
+        }
     }
 
     private var backgroundGradient: some View {

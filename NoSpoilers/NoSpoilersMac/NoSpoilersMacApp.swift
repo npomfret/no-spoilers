@@ -147,8 +147,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             await updateChecker.check()
         }
 
-        // Periodic refresh every 6 hours
-        Timer.publish(every: 6 * 3600, on: .main, in: .common)
+        // Periodic refresh every hour
+        Timer.publish(every: 3600, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in Task { await self?.store.refresh() } }
             .store(in: &cancellables)
