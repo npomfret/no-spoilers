@@ -14,6 +14,8 @@ set -euo pipefail
 #   app-store     Signed pkg → App Store Connect upload
 #     --api-key /path/to.p8 --api-key-id KEY_ID --api-issuer ISSUER_ID
 #     (omit flags to print manual upload instructions)
+#
+#   both          Runs developer-id then app-store from the same archive
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
@@ -60,8 +62,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$CHANNEL" != "developer-id" && "$CHANNEL" != "app-store" ]]; then
-  echo "Unknown channel: ${CHANNEL} (expected developer-id or app-store)" >&2
+if [[ "$CHANNEL" != "developer-id" && "$CHANNEL" != "app-store" && "$CHANNEL" != "both" ]]; then
+  echo "Unknown channel: ${CHANNEL} (expected developer-id, app-store, or both)" >&2
   exit 1
 fi
 
@@ -71,7 +73,20 @@ PBXPROJ="NoSpoilers/NoSpoilers.xcodeproj/project.pbxproj"
 SCHEME="NoSpoilersMac"
 PROJECT="NoSpoilers/NoSpoilers.xcodeproj"
 ARCHIVE_PATH="/tmp/NoSpoilersMac-${VERSION}.xcarchive"
-EXPORT_PATH="/tmp/NoSpoilersMac-export-${VERSION}"
+EXPORT_PATH_DEVID="/tmp/NoSpoilersMac-devid-export-${VERSION}"
+EXPORT_PATH_APPSTORE="/tmp/NoSpoilersMac-appstore-export-${VERSION}"
+
+# ── Helper: idempotent tag ────────────────────────────────────────────────────
+
+tag_version() {
+  if ! git tag | grep -qx "v${VERSION}"; then
+    echo "==> Tagging v${VERSION}..."
+    git tag "v${VERSION}"
+    git push origin "v${VERSION}"
+  else
+    echo "==> v${VERSION} already tagged, skipping."
+  fi
+}
 
 # ── Shared: version bump → commit → push ────────────────────────────────────
 
@@ -107,7 +122,7 @@ xcodebuild archive \
 
 # ── Channel: developer-id ────────────────────────────────────────────────────
 
-if [[ "$CHANNEL" == "developer-id" ]]; then
+if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
   STAPLE_DIR="/tmp/NoSpoilersMac-staple-${VERSION}"
   ZIP_NAME="NoSpoilers-${VERSION}.zip"
   ZIP_PATH="/tmp/${ZIP_NAME}"
@@ -116,12 +131,12 @@ if [[ "$CHANNEL" == "developer-id" ]]; then
   xcodebuild -exportArchive \
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-DeveloperID.plist" \
-    -exportPath "${EXPORT_PATH}" \
+    -exportPath "${EXPORT_PATH_DEVID}" \
     -allowProvisioningUpdates
 
   echo "==> Zipping..."
   ditto -c -k --sequesterRsrc --keepParent \
-    "${EXPORT_PATH}/NoSpoilersMac.app" \
+    "${EXPORT_PATH_DEVID}/NoSpoilersMac.app" \
     "${ZIP_PATH}"
 
   echo "==> Notarizing (this takes a few minutes)..."
@@ -157,9 +172,7 @@ if [[ "$CHANNEL" == "developer-id" ]]; then
   echo "  Zip:    ${ZIP_PATH}"
   echo "  SHA256: ${SHA256}"
 
-  echo "==> Tagging and pushing v${VERSION}..."
-  git tag "v${VERSION}"
-  git push origin "v${VERSION}"
+  tag_version
 
   echo "==> Creating GitHub release..."
   gh release create "v${VERSION}" \
@@ -175,18 +188,19 @@ if [[ "$CHANNEL" == "developer-id" ]]; then
   (cd "${HOMEBREW_TAP_DIR}" && git add Casks/no-spoilers.rb && git commit -m "no-spoilers ${VERSION}" && git push)
 
   echo ""
-  echo "Done! v${VERSION} is live."
+  echo "Done (developer-id)! v${VERSION} is live on Homebrew."
+fi
 
 # ── Channel: app-store ───────────────────────────────────────────────────────
 
-elif [[ "$CHANNEL" == "app-store" ]]; then
-  PKG_PATH="${EXPORT_PATH}/NoSpoilersMac.pkg"
+if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
+  PKG_PATH="${EXPORT_PATH_APPSTORE}/NoSpoilersMac.pkg"
 
   echo "==> Exporting for App Store..."
   xcodebuild -exportArchive \
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-AppStore.plist" \
-    -exportPath "${EXPORT_PATH}" \
+    -exportPath "${EXPORT_PATH_APPSTORE}" \
     -allowProvisioningUpdates
 
   echo ""
@@ -215,21 +229,17 @@ elif [[ "$CHANNEL" == "app-store" ]]; then
       --apiKey "${API_KEY_ID}" \
       --apiIssuer "${API_ISSUER}"
 
-    echo "==> Tagging v${VERSION}..."
-    git tag "v${VERSION}"
-    git push origin "v${VERSION}"
+    tag_version
 
     echo ""
-    echo "Done! v${VERSION} uploaded. Submit for review in App Store Connect."
+    echo "Done (app-store)! v${VERSION} uploaded. Submit for review in App Store Connect."
   else
-    echo "==> Tagging v${VERSION}..."
-    git tag "v${VERSION}"
-    git push origin "v${VERSION}"
+    tag_version
 
     echo ""
     echo "No API key provided. Upload the package manually:"
     echo "  xcrun altool --upload-app -f '${PKG_PATH}' --type macos \\"
-    echo "    --apiKey KEY_ID --apiIssuer ISSUER_ID --private-key /path/to.p8"
+    echo "    --apiKey KEY_ID --apiIssuer ISSUER_ID"
     echo "  Or drag '${PKG_PATH}' into Transporter.app"
     echo ""
     echo "Then submit for review in App Store Connect."

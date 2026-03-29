@@ -104,20 +104,51 @@ Required entitlements (iOS):
 
 ### Releasing
 
-To cut a new macOS release:
+Three wrapper scripts handle distribution. All auto-increment the version from the latest git tag, commit the bump, and push before building.
 
-1. Bump `MARKETING_VERSION` in Xcode (target → General → Version)
-2. Run the release script:
-   ```bash
-   bash scripts/release-mac.sh <version>
-   ```
-   This archives, signs with Developer ID, notarizes with Apple, and staples the ticket. Outputs the zip path and SHA256.
-3. Create a GitHub release and attach the zip:
-   ```bash
-   git tag v<version> && git push origin v<version>
-   gh release create v<version> --title "v<version>" --notes "" /tmp/NoSpoilers-<version>.zip
-   ```
-4. Update `homebrew-tap/Casks/no-spoilers.rb` with the new `version` and `sha256`, then push.
+| Script | What it does |
+|--------|-------------|
+| `scripts/ship.sh` | Both channels in one run (recommended) |
+| `scripts/ship-homebrew.sh` | Homebrew / Developer ID only |
+| `scripts/ship-appstore.sh` | Mac App Store only |
+
+**Release to both channels (normal flow):**
+
+```bash
+scripts/ship.sh
+```
+
+Bumps the version, archives once, then:
+- Developer ID path: notarizes, staples, creates GitHub release, updates homebrew-tap
+- App Store path: exports `.pkg`, uploads to App Store Connect
+
+**Release to Homebrew only:**
+
+```bash
+scripts/ship-homebrew.sh
+```
+
+Requires the keychain profile `no-spoilers-notarytool` to be configured for notarization. To set it up:
+
+```bash
+xcrun notarytool store-credentials "no-spoilers-notarytool" \
+  --apple-id YOUR_APPLE_ID \
+  --team-id 6FZN56WC8G \
+  --password APP_SPECIFIC_PASSWORD
+```
+
+**Release to App Store only:**
+
+```bash
+scripts/ship-appstore.sh
+```
+
+Reads the App Store Connect API key from `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8`.
+After upload, go to App Store Connect and submit for review.
+
+**Credentials needed:**
+- Notarization: keychain profile `no-spoilers-notarytool` (set up once via `xcrun notarytool store-credentials`)
+- App Store upload: `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8` (download once from App Store Connect → Users and Access → Integrations → API)
 
 ## Design Document
 
