@@ -51,15 +51,19 @@ private struct MenuBarLabelView: View {
     var body: some View {
         let _ = tick
         let pair = store.liveOrNextSessionPair()
-        HStack(spacing: 5) {
+        let flagCode = pair?.weekend.countryCode ?? ""
+        let showFlagItem = showFlag && !flagCode.isEmpty
+        let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
+        HStack(spacing: 4) {
             Image(nsImage: f1MenuBarLogo)
                 .interpolation(.none)
-            if showFlag, let code = pair?.weekend.countryCode, !code.isEmpty {
-                let _ = flagLog.info("MenuBarLabelView: rendering FlagImage for '\(code)'")
-                FlagImage(countryCode: code, height: 14)
+            if showFlagItem {
+                let _ = flagLog.info("MenuBarLabelView: rendering FlagImage for '\(flagCode)'")
+                separatorDot
+                FlagImage(countryCode: flagCode, height: 14)
             }
-            let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
             if !label.isEmpty {
+                separatorDot
                 Text(label)
                     .font(.system(size: 12, weight: .medium))
             }
@@ -76,6 +80,12 @@ private struct MenuBarLabelView: View {
                 .onChange(of: g.size) { _, newSize in onSizeChange?(newSize) }
         })
         .onReceive(tickTimer) { t in tick = t }
+    }
+
+    private var separatorDot: some View {
+        Text("·")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
     }
 }
 
