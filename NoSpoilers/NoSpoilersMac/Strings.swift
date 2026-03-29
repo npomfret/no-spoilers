@@ -15,6 +15,7 @@ enum Strings {
         static let brewUpgrade: LocalizedStringKey  = "brew upgrade no-spoilers"
         static let offSeason: LocalizedStringKey    = "Off season"
         static let noSessions: LocalizedStringKey   = "No upcoming sessions found"
+        static let website: LocalizedStringKey      = "Website"
         static let settings: LocalizedStringKey     = "Settings"
         static let quit: LocalizedStringKey         = "Quit"
         static let comingUp: LocalizedStringKey     = "Coming up..."

@@ -57,6 +57,13 @@ struct WeekendPopoverView: View {
             }
             Divider()
             VStack(spacing: 0) {
+                Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
+                    Label(Strings.Popover.website, systemImage: "globe")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(MenuRowButtonStyle())
                 Button { openSettings() } label: {
                     Label(Strings.Popover.settings, systemImage: "gear")
                         .font(.system(size: 13))
