@@ -261,9 +261,16 @@ struct WeekendPopoverView: View {
             Image(systemName: "arrow.up.circle.fill")
                 .foregroundStyle(.orange)
                 .font(.system(size: 12))
-            Text(Strings.Popover.updateAvailable)
-                .font(.caption)
-                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(Strings.Popover.updateAvailable)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+                if !updateChecker.latestVersion.isEmpty {
+                    Text("v\(updateChecker.latestVersion)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
             Spacer()
             Text(Strings.Popover.brewUpgrade)
                 .font(.caption2)
