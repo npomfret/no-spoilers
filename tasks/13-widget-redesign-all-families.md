@@ -10,7 +10,7 @@ Redesign the widget family so every system size feels like the same No Spoilers 
 
 The redesign must:
 
-- cover `systemSmall`, `systemMedium`, `systemLarge`, and `systemExtraLarge`
+- cover `systemSmall`, `systemMedium`, and `systemLarge`
 - stay spoiler-safe and schedule-only
 - preserve the current shared cache and WidgetKit timeline approach
 - use the existing shared chrome and brand palette instead of introducing a widget-only visual system
@@ -35,7 +35,6 @@ Current issues:
 
 - family layouts are not yet defined as one cohesive system
 - small, medium, and large are insufficiently differentiated by purpose
-- `systemExtraLarge` is not yet covered
 - widget-local spacing decisions need to be validated against the shared chrome so style does not drift
 - the widget should feel visually aligned with the iOS app and macOS popover, using the same blush, ivory, smoke, mist-grey, restrained red, and status-colour rules
 
@@ -64,7 +63,7 @@ Do not introduce:
 2. Audit the current widget layout constants and determine which belong in shared chrome versus remaining family-local.
 3. Refactor widget rendering around explicit family layouts with one shared header language and one shared session-row language.
 4. Keep freshness driven by shared cache, timeline boundaries, and date-backed rendering rather than more aggressive reload behavior.
-5. Add preview coverage for all four families so layout drift is visible during development.
+5. Add preview coverage for all three families so layout drift is visible during development.
 
 ### Family Content Strategy
 
@@ -118,23 +117,6 @@ Rules:
 - session states should be scannable in one pass
 - preserve clear breathing room between header, schedule, and footer
 
-#### Extra Large
-
-Purpose: complete design coverage for the fourth family.
-
-Show:
-
-- expanded hero header for the current weekend
-- full current weekend schedule without truncation in the normal five-session case
-- dedicated secondary area for the next weekend
-- richer off-season presentation instead of a stretched empty state
-
-Rules:
-
-- use added space for grouping and clarity, not denser text
-- prefer a two-zone composition over a single elongated list
-- current weekend remains dominant, next weekend secondary
-
 ## Layout And Spacing Rules
 
 - keep widget outer spacing aligned with system widget content margins
@@ -160,7 +142,7 @@ Do not add:
 
 ## Acceptance Criteria
 
-- the redesign is explicitly specified for `systemSmall`, `systemMedium`, `systemLarge`, and `systemExtraLarge`
+- the redesign is explicitly specified for `systemSmall`, `systemMedium`, and `systemLarge`
 - each family has a distinct content budget and hierarchy
 - the widget remains visibly aligned with the established app and popover style
 - all colours continue to come from `BrandPalette`
@@ -187,6 +169,5 @@ Do not add:
    - `.systemSmall`
    - `.systemMedium`
    - `.systemLarge`
-   - `.systemExtraLarge`
 
 4. Manual review against `docs/brand.md` and the shared chrome in `NoSpoilersCore` to confirm there is no palette drift or widget-only style divergence.
