@@ -36,11 +36,10 @@
 
     /* ── Hero ─────────────────────────────────────────────── */
     .hero {
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
       padding: 80px 24px 56px;
       text-align: center;
-      position: relative;
     }
 
     .hero-icon {
@@ -63,7 +62,7 @@
     .hero p {
       font-size: 1.15rem;
       color: var(--mid);
-      max-width: 480px;
+      max-width: 440px;
       margin: 0 auto 40px;
     }
 
@@ -120,224 +119,107 @@
       color: var(--light);
     }
 
+    .install-note a {
+      color: var(--mid);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
     /* ── Divider ─────────────────────────────────────────── */
     .divider {
       border: none;
       border-top: 1px solid var(--border);
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
     }
 
     /* ── Features ────────────────────────────────────────── */
     .features {
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
-      padding: 56px 24px;
+      padding: 52px 24px;
     }
 
     .features h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 32px;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 16px;
-    }
-
-    .feature-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      backdrop-filter: blur(18px);
-      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
-    }
-
-    .feature-icon {
-      font-size: 1.6rem;
-      margin-bottom: 12px;
-    }
-
-    .feature-card h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-
-    .feature-card p {
-      font-size: 0.9rem;
-      color: var(--mid);
-      line-height: 1.5;
-    }
-
-    /* ── How it works ────────────────────────────────────── */
-    .how {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 0 24px 56px;
-    }
-
-    .how h2 {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       margin-bottom: 24px;
     }
 
-    .how-steps {
+    .feature-list {
       display: flex;
       flex-direction: column;
       gap: 0;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       overflow: hidden;
-      background: var(--card);
       backdrop-filter: blur(18px);
       box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
     }
 
-    .how-step {
+    .feature-item {
       display: flex;
       align-items: flex-start;
-      gap: 16px;
-      padding: 20px 24px;
+      gap: 14px;
+      padding: 18px 22px;
     }
 
-    .how-step + .how-step {
+    .feature-item + .feature-item {
       border-top: 1px solid var(--border);
     }
 
-    .step-num {
+    .feature-icon {
+      font-size: 1.3rem;
       flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      background: linear-gradient(135deg, var(--signal-red), var(--deep-maroon));
-      color: #fff;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 700;
       margin-top: 1px;
     }
 
-    .step-body h4 {
+    .feature-item h3 {
       font-size: 0.95rem;
       font-weight: 600;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
-    .step-body p {
+    .feature-item p {
       font-size: 0.88rem;
       color: var(--mid);
       line-height: 1.5;
     }
 
-    /* ── Guarantee ───────────────────────────────────────── */
-    .guarantee {
-      max-width: 680px;
+    /* ── iOS coming soon ─────────────────────────────────── */
+    .coming-soon {
+      max-width: 640px;
       margin: 0 auto;
       padding: 0 24px 56px;
     }
 
-    .guarantee-box {
-      background: linear-gradient(180deg, rgba(255, 247, 242, 0.92), rgba(246, 215, 212, 0.72));
-      border: 1px solid rgba(239, 43, 45, 0.2);
-      border-left: 4px solid var(--signal-red);
-      border-radius: var(--radius);
-      padding: 24px 28px;
-      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
-    }
-
-    .guarantee-box h3 {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--signal-red);
-      margin-bottom: 10px;
-    }
-
-    .guarantee-box p {
-      font-size: 0.92rem;
-      color: var(--mid);
-      line-height: 1.6;
-    }
-
-    .guarantee-box code {
-      font-family: var(--mono);
-      font-size: 0.85em;
-      background: rgba(239, 43, 45, 0.1);
-      padding: 1px 5px;
-      border-radius: 4px;
-      color: var(--deep-maroon);
-    }
-
-    /* ── Palette ─────────────────────────────────────────── */
-    .palette {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 0 24px 56px;
-    }
-
-    .palette h2 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 14px;
-    }
-
-    .palette-intro {
-      color: var(--mid);
-      margin-bottom: 24px;
-      max-width: 560px;
-    }
-
-    .palette-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px;
-    }
-
-    .swatch {
+    .coming-soon-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+      padding: 20px 22px;
       backdrop-filter: blur(18px);
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
     }
 
-    .swatch-color {
-      height: 96px;
-      border-bottom: 1px solid var(--border);
+    .coming-soon-box .icon {
+      font-size: 1.6rem;
+      flex-shrink: 0;
     }
 
-    .swatch-body {
-      padding: 16px;
-    }
-
-    .swatch-body h3 {
+    .coming-soon-box h3 {
       font-size: 0.95rem;
-      margin-bottom: 2px;
+      font-weight: 600;
+      margin-bottom: 3px;
     }
 
-    .swatch-hex {
-      display: inline-block;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      color: var(--deep-maroon);
-      background: rgba(239, 43, 45, 0.08);
-      padding: 3px 6px;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    .swatch-body p {
-      font-size: 0.86rem;
+    .coming-soon-box p {
+      font-size: 0.88rem;
       color: var(--mid);
       line-height: 1.5;
     }
@@ -370,7 +252,7 @@
   <section class="hero">
     <img class="hero-icon" src="icon.png" alt="No Spoilers icon">
     <h1>No Spoilers</h1>
-    <p>The F1 race weekend schedule for your Mac menu bar — with a hard guarantee that results never appear.</p>
+    <p>The F1 race weekend schedule for your Mac — with a hard guarantee that results never appear.</p>
 
     <div class="install-wrap">
       <span class="install-label">Install with Homebrew</span>
@@ -378,137 +260,65 @@
         <code id="brew-cmd">brew install --cask npomfret/tap/no-spoilers</code>
         <button class="copy-btn" onclick="copyCmd(this)" aria-label="Copy install command">copy</button>
       </div>
-      <span class="install-note">macOS Sequoia 15+ &nbsp;·&nbsp; Updates via <code style="font-family:var(--mono);font-size:inherit">brew upgrade</code></span>
+      <span class="install-note">
+        macOS Sequoia 15+
+        &nbsp;·&nbsp;
+        <a href="https://brew.sh" target="_blank" rel="noopener">Get Homebrew</a>
+        &nbsp;·&nbsp;
+        <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Tap</a>
+      </span>
     </div>
   </section>
 
   <hr class="divider">
 
   <section class="features">
-    <h2>What you get</h2>
-    <div class="feature-grid">
-      <div class="feature-card">
+    <h2>Features</h2>
+    <div class="feature-list">
+      <div class="feature-item">
         <div class="feature-icon">🏎</div>
-        <h3>Full weekend at a glance</h3>
-        <p>FP1 through the race — every session, its local start time, and a live countdown to the next one.</p>
+        <div>
+          <h3>Full weekend schedule</h3>
+          <p>Every session from FP1 to the race — with local start times and a live countdown to the next one.</p>
+        </div>
       </div>
-      <div class="feature-card">
+      <div class="feature-item">
         <div class="feature-icon">🔕</div>
-        <h3>Spoiler-proof by design</h3>
-        <p>Results are not hidden behind a toggle. The app's data model has no result fields — they simply don't exist.</p>
+        <div>
+          <h3>Genuinely spoiler-proof</h3>
+          <p>Results are not hidden — they don't exist in the data model at all. There's no code path that could ever surface one.</p>
+        </div>
       </div>
-      <div class="feature-card">
+      <div class="feature-item">
         <div class="feature-icon">📍</div>
-        <h3>Always in your menu bar</h3>
-        <p>Click the icon in the macOS menu bar to see the current race weekend. One click, no context switching.</p>
+        <div>
+          <h3>Always in your menu bar</h3>
+          <p>Click the icon to see the current race weekend. No context switching, no app to launch.</p>
+        </div>
       </div>
-      <div class="feature-card">
+      <div class="feature-item">
+        <div class="feature-icon">📱</div>
+        <div>
+          <h3>Home screen widgets</h3>
+          <p>Small, medium, and large widgets show the current weekend at a glance directly from your home screen.</p>
+        </div>
+      </div>
+      <div class="feature-item">
         <div class="feature-icon">⚡️</div>
-        <h3>Native and lightweight</h3>
-        <p>Written in Swift, uses only Apple frameworks. No Electron, no background daemons, no telemetry.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="how">
-    <h2>How it works</h2>
-    <div class="how-steps">
-      <div class="how-step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <h4>Install once</h4>
-          <p>Run the Homebrew command above. The app lands in your Applications folder and adds itself to your menu bar.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <h4>Click the menu bar icon</h4>
-          <p>A popover shows the current race weekend — all sessions, local times, and a countdown to the next live session. Sessions that have already ended are marked as ready to watch.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <h4>Watch on your schedule</h4>
-          <p>Check whether a session has finished — safely — without any risk of stumbling across a result. Then watch whenever you're ready.</p>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <h4>Stay up to date</h4>
-          <p>Schedule data comes from the community-maintained <a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a> feed, updated each season. Run <code style="font-family:var(--mono);font-size:0.9em">brew upgrade</code> to get new app versions.</p>
+        <div>
+          <h3>Native and lightweight</h3>
+          <p>Built in Swift with only Apple frameworks. No Electron, no background daemons, no telemetry.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="guarantee">
-    <div class="guarantee-box">
-      <h3>The spoiler guarantee</h3>
-      <p>
-        Most "spoiler-free" apps hide results behind a setting. No Spoilers goes further:
-        the domain model has no result fields at all — not optional, not ignored, not hidden.
-        The data source (<a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a>)
-        is schedule-only by design. A <code>Session</code> has a name, a start time, and an end time.
-        That's it. There is no code path that could ever surface a result, because the data to
-        hold one doesn't exist anywhere in the app.
-      </p>
-    </div>
-  </section>
-
-  <section class="palette">
-    <h2>Brand palette</h2>
-    <p class="palette-intro">The site and product visuals inherit their colors from the app icon: warm ivory surfaces, one strong race-day red, and a darker maroon for contrast and depth.</p>
-    <div class="palette-grid">
-      <div class="swatch">
-        <div class="swatch-color" style="background:#ef2b2d"></div>
-        <div class="swatch-body">
-          <h3>Signal Red</h3>
-          <span class="swatch-hex">#EF2B2D</span>
-          <p>Primary accent for highlights, calls to action, and core brand moments.</p>
-        </div>
-      </div>
-      <div class="swatch">
-        <div class="swatch-color" style="background:#7a0c0f"></div>
-        <div class="swatch-body">
-          <h3>Deep Maroon</h3>
-          <span class="swatch-hex">#7A0C0F</span>
-          <p>Dark contrast color for depth, outlines, and stronger emphasis.</p>
-        </div>
-      </div>
-      <div class="swatch">
-        <div class="swatch-color" style="background:#fff7f2"></div>
-        <div class="swatch-body">
-          <h3>Ivory</h3>
-          <span class="swatch-hex">#FFF7F2</span>
-          <p>Warm base surface that keeps the UI soft and avoids flat pure white.</p>
-        </div>
-      </div>
-      <div class="swatch">
-        <div class="swatch-color" style="background:#f6d7d4"></div>
-        <div class="swatch-body">
-          <h3>Blush</h3>
-          <span class="swatch-hex">#F6D7D4</span>
-          <p>Secondary tint for atmospheric backgrounds, subtle cards, and soft emphasis.</p>
-        </div>
-      </div>
-      <div class="swatch">
-        <div class="swatch-color" style="background:#1f1a1a"></div>
-        <div class="swatch-body">
-          <h3>Smoke</h3>
-          <span class="swatch-hex">#1F1A1A</span>
-          <p>Primary text and dense UI chrome for readable, grounded contrast.</p>
-        </div>
-      </div>
-      <div class="swatch">
-        <div class="swatch-color" style="background:#d9d2cf"></div>
-        <div class="swatch-body">
-          <h3>Mist Grey</h3>
-          <span class="swatch-hex">#D9D2CF</span>
-          <p>Low-noise border and divider color that supports the warm neutral system.</p>
-        </div>
+  <section class="coming-soon">
+    <div class="coming-soon-box">
+      <div class="icon">📲</div>
+      <div>
+        <h3>iOS app coming soon</h3>
+        <p>The same schedule, the same spoiler-free guarantee — on your iPhone.</p>
       </div>
     </div>
   </section>
@@ -516,10 +326,6 @@
   <footer>
     <p>
       <a href="https://github.com/npomfret/no-spoilers" target="_blank" rel="noopener">GitHub</a>
-      &nbsp;·&nbsp;
-      <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Homebrew tap</a>
-      &nbsp;·&nbsp;
-      <a href="brand.md">Brand palette</a>
       &nbsp;·&nbsp;
       Schedule data from <a href="https://f1calendar.com" target="_blank" rel="noopener">f1calendar.com</a>
     </p>
