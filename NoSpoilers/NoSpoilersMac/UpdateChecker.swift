@@ -5,6 +5,7 @@ import Combine
 final class UpdateChecker: ObservableObject {
     @Published private(set) var isUpdateAvailable = false
     @Published private(set) var latestVersion: String = ""
+    @Published private(set) var currentVersion: String = ""
 
     func check() async {
         guard let url = URL(string: "https://api.github.com/repos/npomfret/no-spoilers/releases/latest") else { return }
@@ -13,6 +14,7 @@ final class UpdateChecker: ObservableObject {
         let remote  = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
         let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         latestVersion = remote
+        currentVersion = current
         isUpdateAvailable = isNewer(remote, than: current)
     }
 

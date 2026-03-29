@@ -266,7 +266,7 @@ struct WeekendPopoverView: View {
                     .font(.caption)
                     .foregroundStyle(.primary)
                 if !updateChecker.latestVersion.isEmpty {
-                    Text("v\(updateChecker.latestVersion)")
+                    Text("v\(updateChecker.currentVersion) → v\(updateChecker.latestVersion)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
