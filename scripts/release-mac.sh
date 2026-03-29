@@ -5,8 +5,20 @@ set -euo pipefail
 #   Local:  scripts/release-mac.sh 1.0.0
 #   CI:     scripts/release-mac.sh 1.0.0 --notarytool-key /path/to.p8 --notarytool-key-id KEY_ID --notarytool-issuer ISSUER_ID
 
-VERSION="${1:?Usage: $0 <version> [--notarytool-key <path> --notarytool-key-id <id> --notarytool-issuer <id>]}"
-shift
+if [[ $# -eq 0 ]]; then
+  LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  if [[ -n "$LATEST" ]]; then
+    IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+    SUGGESTED="${MAJOR}.${MINOR}.$((PATCH + 1))"
+  else
+    SUGGESTED="1.0.0"
+  fi
+  read -rp "Version [${SUGGESTED}]: " INPUT
+  VERSION="${INPUT:-$SUGGESTED}"
+else
+  VERSION="${1:?Usage: $0 <version> [--notarytool-key <path> --notarytool-key-id <id> --notarytool-issuer <id>]}"
+  shift
+fi
 
 NOTARYTOOL_KEY=""
 NOTARYTOOL_KEY_ID=""
