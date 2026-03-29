@@ -2,8 +2,14 @@
 set -euo pipefail
 
 # Usage:
-#   Local:  scripts/release-mac.sh 1.0.0
-#   CI:     scripts/release-mac.sh 1.0.0 --notarytool-key /path/to.p8 --notarytool-key-id KEY_ID --notarytool-issuer ISSUER_ID
+#   Interactive:  scripts/release-mac.sh              (prompts for version, suggests next patch)
+#   Explicit:     scripts/release-mac.sh 1.0.0
+#   CI:           scripts/release-mac.sh 1.0.0 --notarytool-key /path/to.p8 --notarytool-key-id KEY_ID --notarytool-issuer ISSUER_ID
+#
+# After a successful build the script will automatically:
+#   - git tag and push
+#   - create a GitHub release with the zip
+#   - update and push homebrew-tap/Casks/no-spoilers.rb
 
 if [[ $# -eq 0 ]]; then
   LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
@@ -93,13 +99,25 @@ echo "==> Computing SHA256..."
 SHA256=$(shasum -a 256 "${ZIP_PATH}" | awk '{print $1}')
 
 echo ""
-echo "Done!"
 echo "  Zip:    ${ZIP_PATH}"
 echo "  SHA256: ${SHA256}"
+
+echo "==> Tagging and pushing v${VERSION}..."
+git tag "v${VERSION}"
+git push origin "v${VERSION}"
+
+echo "==> Creating GitHub release..."
+gh release create "v${VERSION}" \
+  --title "v${VERSION}" \
+  --notes "" \
+  "${ZIP_PATH}"
+
+echo "==> Updating homebrew-tap..."
+HOMEBREW_TAP_DIR="$(dirname "$(realpath "$0")")/../../homebrew-tap"
+CASK_FILE="${HOMEBREW_TAP_DIR}/Casks/no-spoilers.rb"
+sed -i '' "s/version \".*\"/version \"${VERSION}\"/" "${CASK_FILE}"
+sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "${CASK_FILE}"
+(cd "${HOMEBREW_TAP_DIR}" && git add Casks/no-spoilers.rb && git commit -m "no-spoilers ${VERSION}" && git push)
+
 echo ""
-echo "Next steps (local run only):"
-echo "  1. git tag v${VERSION} && git push origin v${VERSION}"
-echo "  2. gh release create v${VERSION} --title 'v${VERSION}' --notes '' ${ZIP_PATH}"
-echo "  3. Update homebrew-tap/Casks/no-spoilers.rb:"
-echo "     version \"${VERSION}\""
-echo "     sha256 \"${SHA256}\""
+echo "Done! v${VERSION} is live."
