@@ -53,6 +53,11 @@ STAPLE_DIR="/tmp/NoSpoilersMac-staple-${VERSION}"
 ZIP_NAME="NoSpoilers-${VERSION}.zip"
 ZIP_PATH="/tmp/${ZIP_NAME}"
 
+echo "==> Cleaning ${SCHEME}..."
+xcodebuild clean \
+  -project "${PROJECT}" \
+  -scheme "${SCHEME}"
+
 echo "==> Archiving ${SCHEME} v${VERSION}..."
 xcodebuild archive \
   -project "${PROJECT}" \
