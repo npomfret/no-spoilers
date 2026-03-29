@@ -53,9 +53,6 @@ STAPLE_DIR="/tmp/NoSpoilersMac-staple-${VERSION}"
 ZIP_NAME="NoSpoilers-${VERSION}.zip"
 ZIP_PATH="/tmp/${ZIP_NAME}"
 
-echo "==> Bumping MARKETING_VERSION to ${VERSION} in project.pbxproj..."
-sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PROJECT}/project.pbxproj"
-
 echo "==> Archiving ${SCHEME} v${VERSION}..."
 xcodebuild archive \
   -project "${PROJECT}" \
