@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — No Spoilers</title>
+  <meta name="description" content="Privacy policy for the No Spoilers app.">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --signal-red: #ef2b2d;
+      --deep-maroon: #7a0c0f;
+      --ivory: #fff7f2;
+      --smoke: #1f1a1a;
+      --mist-grey: #d9d2cf;
+      --blush: #f6d7d4;
+      --mid: #5f5754;
+      --light: #827876;
+      --bg: linear-gradient(180deg, rgba(255,247,242,0.82) 0%, rgba(251,232,229,0.75) 54%, rgba(255,241,238,0.82) 100%);
+      --card: rgba(255, 255, 255, 0.88);
+      --border: rgba(122, 12, 15, 0.12);
+      --radius: 16px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg), url('background.webp') center / cover no-repeat;
+      color: var(--smoke);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+
+    .content {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 52px 24px 56px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .updated {
+      font-size: 0.85rem;
+      color: var(--light);
+      margin-bottom: 36px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card section h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .card section p {
+      font-size: 0.9rem;
+      color: var(--mid);
+      line-height: 1.6;
+    }
+
+    .card section + section {
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 0.82rem;
+      color: var(--light);
+      position: relative;
+      z-index: 1;
+    }
+
+    footer a { color: var(--mid); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    .face-deco {
+      position: fixed;
+      top: -20px;
+      right: 0;
+      width: 560px;
+      opacity: 0.32;
+      pointer-events: none;
+      z-index: 0;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <img class="face-deco" src="face.png" alt="" aria-hidden="true">
+
+  <div class="content">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: March 2026</p>
+
+    <div class="card">
+      <section>
+        <h2>No data collected</h2>
+        <p>No Spoilers does not collect, store, or transmit any personal data. The app has no accounts, no sign-in, and no analytics.</p>
+      </section>
+      <section>
+        <h2>Network requests</h2>
+        <p>The app fetches publicly available Formula 1 race schedule data from an open-source repository at github.com/sportstimes/f1. No user information is included in or derived from these requests.</p>
+      </section>
+      <section>
+        <h2>No third-party services</h2>
+        <p>The app does not use advertising, crash reporting, or any third-party SDK that could collect data.</p>
+      </section>
+      <section>
+        <h2>Contact</h2>
+        <p>Questions? Open an issue at <a href="https://github.com/npomfret/no-spoilers" target="_blank" rel="noopener">github.com/npomfret/no-spoilers</a>.</p>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <p>
+      <a href="/">No Spoilers</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/npomfret/no-spoilers" target="_blank" rel="noopener">GitHub</a>
+    </p>
+  </footer>
+
+</body>
+</html>
