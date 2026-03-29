@@ -18,7 +18,8 @@ public enum BrandPalette {
     public static let mistGrey    = Color(red: 0.8510, green: 0.8235, blue: 0.8118) // #D9D2CF
 
     // Semantic
-    public static let successGreen = Color(red: 0.1804, green: 0.6078, blue: 0.3882) // #2E9B63
+    public static let successGreen  = Color(red: 0.1804, green: 0.6078, blue: 0.3882) // #2E9B63
+    public static let upcomingBlue  = Color(red: 0.2392, green: 0.4980, blue: 0.8000) // #3D7FCC
 
     // Warm neutrals for text on ivory surfaces (supplementary — not in brand.md)
     public static let secondaryText = Color(red: 0.43, green: 0.40, blue: 0.39)

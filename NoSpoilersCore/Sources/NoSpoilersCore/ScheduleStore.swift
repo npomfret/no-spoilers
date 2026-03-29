@@ -34,8 +34,9 @@ public class ScheduleStore: ObservableObject {
                 .sorted { $0.session.startsAt < $1.session.startsAt }
     }
 
-    public func menuBarLabel(showFlag: Bool, showSession: Bool, showCountdown: Bool) -> String {
-        guard showFlag || showSession || showCountdown else { return "" }
+    /// The live session if one is in progress, otherwise the next upcoming session.
+    /// Returns nil when there are no live or upcoming sessions.
+    public func liveOrNextSessionPair() -> (session: Session, weekend: RaceWeekend)? {
         let now = Date()
         let pairs = sortedSessionPairs()
         if let live = pairs.indices.first(where: { i in
@@ -43,23 +44,34 @@ public class ScheduleStore: ObservableObject {
             let confirmed = confirmer.confirmedEndDates[pairs[i].session.id]
             return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next, confirmedEndAt: confirmed) == .inProgress
         }).map({ pairs[$0] }) {
-            var label = ""
-            if showFlag    { label = live.weekend.countryFlag }
-            if showSession { label = label.isEmpty ? live.session.kind.shortName : "\(label) \(live.session.kind.shortName)" }
-            if showCountdown { label = label.isEmpty ? "now" : "\(label) — now" }
-            return label
+            precondition(!live.weekend.countryCode.isEmpty, "Live session \(live.session.id) has empty countryCode")
+            return live
         }
-        guard let next = pairs.first(where: { $0.session.startsAt > now }) else { return "" }
+        guard let next = pairs.first(where: { $0.session.startsAt > now }) else { return nil }
+        precondition(!next.weekend.countryCode.isEmpty, "Upcoming session \(next.session.id) has empty countryCode")
+        return next
+    }
+
+    public func menuBarLabel(showSession: Bool, showCountdown: Bool) -> String {
+        guard showSession || showCountdown else { return "" }
+        guard let pair = liveOrNextSessionPair() else { return "" }
+        let now = Date()
+        let isLive = pair.session.startsAt <= now
         var label = ""
-        if showFlag    { label = next.weekend.countryFlag }
-        if showSession { label = label.isEmpty ? next.session.kind.shortName : "\(label) \(next.session.kind.shortName)" }
+        if showSession { label = pair.session.kind.shortName }
         if showCountdown {
-            let secs = Int(next.session.startsAt.timeIntervalSince(now))
-            let days = secs / 86_400
-            let h = secs / 3600
-            let m = (secs % 3600) / 60
-            let timeStr = days >= 1 ? "in \(days)d" : (h > 0 ? "\(h)h \(m)m" : "\(m)m")
-            label = label.isEmpty ? timeStr : "\(label) · \(timeStr)"
+            if isLive {
+                label = label.isEmpty ? Strings.MenuBar.live : Strings.MenuBar.liveWithSession(label)
+            } else {
+                let secs = Int(pair.session.startsAt.timeIntervalSince(now))
+                let days = secs / 86_400
+                let h = secs / 3600
+                let m = (secs % 3600) / 60
+                let timeStr = days >= 1 ? Strings.MenuBar.countdownDays(days)
+                            : h > 0    ? Strings.MenuBar.countdownHoursMinutes(h, m)
+                                       : Strings.MenuBar.countdownMinutes(m)
+                label = label.isEmpty ? timeStr : Strings.MenuBar.sessionWithCountdown(label, timeStr)
+            }
         }
         return label
     }

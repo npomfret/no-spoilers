@@ -30,6 +30,15 @@ Read these when the task touches their area:
 - Verify the real project structure before assuming anything about targets, schemes, packages, scripts, entitlements, or build commands.
 - The project should converge on a small number of strong patterns. Claude must refactor toward those patterns, not add parallel implementations.
 
+## Fail fast
+
+Missing data that should never be missing is a programming error, not a runtime condition to handle gracefully. Code must crash immediately and loudly rather than silently producing wrong output.
+
+- Use `precondition`, force-unwrap (`!`), or `fatalError` for data or resources that must always be present.
+- Never use `?? defaultValue` to paper over a missing resource or unexpected nil — crash instead.
+- Never return a sentinel value (empty string, placeholder image, zero) to signal a missing resource — crash instead.
+- Optional return types are only appropriate when absence is a valid, expected state (e.g. no upcoming session). They must never be used to silently swallow errors.
+
 ## Hard constraints
 
 - Do not invent commands, scripts, paths, targets, schemes, bundle identifiers, Info.plist keys, entitlement names, environment variables, or defaults. Read the repo first.

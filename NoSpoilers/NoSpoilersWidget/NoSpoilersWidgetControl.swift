@@ -18,15 +18,15 @@ struct NoSpoilersWidgetControl: ControlWidget {
             provider: Provider()
         ) { value in
             ControlWidgetToggle(
-                "Start Timer",
+                Strings.Control.startTimer,
                 isOn: value.isRunning,
                 action: StartTimerIntent(value.name)
             ) { isRunning in
-                Label(isRunning ? "On" : "Off", systemImage: "timer")
+                Label(isRunning ? Strings.Control.on : Strings.Control.off, systemImage: "timer")
             }
         }
-        .displayName("Timer")
-        .description("A an example control that runs a timer.")
+        .displayName(Strings.Control.controlDisplayName)
+        .description(Strings.Control.controlDescription)
     }
 }
 

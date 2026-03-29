@@ -16,59 +16,39 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
     public let sessions: [SessionKind: Date]
 
     public var id: Int { round }
-    public var grandPrixName: String { "\(name) Grand Prix" }
-    public var countryName: String {
+    public var grandPrixName: String { Strings.RaceNames.grandPrix(name) }
+    public var countryName: String { Strings.CountryNames.name(for: name) }
+    public var countryCode: String {
         switch name {
-        case "Australian":          return "Australia"
-        case "Chinese":             return "China"
-        case "Japanese":            return "Japan"
-        case "Miami":               return "United States"
-        case "Canadian":            return "Canada"
-        case "Monaco":              return "Monaco"
-        case "Barcelona-Catalunya": return "Spain"
-        case "Austrian":            return "Austria"
-        case "British":             return "United Kingdom"
-        case "Belgian":             return "Belgium"
-        case "Hungarian":           return "Hungary"
-        case "Dutch":               return "Netherlands"
-        case "Italian":             return "Italy"
-        case "Spanish":             return "Spain"
-        case "Azerbaijan":          return "Azerbaijan"
-        case "Singapore":           return "Singapore"
-        case "United States":       return "United States"
-        case "Mexican":             return "Mexico"
-        case "Brazilian":           return "Brazil"
-        case "Las Vegas":           return "United States"
-        case "Qatar":               return "Qatar"
-        case "Abu Dhabi":           return "United Arab Emirates"
-        default:                    return name
+        case "Australian":          return "AU"
+        case "Chinese":             return "CN"
+        case "Japanese":            return "JP"
+        case "Miami":               return "US"
+        case "Canadian":            return "CA"
+        case "Monaco":              return "MC"
+        case "Barcelona-Catalunya": return "ES"
+        case "Austrian":            return "AT"
+        case "British":             return "GB"
+        case "Belgian":             return "BE"
+        case "Hungarian":           return "HU"
+        case "Dutch":               return "NL"
+        case "Italian":             return "IT"
+        case "Spanish":             return "ES"
+        case "Azerbaijan":          return "AZ"
+        case "Singapore":           return "SG"
+        case "United States":       return "US"
+        case "Mexican":             return "MX"
+        case "Brazilian":           return "BR"
+        case "Las Vegas":           return "US"
+        case "Qatar":               return "QA"
+        case "Abu Dhabi":           return "AE"
+        default:                    return ""
         }
     }
     public var countryFlag: String {
-        switch name {
-        case "Australian":          return "🇦🇺"
-        case "Chinese":             return "🇨🇳"
-        case "Japanese":            return "🇯🇵"
-        case "Miami":               return "🇺🇸"
-        case "Canadian":            return "🇨🇦"
-        case "Monaco":              return "🇲🇨"
-        case "Barcelona-Catalunya": return "🇪🇸"
-        case "Austrian":            return "🇦🇹"
-        case "British":             return "🇬🇧"
-        case "Belgian":             return "🇧🇪"
-        case "Hungarian":           return "🇭🇺"
-        case "Dutch":               return "🇳🇱"
-        case "Italian":             return "🇮🇹"
-        case "Spanish":             return "🇪🇸"
-        case "Azerbaijan":          return "🇦🇿"
-        case "Singapore":           return "🇸🇬"
-        case "United States":       return "🇺🇸"
-        case "Mexican":             return "🇲🇽"
-        case "Brazilian":           return "🇧🇷"
-        case "Las Vegas":           return "🇺🇸"
-        case "Qatar":               return "🇶🇦"
-        case "Abu Dhabi":           return "🇦🇪"
-        default:                    return "🏁"
+        guard countryCode.count == 2 else { return "🏁" }
+        return countryCode.uppercased().unicodeScalars.reduce("") {
+            $0 + (Unicode.Scalar($1.value + 127397).map(String.init) ?? "")
         }
     }
 

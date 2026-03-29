@@ -11,25 +11,25 @@ public enum SessionKind: String, Codable, Hashable, CaseIterable {
 
     public var displayName: String {
         switch self {
-        case .freePractice1:    return "Free Practice 1"
-        case .freePractice2:    return "Free Practice 2"
-        case .freePractice3:    return "Free Practice 3"
-        case .qualifying:       return "Qualifying"
-        case .sprintQualifying: return "Sprint Qualifying"
-        case .sprint:           return "Sprint"
-        case .race:             return "Race"
+        case .freePractice1:    return Strings.SessionNames.Display.fp1
+        case .freePractice2:    return Strings.SessionNames.Display.fp2
+        case .freePractice3:    return Strings.SessionNames.Display.fp3
+        case .qualifying:       return Strings.SessionNames.Display.qualifying
+        case .sprintQualifying: return Strings.SessionNames.Display.sprintQualifying
+        case .sprint:           return Strings.SessionNames.Display.sprint
+        case .race:             return Strings.SessionNames.Display.race
         }
     }
 
     public var shortName: String {
         switch self {
-        case .freePractice1:    return "FP1"
-        case .freePractice2:    return "FP2"
-        case .freePractice3:    return "FP3"
-        case .qualifying:       return "Quali"
-        case .sprintQualifying: return "Sprint Quali"
-        case .sprint:           return "Sprint"
-        case .race:             return "Race"
+        case .freePractice1:    return Strings.SessionNames.Short.fp1
+        case .freePractice2:    return Strings.SessionNames.Short.fp2
+        case .freePractice3:    return Strings.SessionNames.Short.fp3
+        case .qualifying:       return Strings.SessionNames.Short.qualifying
+        case .sprintQualifying: return Strings.SessionNames.Short.sprintQualifying
+        case .sprint:           return Strings.SessionNames.Short.sprint
+        case .race:             return Strings.SessionNames.Short.race
         }
     }
 

@@ -1,149 +1,185 @@
 import SwiftUI
 import Combine
 import AppKit
+import OSLog
 import NoSpoilersCore
 
-// MARK: - F1 Logo Shape (120 × 30 coordinate space)
+private let flagLog = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersMac", category: "flag")
 
-struct F1Logo: Shape {
-    func path(in rect: CGRect) -> Path {
-        let sx = rect.width / 120
-        let sy = rect.height / 30
-        let t = CGAffineTransform(scaleX: sx, y: sy)
-            .translatedBy(x: rect.minX / sx, y: rect.minY / sy)
-        var p = Path()
+// MARK: - Menu bar image helpers
 
-        // TM "M"
-        p.move(to: .init(x: 101.086812, y: 30)); p.addLine(to: .init(x: 101.711812, y: 30))
-        p.addLine(to: .init(x: 101.711812, y: 27.106875)); p.addLine(to: .init(x: 101.722437, y: 27.106875))
-        p.addLine(to: .init(x: 102.761812, y: 30)); p.addLine(to: .init(x: 103.302437, y: 30))
-        p.addLine(to: .init(x: 104.341812, y: 27.106875)); p.addLine(to: .init(x: 104.352437, y: 27.106875))
-        p.addLine(to: .init(x: 104.352437, y: 30)); p.addLine(to: .init(x: 104.977437, y: 30))
-        p.addLine(to: .init(x: 104.977437, y: 26.25125)); p.addLine(to: .init(x: 104.063687, y: 26.25125))
-        p.addLine(to: .init(x: 103.055562, y: 29.18625)); p.addLine(to: .init(x: 103.044937, y: 29.18625))
-        p.addLine(to: .init(x: 102.011187, y: 26.25125)); p.addLine(to: .init(x: 101.086812, y: 26.25125))
-        p.closeSubpath()
+private func rasterizeNSImage(_ img: NSImage, size pts: CGSize, tintColor: NSColor? = nil) -> NSImage {
+    let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+    let w = Int(pts.width * scale)
+    let h = Int(pts.height * scale)
+    let ctx = CGContext(
+        data: nil, width: w, height: h,
+        bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    ctx.scaleBy(x: scale, y: scale)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+    img.draw(in: CGRect(origin: .zero, size: pts))
+    if let tint = tintColor {
+        tint.set()
+        CGRect(origin: .zero, size: pts).fill(using: .sourceAtop)
+    }
+    NSGraphicsContext.restoreGraphicsState()
+    return NSImage(cgImage: ctx.makeImage()!, size: pts)
+}
 
-        // TM "T"
-        p.move(to: .init(x: 97.6274375, y: 26.818125)); p.addLine(to: .init(x: 98.8136875, y: 26.818125))
-        p.addLine(to: .init(x: 98.8136875, y: 30)); p.addLine(to: .init(x: 99.4699375, y: 30))
-        p.addLine(to: .init(x: 99.4699375, y: 26.818125)); p.addLine(to: .init(x: 100.661812, y: 26.818125))
-        p.addLine(to: .init(x: 100.661812, y: 26.25125)); p.addLine(to: .init(x: 97.6274375, y: 26.25125))
-        p.closeSubpath()
+private let f1MenuBarLogo: NSImage =
+    rasterizeNSImage(NSImage(resource: ImageResource(name: "f1logo", bundle: noSpoilersCoreBundle)), size: CGSize(width: 32, height: 8), tintColor: NSColor(BrandPalette.signalRed))
 
-        // "1"
-        p.move(to: .init(x: 89.9999375, y: 30)); p.addLine(to: .init(x: 119.999937, y: 0))
-        p.addLine(to: .init(x: 101.943687, y: 0)); p.addLine(to: .init(x: 71.9443125, y: 30))
-        p.closeSubpath()
+// MARK: - Menu bar label view
+//
+// Rendered inside a real NSHostingView attached to NSStatusItem.button — full SwiftUI pipeline,
+// same rendering context as the popover. FlagImage loads and renders correctly here.
 
-        // "F" + arrow
-        p.move(to: .init(x: 85.6986875, y: 13.065)); p.addLine(to: .init(x: 49.3818125, y: 13.065))
-        p.addCurve(to: .init(x: 31.6361875, y: 18.3925),
-                   control1: .init(x: 38.3136875, y: 13.065), control2: .init(x: 36.3768125, y: 13.651875))
-        p.addCurve(to: .init(x: 20.0005625, y: 30),
-                   control1: .init(x: 27.2024375, y: 22.82625), control2: .init(x: 20.0005625, y: 30))
-        p.addLine(to: .init(x: 35.7324375, y: 30)); p.addLine(to: .init(x: 39.4855625, y: 26.246875))
-        p.addCurve(to: .init(x: 48.4068125, y: 23.52375),
-                   control1: .init(x: 41.9530625, y: 23.779375), control2: .init(x: 43.2255625, y: 23.52375))
-        p.addLine(to: .init(x: 75.2405625, y: 23.52375))
-        p.closeSubpath()
+private struct MenuBarLabelView: View {
+    @ObservedObject var store: ScheduleStore
+    @ObservedObject var updateChecker: UpdateChecker
+    var onSizeChange: ((CGSize) -> Void)?
 
-        // Main chevron
-        p.move(to: .init(x: 31.1518125, y: 16.253125))
-        p.addCurve(to: .init(x: 16.9130625, y: 30),
-                   control1: .init(x: 27.8774375, y: 19.3425), control2: .init(x: 20.7530625, y: 26.263125))
-        p.addLine(to: .init(x: 0, y: 30))
-        p.addCurve(to: .init(x: 21.0849375, y: 9.0725),
-                   control1: .init(x: 0, y: 30), control2: .init(x: 13.5524375, y: 16.486875))
-        p.addCurve(to: .init(x: 46.9486875, y: 0),
-                   control1: .init(x: 28.8455625, y: 1.685), control2: .init(x: 32.7143125, y: 0))
-        p.addLine(to: .init(x: 98.7643125, y: 0)); p.addLine(to: .init(x: 87.5449375, y: 11.21875))
-        p.addLine(to: .init(x: 48.0011875, y: 11.21875))
-        p.addCurve(to: .init(x: 31.1518125, y: 16.253125),
-                   control1: .init(x: 37.9993125, y: 11.21875), control2: .init(x: 35.7518125, y: 11.911875))
-        p.closeSubpath()
+    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
+    @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
+    @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
+    @State private var tick = Date()
+    private let tickTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-        return p.applying(t)
+    var body: some View {
+        let _ = tick
+        let pair = store.liveOrNextSessionPair()
+        HStack(spacing: 5) {
+            Image(nsImage: f1MenuBarLogo)
+                .interpolation(.none)
+            if showFlag, let code = pair?.weekend.countryCode, !code.isEmpty {
+                let _ = flagLog.info("MenuBarLabelView: rendering FlagImage for '\(code)'")
+                FlagImage(countryCode: code, height: 14)
+            }
+            let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
+            if !label.isEmpty {
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            if updateChecker.isUpdateAvailable {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: 5, height: 5)
+            }
+        }
+        .fixedSize()
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { onSizeChange?(g.size) }
+                .onChange(of: g.size) { _, newSize in onSizeChange?(newSize) }
+        })
+        .onReceive(tickTimer) { t in tick = t }
     }
 }
 
-// MARK: - Rasterise F1 logo to NSImage (approach from example-project)
+// MARK: - App delegate
 
-private let f1MenuBarLogo: NSImage = {
-    let pts  = CGSize(width: 32, height: 8)
-    let scale: CGFloat = 2
-    let px   = CGSize(width: pts.width * scale, height: pts.height * scale)
+private final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusItem: NSStatusItem!
+    private var popover: NSPopover!
+    private let store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
+    private let updateChecker = UpdateChecker()
+    private var labelHostingView: NSHostingView<MenuBarLabelView>!
+    private var cancellables = Set<AnyCancellable>()
 
-    guard let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: Int(px.width), pixelsHigh: Int(px.height),
-        bitsPerSample: 8, samplesPerPixel: 4,
-        hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-    ) else { return NSImage(size: pts) }
-    rep.size = pts
-
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-    defer { NSGraphicsContext.restoreGraphicsState() }
-
-    if let ctx = NSGraphicsContext.current?.cgContext {
-        // NSGraphicsContext(bitmapImageRep:) uses point coordinates (32×8 pt),
-        // with 2× scale already baked in. Draw in point space, flip y to match SwiftUI.
-        ctx.translateBy(x: 0, y: pts.height)
-        ctx.scaleBy(x: 1, y: -1)
-        let path = F1Logo().path(in: CGRect(origin: .zero, size: pts))
-        ctx.setFillColor(NSColor(BrandPalette.signalRed).cgColor)
-        ctx.addPath(path.cgPath)
-        ctx.fillPath()
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Accessory policy: pure menu bar app — no Dock icon, no "quit on last window close".
+        NSApp.setActivationPolicy(.accessory)
     }
 
-    let img = NSImage(size: pts)
-    img.addRepresentation(rep)
-    return img
-}()
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        flagLog.info("AppDelegate: applicationDidFinishLaunching")
+
+        // Create NSStatusItem with variable width
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        // Create label view — FlagImage renders live here (real NSHostingView context)
+        let labelView = MenuBarLabelView(store: store, updateChecker: updateChecker) { [weak self] size in
+            guard let self else { return }
+            flagLog.info("MenuBarLabelView: size changed \(size.width)x\(size.height)")
+            // Defer frame update to avoid layoutSubtreeIfNeeded recursion —
+            // GeometryReader fires during layout; resizing the NSHostingView here
+            // causes a recursive layout cycle.
+            DispatchQueue.main.async {
+                let padded = CGSize(width: size.width + 8, height: size.height)
+                self.labelHostingView.frame = NSRect(origin: .zero, size: padded)
+                self.statusItem.button?.frame = NSRect(origin: .zero, size: padded)
+                self.statusItem.length = padded.width
+            }
+        }
+        labelHostingView = NSHostingView(rootView: labelView)
+        let initialSize = labelHostingView.fittingSize
+        let paddedInitial = CGSize(width: initialSize.width + 8, height: 22)
+        labelHostingView.frame = NSRect(origin: .zero, size: paddedInitial)
+        flagLog.info("AppDelegate: initial label size \(initialSize.width)x\(initialSize.height)")
+
+        if let button = statusItem.button {
+            button.addSubview(labelHostingView)
+            button.frame = labelHostingView.frame
+            button.target = self
+            button.action = #selector(togglePopover)
+        }
+        statusItem.length = paddedInitial.width
+
+        // Create popover
+        let popoverView = WeekendPopoverView(store: store, updateChecker: updateChecker)
+            .frame(width: 300)
+        let hostingController = NSHostingController(rootView: popoverView)
+        popover = NSPopover()
+        popover.contentViewController = hostingController
+        popover.behavior = .transient
+
+        // Initial data load
+        Task {
+            await store.refresh()
+            await updateChecker.check()
+        }
+
+        // Periodic refresh every 6 hours
+        Timer.publish(every: 6 * 3600, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in Task { await self?.store.refresh() } }
+            .store(in: &cancellables)
+
+    }
+
+    @objc func togglePopover(_ sender: Any?) {
+        guard let button = statusItem.button else { return }
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            flagLog.info("AppDelegate: showing popover")
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            // Refresh data when popover opens
+            Task {
+                await store.refresh()
+                await updateChecker.check()
+            }
+        }
+    }
+}
 
 // MARK: - App
 
 @main
 struct NoSpoilersMacApp: App {
-    @StateObject private var store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
-    @StateObject private var updateChecker = UpdateChecker()
-    private let refreshTimer = Timer.publish(every: 6 * 3600, on: .main, in: .common).autoconnect()
-
-    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
-    @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
-    @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            WeekendPopoverView(store: store, updateChecker: updateChecker)
-                .frame(width: 300)
-                .task { await store.refresh() }
-                .task { await updateChecker.check() }
-                .onReceive(refreshTimer) { _ in Task { await store.refresh() } }
-        } label: {
-            HStack(spacing: 5) {
-                Image(nsImage: f1MenuBarLogo)
-                    .interpolation(.none)
-                let label = store.menuBarLabel(showFlag: showFlag, showSession: showSession, showCountdown: showCountdown)
-                if !label.isEmpty {
-                    Text(label)
-                        .font(.system(size: 12, weight: .medium))
-                }
-                if updateChecker.isUpdateAvailable {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 5, height: 5)
-                }
-            }
-            .fixedSize()
-        }
-        .menuBarExtraStyle(.window)
-
-        Window("Settings", id: "settings") {
+        Settings {
             SettingsView()
         }
-        .windowResizability(.contentSize)
     }
 }

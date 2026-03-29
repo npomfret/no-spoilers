@@ -5,8 +5,8 @@ import SwiftUI
 // Text and Button views accept LocalizedStringKey directly, so Text(Strings.Foo.bar)
 // will automatically pick up translations once a Localizable.strings file is added.
 //
-// Dynamic strings (countdowns, "Finished Xh ago") are format strings — extract those
-// when adding translations using String(localized:) with interpolation.
+// Dynamic strings (countdowns, "Finished Xh ago") are centralised as format functions below.
+// Swap to String(localized:) with interpolation when a Localizable.strings file is added.
 
 enum Strings {
     enum Popover {
@@ -17,6 +17,18 @@ enum Strings {
         static let noSessions: LocalizedStringKey   = "No upcoming sessions found"
         static let settings: LocalizedStringKey     = "Settings"
         static let quit: LocalizedStringKey         = "Quit"
+        static let comingUp: LocalizedStringKey     = "Coming up..."
+        static func roundLabel(_ round: Int) -> String    { "R\(round)" }
+        static func durationHours(_ h: Int) -> String        { "\(h)h" }
+        static func durationMinutes(_ m: Int) -> String      { "\(m)m" }
+        static func finishedAgo(_ time: String) -> String    { "Finished \(time) ago" }
+        static let countdownZero: String                  = "0s"
+        static func countdownDaysHoursMinutes(_ d: Int, _ h: Int, _ m: Int) -> String      { "\(d)d \(h)h \(m)m" }
+        static func countdownHoursMinutesSeconds(_ h: Int, _ m: Int, _ s: Int) -> String   { "\(h)h \(m)m \(s)s" }
+        static func countdownMinutesSeconds(_ m: Int, _ s: Int) -> String                  { "\(m)m \(s)s" }
+        static func countdownSeconds(_ s: Int) -> String  { "\(s)s" }
+        static func dateRange(start: String, end: String) -> String { "\(start) → \(end)" }
+        static func countdownWithBullet(_ time: String) -> String   { "· \(time)" }
     }
     enum Settings {
         static let appName: LocalizedStringKey      = "No Spoilers"

@@ -20,6 +20,7 @@ The goal is simple:
 | Mist Grey | `#D9D2CF` | Borders, dividers, subtle structure |
 | Blush | `#F6D7D4` | Secondary tint backgrounds and soft emphasis |
 | Success Green | `#2E9B63` | Finished or safe state only, not general branding |
+| Upcoming Blue | `#3D7FCC` | Upcoming/future session state only |
 
 ## Usage rules
 

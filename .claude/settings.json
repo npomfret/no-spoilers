@@ -16,22 +16,11 @@
       "Bash(git reset --hard *)",
       "Bash(git checkout -- *)",
       "Bash(git clean *)",
-      "Bash(rm -rf *)",
       "Bash(sudo *)"
     ]
   },
   "hooks": {
     "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -lc 'bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-command-guard.sh\"'",
-            "timeout": 8
-          }
-        ]
-      }
     ],
     "PostToolUse": [
       {

@@ -28,6 +28,16 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
 - Call out intentional platform differences explicitly.
 - Do not silently mix architectural styles within the same feature area.
 
+## Strings and localisation
+
+- Every user-visible string must live in the target's `Strings.swift`, not inline in view or model code.
+- Static strings use `LocalizedStringKey` (for `Text`/`Button` in SwiftUI) or `LocalizedStringResource` (for AppIntents protocol requirements).
+- Dynamic strings (countdowns, "Round N", plurals) are format functions on the relevant `Strings` enum. Never interpolate a user-visible string directly in view or model code.
+- Shared strings that cross target boundaries belong in `NoSpoilersCore/Sources/NoSpoilersCore/Strings.swift` under the appropriate `public enum` namespace.
+- Target-private strings belong in the target's own `Strings.swift` (`NoSpoilers/`, `NoSpoilersMac/`, `NoSpoilersWidget/`).
+- Hardcoding a user-visible string outside `Strings.swift` is a correctness violation, not a style issue.
+- Infrastructure strings (API query parameters, storage keys, window IDs, log subsystems, plist keys, enum raw values) are not user-visible and do not belong in `Strings.swift`.
+
 ## Naming
 
 - Name types and modules after their real scope today, not a speculative future abstraction.

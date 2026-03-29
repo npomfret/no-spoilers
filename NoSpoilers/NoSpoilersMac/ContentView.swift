@@ -31,15 +31,21 @@ struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
     @ObservedObject var updateChecker: UpdateChecker
     @State private var now: Date = Date()
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         let now = self.now
-        let current = RaceWeekendResolver.currentWeekend(in: store.weekends, at: now, confirmedEndDates: store.confirmedEndDates)
+        let displayWeekend: RaceWeekend? = {
+            if let previous = recentlyFinishedWeekend(at: now),
+               now.timeIntervalSince(endTime(of: previous)) < 24 * 3600 {
+                return previous
+            }
+            return RaceWeekendResolver.firstActiveWeekend(in: store.weekends, at: now, confirmedEndDates: store.confirmedEndDates)
+        }()
 
         VStack(spacing: 0) {
             Group {
-                if let weekend = current {
+                if let weekend = displayWeekend {
                     weekendView(weekend, now: now)
                 } else {
                     noDataView
@@ -51,7 +57,7 @@ struct WeekendPopoverView: View {
             }
             Divider()
             VStack(spacing: 0) {
-                Button { openWindow(id: "settings") } label: {
+                Button { openSettings() } label: {
                     Label(Strings.Popover.settings, systemImage: "gear")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
@@ -69,16 +75,24 @@ struct WeekendPopoverView: View {
             .padding(.horizontal, 4)
             .padding(.vertical, 4)
         }
-        .background(
-            LinearGradient(
-                colors: [BrandPalette.ivory, BrandPalette.blush.opacity(0.45), Color.white],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
+        .background(NoSpoilersBackground())
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
             self.now = tick
         }
+    }
+
+    private func recentlyFinishedWeekend(at now: Date) -> RaceWeekend? {
+        store.weekends
+            .sorted { $0.round < $1.round }
+            .last {
+                !$0.allSessions.isEmpty &&
+                RaceWeekendResolver.firstNonFinishedSession(in: $0, at: now, confirmedEndDates: store.confirmedEndDates) == nil
+            }
+    }
+
+    private func endTime(of weekend: RaceWeekend) -> Date {
+        guard let last = weekend.allSessions.last else { return .distantPast }
+        return store.confirmedEndDates[last.id] ?? (last.endsAt + last.kind.gracePeriod)
     }
 
     private func weekendView(_ weekend: RaceWeekend, now: Date) -> some View {
@@ -98,8 +112,10 @@ struct WeekendPopoverView: View {
         VStack(alignment: .leading, spacing: 6) {
             // Row 1: logo · GP name (centered) · flag
             HStack(alignment: .center, spacing: 10) {
-                F1Logo()
-                    .fill(f1Red)
+                Image("f1logo", bundle: noSpoilersCoreBundle)
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(f1Red)
                     .frame(width: 48, height: 12)
                 Spacer()
                 Text(weekend.grandPrixName)
@@ -107,19 +123,11 @@ struct WeekendPopoverView: View {
                     .fontWeight(.semibold)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Text(weekend.countryFlag)
-                    .font(.system(size: 26))
+                FlagImage(countryCode: weekend.countryCode, height: 20)
             }
             // Row 2: round pill · location · date range
             HStack(alignment: .center, spacing: 6) {
-                Text("R\(weekend.round)")
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(f1Red)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(BrandPalette.blush.opacity(0.7))
-                    .clipShape(Capsule())
+                NoSpoilersRoundPill(Strings.Popover.roundLabel(weekend.round))
                 Text(weekend.location)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -128,7 +136,7 @@ struct WeekendPopoverView: View {
                     let fmt = Date.FormatStyle().day().month(.abbreviated)
                     let start = first.startsAt.formatted(fmt)
                     let end   = last.startsAt.formatted(fmt)
-                    Text(start == end ? start : "\(start) → \(end)")
+                    Text(start == end ? start : Strings.Popover.dateRange(start: start, end: end))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -155,7 +163,7 @@ struct WeekendPopoverView: View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? f1Red : BrandPalette.mistGrey)
+                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? f1Red : BrandPalette.upcomingBlue)
                 .frame(width: 3, height: 28)
             Text(session.kind.displayName)
                 .font(.system(size: 13, weight: .medium))
@@ -179,76 +187,66 @@ struct WeekendPopoverView: View {
             let secs = Int(now.timeIntervalSince(session.endsAt))
             let h = secs / 3600
             let m = (secs % 3600) / 60
-            Text("Finished \(h > 0 ? "\(h)h" : "\(m)m") ago")
-                .font(.caption)
-                .foregroundStyle(BrandPalette.successGreen)
+            NoSpoilersStatusBadge(
+                text: Strings.Popover.finishedAgo(h > 0 ? Strings.Popover.durationHours(h) : Strings.Popover.durationMinutes(m)),
+                style: .finished
+            )
         case .inProgress:
-            Text(Strings.Popover.inProgress)
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(f1Red)
-                .clipShape(Capsule())
+            NoSpoilersStatusBadge(textKey: Strings.Popover.inProgress, style: .live, compact: true)
         case .upcoming:
-            Text(countdown(to: session.startsAt, from: now))
-                .font(.caption)
-                .foregroundStyle(BrandPalette.secondaryText)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(BrandPalette.blush.opacity(0.55))
-                .clipShape(Capsule())
+            NoSpoilersStatusBadge(text: countdown(to: session.startsAt, from: now), style: .upcoming, compact: true)
         }
     }
 
     private func countdown(to date: Date, from now: Date) -> String {
         let secs = Int(date.timeIntervalSince(now))
-        guard secs > 0 else { return "0s" }
+        guard secs > 0 else { return Strings.Popover.countdownZero }
         let d = secs / 86_400
         let h = (secs % 86_400) / 3600
         let m = (secs % 3600) / 60
         let s = secs % 60
-        if d >= 1 { return "\(d)d \(h)h \(m)m" }
-        if h >= 1 { return "\(h)h \(m)m \(s)s" }
-        if m >= 1 { return "\(m)m \(s)s" }
-        return "\(s)s"
+        if d >= 1 { return Strings.Popover.countdownDaysHoursMinutes(d, h, m) }
+        if h >= 1 { return Strings.Popover.countdownHoursMinutesSeconds(h, m, s) }
+        if m >= 1 { return Strings.Popover.countdownMinutesSeconds(m, s) }
+        return Strings.Popover.countdownSeconds(s)
     }
 
     private func nextRoundFooter(_ weekend: RaceWeekend, now: Date) -> some View {
         let raceDate = weekend.sessions[.race] ?? weekend.sessions[.sprint]
         let firstSession = weekend.allSessions.first
-        return HStack(spacing: 8) {
-            Text(weekend.countryFlag).font(.body)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(weekend.grandPrixName)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 4) {
-                    if let date = raceDate {
-                        Text(date.formatted(.dateTime.day().month(.abbreviated)))
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                    if let session = firstSession {
-                        Text("· \(countdown(to: session.startsAt, from: now))")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
-            Spacer()
-            Text("R\(weekend.round)")
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(Strings.Popover.comingUp)
                 .font(.caption2)
                 .fontWeight(.semibold)
-                .foregroundStyle(f1Red)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(BrandPalette.blush.opacity(0.7))
-                .clipShape(Capsule())
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            HStack(spacing: 8) {
+                FlagImage(countryCode: weekend.countryCode, height: 17)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(weekend.grandPrixName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        if let date = raceDate {
+                            Text(date.formatted(.dateTime.day().month(.abbreviated)))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        if let session = firstSession {
+                            Text(Strings.Popover.countdownWithBullet(countdown(to: session.startsAt, from: now)))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+                Spacer()
+                NoSpoilersRoundPill(Strings.Popover.roundLabel(weekend.round))
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 
     private var updateBanner: some View {
@@ -271,17 +269,13 @@ struct WeekendPopoverView: View {
     }
 
     private var noDataView: some View {
-        VStack(spacing: 10) {
-            Text("🏁")
-                .font(.system(size: 36))
-            Text(Strings.Popover.offSeason)
-                .font(.headline)
-            Text(Strings.Popover.noSessions)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(24)
+        NoSpoilersMessageCard(
+            iconName: "flag.checkered.2.crossed",
+            title: Text(Strings.Popover.offSeason),
+            bodyText: Text(Strings.Popover.noSessions),
+            density: .compact
+        )
+        .padding(16)
     }
 }
 
