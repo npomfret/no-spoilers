@@ -258,8 +258,13 @@
         <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Tap</a>
       </span>
       <span class="install-note" style="margin-top:4px">Then open <strong>NoSpoilersMac.app</strong> from your Applications folder to start it.</span>
+      <span class="install-label" style="margin-top:8px">Update</span>
+      <div class="install-cmd">
+        <code id="update-cmd">brew upgrade --cask npomfret/tap/no-spoilers</code>
+        <button class="copy-btn" onclick="copyUpdate(this)" aria-label="Copy update command">copy</button>
+      </div>
       <span class="install-label" style="margin-top:8px">Uninstall</span>
-      <div class="install-cmd" style="background:rgba(31,26,26,0.55)">
+      <div class="install-cmd">
         <code id="uninstall-cmd">brew uninstall --cask npomfret/tap/no-spoilers</code>
         <button class="copy-btn" onclick="copyUninstall(this)" aria-label="Copy uninstall command">copy</button>
       </div>
@@ -328,6 +333,15 @@
   </footer>
 
   <script>
+    function copyUpdate(btn) {
+      const text = document.getElementById('update-cmd').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+      });
+    }
+
     function copyUninstall(btn) {
       const text = document.getElementById('uninstall-cmd').textContent;
       navigator.clipboard.writeText(text).then(() => {
