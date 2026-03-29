@@ -7,7 +7,19 @@ final class UpdateChecker: ObservableObject {
     @Published private(set) var latestVersion: String = ""
     @Published private(set) var currentVersion: String = ""
 
+    /// True when the app was installed from the Mac App Store.
+    /// App Store builds carry a receipt file; Homebrew / Developer ID builds do not.
+    static var isAppStoreBuild: Bool {
+        // App Store builds contain a receipt at this fixed path inside the bundle.
+        // Avoids the deprecated appStoreReceiptURL API.
+        let receipt = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/_MASReceipt/receipt")
+        return FileManager.default.fileExists(atPath: receipt.path)
+    }
+
     func check() async {
+        // App Store handles updates; the brew-upgrade banner is irrelevant there.
+        guard !Self.isAppStoreBuild else { return }
         guard let url = URL(string: "https://api.github.com/repos/npomfret/no-spoilers/releases/latest") else { return }
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
         guard let release = try? JSONDecoder().decode(GitHubRelease.self, from: data) else { return }
