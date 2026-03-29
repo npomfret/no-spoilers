@@ -1,4 +1,5 @@
 import Foundation
+import WidgetKit
 
 @MainActor
 public class ScheduleStore: ObservableObject {
@@ -82,7 +83,9 @@ public class ScheduleStore: ObservableObject {
         do {
             let weekends = try await ScheduleFetcher().fetch()
             try? cache.save(weekends, for: appGroupID)
+            let changed = weekends.map(\.round) != self.weekends.map(\.round)
             self.weekends = weekends
+            if changed { WidgetCenter.shared.reloadAllTimelines() }
         } catch {
             if self.weekends.isEmpty, let cached = try? cache.load(for: appGroupID) {
                 self.weekends = cached

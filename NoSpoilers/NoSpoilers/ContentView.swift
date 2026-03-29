@@ -1,6 +1,5 @@
 import Combine
 import SwiftUI
-import WidgetKit
 import NoSpoilersCore
 
 struct ContentView: View {
@@ -283,7 +282,6 @@ struct ContentView: View {
 
     private func refresh() async {
         await store.refresh()
-        WidgetCenter.shared.reloadAllTimelines()
     }
 }
 

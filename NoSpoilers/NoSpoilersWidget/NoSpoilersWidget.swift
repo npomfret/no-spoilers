@@ -1,17 +1,12 @@
 import WidgetKit
 import SwiftUI
+import OSLog
 import NoSpoilersCore
+
+private let log = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersWidget", category: "data")
 
 private let widgetRed = BrandPalette.signalRed
 
-private enum WidgetLayout {
-    static let outerPadding: CGFloat = 16
-    static let sectionSpacing: CGFloat = 12
-    static let cardSpacing: CGFloat = 10
-    static let cardHorizontalPadding: CGFloat = 10
-    static let cardVerticalPadding: CGFloat = 10
-    static let cardCornerRadius: CGFloat = 14
-}
 
 // MARK: - Entry
 
@@ -37,6 +32,7 @@ struct UpcomingWeekendViewModel {
     let round: Int
     let countryCode: String
     let name: String
+    let location: String
     let startsAt: Date
 }
 
@@ -77,12 +73,71 @@ private struct WidgetDataSnapshot {
     let confirmedEndDates: [String: Date]
 }
 
-private func loadWidgetData() -> WidgetDataSnapshot {
-    let weekends = (try? ScheduleCache().load(for: NoSpoilersConfig.appGroupID)) ?? []
+private struct WidgetFeedResponse: Codable {
+    let races: [RaceWeekend]
+}
+
+/// Reads weekends from the shared cache; if the cache is empty or inaccessible, fetches
+/// from the network synchronously and writes back to cache so the next reload is fast.
+private func resolveWidgetData() -> WidgetDataSnapshot {
+    let cache = ScheduleCache()
+    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
+
+    let cacheResult = Result { try cache.load(for: NoSpoilersConfig.appGroupID) }
+    switch cacheResult {
+    case .success(let weekends) where !weekends.isEmpty:
+        log.error("cache hit: \(weekends.count) weekends")
+        return WidgetDataSnapshot(
+            weekends: weekends,
+            allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
+            confirmedEndDates: confirmedEndDates
+        )
+    case .success:
+        log.error("cache empty — falling back to network fetch")
+    case .failure(let error):
+        log.error("cache load failed: \(error) — falling back to network fetch")
+    }
+
+    // Cache miss or App Group unavailable — fetch directly so the widget does not need the app to run first.
+    let feedURL = URL(string: "https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json")!
+    var weekends: [RaceWeekend] = []
+    var fetchStatus: Int?
+    var fetchError: Error?
+    let semaphore = DispatchSemaphore(value: 0)
+    // Use ephemeral config — Apple recommends against URLSession.shared in extension contexts.
+    let session = URLSession(configuration: .ephemeral)
+    session.dataTask(with: feedURL) { bytes, response, error in
+        fetchStatus = (response as? HTTPURLResponse)?.statusCode
+        fetchError = error
+        if let bytes, fetchStatus == 200 {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            weekends = (try? decoder.decode(WidgetFeedResponse.self, from: bytes))?.races.sorted { $0.round < $1.round } ?? []
+        }
+        semaphore.signal()
+    }.resume()
+    let waitResult = semaphore.wait(timeout: .now() + 8)
+
+    if waitResult == .timedOut {
+        log.error("network fetch timed out after 8s")
+    } else if let error = fetchError {
+        log.error("network fetch error: \(error)")
+    } else {
+        log.error("network fetch: HTTP \(fetchStatus ?? -1), decoded \(weekends.count) weekends")
+    }
+
+    // Persist back to cache so the next timeline request skips the fetch.
+    do {
+        try cache.save(weekends, for: NoSpoilersConfig.appGroupID)
+        log.error("wrote \(weekends.count) weekends back to cache")
+    } catch {
+        log.error("cache save failed: \(error)")
+    }
+
     return WidgetDataSnapshot(
         weekends: weekends,
         allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
-        confirmedEndDates: SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
+        confirmedEndDates: confirmedEndDates
     )
 }
 
@@ -114,6 +169,7 @@ private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
             round: 17,
             countryCode: "QA",
             name: "Qatar Grand Prix",
+            location: "Lusail",
             startsAt: now.addingTimeInterval(7 * 86_400)
         ),
         isOffSeason: false
@@ -143,7 +199,7 @@ private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntr
             let upcoming = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates)
             let nextWeekend = upcoming.flatMap { w -> UpcomingWeekendViewModel? in
                 guard let first = w.allSessions.first else { return nil }
-                return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, startsAt: first.startsAt)
+                return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, location: w.location, startsAt: first.startsAt)
             }
             return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, nextWeekend: nextWeekend, isOffSeason: false)
         }
@@ -164,7 +220,7 @@ private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntr
     }
     let nextWeekend = RaceWeekendResolver.nextWeekend(after: upcoming, in: weekends).flatMap { w -> UpcomingWeekendViewModel? in
         guard let first = w.allSessions.first else { return nil }
-        return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, startsAt: first.startsAt)
+        return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, location: w.location, startsAt: first.startsAt)
     }
     return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, nextWeekend: nextWeekend, isOffSeason: false)
 }
@@ -221,36 +277,35 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
             completion(placeholderEntry(at: now))
             return
         }
-
-        let data = loadWidgetData()
-        completion(makeEntry(at: now, data: data))
+        completion(makeEntry(at: now, data: resolveWidgetData()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NoSpoilersEntry>) -> Void) {
         let now = Date()
-        let data = loadWidgetData()
+        let data = resolveWidgetData()
         let entries = timelineBoundaryDates(after: now, data: data).map { makeEntry(at: $0, data: data) }
-        completion(Timeline(entries: entries, policy: .atEnd))
+        let policy: TimelineReloadPolicy = entries.isEmpty ? .after(now.addingTimeInterval(900)) : .atEnd
+        completion(Timeline(entries: entries, policy: policy))
     }
 }
 
-// MARK: - Views
+// MARK: - Entry View
 
 struct NoSpoilersWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     var entry: NoSpoilersEntry
 
     var body: some View {
-        if entry.weekend != nil {
+        if let weekend = entry.weekend {
             switch family {
             case .systemSmall:
-                smallView
-            case .systemMedium:
-                mediumView
+                smallView(weekend)
             case .systemLarge:
-                largeView
+                largeView(weekend)
+            case .systemExtraLarge:
+                extraLargeView(weekend)
             default:
-                mediumView
+                mediumView(weekend)
             }
         } else if entry.isOffSeason {
             offSeasonView
@@ -259,152 +314,195 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
+    // MARK: - Family views
+
+    /// systemSmall — one glanceable answer: GP name + primary session only.
     @ViewBuilder
-    private var offSeasonView: some View {
-        NoSpoilersCard(density: .widget) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .center, spacing: 8) {
-                    NoSpoilersRoundPill(Strings.OffSeason.badge)
-                    Spacer()
-                    Image(systemName: "flag.checkered.2.crossed")
-                        .foregroundStyle(widgetRed)
-                }
-                Text(Strings.OffSeason.body)
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
+    private func smallView(_ weekend: RaceWeekend) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            widgetHeader(weekend, compact: true)
+            Divider()
+            if let primary = primarySession() {
+                widgetSessionRow(primary, compact: true)
             }
+            Spacer(minLength: 0)
         }
-        .padding(WidgetLayout.outerPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// systemMedium — header + up to 2 sessions + optional next-weekend footer.
     @ViewBuilder
-    private var smallView: some View {
-        let primary = primarySession()
-        NoSpoilersCard(density: .widget) {
-            VStack(alignment: .leading, spacing: 12) {
-                if let weekend = entry.weekend {
-                    widgetHeader(weekend, wordmarkSize: .small, flagHeight: 16, titleFont: .caption.weight(.bold))
-                } else {
-                    NoSpoilersWordmark(size: .small)
-                }
-
-                Divider()
-
-                if let primary {
-                    widgetSessionRow(primary, compact: true)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .padding(WidgetLayout.outerPadding)
-    }
-
-    @ViewBuilder
-    private var mediumView: some View {
+    private func mediumView(_ weekend: RaceWeekend) -> some View {
         let sessions = prioritizedSessions(limit: 2)
-        NoSpoilersCard(density: .widget) {
-            VStack(alignment: .leading, spacing: 12) {
-                if let weekend = entry.weekend {
-                    widgetHeader(weekend, wordmarkSize: .small, flagHeight: 17, titleFont: .caption.weight(.bold))
-                }
-
-                VStack(spacing: 8) {
-                    ForEach(sessions) { session in
-                        widgetSessionRow(session, compact: true)
-                    }
-                }
-
-                if let upcoming = entry.nextWeekend {
-                    Divider()
-                    widgetComingUp(upcoming, compact: true)
+        VStack(alignment: .leading, spacing: 6) {
+            widgetHeader(weekend, compact: true)
+            VStack(spacing: 4) {
+                ForEach(sessions) { session in
+                    widgetSessionRow(session, compact: true)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Spacer(minLength: 0)
+            if let upcoming = entry.nextWeekend {
+                Divider()
+                widgetComingUp(upcoming, compact: true)
+            }
         }
-        .padding(WidgetLayout.outerPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// systemLarge — expanded header, full session list, next-weekend footer.
     @ViewBuilder
-    private var largeView: some View {
+    private func largeView(_ weekend: RaceWeekend) -> some View {
         let visibleSessions = Array(entry.sessions.prefix(5))
         let hiddenCount = max(0, entry.sessions.count - visibleSessions.count)
-
-        NoSpoilersCard(density: .widget) {
-            VStack(alignment: .leading, spacing: 12) {
-                if let weekend = entry.weekend {
-                    widgetHeader(weekend, wordmarkSize: .medium, flagHeight: 20, titleFont: .headline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            widgetHeader(weekend, compact: false)
+            Divider()
+            VStack(spacing: 4) {
+                ForEach(visibleSessions) { session in
+                    widgetSessionRow(session, compact: false)
                 }
-
-                VStack(spacing: 8) {
-                    ForEach(visibleSessions) { session in
-                        widgetSessionRow(session, compact: false)
-                    }
-                }
-
                 if hiddenCount > 0 {
                     Text(Strings.Widget.moreSessions(hiddenCount))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(BrandPalette.secondaryText)
-                }
-
-                if let upcoming = entry.nextWeekend {
-                    Divider()
-                    widgetComingUp(upcoming, compact: false)
+                        .padding(.horizontal, 8)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Spacer(minLength: 0)
+            if let upcoming = entry.nextWeekend {
+                Divider()
+                widgetComingUp(upcoming, compact: false)
+            }
         }
-        .padding(WidgetLayout.outerPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// systemExtraLarge — two-zone: left = full current weekend, right = next weekend.
+    @ViewBuilder
+    private func extraLargeView(_ weekend: RaceWeekend) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                widgetHeader(weekend, compact: false)
+                Divider()
+                VStack(spacing: 4) {
+                    ForEach(entry.sessions) { session in
+                        widgetSessionRow(session, compact: false)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity)
+
+            Divider()
+
+            if let upcoming = entry.nextWeekend {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(Strings.Widget.comingUp)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(widgetRed)
+                        .textCase(.uppercase)
+                    FlagImage(countryCode: upcoming.countryCode, height: 24)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(upcoming.name)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BrandPalette.smoke)
+                            .lineLimit(2)
+                        HStack(spacing: 4) {
+                            NoSpoilersRoundPill(Strings.Sessions.roundLabel(upcoming.round))
+                            Text(upcoming.location)
+                                .font(.caption2)
+                                .foregroundStyle(BrandPalette.secondaryText)
+                                .lineLimit(1)
+                        }
+                        Text(upcoming.startsAt, style: .relative)
+                            .font(.caption)
+                            .foregroundStyle(BrandPalette.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(width: 140)
+            } else {
+                Spacer().frame(width: 140)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var offSeasonView: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                NoSpoilersRoundPill(Strings.OffSeason.badge)
+                Spacer()
+                Image(systemName: "flag.checkered.2.crossed")
+                    .foregroundStyle(widgetRed)
+            }
+            Text(Strings.OffSeason.body)
+                .font(.caption2)
+                .foregroundStyle(BrandPalette.secondaryText)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @ViewBuilder
     private var noDataView: some View {
-        NoSpoilersMessageCard(
-            title: Text(Strings.Error.unavailableTitle),
-            bodyText: Text(Strings.Error.unavailableBody),
-            density: .widget
-        )
+        VStack(alignment: .center, spacing: 8) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.title2)
+                .foregroundStyle(BrandPalette.tertiaryText)
+            Text(Strings.Error.unavailableTitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(BrandPalette.smoke)
+            Text(Strings.Error.unavailableBody)
+                .font(.caption2)
+                .foregroundStyle(BrandPalette.secondaryText)
+                .multilineTextAlignment(.center)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(WidgetLayout.outerPadding)
     }
 
-    private func widgetHeader(
-        _ weekend: RaceWeekend,
-        wordmarkSize: NoSpoilersWordmarkSize,
-        flagHeight: CGFloat,
-        titleFont: Font
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
-                NoSpoilersWordmark(size: wordmarkSize)
-                Spacer()
-                FlagImage(countryCode: weekend.countryCode, height: flagHeight)
-            }
+    // MARK: - Shared view helpers
 
-            Text(weekend.grandPrixName)
-                .font(titleFont)
-                .foregroundStyle(BrandPalette.smoke)
-                .lineLimit(1)
-
+    /// Header used by all families.
+    /// compact (small/medium): flag + GP name + round pill in a single row.
+    /// expanded (large/XL): flag + GP name + round/location/dates stacked.
+    @ViewBuilder
+    private func widgetHeader(_ weekend: RaceWeekend, compact: Bool) -> some View {
+        if compact {
             HStack(alignment: .center, spacing: 6) {
-                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
-                Text(weekend.location)
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                FlagImage(countryCode: weekend.countryCode, height: 14)
+                Text(weekend.grandPrixName)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(BrandPalette.smoke)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                Text(sessionDateRange(for: weekend))
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.tertiaryText)
-                    .lineLimit(1)
+                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+            }
+        } else {
+            HStack(alignment: .center, spacing: 10) {
+                FlagImage(countryCode: weekend.countryCode, height: 20)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(weekend.grandPrixName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BrandPalette.smoke)
+                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                        Text(weekend.location)
+                            .font(.caption2)
+                            .foregroundStyle(BrandPalette.secondaryText)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text(sessionDateRange(for: weekend))
+                            .font(.caption2)
+                            .foregroundStyle(BrandPalette.tertiaryText)
+                            .lineLimit(1)
+                    }
+                }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BrandPalette.blush.opacity(0.42))
-        )
     }
 
     private func widgetSessionRow(_ session: SessionViewModel, compact: Bool) -> some View {
@@ -429,7 +527,7 @@ struct NoSpoilersWidgetEntryView: View {
             stateLabel(session.state, compact: compact)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.white.opacity(0.65))
@@ -442,7 +540,7 @@ struct NoSpoilersWidgetEntryView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(Strings.Widget.comingUp)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(compact ? BrandPalette.tertiaryText : BrandPalette.signalRed)
+                    .foregroundStyle(compact ? BrandPalette.tertiaryText : widgetRed)
                     .textCase(.uppercase)
                 Text(weekend.name)
                     .font(.caption.weight(.semibold))
@@ -503,11 +601,7 @@ struct NoSpoilersWidgetEntryView: View {
     private func shouldShowSecondaryName(for session: SessionViewModel) -> Bool {
         let shortName = normalizedSessionLabel(session.shortName)
         let fullName = normalizedSessionLabel(session.name)
-
-        guard !shortName.isEmpty, !fullName.isEmpty else {
-            return false
-        }
-
+        guard !shortName.isEmpty, !fullName.isEmpty else { return false }
         return !fullName.contains(shortName) && !shortName.contains(fullName)
     }
 
@@ -530,7 +624,7 @@ struct NoSpoilersWidgetEntryView: View {
             NoSpoilersStatusBadge(textKey: Strings.Sessions.inProgress, style: .live, compact: compact)
         case .upcoming(let startsAt):
             NoSpoilersStatusBadge(text: Text(startsAt, style: .relative), style: .upcoming, compact: compact)
-}
+        }
     }
 }
 
@@ -548,6 +642,33 @@ struct NoSpoilersWidget: Widget {
         }
         .configurationDisplayName(Strings.Widget.displayName)
         .description(Strings.Widget.widgetDescription)
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+    }
+}
+
+// MARK: - Previews
+
+struct NoSpoilersWidget_Previews: PreviewProvider {
+    static var previews: some View {
+        Group {
+            NoSpoilersWidgetEntryView(entry: placeholderEntry())
+                .previewContext(WidgetPreviewContext(family: .systemSmall))
+                .previewDisplayName("Small")
+
+            NoSpoilersWidgetEntryView(entry: placeholderEntry())
+                .previewContext(WidgetPreviewContext(family: .systemMedium))
+                .previewDisplayName("Medium")
+
+            NoSpoilersWidgetEntryView(entry: placeholderEntry())
+                .previewContext(WidgetPreviewContext(family: .systemLarge))
+                .previewDisplayName("Large")
+
+            NoSpoilersWidgetEntryView(entry: placeholderEntry())
+                .previewContext(WidgetPreviewContext(family: .systemExtraLarge))
+                .previewDisplayName("Extra Large")
+        }
+        .containerBackground(for: .widget) {
+            NoSpoilersBackground()
+        }
     }
 }

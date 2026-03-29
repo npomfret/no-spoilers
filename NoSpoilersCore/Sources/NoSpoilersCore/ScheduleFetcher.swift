@@ -1,9 +1,11 @@
 import Foundation
 
-actor ScheduleFetcher {
+public actor ScheduleFetcher {
     private static let feedURL = URL(string: "https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json")!
 
-    func fetch() async throws -> [RaceWeekend] {
+    public init() {}
+
+    public func fetch() async throws -> [RaceWeekend] {
         let (data, _) = try await URLSession.shared.data(from: Self.feedURL)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
