@@ -42,15 +42,6 @@
       text-align: center;
     }
 
-    .hero-icon {
-      width: 120px;
-      height: 120px;
-      border-radius: 26px;
-      margin-bottom: 28px;
-      box-shadow: 0 20px 48px rgba(122, 12, 15, 0.22);
-      border: 2px solid rgba(255, 255, 255, 0.75);
-    }
-
     .hero h1 {
       font-size: 2.6rem;
       font-weight: 700;
@@ -250,7 +241,6 @@
 <body>
 
   <section class="hero">
-    <img class="hero-icon" src="icon.png" alt="No Spoilers icon">
     <h1>No Spoilers</h1>
     <p>The F1 race weekend schedule for your Mac — with a hard guarantee that results never appear.</p>
 
@@ -267,6 +257,11 @@
         &nbsp;·&nbsp;
         <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Tap</a>
       </span>
+      <span class="install-label" style="margin-top:8px">Uninstall</span>
+      <div class="install-cmd" style="background:rgba(31,26,26,0.55)">
+        <code id="uninstall-cmd">brew uninstall --cask npomfret/tap/no-spoilers</code>
+        <button class="copy-btn" onclick="copyUninstall(this)" aria-label="Copy uninstall command">copy</button>
+      </div>
     </div>
   </section>
 
@@ -332,6 +327,18 @@
   </footer>
 
   <script>
+    function copyUninstall(btn) {
+      const text = document.getElementById('uninstall-cmd').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
     function copyCmd(btn) {
       const text = document.getElementById('brew-cmd').textContent;
       navigator.clipboard.writeText(text).then(() => {
