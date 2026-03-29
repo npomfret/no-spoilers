@@ -91,13 +91,27 @@ private struct MenuBarLabelView: View {
 
 // MARK: - App delegate
 
-private final class AppDelegate: NSObject, NSApplicationDelegate {
+private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private let store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
     private let updateChecker = UpdateChecker()
     private var labelHostingView: NSHostingView<MenuBarLabelView>!
     private var cancellables = Set<AnyCancellable>()
+    private var localClickMonitor: Any?
+    private var globalClickMonitor: Any?
+    private var resignActiveObserver: NSObjectProtocol?
+
+    private func makePopoverContentController() -> NSHostingController<MenuBarPopoverRootView> {
+        let popoverView = MenuBarPopoverRootView(
+            store: store,
+            updateChecker: updateChecker,
+            dismissPopover: { [weak self] in
+                self?.popover.performClose(nil)
+            }
+        )
+        return NSHostingController(rootView: popoverView)
+    }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Accessory policy: pure menu bar app — no Dock icon, no "quit on last window close".
@@ -144,12 +158,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.length = paddedInitial.width
 
         // Create popover
-        let popoverView = WeekendPopoverView(store: store, updateChecker: updateChecker)
-            .frame(width: 300)
-        let hostingController = NSHostingController(rootView: popoverView)
         popover = NSPopover()
-        popover.contentViewController = hostingController
-        popover.behavior = .transient
+        popover.contentViewController = makePopoverContentController()
+        popover.behavior = .applicationDefined
+        popover.delegate = self
 
         // Initial data load
         Task {
@@ -168,16 +180,97 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func togglePopover(_ sender: Any?) {
         guard let button = statusItem.button else { return }
         if popover.isShown {
-            popover.performClose(sender)
+            closePopover()
         } else {
             flagLog.info("AppDelegate: showing popover")
+            popover.contentViewController = makePopoverContentController()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            startDismissMonitoring()
             // Refresh data when popover opens
             Task {
                 await store.refresh()
                 await updateChecker.check()
             }
         }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        stopDismissMonitoring()
+    }
+
+    private func closePopover() {
+        guard popover.isShown else { return }
+        popover.close()
+    }
+
+    private func startDismissMonitoring() {
+        stopDismissMonitoring()
+
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+            self?.dismissIfNeeded(for: event)
+            return event
+        }
+
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
+            self?.dismissIfNeeded(for: event)
+        }
+
+        resignActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
+            self?.closePopover()
+        }
+    }
+
+    private func stopDismissMonitoring() {
+        if let localClickMonitor {
+            NSEvent.removeMonitor(localClickMonitor)
+            self.localClickMonitor = nil
+        }
+        if let globalClickMonitor {
+            NSEvent.removeMonitor(globalClickMonitor)
+            self.globalClickMonitor = nil
+        }
+        if let resignActiveObserver {
+            NotificationCenter.default.removeObserver(resignActiveObserver)
+            self.resignActiveObserver = nil
+        }
+    }
+
+    private func dismissIfNeeded(for event: NSEvent) {
+        guard popover.isShown else { return }
+
+        let screenPoint = screenPoint(for: event)
+        if isInsidePopover(screenPoint) || isInsideStatusItemButton(screenPoint) {
+            return
+        }
+
+        closePopover()
+    }
+
+    private func screenPoint(for event: NSEvent) -> NSPoint {
+        if let window = event.window {
+            return window.convertPoint(toScreen: event.locationInWindow)
+        }
+        return NSEvent.mouseLocation
+    }
+
+    private func isInsidePopover(_ screenPoint: NSPoint) -> Bool {
+        guard let popoverWindow = popover.contentViewController?.view.window else { return false }
+        return popoverWindow.frame.contains(screenPoint)
+    }
+
+    private func isInsideStatusItemButton(_ screenPoint: NSPoint) -> Bool {
+        guard
+            let button = statusItem.button,
+            let buttonWindow = button.window
+        else { return false }
+
+        let pointInWindow = buttonWindow.convertPoint(fromScreen: screenPoint)
+        let pointInButton = button.convert(pointInWindow, from: nil)
+        return button.bounds.contains(pointInButton)
     }
 }
 
@@ -189,7 +282,10 @@ struct NoSpoilersMacApp: App {
 
     var body: some Scene {
         Settings {
-            SettingsView()
+            EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) { }
         }
     }
 }

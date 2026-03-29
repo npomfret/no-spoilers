@@ -30,8 +30,8 @@ private struct MenuRowButtonStyle: ButtonStyle {
 struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
     @ObservedObject var updateChecker: UpdateChecker
+    let openSettings: () -> Void
     @State private var now: Date = Date()
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         let now = self.now
@@ -279,11 +279,39 @@ struct WeekendPopoverView: View {
     }
 }
 
+struct MenuBarPopoverRootView: View {
+    private enum Screen {
+        case weekend
+        case settings
+    }
+
+    @ObservedObject var store: ScheduleStore
+    @ObservedObject var updateChecker: UpdateChecker
+    let dismissPopover: () -> Void
+    @State private var screen: Screen = .weekend
+
+    var body: some View {
+        Group {
+            switch screen {
+            case .weekend:
+                WeekendPopoverView(
+                    store: store,
+                    updateChecker: updateChecker,
+                    openSettings: { screen = .settings }
+                )
+            case .settings:
+                SettingsView(onDone: dismissPopover)
+            }
+        }
+        .frame(width: 300)
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
     @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
     @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
-    @Environment(\.dismiss) private var dismiss
+    let onDone: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -327,14 +355,14 @@ struct SettingsView: View {
             // ── Footer ────────────────────────────────────────────
             HStack {
                 Spacer()
-                Button(Strings.Settings.done) { dismiss() }
+                Button(Strings.Settings.done) { onDone() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.small)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .frame(width: 280)
+        .background(NoSpoilersBackground())
     }
 
     private func settingRow<C: View>(_ label: LocalizedStringKey, @ViewBuilder control: () -> C) -> some View {
