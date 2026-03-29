@@ -96,6 +96,7 @@ xcodebuild archive \
   -scheme "${SCHEME}" \
   -destination "generic/platform=macOS" \
   -archivePath "${ARCHIVE_PATH}" \
+  -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM=6FZN56WC8G \
   MARKETING_VERSION="${VERSION}"
@@ -111,7 +112,8 @@ if [[ "$CHANNEL" == "developer-id" ]]; then
   xcodebuild -exportArchive \
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-DeveloperID.plist" \
-    -exportPath "${EXPORT_PATH}"
+    -exportPath "${EXPORT_PATH}" \
+    -allowProvisioningUpdates
 
   echo "==> Zipping..."
   ditto -c -k --sequesterRsrc --keepParent \
@@ -180,7 +182,8 @@ elif [[ "$CHANNEL" == "app-store" ]]; then
   xcodebuild -exportArchive \
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-AppStore.plist" \
-    -exportPath "${EXPORT_PATH}"
+    -exportPath "${EXPORT_PATH}" \
+    -allowProvisioningUpdates
 
   echo ""
   echo "  Package: ${PKG_PATH}"
@@ -202,9 +205,17 @@ elif [[ "$CHANNEL" == "app-store" ]]; then
       --apiIssuer "${API_ISSUER}" \
       --private-key "${API_KEY}"
 
+    echo "==> Tagging v${VERSION}..."
+    git tag "v${VERSION}"
+    git push origin "v${VERSION}"
+
     echo ""
     echo "Done! v${VERSION} uploaded. Submit for review in App Store Connect."
   else
+    echo "==> Tagging v${VERSION}..."
+    git tag "v${VERSION}"
+    git push origin "v${VERSION}"
+
     echo ""
     echo "No API key provided. Upload the package manually:"
     echo "  xcrun altool --upload-app -f '${PKG_PATH}' --type macos \\"
