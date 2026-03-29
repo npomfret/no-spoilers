@@ -12,7 +12,7 @@ enum Strings {
     enum Popover {
         static let inProgress: LocalizedStringKey   = "In Progress"
         static let updateAvailable: LocalizedStringKey = "Update available"
-        static let brewUpgrade: LocalizedStringKey  = "brew upgrade no-spoilers"
+        static let brewUpgrade: LocalizedStringKey  = "brew update && brew upgrade --cask npomfret/tap/no-spoilers"
         static let offSeason: LocalizedStringKey    = "Off season"
         static let noSessions: LocalizedStringKey   = "No upcoming sessions found"
         static let website: LocalizedStringKey      = "Website"
