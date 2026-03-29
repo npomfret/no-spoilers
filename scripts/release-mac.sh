@@ -80,8 +80,12 @@ sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PBXPR
 
 echo "==> Committing and pushing version bump..."
 git add "${PBXPROJ}"
-git commit -m "bump to v${VERSION}"
-git push
+if ! git diff --cached --quiet; then
+  git commit -m "bump to v${VERSION}"
+  git push
+else
+  echo "  (version already at ${VERSION}, skipping commit)"
+fi
 
 # ── Shared: clean → archive ──────────────────────────────────────────────────
 
@@ -189,21 +193,27 @@ elif [[ "$CHANNEL" == "app-store" ]]; then
   echo "  Package: ${PKG_PATH}"
 
   if [[ -n "$API_KEY" ]]; then
+    # altool resolves the key by filename from fixed locations; ensure it's there.
+    ALTOOL_KEYS_DIR="${HOME}/.appstoreconnect/private_keys"
+    ALTOOL_KEY_DEST="${ALTOOL_KEYS_DIR}/AuthKey_${API_KEY_ID}.p8"
+    if [[ ! -f "${ALTOOL_KEY_DEST}" ]]; then
+      mkdir -p "${ALTOOL_KEYS_DIR}"
+      cp "${API_KEY}" "${ALTOOL_KEY_DEST}"
+    fi
+
     echo "==> Validating package..."
     xcrun altool --validate-app \
       -f "${PKG_PATH}" \
       --type macos \
       --apiKey "${API_KEY_ID}" \
-      --apiIssuer "${API_ISSUER}" \
-      --private-key "${API_KEY}"
+      --apiIssuer "${API_ISSUER}"
 
     echo "==> Uploading to App Store Connect..."
     xcrun altool --upload-app \
       -f "${PKG_PATH}" \
       --type macos \
       --apiKey "${API_KEY_ID}" \
-      --apiIssuer "${API_ISSUER}" \
-      --private-key "${API_KEY}"
+      --apiIssuer "${API_ISSUER}"
 
     echo "==> Tagging v${VERSION}..."
     git tag "v${VERSION}"
