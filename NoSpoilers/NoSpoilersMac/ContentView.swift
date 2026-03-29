@@ -308,8 +308,8 @@ struct MenuBarPopoverRootView: View {
 }
 
 struct SettingsView: View {
-    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = true
-    @AppStorage("menuBar.showSession")   private var showSession:   Bool = true
+    @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = false
+    @AppStorage("menuBar.showSession")   private var showSession:   Bool = false
     @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
     let onDone: () -> Void
 
