@@ -123,7 +123,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             // GeometryReader fires during layout; resizing the NSHostingView here
             // causes a recursive layout cycle.
             DispatchQueue.main.async {
-                let padded = CGSize(width: size.width + 8, height: size.height)
+                let padded = CGSize(width: size.width + 8, height: 22)
                 self.labelHostingView.frame = NSRect(origin: .zero, size: padded)
                 self.statusItem.button?.frame = NSRect(origin: .zero, size: padded)
                 self.statusItem.length = padded.width

@@ -4,6 +4,7 @@ import WidgetKit
 @MainActor
 public class ScheduleStore: ObservableObject {
     @Published public var weekends: [RaceWeekend] = []
+    @Published public private(set) var isRefreshing = false
 
     private let appGroupID: String?
     private let cache = ScheduleCache()
@@ -80,6 +81,8 @@ public class ScheduleStore: ObservableObject {
     /// Fetch → save to cache → update published state.
     /// On failure: use cache (even stale). On cache miss: blank state.
     public func refresh() async {
+        isRefreshing = true
+        defer { isRefreshing = false }
         do {
             let weekends = try await ScheduleFetcher().fetch()
             try? cache.save(weekends, for: appGroupID)

@@ -316,18 +316,69 @@ struct NoSpoilersWidgetEntryView: View {
 
     // MARK: - Family views
 
-    /// systemSmall — one glanceable answer: GP name + primary session only.
+    /// systemSmall — one glanceable answer: GP name as the hero, one session anchored at the bottom.
     @ViewBuilder
     private func smallView(_ weekend: RaceWeekend) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            widgetHeader(weekend, compact: true)
-            Divider()
+        VStack(alignment: .leading, spacing: 0) {
+            // Top row: flag + round pill
+            HStack(alignment: .center, spacing: 6) {
+                FlagImage(countryCode: weekend.countryCode, height: 16)
+                Spacer(minLength: 0)
+                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+            }
+
+            Spacer(minLength: 8)
+
+            // Hero: GP name fills available vertical space
+            Text(weekend.grandPrixName)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(BrandPalette.smoke)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 8)
+
+            // Bottom: flat session row, no nested card
             if let primary = primarySession() {
-                widgetSessionRow(primary, compact: true)
+                smallSessionRow(primary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Flat two-line session row for systemSmall — name above, time below, no nested card.
+    private func smallSessionRow(_ session: SessionViewModel) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(accentColor(for: session.state))
+                .frame(width: 3, height: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.shortName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BrandPalette.smoke)
+                    .lineLimit(1)
+                smallSessionTime(session.state)
             }
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private func smallSessionTime(_ state: SessionState) -> some View {
+        switch state {
+        case .finished(let endedAt):
+            Text(endedAt, style: .relative)
+                .font(.caption2)
+                .foregroundStyle(BrandPalette.secondaryText)
+        case .live:
+            Text(Strings.Sessions.inProgress)
+                .font(.caption2)
+                .foregroundStyle(widgetRed)
+        case .upcoming(let startsAt):
+            Text(startsAt, style: .relative)
+                .font(.caption2)
+                .foregroundStyle(BrandPalette.secondaryText)
+        }
     }
 
     /// systemMedium — header + up to 2 sessions + optional next-weekend footer.
@@ -534,24 +585,40 @@ struct NoSpoilersWidgetEntryView: View {
         )
     }
 
+    @ViewBuilder
     private func widgetComingUp(_ weekend: UpcomingWeekendViewModel, compact: Bool) -> some View {
-        HStack(spacing: 8) {
-            FlagImage(countryCode: weekend.countryCode, height: compact ? 16 : 18)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Strings.Widget.comingUp)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(compact ? BrandPalette.tertiaryText : widgetRed)
-                    .textCase(.uppercase)
+        if compact {
+            HStack(spacing: 6) {
+                FlagImage(countryCode: weekend.countryCode, height: 12)
                 Text(weekend.name)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(BrandPalette.smoke)
                     .lineLimit(1)
+                Spacer(minLength: 0)
                 Text(weekend.startsAt, style: .relative)
                     .font(.caption2)
                     .foregroundStyle(BrandPalette.secondaryText)
+                    .lineLimit(1)
             }
-            Spacer()
-            NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+        } else {
+            HStack(spacing: 8) {
+                FlagImage(countryCode: weekend.countryCode, height: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Strings.Widget.comingUp)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(widgetRed)
+                        .textCase(.uppercase)
+                    Text(weekend.name)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BrandPalette.smoke)
+                        .lineLimit(1)
+                    Text(weekend.startsAt, style: .relative)
+                        .font(.caption2)
+                        .foregroundStyle(BrandPalette.secondaryText)
+                }
+                Spacer()
+                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+            }
         }
     }
 
@@ -580,7 +647,7 @@ struct NoSpoilersWidgetEntryView: View {
         entry.sessions.first {
             if case .finished = $0.state { return false }
             return true
-        } ?? entry.sessions.first
+        } ?? entry.sessions.last  // all finished: show most recent (Race), not oldest (FP1)
     }
 
     private func prioritizedSessions(limit: Int) -> [SessionViewModel] {
@@ -591,11 +658,12 @@ struct NoSpoilersWidgetEntryView: View {
         if active.count >= limit {
             return Array(active.prefix(limit))
         }
-        let finished = entry.sessions.filter {
+        // Pad with most recently finished first (reverse chronological), not oldest first
+        let recentFinished = entry.sessions.filter {
             if case .finished = $0.state { return true }
             return false
-        }
-        return Array((active + finished).prefix(limit))
+        }.reversed()
+        return Array((active + recentFinished).prefix(limit))
     }
 
     private func shouldShowSecondaryName(for session: SessionViewModel) -> Bool {
@@ -615,11 +683,15 @@ struct NoSpoilersWidgetEntryView: View {
     private func stateLabel(_ state: SessionState, compact: Bool) -> some View {
         switch state {
         case .finished(let endedAt):
-            NoSpoilersStatusBadge(
-                text: Text(Strings.Sessions.finished) + Text(verbatim: " · ") + Text(endedAt, style: .relative),
-                style: .finished,
-                compact: compact
-            )
+            if compact {
+                NoSpoilersStatusBadge(textKey: Strings.Sessions.finished, style: .finished, compact: true)
+            } else {
+                NoSpoilersStatusBadge(
+                    text: Text(Strings.Sessions.finished) + Text(verbatim: " · ") + Text(endedAt, style: .relative),
+                    style: .finished,
+                    compact: false
+                )
+            }
         case .live:
             NoSpoilersStatusBadge(textKey: Strings.Sessions.inProgress, style: .live, compact: compact)
         case .upcoming(let startsAt):
@@ -642,7 +714,7 @@ struct NoSpoilersWidget: Widget {
         }
         .configurationDisplayName(Strings.Widget.displayName)
         .description(Strings.Widget.widgetDescription)
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 

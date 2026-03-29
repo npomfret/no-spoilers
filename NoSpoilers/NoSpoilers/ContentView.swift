@@ -16,6 +16,8 @@ struct ContentView: View {
                     weekendView(previous)
                 } else if let upcoming = RaceWeekendResolver.firstActiveWeekend(in: store.weekends, at: now) {
                     weekendView(upcoming)
+                } else if store.isRefreshing {
+                    skeletonView
                 } else {
                     unavailableView
                 }
@@ -183,6 +185,61 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private var skeletonView: some View {
+        VStack(spacing: 16) {
+            NoSpoilersCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        NoSpoilersWordmark(size: .large)
+                        Spacer()
+                    }
+                    HStack {
+                        Spacer(minLength: 0)
+                        Text("Loading Grand Prix")
+                            .font(.title2.weight(.bold))
+                        Spacer(minLength: 0)
+                    }
+                    HStack(spacing: 8) {
+                        NoSpoilersRoundPill("R0")
+                        Text("Location")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("1 Jan – 3 Jan")
+                            .font(.caption)
+                    }
+                    Text("Next session in —")
+                        .font(.subheadline)
+                }
+            }
+            NoSpoilersCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Sessions")
+                        .font(.headline)
+                    ForEach(0..<5, id: \.self) { _ in
+                        HStack(spacing: 10) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .frame(width: 3, height: 32)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Free Practice 1")
+                                    .font(.body.weight(.semibold))
+                                Text("Sat 00:00")
+                                    .font(.caption)
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.white.opacity(0.65))
+                        )
+                    }
+                }
+            }
+        }
+        .redacted(reason: .placeholder)
     }
 
     private var unavailableView: some View {
