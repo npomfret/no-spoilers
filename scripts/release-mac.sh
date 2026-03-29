@@ -15,7 +15,12 @@ if [[ $# -eq 0 ]]; then
   LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
   if [[ -n "$LATEST" ]]; then
     IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
-    SUGGESTED="${MAJOR}.${MINOR}.$((PATCH + 1))"
+    PATCH=$((PATCH + 1))
+    SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
+    while git tag | grep -qx "v${SUGGESTED}"; do
+      PATCH=$((PATCH + 1))
+      SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
+    done
   else
     SUGGESTED="1.0.0"
   fi
