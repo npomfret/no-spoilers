@@ -16,6 +16,7 @@ enum Strings {
         static let offSeason: LocalizedStringKey    = "Off season"
         static let noSessions: LocalizedStringKey   = "No upcoming sessions found"
         static let website: LocalizedStringKey      = "Website"
+        static let about: LocalizedStringKey        = "About"
         static let settings: LocalizedStringKey     = "Settings"
         static let quit: LocalizedStringKey         = "Quit"
         static let comingUp: LocalizedStringKey     = "Coming up..."
@@ -40,5 +41,12 @@ enum Strings {
         static let showSession: LocalizedStringKey  = "Session"
         static let showCountdown: LocalizedStringKey = "Countdown"
         static let done: LocalizedStringKey         = "Done"
+    }
+    enum About {
+        static let acknowledgements: LocalizedStringKey = "Acknowledgements"
+        static let scheduleData: LocalizedStringKey     = "Schedule data"
+        static let flagIcons: LocalizedStringKey        = "Flag icons"
+        static let mitLicense: LocalizedStringKey       = "MIT licence"
+        static let done: LocalizedStringKey             = "Done"
     }
 }
