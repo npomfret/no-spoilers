@@ -33,6 +33,7 @@ struct WeekendPopoverView: View {
     let openSettings: () -> Void
     let openAbout: () -> Void
     @State private var now: Date = Date()
+    @State private var brewCopied = false
 
     var body: some View {
         let now = self.now
@@ -280,10 +281,19 @@ struct WeekendPopoverView: View {
                 }
             }
             Spacer()
-            Text(Strings.Popover.brewUpgrade)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(Strings.Popover.brewUpgradeCommand, forType: .string)
+                brewCopied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { brewCopied = false }
+            } label: {
+                Text(brewCopied ? Strings.Popover.copied : Strings.Popover.copyCommand)
+                    .font(.caption2)
+                    .foregroundStyle(brewCopied ? .green : .secondary)
+                    .animation(.easeInOut(duration: 0.15), value: brewCopied)
+            }
+            .buttonStyle(.plain)
+            .help(Strings.Popover.brewUpgradeCommand)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
