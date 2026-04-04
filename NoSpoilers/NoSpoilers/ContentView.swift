@@ -6,27 +6,43 @@ struct ContentView: View {
     @EnvironmentObject private var store: ScheduleStore
     @Environment(\.scenePhase) private var scenePhase
     @State private var now = Date()
+    @State private var selectedWeekendIndex: Int = 0
+    @State private var weekendsLoaded = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                appHeader
-                if let previous = recentlyFinishedWeekend,
-                   now.timeIntervalSince(endTime(of: previous)) < 24 * 3600 {
-                    weekendView(previous)
-                } else if let upcoming = RaceWeekendResolver.firstActiveWeekend(in: store.weekends, at: now) {
-                    weekendView(upcoming)
-                } else if store.isRefreshing {
-                    skeletonView
-                } else {
-                    unavailableView
+        VStack(spacing: 0) {
+            if store.isRefreshing && !weekendsLoaded {
+                ScrollView {
+                    skeletonView.padding(16)
                 }
+                .refreshable { await refresh() }
+            } else if sortedWeekends.isEmpty {
+                ScrollView {
+                    unavailableView.padding(16)
+                }
+                .refreshable { await refresh() }
+            } else {
+                TabView(selection: $selectedWeekendIndex) {
+                    ForEach(sortedWeekends.indices, id: \.self) { index in
+                        ScrollView {
+                            weekendView(sortedWeekends[index]).padding(16)
+                        }
+                        .refreshable { await refresh() }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .animation(.easeInOut, value: selectedWeekendIndex)
             }
-            .padding(16)
         }
-        .refreshable { await refresh() }
         .background(backgroundGradient)
         .task { await refresh() }
+        .onChange(of: store.weekends) { _, _ in
+            if !weekendsLoaded && !sortedWeekends.isEmpty {
+                selectedWeekendIndex = initialWeekendIndex()
+                weekendsLoaded = true
+            }
+        }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
             now = tick
         }
@@ -42,28 +58,19 @@ struct ContentView: View {
     private var backgroundGradient: some View {
         NoSpoilersBackground()
             .ignoresSafeArea()
+            .opacity(isCurrentWeekendFinished ? 0.5 : 1)
     }
 
-    private var appHeader: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(Strings.App.name)
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundStyle(BrandPalette.smoke)
+    private var sortedWeekends: [RaceWeekend] {
+        store.weekends.sorted { $0.round < $1.round }
+    }
 
-            Spacer()
-
-            Image("AppLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color.white.opacity(0.8), lineWidth: 1)
-                )
-                .shadow(color: BrandPalette.deepMaroon.opacity(0.12), radius: 10, x: 0, y: 6)
+    private var isCurrentWeekendFinished: Bool {
+        guard !sortedWeekends.isEmpty && selectedWeekendIndex < sortedWeekends.count else {
+            return false
         }
+        let weekend = sortedWeekends[selectedWeekendIndex]
+        return RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: store.confirmedEndDates) == nil
     }
 
     private func weekendView(_ weekend: RaceWeekend) -> some View {
@@ -139,10 +146,10 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.kind.displayName)
                                 .font(.body.weight(.semibold))
-                                .foregroundStyle(status == .finished ? BrandPalette.successGreen : BrandPalette.smoke)
+                                .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.smoke)
                             Text(session.startsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
                                 .font(.caption)
-                                .foregroundStyle(BrandPalette.secondaryText)
+                                .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.secondaryText)
                         }
 
                         Spacer()
@@ -153,7 +160,7 @@ struct ContentView: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.white.opacity(0.65))
+                            .fill(status == .finished ? BrandPalette.finishedGrey.opacity(0.15) : Color.white.opacity(0.65))
                     )
                 }
             }
@@ -329,16 +336,35 @@ struct ContentView: View {
     private func statusColor(_ status: SessionStatus) -> Color {
         switch status {
         case .finished:
-            return BrandPalette.successGreen
+            return BrandPalette.finishedGrey
         case .inProgress:
             return BrandPalette.signalRed
         case .upcoming:
-            return BrandPalette.upcomingBlue
+            return BrandPalette.upcomingAmber
         }
     }
 
     private func refresh() async {
         await store.refresh()
+    }
+
+    private func initialWeekendIndex() -> Int {
+        let weekends = sortedWeekends
+        // 1. Weekend with a current/in-progress session takes priority
+        for (index, weekend) in weekends.enumerated() {
+            for session in weekend.allSessions {
+                if SessionResolver.status(for: session, at: now, nextSession: nil) == .inProgress {
+                    return index
+                }
+            }
+        }
+        // 2. First active weekend (has upcoming sessions)
+        if let active = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now),
+           let i = weekends.firstIndex(where: { $0.round == active.round }) {
+            return i
+        }
+        // 3. Fallback to last weekend
+        return max(0, weekends.count - 1)
     }
 }
 

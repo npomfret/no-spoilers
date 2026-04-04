@@ -208,7 +208,7 @@ public struct NoSpoilersStatusBadge: View {
         case .finished:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.medium))
-                .foregroundStyle(BrandPalette.successGreen)
+                .foregroundStyle(BrandPalette.finishedGrey)
         case .live:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.bold))
@@ -220,10 +220,10 @@ public struct NoSpoilersStatusBadge: View {
         case .upcoming:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.medium))
-                .foregroundStyle(BrandPalette.upcomingBlue)
+                .foregroundStyle(BrandPalette.upcomingAmber)
                 .padding(.horizontal, compact ? 8 : 10)
                 .padding(.vertical, compact ? 4 : 6)
-                .background(BrandPalette.upcomingBlue.opacity(0.12))
+                .background(BrandPalette.upcomingAmber.opacity(0.12))
                 .clipShape(Capsule())
         }
     }
