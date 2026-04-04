@@ -12,7 +12,7 @@ set -euo pipefail
 #     (omit flags to use keychain profile "no-spoilers-notarytool")
 #
 #   app-store     Signed pkg → App Store Connect upload
-#     --api-key /path/to.p8 --api-key-id KEY_ID --api-issuer ISSUER_ID
+#     --api-key /path/to.p8 --api-key-id KEY_ID --api-issuer ISSUER_IDfor the old "grey"
 #     (omit flags to print manual upload instructions)
 #
 #   both          Runs developer-id then app-store from the same archive

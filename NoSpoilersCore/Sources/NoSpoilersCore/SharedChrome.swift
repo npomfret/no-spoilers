@@ -160,22 +160,25 @@ public struct NoSpoilersWordmark: View {
 
 public struct NoSpoilersRoundPill: View {
     private let text: Text
+    private let isFinished: Bool
 
-    public init(_ text: String) {
+    public init(_ text: String, isFinished: Bool = false) {
         self.text = Text(verbatim: text)
+        self.isFinished = isFinished
     }
 
-    public init(_ key: LocalizedStringKey) {
+    public init(_ key: LocalizedStringKey, isFinished: Bool = false) {
         self.text = Text(key)
+        self.isFinished = isFinished
     }
 
     public var body: some View {
         text
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(BrandPalette.signalRed)
+            .foregroundStyle(isFinished ? BrandPalette.finishedGrey : BrandPalette.signalRed)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(BrandPalette.blush.opacity(0.7))
+            .background(isFinished ? BrandPalette.finishedGrey.opacity(0.12) : BrandPalette.blush.opacity(0.7))
             .clipShape(Capsule())
     }
 }
