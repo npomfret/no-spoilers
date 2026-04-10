@@ -1,11 +1,27 @@
 import Foundation
+import SwiftUI
 
 // MARK: - Strings
-// User-facing text produced by NoSpoilersCore (e.g. menu bar label strings).
+// User-facing text produced by NoSpoilersCore (e.g. menu bar label strings, shared About screen).
 // Centralised here for future localisation.
 // Swap format functions to String(localized:) with interpolation when a Localizable.strings file is added.
 
 public enum Strings {
+    public enum AppInfo {
+        public static let name: LocalizedStringKey = "No Spoilers"
+    }
+
+    public enum About {
+        public static let acknowledgements: LocalizedStringKey   = "Acknowledgements"
+        public static let scheduleData: LocalizedStringKey       = "Schedule data"
+        public static let sessionData: LocalizedStringKey        = "Session data"
+        public static let flagIcons: LocalizedStringKey          = "Flag icons"
+        public static let branding: LocalizedStringKey           = "F1 logo"
+        public static let trademarks: LocalizedStringKey         = "Trademarks"
+        public static let trademarkDisclaimer: LocalizedStringKey = "Formula 1, F1, and related marks are trademarks of Formula One Licensing BV. This app is not affiliated with, endorsed by, or sponsored by Formula One Licensing BV, Liberty Media, or the FIA."
+        public static let done: LocalizedStringKey               = "Done"
+    }
+
     public enum MenuBar {
         public static let live: String                                                          = "now"
         public static func liveWithSession(_ session: String) -> String                        { "\(session) — now" }

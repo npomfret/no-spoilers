@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var selectedWeekendIndex: Int = 0
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
+    @State private var showAbout = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,6 +38,22 @@ struct ContentView: View {
             }
         }
         .background(backgroundGradient)
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showAbout = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(.title3)
+                    .foregroundStyle(BrandPalette.secondaryText)
+                    .padding(12)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NoSpoilersCore.Strings.About.acknowledgements)
+        }
+        .sheet(isPresented: $showAbout) {
+            AboutView(onDone: { showAbout = false })
+        }
         .onAppear {
             if !weekendsLoaded && !sortedWeekends.isEmpty {
                 selectedWeekendIndex = initialWeekendIndex()

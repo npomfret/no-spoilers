@@ -343,90 +343,6 @@ struct MenuBarPopoverRootView: View {
     }
 }
 
-struct AboutView: View {
-    let onDone: () -> Void
-
-    private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // ── Header ──────────────────────────────────────────
-            VStack(spacing: 8) {
-                Image("nospoilers-icon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 56, height: 56)
-                Text(Strings.Settings.appName)
-                    .font(.title3).fontWeight(.bold)
-                Text("v\(version)")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(BrandPalette.blush.opacity(0.5))
-
-            Divider()
-
-            // ── Acknowledgements ──────────────────────────────
-            VStack(alignment: .leading, spacing: 0) {
-                Text(Strings.About.acknowledgements)
-                    .textCase(.uppercase)
-                    .font(.caption2).fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 4)
-
-                acknowledgementsRow(
-                    title: Strings.About.scheduleData,
-                    detail: "sportstimes/f1",
-                    url: URL(string: "https://github.com/sportstimes/f1")!
-                )
-                Divider().padding(.leading, 16)
-                acknowledgementsRow(
-                    title: Strings.About.flagIcons,
-                    detail: "flag-icons by Lipis",
-                    url: URL(string: "https://github.com/lipis/flag-icons")!
-                )
-            }
-
-            Divider()
-
-            // ── Footer ────────────────────────────────────────────
-            HStack {
-                Spacer()
-                Button(Strings.About.done) { onDone() }
-                    .keyboardShortcut(.defaultAction)
-                    .controlSize(.small)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-        }
-        .background(NoSpoilersBackground())
-    }
-
-    private func acknowledgementsRow(title: LocalizedStringKey, detail: String, url: URL) -> some View {
-        HStack {
-            Text(title).font(.body)
-            Spacer()
-            Button {
-                NSWorkspace.shared.open(url)
-            } label: {
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .underline()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-    }
-}
-
 struct SettingsView: View {
     @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = false
     @AppStorage("menuBar.showSession")   private var showSession:   Bool = false
@@ -437,7 +353,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // ── Header ──────────────────────────────────────────
             VStack(spacing: 8) {
-                Image("nospoilers-icon")
+                Image("nospoilers-icon", bundle: noSpoilersCoreBundle)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 56, height: 56)

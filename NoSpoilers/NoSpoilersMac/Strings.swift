@@ -44,11 +44,4 @@ enum Strings {
         static let showCountdown: LocalizedStringKey = "Countdown"
         static let done: LocalizedStringKey         = "Done"
     }
-    enum About {
-        static let acknowledgements: LocalizedStringKey = "Acknowledgements"
-        static let scheduleData: LocalizedStringKey     = "Schedule data"
-        static let flagIcons: LocalizedStringKey        = "Flag icons"
-        static let mitLicense: LocalizedStringKey       = "MIT licence"
-        static let done: LocalizedStringKey             = "Done"
-    }
 }
