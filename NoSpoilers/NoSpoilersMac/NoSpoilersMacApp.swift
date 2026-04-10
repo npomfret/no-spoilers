@@ -1,10 +1,7 @@
 import SwiftUI
 import Combine
 import AppKit
-import OSLog
 import NoSpoilersCore
-
-private let flagLog = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersMac", category: "flag")
 
 // MARK: - Menu bar image helpers
 
@@ -58,7 +55,6 @@ private struct MenuBarLabelView: View {
             Image(nsImage: f1MenuBarLogo)
                 .interpolation(.none)
             if showFlagItem {
-                let _ = flagLog.info("MenuBarLabelView: rendering FlagImage for '\(flagCode)'")
                 separatorDot
                 FlagImage(countryCode: flagCode, height: 14)
             }
@@ -124,15 +120,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        flagLog.info("AppDelegate: applicationDidFinishLaunching")
-
         // Create NSStatusItem with variable width
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         // Create label view — FlagImage renders live here (real NSHostingView context)
         let labelView = MenuBarLabelView(store: store, updateChecker: updateChecker) { [weak self] size in
             guard let self else { return }
-            flagLog.info("MenuBarLabelView: size changed \(size.width)x\(size.height)")
             // Defer frame update to avoid layoutSubtreeIfNeeded recursion —
             // GeometryReader fires during layout; resizing the NSHostingView here
             // causes a recursive layout cycle.
@@ -147,7 +140,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         let initialSize = labelHostingView.fittingSize
         let paddedInitial = CGSize(width: initialSize.width + 8, height: 22)
         labelHostingView.frame = NSRect(origin: .zero, size: paddedInitial)
-        flagLog.info("AppDelegate: initial label size \(initialSize.width)x\(initialSize.height)")
 
         if let button = statusItem.button {
             button.addSubview(labelHostingView)
@@ -182,7 +174,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         if popover.isShown {
             closePopover()
         } else {
-            flagLog.info("AppDelegate: showing popover")
             popover.contentViewController = makePopoverContentController()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             startDismissMonitoring()
