@@ -91,6 +91,13 @@ public struct AboutView: View {
             .padding(.vertical, 10)
         }
         .background(NoSpoilersBackground())
+        // NoSpoilersBackground is a hardcoded light gradient. Force the
+        // subtree to resolve system text colours (`.primary`/`.secondary`/
+        // `.tertiary`) via the light palette so contents stay readable
+        // regardless of the host app's current colour scheme — important
+        // when presented from the iOS sheet in a dark-mode device. Matches
+        // the macOS popover-root behaviour in NoSpoilersMac/ContentView.
+        .preferredColorScheme(.light)
     }
 
     private func sectionHeader(_ text: LocalizedStringKey) -> some View {
