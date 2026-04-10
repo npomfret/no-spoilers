@@ -70,7 +70,7 @@ fi
 # ── Paths ────────────────────────────────────────────────────────────────────
 
 PBXPROJ="NoSpoilers/NoSpoilers.xcodeproj/project.pbxproj"
-SCHEME="NoSpoilersMac"
+SCHEME="NoSpoilers"
 PROJECT="NoSpoilers/NoSpoilers.xcodeproj"
 ARCHIVE_PATH="/tmp/NoSpoilersMac-${VERSION}.xcarchive"
 EXPORT_PATH_DEVID="/tmp/NoSpoilersMac-devid-export-${VERSION}"

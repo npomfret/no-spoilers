@@ -14,7 +14,7 @@ Install on your own iPhone and Mac and use it through a real race weekend. This 
 # iOS — connect iPhone, select as run destination in Xcode
 # Build NoSpoilersApp scheme — widget installs alongside
 
-# macOS — run NoSpoilersMac scheme
+# macOS — run NoSpoilers scheme
 # Or: Archive → Export → Distribute App → Copy App
 ```
 
