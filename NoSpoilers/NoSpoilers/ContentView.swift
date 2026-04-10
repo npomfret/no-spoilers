@@ -13,6 +13,23 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button {
+                    showAbout = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.title3)
+                        .foregroundStyle(BrandPalette.secondaryText)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NoSpoilersCore.Strings.About.acknowledgements)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+
             if store.isRefreshing && !weekendsLoaded {
                 ScrollView {
                     skeletonView.padding(16)
@@ -38,19 +55,6 @@ struct ContentView: View {
             }
         }
         .background(backgroundGradient)
-        .overlay(alignment: .topTrailing) {
-            Button {
-                showAbout = true
-            } label: {
-                Image(systemName: "info.circle")
-                    .font(.title3)
-                    .foregroundStyle(BrandPalette.secondaryText)
-                    .padding(12)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(NoSpoilersCore.Strings.About.acknowledgements)
-        }
         .sheet(isPresented: $showAbout) {
             AboutView(onDone: { showAbout = false })
         }
