@@ -16,7 +16,7 @@ enum Strings {
     }
     enum Widget {
         static let weekendCard: LocalizedStringKey        = "Weekend"
-        static let comingUp: LocalizedStringKey           = "Coming up"
+        static let comingUp: LocalizedStringKey           = "Next up"
         static let displayName: LocalizedStringKey        = "No Spoilers"
         static let widgetDescription: LocalizedStringKey  = "F1 race weekend sessions — no results."
         static func moreSessions(_ count: Int) -> String  { "+\(count) more session\(count == 1 ? "" : "s")" }

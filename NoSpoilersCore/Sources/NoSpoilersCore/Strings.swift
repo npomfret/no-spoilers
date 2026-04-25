@@ -22,6 +22,28 @@ public enum Strings {
         public static let done: LocalizedStringKey               = "Done"
     }
 
+    public enum Schedule {
+        /// Formats a session start in the user's locale and time zone, e.g.
+        /// "Fri, 12 Jun, 20:00" (en_GB) or "Fri, Jun 12, 8:00 PM" (en_US).
+        /// Defaults to `Locale.current` / `TimeZone.current` so a session stored as a
+        /// UTC instant renders in the device's local wall-clock time.
+        public static func sessionDateTime(
+            _ date: Date,
+            locale: Locale = .current,
+            timeZone: TimeZone = .current
+        ) -> String {
+            var style = Date.FormatStyle()
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+                .hour()
+                .minute()
+            style.locale = locale
+            style.timeZone = timeZone
+            return date.formatted(style)
+        }
+    }
+
     public enum MenuBar {
         public static let live: String                                                          = "now"
         public static func liveWithSession(_ session: String) -> String                        { "\(session) — now" }

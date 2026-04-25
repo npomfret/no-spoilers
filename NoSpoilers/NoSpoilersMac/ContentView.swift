@@ -181,10 +181,15 @@ struct WeekendPopoverView: View {
             RoundedRectangle(cornerRadius: 2)
                 .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? f1Red : BrandPalette.upcomingBlue)
                 .frame(width: 3, height: 28)
-            Text(session.kind.displayName)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(status == .finished ? BrandPalette.successGreen : .primary)
-                .frame(minWidth: 100, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.kind.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(status == .finished ? BrandPalette.successGreen : .primary)
+                Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
+                    .font(.system(size: 11))
+                    .foregroundStyle(status == .finished ? BrandPalette.successGreen.opacity(0.75) : .secondary)
+            }
+            .frame(minWidth: 100, alignment: .leading)
             Spacer()
             statusBadge(status: status, session: session, at: now)
         }

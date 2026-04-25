@@ -14,7 +14,7 @@ enum Strings {
     }
     enum Sessions {
         static let header: LocalizedStringKey             = "Sessions"
-        static let comingUp: LocalizedStringKey           = "Coming up..."
+        static let comingUp: LocalizedStringKey           = "Next up"
         static let weekendComplete: LocalizedStringKey    = "Weekend complete"
         static let inProgress: LocalizedStringKey         = "In Progress"
         static func weekendCompleteStatus() -> String     { "Weekend complete" }

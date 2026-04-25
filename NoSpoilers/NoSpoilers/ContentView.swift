@@ -186,7 +186,7 @@ struct ContentView: View {
                             Text(session.kind.displayName)
                                 .font(.body.weight(.semibold))
                                 .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.smoke)
-                            Text(session.startsAt.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+                            Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
                                 .font(.caption)
                                 .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.secondaryText)
                         }

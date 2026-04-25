@@ -21,7 +21,7 @@ enum Strings {
         static let about: LocalizedStringKey        = "About"
         static let settings: LocalizedStringKey     = "Settings"
         static let quit: LocalizedStringKey         = "Quit"
-        static let comingUp: LocalizedStringKey     = "Coming up..."
+        static let comingUp: LocalizedStringKey     = "Next up"
         static func roundLabel(_ round: Int) -> String    { "R\(round)" }
         static func durationHours(_ h: Int) -> String        { "\(h)h" }
         static func durationMinutes(_ m: Int) -> String      { "\(m)m" }
