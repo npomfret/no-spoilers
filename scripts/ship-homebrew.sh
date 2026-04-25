@@ -10,6 +10,6 @@ set -euo pipefail
 #   scripts/ship-homebrew.sh 1.2.0    # explicit version
 
 exec "$(dirname "$0")/release.sh" \
+  "$@" \
   --platform macos \
-  --channel developer-id \
-  "$@"
+  --channel developer-id
