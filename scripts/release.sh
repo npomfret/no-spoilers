@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Apple-bundled tools must win PATH lookup over any Homebrew overrides.
+# Xcode's IPA distribution pipeline shells out to a "server-side" rsync via
+# PATH; if Homebrew has installed rsync 3.x, it's picked up and doesn't
+# recognise Apple's -E (extended-attributes) flag, breaking
+# IDEDistributionCreateIPAStep with "Copy failed".
+export PATH="/usr/bin:/bin:${PATH}"
+
 # Single-platform/single-channel release engine.
 #
 # Usage:
