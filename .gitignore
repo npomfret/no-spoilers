@@ -3,6 +3,7 @@
 /research
 .DS_store
 .gstack/
+.claude/settings.local.json
 .build/
 
 # Xcode user data

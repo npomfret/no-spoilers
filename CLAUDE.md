@@ -42,6 +42,8 @@ Missing data that should never be missing is a programming error, not a runtime 
 ## Hard constraints
 
 - Do not invent commands, scripts, paths, targets, schemes, bundle identifiers, Info.plist keys, entitlement names, environment variables, or defaults. Read the repo first.
+- For non-trivial feature work, audit the relevant code paths first, identify the approved pattern, refactor the area into a clean host for the change when needed, then implement.
+- Never introduce a new dependency, abstraction family, file layout, naming convention, or implementation pattern without explicit approval when no repo standard already exists.
 - Prefer the established local pattern for the same outcome. If no approved pattern exists yet, stop and propose the new pattern before implementing it broadly.
 - Heavy refactoring is preferred over leaving duplicate or inconsistent implementations in place.
 - Encapsulate behavior behind shared boundaries when the same concern appears more than once.
@@ -54,6 +56,8 @@ Missing data that should never be missing is a programming error, not a runtime 
 ## Routing
 
 - Load `pattern-governance-reference` for substantial work, refactors, or any task where multiple implementations are possible.
+- Use `feature-workflow` for non-trivial features, bug fixes, behavior changes, and refactors.
+- Use `claude-setup-maintenance` when changing `CLAUDE.md`, `.claude/`, Claude-facing guides, hooks, commands, or verification wrappers.
 - Use `implement-apple-change` for Swift, SwiftUI, UIKit, AppKit, project-structure, or Apple-platform refactors and implementation work.
 - Use `build-verify` for compile, type, build, or toolchain confidence.
 - Use `test-changes` for behavior-risk verification after a fix or behavior change.

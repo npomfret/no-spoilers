@@ -14,13 +14,14 @@ Implement or refactor Apple-platform code while preserving architecture and conv
 
 1. Read the relevant files plus `.claude/rules/apple-platforms.md`.
 2. Read `docs/guides/swift-patterns.md` when the task is substantial.
-3. Load `pattern-governance-reference` and identify the nearest approved local pattern before editing.
-4. If the concern already exists in multiple places, prefer convergence: refactor toward one shared boundary.
-5. Reuse shared types, helpers, state boundaries, navigation patterns, and persistence access before creating new ones.
-6. If the approved pattern is insufficient, refactor that shared pattern instead of introducing a variant.
-7. If the code path is broad or unclear, delegate discovery to `codebase-explorer`.
-8. For large or architectural changes, use `pattern-compliance-reviewer` as a read-only secondary check before sign-off.
-9. Before handoff, use `build-verify` and `test-changes` as appropriate.
+3. Use `feature-workflow` for non-trivial implementation, behavior change, or refactor work.
+4. Load `pattern-governance-reference` and identify the nearest approved local pattern before editing.
+5. If the concern already exists in multiple places, prefer convergence: refactor toward one shared boundary.
+6. Reuse shared types, helpers, state boundaries, navigation patterns, and persistence access before creating new ones.
+7. If the approved pattern is insufficient, refactor that shared pattern instead of introducing a variant.
+8. If the code path is broad or unclear, delegate discovery to `codebase-explorer`.
+9. For large or architectural changes, use `pattern-compliance-reviewer` as a read-only secondary check before sign-off.
+10. Before handoff, use `build-verify` and `test-changes` as appropriate.
 
 ## Do not
 

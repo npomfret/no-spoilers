@@ -13,5 +13,6 @@ Canonical testing and verification policy for this repo.
 
 ## Current state
 
-- The Swift test surface is not fully defined yet.
-- When the main package/project lands, update this guide with the canonical test commands, schemes, and destinations.
+- Use `scripts/verify-core-tests.sh` for shared package behavior tests. It runs `swift test` against `NoSpoilersCore` with repo-local HOME/Foundation home, scratch, and module-cache paths, and disables SwiftPM's nested sandbox for compatibility with Claude's execution sandbox.
+- For app, widget, or macOS behavior changes without dedicated UI tests, pair the smallest relevant build wrapper from `docs/guides/building.md` with focused manual or code-review evidence.
+- If a new test surface is added, create or update a repo-owned wrapper before treating the command as canonical.

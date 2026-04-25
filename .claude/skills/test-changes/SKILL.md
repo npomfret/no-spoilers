@@ -17,9 +17,11 @@ Run and report the smallest valid verification for changed behavior with determi
 3. Confirm the real test entry points from the repo before running commands.
 4. If the change is substantial or architectural, keep `pattern-governance-reference` active so verification is matched to the approved pattern.
 5. Choose the smallest meaningful test scope for the changed behavior.
-6. Prefer repo-approved wrappers or scripts. If the right shared wrapper is missing, note that gap instead of normalizing ad-hoc broad test runs.
-7. If a test fails and code changes are needed, state one concrete root-cause hypothesis and the smallest safe fix scope before editing.
-8. Report exact commands, pass or fail per command, and remaining coverage gaps.
+6. Prefer repo-approved wrappers or scripts. Use `scripts/verify-core-tests.sh` for shared package behavior tests.
+7. Pair focused build wrappers with manual/code-review evidence when app or widget behavior has no dedicated automated test surface.
+8. If the right shared wrapper is missing, note that gap instead of normalizing ad-hoc broad test runs.
+9. If a test fails and code changes are needed, state one concrete root-cause hypothesis and the smallest safe fix scope before editing.
+10. Report exact commands, pass or fail per command, and remaining coverage gaps.
 
 ## Do not
 
