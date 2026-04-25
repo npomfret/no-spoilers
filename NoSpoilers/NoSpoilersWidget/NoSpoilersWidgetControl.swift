@@ -10,7 +10,7 @@ import SwiftUI
 import WidgetKit
 
 struct NoSpoilersWidgetControl: ControlWidget {
-    static let kind: String = "pomocorp.NoSpoilers.NoSpoilersWidget"
+    static let kind: String = "pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(

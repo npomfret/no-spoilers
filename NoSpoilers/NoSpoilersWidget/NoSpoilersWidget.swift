@@ -3,7 +3,7 @@ import SwiftUI
 import OSLog
 import NoSpoilersCore
 
-private let log = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersWidget", category: "data")
+private let log = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget", category: "data")
 
 private let widgetRed = BrandPalette.signalRed
 
