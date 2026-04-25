@@ -118,6 +118,21 @@ tag_version() {
 }
 
 # ── Shared: version bump → commit → push ────────────────────────────────────
+#
+# Apple requires CFBundleVersion (CURRENT_PROJECT_VERSION) to monotonically
+# increase across every upload to App Store Connect, so we always bump it,
+# regardless of whether MARKETING_VERSION changed. Multiple invocations in
+# one ship cycle (mac then ios) each take a new build number.
+
+CURRENT_BUILD=$(grep -m1 -E "CURRENT_PROJECT_VERSION = [0-9]+;" "${PBXPROJ}" | grep -oE "[0-9]+")
+if [[ -z "$CURRENT_BUILD" ]]; then
+  echo "Could not read CURRENT_PROJECT_VERSION from ${PBXPROJ}" >&2
+  exit 1
+fi
+NEW_BUILD=$((CURRENT_BUILD + 1))
+
+echo "==> Bumping CURRENT_PROJECT_VERSION ${CURRENT_BUILD} → ${NEW_BUILD}..."
+sed -i '' "s/CURRENT_PROJECT_VERSION = ${CURRENT_BUILD};/CURRENT_PROJECT_VERSION = ${NEW_BUILD};/g" "${PBXPROJ}"
 
 echo "==> Bumping MARKETING_VERSION to ${VERSION} in project..."
 sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PBXPROJ}"
@@ -125,10 +140,10 @@ sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PBXPR
 echo "==> Committing and pushing version bump..."
 git add "${PBXPROJ}"
 if ! git diff --cached --quiet; then
-  git commit -m "bump to v${VERSION}"
+  git commit -m "bump to v${VERSION} (build ${NEW_BUILD})"
   git push
 else
-  echo "  (version already at ${VERSION}, skipping commit)"
+  echo "  (no changes to commit)"
 fi
 
 # ── Shared: clean → archive ──────────────────────────────────────────────────
@@ -147,7 +162,8 @@ xcodebuild archive \
   -allowProvisioningUpdates \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM=6FZN56WC8G \
-  MARKETING_VERSION="${VERSION}"
+  MARKETING_VERSION="${VERSION}" \
+  CURRENT_PROJECT_VERSION="${NEW_BUILD}"
 
 # ── Channel: developer-id (macos only) ──────────────────────────────────────
 
