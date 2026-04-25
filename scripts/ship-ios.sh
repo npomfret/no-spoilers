@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Partial: ship only the macOS App Store channel (skip Homebrew + iOS).
+# Partial: ship only the iOS App Store channel (skip macOS).
 # For full sync use scripts/ship.sh.
 #
 # Usage:
-#   scripts/ship-appstore.sh          # auto-increments version
-#   scripts/ship-appstore.sh 1.2.0    # explicit version
+#   scripts/ship-ios.sh          # auto-increments version
+#   scripts/ship-ios.sh 1.2.0    # explicit version
 
 exec "$(dirname "$0")/release.sh" \
-  --platform macos \
+  --platform ios \
   --channel app-store \
   --api-key "${HOME}/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8" \
   --api-key-id S394C74APG \

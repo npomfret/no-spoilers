@@ -54,7 +54,9 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          bash scripts/release-mac.sh "$VERSION" \
+          bash scripts/release.sh "$VERSION" \
+            --platform macos \
+            --channel developer-id \
             --notarytool-key "$NOTARYTOOL_KEY_PATH" \
             --notarytool-key-id "$NOTARYTOOL_KEY_ID" \
             --notarytool-issuer "$NOTARYTOOL_ISSUER_ID"
