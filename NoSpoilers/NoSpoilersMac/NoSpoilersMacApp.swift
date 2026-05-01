@@ -122,6 +122,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Create NSStatusItem with variable width
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Stable autosave identity prevents Control Center → Menu Bar from keying the
+        // entry by responsible-parent process (e.g. Terminal when launched via `open`).
+        statusItem.autosaveName = "NoSpoilersMenuBarItem"
 
         // Create label view — FlagImage renders live here (real NSHostingView context)
         let labelView = MenuBarLabelView(store: store, updateChecker: updateChecker) { [weak self] size in
