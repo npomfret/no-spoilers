@@ -129,6 +129,37 @@
       text-underline-offset: 2px;
     }
 
+    .app-store-link {
+      display: inline-block;
+      line-height: 0;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .app-store-link:hover { transform: translateY(-1px); opacity: 0.92; }
+    .app-store-link img { height: 48px; width: auto; display: block; }
+
+    .install-or {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--light);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 340px;
+      margin: 4px auto;
+    }
+
+    .install-or::before,
+    .install-or::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
     /* ── Divider ─────────────────────────────────────────── */
     .divider {
       border: none;
@@ -202,44 +233,6 @@
       line-height: 1.5;
     }
 
-    /* ── iOS coming soon ─────────────────────────────────── */
-    .coming-soon {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 0 24px 56px;
-      position: relative;
-      z-index: 1;
-    }
-
-    .coming-soon-box {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 22px;
-      backdrop-filter: blur(18px);
-      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
-    }
-
-    .coming-soon-box .icon {
-      font-size: 1.6rem;
-      flex-shrink: 0;
-    }
-
-    .coming-soon-box h3 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 3px;
-    }
-
-    .coming-soon-box p {
-      font-size: 0.88rem;
-      color: var(--mid);
-      line-height: 1.5;
-    }
-
     /* ── Footer ─────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
@@ -302,6 +295,14 @@
     <p>The F1 race weekend schedule for your Mac and iPhone  with a hard guarantee that results never appear.</p>
 
     <div class="install-wrap">
+      <span class="install-label">Get it on the Mac App Store</span>
+      <a class="app-store-link" href="https://apps.apple.com/gb/app/no-spoilers-f1/id6761343835?mt=12" target="_blank" rel="noopener">
+        <img src="mac-app-store-badge.svg" alt="Download on the Mac App Store">
+      </a>
+      <span class="install-note">iOS version coming soon</span>
+
+      <span class="install-or">or</span>
+
       <span class="install-label">Install with Homebrew</span>
       <div class="install-cmd">
         <code id="brew-cmd">brew install --cask npomfret/tap/no-spoilers</code>
@@ -368,16 +369,6 @@
           <h3>Native and lightweight</h3>
           <p>Built in Swift with only Apple frameworks. No Electron, no background daemons, no telemetry.</p>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="coming-soon">
-    <div class="coming-soon-box">
-      <div class="icon">📲</div>
-      <div>
-        <h3>iOS app coming soon</h3>
-        <p>The same schedule, the same spoiler-free guarantee   on your iPhone.</p>
       </div>
     </div>
   </section>
