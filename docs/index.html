@@ -200,36 +200,70 @@
     .feature-list {
       display: flex;
       flex-direction: column;
-      gap: 0;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      backdrop-filter: blur(18px);
-      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.08);
+      gap: 12px;
     }
 
     .feature-item {
+      position: relative;
       display: flex;
       align-items: flex-start;
-      gap: 14px;
+      gap: 16px;
       padding: 18px 22px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 215, 212, 0.55) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 10px 24px rgba(122, 12, 15, 0.07);
+      overflow: hidden;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
 
-    .feature-item + .feature-item {
-      border-top: 1px solid var(--border);
+    .feature-item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 22%;
+      bottom: 22%;
+      width: 3px;
+      background: var(--signal-red);
+      border-radius: 0 3px 3px 0;
+      opacity: 0;
+      transition: opacity 0.2s ease;
     }
+
+    .feature-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 34px rgba(122, 12, 15, 0.14);
+      border-color: rgba(122, 12, 15, 0.2);
+    }
+
+    .feature-item:hover::before { opacity: 0.85; }
 
     .feature-icon {
-      font-size: 1.3rem;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--smoke), var(--deep-maroon));
+      color: var(--ivory);
       flex-shrink: 0;
-      margin-top: 1px;
+      box-shadow: 0 8px 18px rgba(122, 12, 15, 0.22);
+    }
+
+    .feature-icon svg {
+      width: 22px;
+      height: 22px;
+      stroke-width: 2;
     }
 
     .feature-item h3 {
-      font-size: 0.95rem;
+      font-size: 0.98rem;
       font-weight: 600;
-      margin-bottom: 3px;
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
     }
 
     .feature-item p {
@@ -341,35 +375,67 @@
     <h2>Features</h2>
     <div class="feature-list">
       <div class="feature-item">
-        <div class="feature-icon">🏎</div>
+        <div class="feature-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 14v2.2l1.6 1"/>
+            <path d="M16 2v4"/>
+            <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/>
+            <path d="M3 10h5"/>
+            <path d="M8 2v4"/>
+            <circle cx="16" cy="16" r="6"/>
+          </svg>
+        </div>
         <div>
           <h3>Full weekend schedule</h3>
           <p>Every session from FP1 to the race with local start times and a live countdown to the next one.</p>
         </div>
       </div>
       <div class="feature-item">
-        <div class="feature-icon">🔕</div>
+        <div class="feature-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/>
+            <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/>
+            <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/>
+            <path d="m2 2 20 20"/>
+          </svg>
+        </div>
         <div>
           <h3>Genuinely spoiler-proof</h3>
-          <p>Results are not hidden   they don't exist in the data model at all. There's no code path that could ever surface one.</p>
+          <p>Results are not hidden &mdash; they don't exist in the data model at all. There's no code path that could ever surface one.</p>
         </div>
       </div>
       <div class="feature-item">
-        <div class="feature-icon">📍</div>
+        <div class="feature-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="18" x="3" y="3" rx="2"/>
+            <path d="M3 9h18"/>
+          </svg>
+        </div>
         <div>
           <h3>Always in your menu bar</h3>
           <p>Click the icon to see the current race weekend. No context switching, no app to launch.</p>
         </div>
       </div>
       <div class="feature-item">
-        <div class="feature-icon">📱</div>
+        <div class="feature-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="7" height="7" x="3" y="3" rx="1"/>
+            <rect width="7" height="7" x="14" y="3" rx="1"/>
+            <rect width="7" height="7" x="14" y="14" rx="1"/>
+            <rect width="7" height="7" x="3" y="14" rx="1"/>
+          </svg>
+        </div>
         <div>
           <h3>Home screen widgets</h3>
           <p>Small, medium, and large widgets show the current weekend at a glance directly from your home screen.</p>
         </div>
       </div>
       <div class="feature-item">
-        <div class="feature-icon">⚡️</div>
+        <div class="feature-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+          </svg>
+        </div>
         <div>
           <h3>Native and lightweight</h3>
           <p>Built in Swift with only Apple frameworks. No Electron, no background daemons, no telemetry.</p>
@@ -390,6 +456,8 @@
       Session data: <a href="https://openf1.org" target="_blank" rel="noopener">OpenF1</a>
       &nbsp;·&nbsp;
       Flag icons: <a href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener">flag-icons by Lipis</a>
+      &nbsp;·&nbsp;
+      UI icons: <a href="https://lucide.dev" target="_blank" rel="noopener">Lucide</a>
       &nbsp;·&nbsp;
       F1 logo: <a href="https://commons.wikimedia.org/wiki/File:Formula_One_logo.svg" target="_blank" rel="noopener">Wikimedia Commons</a>
     </p>
