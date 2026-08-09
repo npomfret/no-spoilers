@@ -10,6 +10,9 @@ tester group still need doing in Xcode and App Store Connect, and nothing has be
 - **Decision 1: offset the run number.** `BUILD_OFFSET=1000` in `ci_pre_xcodebuild.sh`. Option 1 as recommended.
 - **Decision 2: gate in `ci_pre_xcodebuild.sh`.** It calls `scripts/verify-core-tests.sh`. No Xcode test target
   was added. Option 1 as recommended.
+- **Decision 3: delivery to testers is a command, not a post-action.** Reversed on 2026-08-09 after the
+  sibling project ran it both ways — the reasoning is in Phase 1 step 6, and it changes what the status
+  report is allowed to warn about (Phase 7).
 - **Shebang:** both hooks are `#!/usr/bin/env bash` with `set -euo pipefail` (pre-build only), matching every
   other script in `scripts/`, rather than the `#!/bin/sh` in the Phase 3/4 drafts below. `ci_post_clone.sh`
   deliberately omits `set -e` — see Phase 4.
@@ -26,10 +29,15 @@ was actually pushed.
 ## Overview
 
 ```
-push to main → Xcode Cloud workflow → Archive (scheme NoSpoilersApp)
-                                          ↓
-                            TestFlight internal testing → tester's phone
+push to main → Xcode Cloud workflow → Archive (scheme NoSpoilersApp) → build on TestFlight,
+                                                                       attached to no group
+
+    you, when a build is worth someone's attention:
+      testflight_distribute --apply → group Internal → tester's phone
 ```
+
+**The second line is not an oversight.** A build reaches nobody until it is put in a group, and
+doing that automatically is a decision this task takes deliberately against — Phase 1 step 6.
 
 `scripts/ship-ios.sh` stays. This runs alongside it: Xcode Cloud for continuous internal builds,
 `release.sh` for versioned App Store submissions. The macOS app is **out of scope** — it ships via
@@ -142,16 +150,63 @@ option that actually stops a broken build reaching a tester.
       **Marketing is the least privileged of those**, and unlike Developer it cannot upload builds or
       touch certificates. Scope them to this app while you are on that screen. If someone does not
       appear in the eligible list at step 2, their role is why.
-   2. **TestFlight → Internal Testing → the group → Invite Testers**, tick them, Add. With
-      `hasAccessToAllBuilds` they receive every future build automatically.
+   2. **TestFlight → Internal Testing → the group → Invite Testers**, tick them, Add.
 
    Limits: 100 internal testers, 30 devices each, no review, and the 90-day build expiry below.
 
-   Apple's own documentation says builds created by Xcode Cloud must be added to groups by hand.
-   **With `hasAccessToAllBuilds` that is not true**, and the distinction is not academic: on the
-   project this came from, `GET /v1/betaGroups/{id}/builds` returns an empty list while testers are
-   installing the latest build quite happily. Access is implicit, so do not go hunting for a
-   build-attachment step that does not exist.
+   **`hasAccessToAllBuilds` does not attach Xcode Cloud builds to the group.** Apple's
+   documentation says builds created by Xcode Cloud must be added to groups by hand, and on
+   2026-08-09 that turned out to be true even for a group created with the flag set. Three VALID
+   builds sat on TestFlight for a day reading `internalBuildState: READY_FOR_BETA_TESTING`, the
+   group read `hasAccessToAllBuilds: true`, and nobody could install anything. The flag is
+   necessary and not sufficient.
+
+   Two things make it hard to see, and both look like success:
+
+   - `GET /v1/betaGroups/{id}/builds` returns an empty list either way, so it distinguishes
+     nothing. The query that answers it is `GET /v1/builds/{id}?include=betaGroups` — an empty
+     `included` array means the build belongs to no group and no tester will ever see it.
+   - The tester sits at `state: NOT_INVITED` and no invitation is ever sent, because there is
+     nothing to invite them to. Trying to force one returns
+     `409 STATE_ERROR.TESTER_INVITE.NO_INSTALLABLE_BUILDS`, *"Tester has no installable build"* —
+     which is the clearest diagnostic in this whole API and only appears if you go looking.
+
+   The fix is one `POST /v1/betaGroups/{id}/relationships/builds` with `{"data": [{"type":
+   "builds", "id": "<build>"}]}`, answering `204`. **Pending invitations then send themselves** —
+   the tester flipped `NOT_INVITED` → `INVITED` on the next read with no second call.
+
+6. **Do not automate the hand-over. Make it a command you run.**
+
+   There is a post-action that would do it — App Store Connect → the app → **Xcode Cloud** →
+   **Manage Workflows** → the workflow → **Post-Actions** → **+** → *TestFlight Internal
+   Testing* → add the group. Xcode Cloud then waits for processing and attaches each build
+   itself, with the archive action's distribution audience as the only prerequisite. The sibling
+   project set one up, ran on it for a day, and took it back out. Two reasons, and the second is
+   the serious one:
+
+   **Every push would notify every tester.** With agents and more than one session pushing, that
+   is several builds a day. A tester who has learned to ignore the notification is worse than no
+   automation at all, and the notification is the entire value of the feature. Builds cost
+   nothing accumulating in App Store Connect, so the cheap thing to defer is the delivery, not
+   the build.
+
+   **It cannot be verified, restored, or even seen.** `ciWorkflows` carries no post-action field
+   and `betaGroups` is not a valid relationship on it, so a post-action cannot be created, read
+   back, diffed, or restored from a script, and its absence cannot be detected. A workflow dump
+   that looks complete is not a complete workflow. On the sibling project it was added, reported
+   as added, and **never once observed to fire**: build 24 still needed the manual command after
+   it was set, build 25 went `VALID` with testers left on 24, and the workflow editor later read
+   *"No post-actions have been added."* Whether it never saved, or came off with an unrelated
+   edit, is unknowable from outside — which is exactly the objection. Do not build a delivery
+   story on a mechanism with no read path.
+
+   So: **push archives, a command distributes.** Phase 7 has the command. One consequence to
+   carry forward — the newest build now sits in no group as a matter of course, which changes
+   what your status report is allowed to warn about.
+
+   The same reasoning rules out an external post-action, with an extra edge: feeding the public
+   link automatically means every push proposes itself to strangers, and the first build of each
+   marketing version sits in Beta App Review regardless.
 
 ---
 
@@ -289,7 +344,11 @@ Two red herrings worth naming:
 Three endpoint shapes that waste a round trip each:
 
 - `GET /v1/builds/{id}/betaGroups` is **forbidden** — the relationship allows `CREATE` and `DELETE`
-  only. To ask which builds a group can see, go the other way: `GET /v1/betaGroups/{id}/builds`.
+  only, and `GET /v1/builds/{id}/buildBundles` is closed the same way: *"has no allowed operations
+  defined"*. Do not go the other way round to compensate. `GET /v1/betaGroups/{id}/builds` answers
+  an empty list for an internal group whether or not the build is in it, so it looks like a working
+  substitute and is not one. The only query that separates the two cases is `GET
+  /v1/builds/{id}?include=betaGroups` — an *include* on the build, not the forbidden relationship.
 - `GET /v1/apps/{id}/builds` rejects `sort` outright with `PARAMETER_ERROR.ILLEGAL`, unlike
   `buildRuns`, which requires it. Neither behaviour is guessable from the other.
 - A build carries no link back to the run that produced it. The only direction that works is
@@ -348,16 +407,19 @@ distributes builds gets the larger one.
 
 ### The step nobody tells you about
 
-`hasAccessToAllBuilds` is what makes the internal group receive builds with nobody acting.
-**External groups have no equivalent.** A build reaches external testers only when it is explicitly
-added to the group:
+**A build reaches no group of any kind until it is put there.** This is the single fact this
+document got wrong for longest — see Phase 1 step 5 — and it applies to the internal group as
+much as the external one. `hasAccessToAllBuilds` governs which builds a tester *may* see, not
+which builds exist for them, and an Xcode Cloud archive lands attached to nothing:
 
 ```
 POST /v1/betaGroups/{group}/relationships/builds
      {"data": [{"type": "builds", "id": "<build>"}]}          -> 204
 ```
 
-and, for the first build of a marketing version, submitted:
+For an internal group that is the whole procedure, and any pending invitation sends itself
+immediately afterwards. For an external group the first build of each marketing version must also
+be submitted:
 
 ```
 POST /v1/betaAppReviewSubmissions
@@ -365,11 +427,41 @@ POST /v1/betaAppReviewSubmissions
                "relationships": {"build": {"data": {"type": "builds", "id": "<build>"}}}}}
 ```
 
-Xcode Cloud does neither, and nothing reports that they were skipped: the run is green, the build is
-`VALID`, and the public link goes on installing last month's build. **Budget for a small script that
-does this after each release**, or accept that external testers are a manual step someone has to
-remember. The sibling project has one at `scripts/testflight_distribute.py` — dry-run by default,
-`--apply` to add, `--apply --submit` to send for review — worth copying rather than rewriting.
+**Xcode Cloud does neither.** Nothing reports the gap: the run is green, the build is `VALID`,
+`internalBuildState` reads `READY_FOR_BETA_TESTING`, and every tester has nothing. A post-action
+would do it, and Phase 1 step 6 is the argument for not using one.
+
+So this is a command, and it is the whole delivery step. The sibling project has it at
+`scripts/testflight_distribute.py`, worth copying rather than rewriting: dry-run by default,
+`--apply` to add the newest build, `--apply --submit` to send it for review as well. **It touches
+internal groups only unless `--group` names one** — reaching a public link should cost you the
+effort of typing its name, so that no future change to a default can publish something on your
+behalf.
+
+Keep it separate from whatever reads state. One script writes to App Store Connect, one only
+issues `GET`s, and that split is what makes the report safe to run whenever the answer is in
+doubt. It is also a real boundary: the read-only script runs on a Developer key, and only the
+distributing one is given the App Manager key.
+
+### What the status report should say, once delivery is manual
+
+This is the trap in the change. With no post-action, **the newest build is in no group as a matter
+of course**, so a "newest `VALID` build reaches nobody" warning fires after every single push. A
+warning that is always on is the same as no warning, and it takes the exit code with it.
+
+Report the useful fact instead — **which build the testers can actually install, and how far
+behind the newest it has fallen** — and warn only when they can install *nothing at all*, which is
+the genuine failure:
+
+```
+  tester groups: Internal
+  testers can install: v1024, 1 build behind v1025
+```
+
+There is no cheap query for it. Walk the live builds newest-first, asking each one `GET
+/v1/builds/{id}?include=betaGroups` until one comes back with a non-empty `included`, and stop
+after ten. That is one request per undistributed build, which is the price of the group's own
+build list being useless.
 
 Ask a build which of these applies with `GET /v1/builds/{id}/buildBetaDetail`. Its
 `externalBuildState` is the only field that answers honestly, and
@@ -411,6 +503,16 @@ Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_RE
 
 - [ ] A push to `main` produces a run that reaches `SUCCEEDED`.
 - [ ] The build appears in TestFlight as `VALID`, not *Missing Compliance*.
+- [ ] **The build reaches no group on its own**, which is the intended behaviour and worth seeing
+      once: `GET /v1/builds/{id}?include=betaGroups` comes back with an empty `included` after a
+      green run.
+- [ ] **A tester can actually install it after the distribute command.** The same query then names
+      `Internal`, and the tester's `state` is `INVITED` rather than `NOT_INVITED`. `VALID` proves
+      neither. Note that adding the build sends any pending invitation by itself, and that `state`
+      reads are eventually consistent — it can read `NOT_INVITED` again minutes later and settle.
+- [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
+      `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
+      no amount of distributing will change what they see. Diagnose that before touching the build.
 - [ ] Its build number is `CI_BUILD_NUMBER + 1000` and is higher than anything `release.sh` shipped.
 - [ ] The widget extension's build number matches the app's.
 - [ ] *What to Test* in TestFlight shows the commit subject and short hash.
@@ -441,9 +543,15 @@ Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_RE
   mechanism, and Phase 7 is the right one.
 - **The distribution audience is decided once per build, at archive time.** Nothing warns you that a
   run's output is ineligible for the audience you will want next month.
-- **External testers are a manual step, permanently.** Unlike the internal group, nothing pushes a
-  build to them. This is the failure mode most likely to go unnoticed here, because every signal —
-  green run, `VALID` build, working public link — reads as success while testers sit on an old build.
+- **Delivery is a step somebody has to remember.** That is the deliberate choice in Phase 1 step 6,
+  and this is its cost: forget the command and every signal — green run, `VALID` build,
+  `READY_FOR_BETA_TESTING`, `hasAccessToAllBuilds: true`, working public link — reads as success
+  while the testers sit on a build from a fortnight ago. The mitigation is the report line naming
+  how far behind they are; there is no mechanism, only a habit and something that tells you when
+  the habit lapsed.
+- **A group with no builds gives no error, it gives silence.** The tester stays `NOT_INVITED`
+  forever and no email is ever sent. Check with `GET /v1/builds/{id}?include=betaGroups` after
+  every archive; an empty `included` is the whole diagnosis.
 - **Two release paths to one App Store record.** Xcode Cloud and `release.sh` both upload under the
   same bundle identifier. The offset keeps their numbers apart; nothing enforces it but this task
   file.
