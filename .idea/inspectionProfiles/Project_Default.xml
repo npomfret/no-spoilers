@@ -1,0 +1,11 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="DeprecatedKey" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="IPAddressAllowOnly" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="InvalidValue" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="MissingRequiredKey" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="ShellSyntaxInExecDirective" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="UnknownKeyInSection" enabled="true" level="WARNING" enabled_by_default="true" />
+  </profile>
+</component>
