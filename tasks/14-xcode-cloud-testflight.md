@@ -1,8 +1,18 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** TODO
+**Status:** IN PROGRESS — scripts written and locally verified; Phase 1 (the Xcode Cloud workflow) and the
+tester group still need doing in Xcode and App Store Connect, and nothing has been pushed yet.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
+
+## Decisions taken
+
+- **Decision 1: offset the run number.** `BUILD_OFFSET=1000` in `ci_pre_xcodebuild.sh`. Option 1 as recommended.
+- **Decision 2: gate in `ci_pre_xcodebuild.sh`.** It calls `scripts/verify-core-tests.sh`. No Xcode test target
+  was added. Option 1 as recommended.
+- **Shebang:** both hooks are `#!/usr/bin/env bash` with `set -euo pipefail` (pre-build only), matching every
+  other script in `scripts/`, rather than the `#!/bin/sh` in the Phase 3/4 drafts below. `ci_post_clone.sh`
+  deliberately omits `set -e` — see Phase 4.
 
 ## Goal
 
@@ -102,21 +112,50 @@ option that actually stops a broken build reaching a tester.
 4. Delete the default `Build` action and add a single **Archive** action:
    - Platform: iOS
    - Scheme: `NoSpoilersApp`
-   - **Distribution: internal testing**
+   - **Distribution: internal testing** — but read the next paragraph before accepting it
 
    An archive action with no distribution audience produces an artifact and stops. That state is
    indistinguishable from success in every screen Apple shows you.
 
-5. Create an internal tester group in App Store Connect **before the first build**, with
-   *access to all builds* enabled.
+   **The audience is stamped into each build and cannot be changed afterwards.** A build uploaded as
+   `INTERNAL_ONLY` can only ever go to internal groups; there is no promoting it later. Changing the
+   workflow to `APP_STORE_ELIGIBLE` affects only builds archived *after* the change, and everything
+   already on TestFlight stays internal forever. If there is any chance you will want testers outside
+   the team — see Phase 7 — choose `APP_STORE_ELIGIBLE` now and save yourself a dead set of builds.
+   It costs nothing: internal delivery works identically under either value.
 
-   That flag can only be set at creation. Patching it afterwards returns
-   `409 ENTITY_ERROR.ATTRIBUTE.NOT_ALLOWED`, and the only fix is to delete the group and make it
-   again. Without it, every build needs assigning to the group by hand.
+5. ~~Create an internal tester group in App Store Connect **before the first build**, with
+   *access to all builds* enabled.~~
+
+   **Done.** Group `Internal`, id `e4840ac3-284b-4b6c-a41f-b400d6d0fac1`, on app `6761343835`
+   (`pomocorp.NoSpoilers.NoSpoilersMac`), created over the API with `isInternalGroup: true` and
+   `hasAccessToAllBuilds: true` — that flag can only be set at creation. Patching it afterwards returns
+   `409 ENTITY_ERROR.ATTRIBUTE.NOT_ALLOWED`, and the only fix is to delete the group and make it again.
+
+   **The group has no testers in it.** An empty group builds and delivers fine and reaches nobody.
+
+   Adding one is two steps, and the first has a cost worth understanding:
+
+   1. **Users and Access → +**, their email, and a role. An internal tester **must be an App Store
+      Connect user on your team**, so this hands them a login to the developer account, not just the
+      app. Only Account Holder, Admin, App Manager, Developer and Marketing are eligible as testers —
+      **Marketing is the least privileged of those**, and unlike Developer it cannot upload builds or
+      touch certificates. Scope them to this app while you are on that screen. If someone does not
+      appear in the eligible list at step 2, their role is why.
+   2. **TestFlight → Internal Testing → the group → Invite Testers**, tick them, Add. With
+      `hasAccessToAllBuilds` they receive every future build automatically.
+
+   Limits: 100 internal testers, 30 devices each, no review, and the 90-day build expiry below.
+
+   Apple's own documentation says builds created by Xcode Cloud must be added to groups by hand.
+   **With `hasAccessToAllBuilds` that is not true**, and the distinction is not academic: on the
+   project this came from, `GET /v1/betaGroups/{id}/builds` returns an empty list while testers are
+   installing the latest build quite happily. Access is implicit, so do not go hunting for a
+   build-attachment step that does not exist.
 
 ---
 
-## Phase 2: Where the CI scripts go
+## Phase 2: Where the CI scripts go — DONE
 
 Both scripts live in `NoSpoilers/ci_scripts/` — **beside `NoSpoilers.xcodeproj`, not at the
 repository root.** Same for the `NoSpoilers/TestFlight/` notes directory.
@@ -132,57 +171,24 @@ no-spoilers/
 Putting either at the repository root produces no error at all — just nothing happening. Both scripts
 must be committed executable (`chmod +x`).
 
-Add `NoSpoilers/TestFlight/` to `.gitignore`; it is generated per build.
+Add `NoSpoilers/TestFlight/` to `.gitignore`; it is generated per build. Done, as `/NoSpoilers/TestFlight/`.
 
 ---
 
-## Phase 3: `ci_scripts/ci_pre_xcodebuild.sh`
+## Phase 3: `ci_scripts/ci_pre_xcodebuild.sh` — DONE
 
-Sets the build number, and gates on the core tests per Decision 2.
+Written to `NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh`, mode `755`. That file is authoritative; the draft
+that was here has been removed rather than left to drift out of sync with it.
 
-```sh
-#!/bin/sh
-set -eu
+Two changes from the draft:
 
-# Offset chosen in Task 14 Phase 0. Keeps Xcode Cloud's run numbers clear of the
-# build numbers release.sh produces, which reached 8 before this existed.
-BUILD_OFFSET=1000
-
-echo "ci_pre_xcodebuild: run ${CI_BUILD_NUMBER:-<unset>}, commit ${CI_COMMIT:-<unset>}"
-
-# Not every stage has a checkout. This hook runs before EACH xcodebuild
-# invocation, and `test-without-building` runs on a machine holding the built
-# products and nothing else, with CI_PRIMARY_REPOSITORY_PATH unset. Under
-# `set -u` that is an exit 1 one stage after the script did its job correctly.
-if [ -z "${CI_PRIMARY_REPOSITORY_PATH:-}" ]; then
-  echo "ci_pre_xcodebuild: no checkout in this stage, nothing to stamp"
-  exit 0
-fi
-
-if [ -z "${CI_BUILD_NUMBER:-}" ]; then
-  echo "ci_pre_xcodebuild: CI_BUILD_NUMBER is unset" >&2
-  exit 1
-fi
-
-# The gate. A TEST action would not stop the archive; this does, because a
-# failing pre-build hook fails the action before anything is uploaded.
-"${CI_PRIMARY_REPOSITORY_PATH}/scripts/verify-core-tests.sh"
-
-build=$((CI_BUILD_NUMBER + BUILD_OFFSET))
-cd "${CI_PRIMARY_REPOSITORY_PATH}/NoSpoilers"
-
-xcrun agvtool new-version -all "${build}"
-
-# Trust the file, not the tool: agvtool reports success in cases where it
-# changed nothing at all.
-if grep -q "CURRENT_PROJECT_VERSION = ${build};" NoSpoilers.xcodeproj/project.pbxproj; then
-  echo "ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now ${build}"
-else
-  echo "ci_pre_xcodebuild: agvtool exited 0 but the project did not change" >&2
-  grep "CURRENT_PROJECT_VERSION" NoSpoilers.xcodeproj/project.pbxproj >&2
-  exit 1
-fi
-```
+- **It checks every configuration, not the first.** `grep -q` passes as soon as one line matches, which is
+  satisfied by a partial stamp — and a partial stamp is exactly the app/extension build-number mismatch that
+  gets an upload rejected. The script now compares the count of `CURRENT_PROJECT_VERSION = ` lines against the
+  count carrying the new value, and fails unless they are equal. There are 6.
+- **`agvtool` prints `Cannot find ".../YES"`**, which is it misreading `GENERATE_INFOPLIST_FILE = YES` as a
+  plist path. Observed on this project; harmless, exit status unaffected. The script says so, so nobody
+  spends an afternoon on it.
 
 Notes:
 
@@ -192,9 +198,8 @@ Notes:
 - It is idempotent and exits 0 when the value is already set, so running it twice in a run is fine.
 - It also writes `CFBundleVersion` into any `INFOPLIST_FILE` it finds. Redundant, and harmless — the
   checkout is thrown away with the run.
-- `verify-core-tests.sh` writes into `tmp/` under the repo root and sets its own `HOME`; check it
-  behaves on a clean runner the first time, and drop the call if it turns out to need something the
-  runner does not have.
+- `verify-core-tests.sh` writes into `tmp/` under the repo root and sets its own `HOME`. **Checked** against
+  a fresh `git clone` of this repo: 8 tests, build and run clean, nothing outside the checkout needed.
 
 ### If this step fails
 
@@ -202,33 +207,18 @@ The log for it is inside the action's `LOG_BUNDLE` artifact, as `ci_pre_xcodebui
 
 ---
 
-## Phase 4: `ci_scripts/ci_post_clone.sh`
+## Phase 4: `ci_scripts/ci_post_clone.sh` — DONE
 
-Writes the TestFlight *What to Test* note from the commit being built, so nobody has to remember to.
+Written to `NoSpoilers/ci_scripts/ci_post_clone.sh`, mode `755`, and authoritative in the same way. It writes
+the TestFlight *What to Test* note from the commit being built, so nobody has to remember to.
 
-```sh
-#!/bin/sh
-notes_dir="${CI_PRIMARY_REPOSITORY_PATH}/NoSpoilers/TestFlight"
-out="${notes_dir}/WhatToTest.en-GB.txt"
-
-echo "ci_post_clone: writing ${out}"
-mkdir -p "${notes_dir}" || exit 0
-
-subject=$(git -C "${CI_PRIMARY_REPOSITORY_PATH}" log -1 --format=%s "${CI_COMMIT}" 2>/dev/null)
-short=$(echo "${CI_COMMIT}" | cut -c1-12)
-
-if [ -n "${subject}" ]; then
-  printf '%s\n\nBuild %s from %s\n' "${subject}" "${CI_BUILD_NUMBER:-?}" "${short:-unknown}" > "${out}"
-else
-  printf 'Build %s from %s\n' "${CI_BUILD_NUMBER:-?}" "${short:-unknown}" > "${out}"
-fi
-
-cat "${out}"
-exit 0
-```
+One change from the draft: it checks `CI_PRIMARY_REPOSITORY_PATH` explicitly rather than leaning on `mkdir -p`
+failing. Unset, the draft would have tried to create `/NoSpoilers/TestFlight` at the filesystem root and
+reported nothing about why the note was missing.
 
 **Opposite rule to the other script: a non-zero `ci_post_clone.sh` fails the entire run.** Every path
-ends at `exit 0` — no missing tester note is worth a failed delivery. Do not put the test gate here.
+ends at `exit 0` — no missing tester note is worth a failed delivery. Do not put the test gate here. This is
+also why this one script does not carry the repo-standard `set -euo pipefail`.
 
 Both scripts echo on success deliberately. An empty log is indistinguishable from a script that never
 ran, and that ambiguity cost a diagnosis on the project this came from.
@@ -244,8 +234,10 @@ Checked against the working tree, so you do not go looking:
 | `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` | **set** on the app configurations | Without it every build arrives as *Missing Compliance* and testers cannot install it until somebody answers by hand, per build |
 | iOS app icon | **1024×1024, no alpha** | An icon set that declares its slots and holds no image files compiles cleanly and is refused at upload with a single unexplained line. The primary icon is present, so this trap does not apply here |
 | Dark / tinted icon slots | declared, no files | Not a failure — iOS generates them. Supply real ones if you care how they look |
-| App Store Connect API key | `AuthKey_S394C74APG.p8`, issuer `69a6de6e-…` | Already used by `ship-ios.sh`, already has the rights, already proven |
+| App Store Connect API key | `AuthKey_S394C74APG.p8`, issuer `69a6de6e-…` | Already used by `ship-ios.sh` and proven — but it is a **Developer**-level key. Enough for everything in Phases 1–6; not enough for Phase 7. See below |
 | Signing | automatic, team `6FZN56WC8G` | Xcode Cloud manages its own certificates; `ExportOptions-AppStore.plist` is not used by it |
+| App Store Connect record | app `6761343835`, highest existing build **8** | Confirms the `+ 1000` offset lands clear of everything already uploaded |
+| Xcode Cloud product | **does not exist yet** | `GET /v1/ciProducts` returns only `FunMaxMusic`. The API cannot create one — Phase 1 has to happen in Xcode |
 
 The icon is worth re-checking after any redesign:
 
@@ -294,11 +286,128 @@ Two red herrings worth naming:
 - **A "Start Build" button that appears to do nothing is a build failing fast.** Five clicks produced
   five real builds, all compile failures, with the assistant screen never moving.
 
+Three endpoint shapes that waste a round trip each:
+
+- `GET /v1/builds/{id}/betaGroups` is **forbidden** — the relationship allows `CREATE` and `DELETE`
+  only. To ask which builds a group can see, go the other way: `GET /v1/betaGroups/{id}/builds`.
+- `GET /v1/apps/{id}/builds` rejects `sort` outright with `PARAMETER_ERROR.ILLEGAL`, unlike
+  `buildRuns`, which requires it. Neither behaviour is guessable from the other.
+- A build carries no link back to the run that produced it. The only direction that works is
+  `GET /v1/ciBuildRuns/{id}/builds`, and that relationship includes builds whose upload failed and
+  which no tester ever saw — intersect it with the app's real TestFlight builds before believing it.
+
+---
+
+## Phase 7: External testers — people without an App Store Connect account
+
+Only needed if you want the app on the phone of someone you will not add to the team. Internal
+testing (Phase 1, step 5) is simpler and has no review; do not take this on unless you need it.
+
+**What it buys:** up to 10,000 testers, invited by email or by a **public link** they simply tap —
+no account, nothing to administer per person.
+
+**What it costs:** the first build of *each marketing version* goes through Beta App Review, days
+rather than hours at the moment. Bump `MARKETING_VERSION` and you are back in the queue. Only 6
+builds per 24 hours may be submitted, and only one build per version can be in review at a time.
+
+### Prerequisites, in the order they bite
+
+1. **The archive action must be `APP_STORE_ELIGIBLE`**, and only builds archived after that change
+   qualify. See Phase 1, step 4. Get this wrong and the fix is not a setting, it is a new build.
+2. **An internal group must exist first.** Apple requires it before an external group can be created.
+3. **Test Information** on the app record: a beta app description and a **feedback email**. External
+   testing is blocked without it.
+4. Export compliance already answered — `ITSAppUsesNonExemptEncryption` is set here (Phase 5).
+
+### Do this part in the App Store Connect UI, not the API
+
+Confirmed the hard way on the project this came from, with a key that was demonstrably not read-only
+— it had just rewritten a workflow, and it created and deleted an internal group cleanly in the same
+session:
+
+| Request | Result |
+|---|---|
+| `POST /v1/betaGroups` with `isInternalGroup: true` | **201** |
+| `POST /v1/betaGroups` with `isInternalGroup: false` | **403**, `title` "Unable to process request.", `detail` empty |
+| `POST /v1/betaAppLocalizations` (the feedback email) | **403**, "The API key in use does not allow this request" |
+
+The second message names the cause the first one hides: **an App Store Connect API key at Developer
+level can manage Xcode Cloud and internal TestFlight, but not app metadata and not external
+distribution.** `AuthKey_S394C74APG` — the key this repo already uses — is one of those, so this
+applies here directly.
+
+A bare 403 with an empty `detail` from this API is worth reading as "your key is not allowed to do
+this", not "your request was malformed" — the two are indistinguishable from the response alone, and
+the empty one will send you rewriting a body that was fine.
+
+**A team key with the App Manager role already exists: `ASC6H3SL2D`**, created 2026-08-09 on team
+`6FZN56WC8G`, private key at `~/.appstoreconnect/private_keys/AuthKey_ASC6H3SL2D.p8`. Team keys are
+not per-app, so it works against this app record too. Use it as a *second* credential rather than
+replacing `S394C74APG`: the release path keeps the smaller key, and only the command that
+distributes builds gets the larger one.
+
+### The step nobody tells you about
+
+`hasAccessToAllBuilds` is what makes the internal group receive builds with nobody acting.
+**External groups have no equivalent.** A build reaches external testers only when it is explicitly
+added to the group:
+
+```
+POST /v1/betaGroups/{group}/relationships/builds
+     {"data": [{"type": "builds", "id": "<build>"}]}          -> 204
+```
+
+and, for the first build of a marketing version, submitted:
+
+```
+POST /v1/betaAppReviewSubmissions
+     {"data": {"type": "betaAppReviewSubmissions",
+               "relationships": {"build": {"data": {"type": "builds", "id": "<build>"}}}}}
+```
+
+Xcode Cloud does neither, and nothing reports that they were skipped: the run is green, the build is
+`VALID`, and the public link goes on installing last month's build. **Budget for a small script that
+does this after each release**, or accept that external testers are a manual step someone has to
+remember. The sibling project has one at `scripts/testflight_distribute.py` — dry-run by default,
+`--apply` to add, `--apply --submit` to send for review — worth copying rather than rewriting.
+
+Ask a build which of these applies with `GET /v1/builds/{id}/buildBetaDetail`. Its
+`externalBuildState` is the only field that answers honestly, and
+**`NOT_APPLICABLE` is the marker for a build archived `INTERNAL_ONLY`** — the one state no retry,
+setting, or resubmission will move. `READY_FOR_BETA_SUBMISSION` means it needs review;
+`READY_FOR_BETA_TESTING` means it is approved and can simply be handed over.
+
+### The public link
+
+Created per external group, optionally capped at a tester count. **Set a limit.** Unlimited is the
+setting you cannot walk back once the URL is out of your hands, and a public link cannot be
+un-shared — only disabled, after the fact.
+
+The link distributes nothing until a build passes review, so it is safe to create early.
+
 ---
 
 ## Verification
 
-Done when all of these hold, with evidence:
+### Already proven locally
+
+Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_REPOSITORY_PATH`,
+`CI_BUILD_NUMBER` and `CI_COMMIT` set by hand, which is the whole of their contract with Xcode Cloud:
+
+- [x] `ci_post_clone.sh` writes `WhatToTest.en-GB.txt` containing the commit subject, build number and
+      12-character hash. Exit 0.
+- [x] `ci_pre_xcodebuild.sh` end to end: 8 core tests pass, then all 6 `CURRENT_PROJECT_VERSION`
+      occurrences move to `1007` for `CI_BUILD_NUMBER=7`. Exit 0.
+- [x] **The gate holds.** With a deliberately failing test added to `NoSpoilersCore`, the script exits **1**
+      at the test step and the build number is never stamped. This is the mechanism the Decision 2
+      checkbox below depends on; what remains unproven locally is only that Xcode Cloud honours a non-zero
+      pre-build hook, which needs the real push.
+- [x] Guard paths: no `CI_PRIMARY_REPOSITORY_PATH` → exit 0 with a reason logged, in both scripts.
+      No `CI_BUILD_NUMBER` → exit 1.
+- [x] `verify-core-tests.sh` needs nothing outside the checkout — the clean-runner risk below is closed.
+- [x] `agvtool` reaches all 6 configurations on this project, including the widget extension's own two.
+
+### Still needs a real run
 
 - [ ] A push to `main` produces a run that reaches `SUCCEEDED`.
 - [ ] The build appears in TestFlight as `VALID`, not *Missing Compliance*.
@@ -313,9 +422,12 @@ Done when all of these hold, with evidence:
 
 ## Open risks
 
-- **`verify-core-tests.sh` on a clean runner.** It creates `tmp/` directories and overrides `HOME`.
-  Untested outside this machine. If it misbehaves, the gate goes away and Decision 2 needs revisiting
-  rather than the script being quietly dropped.
+- ~~**`verify-core-tests.sh` on a clean runner.**~~ Closed: verified against a fresh clone, needs nothing
+  outside the checkout. Still worth watching on the first real run, since an Xcode Cloud runner is not
+  this machine.
+- **The hook runs before every `xcodebuild` invocation in the action**, so the core tests may run more
+  than once per build. Left as-is: a skip marker would be another way for the gate to silently disappear.
+  If it shows up in the compute numbers, revisit it here rather than in the script.
 - **Compute allowance.** Archiving on every push spends against 25 hours a month that do not roll
   over. If `main` is busy, move the start condition to a tag or manual trigger. Adding the core tests
   to every build makes each run longer.
@@ -324,6 +436,14 @@ Done when all of these hold, with evidence:
   will report that.
 - **TestFlight builds expire 90 days after upload** and then stop launching, with nothing to explain
   it beyond "Expired Build".
+- **Every internal tester is an account on the developer team.** There is no read-only "just let them
+  test" role; Marketing is as small as it gets. Beyond a handful of trusted people this is the wrong
+  mechanism, and Phase 7 is the right one.
+- **The distribution audience is decided once per build, at archive time.** Nothing warns you that a
+  run's output is ineligible for the audience you will want next month.
+- **External testers are a manual step, permanently.** Unlike the internal group, nothing pushes a
+  build to them. This is the failure mode most likely to go unnoticed here, because every signal —
+  green run, `VALID` build, working public link — reads as success while testers sit on an old build.
 - **Two release paths to one App Store record.** Xcode Cloud and `release.sh` both upload under the
   same bundle identifier. The offset keeps their numbers apart; nothing enforces it but this task
   file.

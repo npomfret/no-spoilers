@@ -17,3 +17,14 @@ Canonical build and compile policy for this repo.
 - Use `scripts/verify-ios-build.sh` for the iOS app build. It builds scheme `NoSpoilersApp` for `generic/platform=iOS`; if that scheme is absent, stop and inspect the real shared schemes before substituting another command.
 - Use `scripts/verify-widget-build.sh` for the widget extension build. It builds target `NoSpoilersWidgetExtension` with Debug `iphoneos` settings and target-build-compatible output paths.
 - Do not replace these wrappers with ad-hoc `xcodebuild` invocations unless the wrapper is wrong for the touched scope; update the wrapper instead when a command becomes canonical.
+
+## Continuous delivery
+
+Three delivery paths exist. They must not be merged or duplicated.
+
+- `scripts/release.sh` is the single release engine. `scripts/ship-*.sh` are thin argument wrappers over it, and `.github/workflows/release.yml` calls it on a `v*` tag for the macOS Developer ID channel.
+- Xcode Cloud archives scheme `NoSpoilersApp` on every push to `main` and delivers to TestFlight internal testing. Its hooks live in `NoSpoilers/ci_scripts/`, beside the Xcode project — Xcode Cloud ignores a `ci_scripts` directory at the repository root.
+  - `ci_post_clone.sh` writes `NoSpoilers/TestFlight/WhatToTest.en-GB.txt` from the commit subject. A non-zero exit here fails the whole run, so every path exits 0.
+  - `ci_pre_xcodebuild.sh` runs `scripts/verify-core-tests.sh` and then stamps `CURRENT_PROJECT_VERSION` to `CI_BUILD_NUMBER + 1000`.
+- The `+ 1000` offset is what keeps Xcode Cloud build numbers clear of the ones `release.sh` increments. Nothing enforces it but that script.
+- Xcode Cloud does not gate delivery on its TEST action, so the `verify-core-tests.sh` call in `ci_pre_xcodebuild.sh` is the only test gate on TestFlight builds. Removing it leaves runs green and the gate gone.

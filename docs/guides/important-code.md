@@ -20,6 +20,8 @@ This guide maps the current control plane and the places that define repo standa
 14. `docs/guides/claude-code-setup.md` — longer reference for the Claude Code control plane.
 15. `scripts/verify-core-tests.sh` — canonical Swift package test wrapper.
 16. `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh` — canonical Xcode build wrappers.
+17. `scripts/release.sh` — the single release engine; `scripts/ship-*.sh` and `.github/workflows/release.yml` are wrappers over it.
+18. `NoSpoilers/ci_scripts/` — Xcode Cloud hooks for the iOS TestFlight path. See `docs/guides/building.md`.
 
 ## Current repo state
 
