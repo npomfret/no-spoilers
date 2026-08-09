@@ -152,6 +152,30 @@ After upload, go to App Store Connect and submit for review.
 - Notarization: keychain profile `no-spoilers-notarytool` (set up once via `xcrun notarytool store-credentials`)
 - App Store upload: `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8` (download once from App Store Connect → Users and Access → Integrations → API)
 
+### Asking what App Store Connect holds
+
+```bash
+scripts/appstore_status.py          # add --json for the same thing as data
+```
+
+Prints both platforms side by side — macOS and iOS share one app record under
+Universal Purchase, so their versions, listings, screenshots and review
+submissions are separate and nothing in the UI shows them together. It reports
+the current version and state for each, the listing text and screenshot counts
+per locale, the App Review contact, and every review submission. `GET`s only,
+using the same key as `scripts/ship-appstore.sh`; it exits 0 when nothing it can
+see is waiting on you.
+
+That is worth running before a release: on 2026-08-09 the macOS 1.0.21 was on
+sale while the iOS 1.0.21 had been `REJECTED` since May, with its submission
+still sitting in `UNRESOLVED_ISSUES`.
+
+**Three things it cannot read, and prints as unknown rather than omitting.** App
+Privacy — the data-collection questionnaire — has no App Store Connect API
+endpoint at all. Price and availability need an App Manager key. And a
+rejection's actual reasons live in Resolution Center; the API gives you the word
+`REJECTED` and nothing else.
+
 ## Design Document
 
 Full design rationale, architecture decisions, and implementation notes:

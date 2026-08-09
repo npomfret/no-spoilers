@@ -15,3 +15,7 @@ xcuserdata/
 *.xccheckout
 *.moved-aside
 DerivedData/
+
+# Python bytecode from scripts/appstore_status.py
+__pycache__/
+*.pyc
