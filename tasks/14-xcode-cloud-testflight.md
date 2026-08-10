@@ -24,7 +24,9 @@ one action — `ARCHIVE` / scheme `NoSpoilersApp` / `IOS` / `APP_STORE_ELIGIBLE`
 
 ## Decisions taken
 
-- **Decision 1: offset the run number.** `BUILD_OFFSET=1000` in `ci_pre_xcodebuild.sh`. Option 1 as recommended.
+- ~~**Decision 1: offset the run number.** `BUILD_OFFSET=1000` in `ci_pre_xcodebuild.sh`.~~ **Reversed on
+  2026-08-10 after run 3 disproved it.** No hook can set the build number that reaches App Store Connect;
+  the offset now lives on `release.sh`'s side instead. See Phase 0 Decision 1.
 - **Decision 2: gate in `ci_pre_xcodebuild.sh`.** It calls `scripts/verify-core-tests.sh`. No Xcode test target
   was added. Option 1 as recommended.
 - **Decision 3: delivery to testers is a command, not a post-action.** Reversed on 2026-08-09 after the
@@ -77,17 +79,62 @@ it. Xcode Cloud exposes `CI_BUILD_NUMBER` — the run number — which starts at
 naively would try to upload build 1, 2, 3 for a marketing version that already has a build 8, and
 every one of those is either a duplicate or arrives out of order.
 
-Three ways out, in order of preference:
+Three ways out were considered, and **the first one cannot be built.** Kept here because it is the
+obvious idea and the next person will have it too:
 
-1. **Offset the run number.** `CURRENT_PROJECT_VERSION = CI_BUILD_NUMBER + 1000`. Monotonic, never
-   collides with anything `release.sh` has produced, and obvious in TestFlight which channel a build
-   came from. Pick the offset once and write it down.
+1. ~~**Offset the run number.** `CURRENT_PROJECT_VERSION = CI_BUILD_NUMBER + 1000` from
+   `ci_pre_xcodebuild.sh`.~~ **Impossible.** See below.
 2. **Give Xcode Cloud its own marketing version** (say `1.0.22-ci`) so the build-number space is
    separate. Cleaner in theory, more moving parts, and clutters the version list.
 3. **Do not stamp at all.** Only viable if you never want two Xcode Cloud builds of the same version,
    which defeats the purpose.
 
-**Take option 1 unless there is a reason not to.** The script in Phase 3 assumes it.
+#### Why no hook can set the build number
+
+**Xcode Cloud rewrites `CFBundleVersion` to `CI_BUILD_NUMBER` when it exports the IPA** — after
+`ci_pre_xcodebuild.sh`, and after the archive action. Measured on run 3, by pulling both artifacts:
+
+| Stage | `CFBundleVersion` |
+|---|---|
+| `ci_pre_xcodebuild.sh` log | `1003 in all 6 configurations` |
+| `ARCHIVE` artifact — app and widget | **1003** |
+| `ARCHIVE_EXPORT` app-store IPA — app and widget | **3** |
+| App Store Connect build record | **3** |
+
+The rewrite is consistent across the app and its extension, so nothing is malformed — the stamp is
+simply overwritten. A hook that runs before `xcodebuild` cannot win against a step that runs after it.
+This is also why the sibling project never noticed: it stamps `CI_BUILD_NUMBER` exactly, so its stamp
+and Apple's rewrite agree, and the rewrite is invisible.
+
+Nor can the run number be moved out of the way. `GET/PATCH` probing of the API:
+
+```
+ciProducts   -> DELETE, GET_COLLECTION, GET_INSTANCE   (does not allow UPDATE)
+ciBuildRuns  -> CREATE, GET_INSTANCE                   (does not allow UPDATE)
+```
+
+and no build-number attribute exists on `ciProducts` (`buildNumber`, `nextBuildNumber`,
+`currentBuildNumber`, `latestBuildNumber`, `startingBuildNumber` are all rejected as invalid field
+names). There is nothing to set.
+
+#### What was done instead: put the offset on the other path
+
+The reasoning behind option 1 was right and was applied to the wrong side. Nothing rewrites
+`release.sh`'s build numbers — it archives and uploads locally — so **that** is the path that can hold
+an offset:
+
+- The committed `CURRENT_PROJECT_VERSION` was bumped once, `8` → **`10000`**. `release.sh` already does
+  `CURRENT_BUILD + 1`, so it continues 10001, 10002, … with no script change.
+- `ci_pre_xcodebuild.sh` stamps `CI_BUILD_NUMBER` **exactly**, matching what Apple will write anyway and
+  matching the sibling project's hook. Xcode Cloud owns the low numbers, `release.sh` owns 10000+.
+
+Two consequences worth carrying: a five-digit build number is ugly in App Store Connect, and build
+numbers only ever increase, so this cannot be undone.
+
+**Left behind by the failed approach:** iOS `1.0.22` now holds build `3` from run 3 alongside build `8`
+from `release.sh`. Build 3 sorts below 8, and had the offset been left in place, run 8 would have
+produced a duplicate `8` and been rejected. Nothing needs fixing — `1.0.22` will not be uploaded again —
+but that is why the iOS build list for that version reads oddly.
 
 ### Decision 2: what plays the part of a test gate
 
@@ -376,7 +423,7 @@ Checked against the working tree, so you do not go looking:
 | Dark / tinted icon slots | declared, no files | Not a failure — iOS generates them. Supply real ones if you care how they look |
 | App Store Connect API key | `AuthKey_S394C74APG.p8`, issuer `69a6de6e-…` | Already used by `ship-ios.sh` and proven — but it is a **Developer**-level key. Enough for everything in Phases 1–6; not enough for Phase 7. See below |
 | Signing | automatic, team `6FZN56WC8G` | Xcode Cloud manages its own certificates; `ExportOptions-AppStore.plist` is not used by it |
-| App Store Connect record | app `6761343835`, highest existing build **8** | Confirms the `+ 1000` offset lands clear of everything already uploaded |
+| App Store Connect record | app `6761343835`, iOS `1.0.22` held build **8** before this task | The number `release.sh` had reached, and what the committed bump to `10000` had to clear |
 | Xcode Cloud product | **exists**, `1F3A0BBD-…` | Created 2026-08-10 from Xcode. The API cannot create one, so this part of Phase 1 can only happen there — everything after it can be done over the API |
 
 The icon is worth re-checking after any redesign:
@@ -616,10 +663,12 @@ anything.
 ### Still needs a real run
 
 - [x] A push to `main` produces a run that reaches `SUCCEEDED`. Run 2, `GIT_REF_CHANGE` on `9399175`.
-- [ ] The build appears in TestFlight as `VALID`, not *Missing Compliance*.
-- [ ] **The build reaches no group on its own**, which is the intended behaviour and worth seeing
-      once: `GET /v1/builds/{id}?include=betaGroups` comes back with an empty `included` after a
-      green run.
+- [x] The build appears in TestFlight as `VALID`, not *Missing Compliance*. Run 3's build reads
+      `processingState VALID`, `usesNonExemptEncryption False`, `internalBuildState
+      READY_FOR_BETA_TESTING`, `externalBuildState READY_FOR_BETA_SUBMISSION`,
+      `buildAudienceType APP_STORE_ELIGIBLE`.
+- [x] **The build reaches no group on its own.** `GET /v1/builds/{id}?include=betaGroups` came back
+      with `included: 0` after run 3 — Decision 3 behaving as designed.
 - [ ] **A tester can actually install it after the distribute command.** The same query then names
       `Internal`, and the tester's `state` is `INVITED` rather than `NOT_INVITED`. `VALID` proves
       neither. Note that adding the build sends any pending invitation by itself, and that `state`
@@ -627,9 +676,14 @@ anything.
 - [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
       `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
       no amount of distributing will change what they see. Diagnose that before touching the build.
-- [ ] Its build number is `CI_BUILD_NUMBER + 1000` and is higher than anything `release.sh` shipped.
-- [ ] The widget extension's build number matches the app's.
-- [ ] *What to Test* in TestFlight shows the commit subject and short hash.
+- [x] ~~Its build number is `CI_BUILD_NUMBER + 1000`~~ — **disproved on run 3**, and the reason is now
+      Phase 0 Decision 1. The uploaded build number is `CI_BUILD_NUMBER`, and no hook can change that.
+- [ ] After the `10000` bump: a `release.sh` iOS upload lands at `10001` and an Xcode Cloud run lands at
+      its run number, with no collision. **Not yet exercised — `release.sh` has not run since the bump.**
+- [x] The widget extension's build number matches the app's. Both `1003` in the run 3 archive and both
+      `3` in the uploaded IPA — Apple's rewrite covers the extension too.
+- [x] *What to Test* in TestFlight shows the commit subject and short hash. Run 3's build carries
+      `en-GB -> "task update\n\nBuild 3 from e762f5c7d8d7"`.
 - [ ] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
       build**. This is the one that proves the gate, and it is the only way to know Decision 2 worked.
 - [ ] `scripts/ship-ios.sh` still works afterwards and does not collide with a CI build number.

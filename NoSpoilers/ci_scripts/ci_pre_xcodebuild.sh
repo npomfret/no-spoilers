@@ -5,16 +5,20 @@ set -euo pipefail
 #
 # Two jobs:
 #   1. Gate delivery on the NoSpoilersCore tests.
-#   2. Stamp CURRENT_PROJECT_VERSION so Xcode Cloud's run numbers never collide
-#      with the build numbers scripts/release.sh produces.
+#   2. Stamp CURRENT_PROJECT_VERSION with the run number, so the archive agrees
+#      with the build that gets uploaded.
 #
 # A non-zero exit here fails the enclosing action before anything is uploaded.
 # That is deliberate — see the gate section below.
-
-# Chosen in tasks/14-xcode-cloud-testflight.md, Phase 0 Decision 1.
-# release.sh had reached build 8 when this was written; the offset keeps the two
-# upload paths in disjoint, monotonic build-number ranges under one bundle id.
-BUILD_OFFSET=1000
+#
+# The stamp is CI_BUILD_NUMBER exactly, with no offset. An earlier version added
+# 1000 to keep clear of the build numbers scripts/release.sh produces, and it
+# could never have worked: Xcode Cloud rewrites CFBundleVersion to
+# CI_BUILD_NUMBER when it exports the IPA, after this hook and after the archive
+# action. Run 3 proved it — the xcarchive read 1003, the uploaded IPA read 3.
+# The two upload paths are kept apart on release.sh's side instead, which is the
+# one nothing overrides: its committed CURRENT_PROJECT_VERSION starts at 10000.
+# See tasks/14-xcode-cloud-testflight.md, Phase 0 Decision 1.
 
 echo "ci_pre_xcodebuild: run ${CI_BUILD_NUMBER:-<unset>}, commit ${CI_COMMIT:-<unset>}"
 
@@ -47,7 +51,7 @@ echo "ci_pre_xcodebuild: core tests passed"
 
 # ── The stamp ────────────────────────────────────────────────────────────────
 
-build=$((CI_BUILD_NUMBER + BUILD_OFFSET))
+build="${CI_BUILD_NUMBER}"
 cd "${CI_PRIMARY_REPOSITORY_PATH}/NoSpoilers"
 
 # `-all` updates every build configuration, which is what we need:
