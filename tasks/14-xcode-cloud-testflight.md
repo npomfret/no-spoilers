@@ -3,9 +3,10 @@
 **Status:** IN PROGRESS — the chain works end to end. A push archives, the tests gate it, the build
 uploads `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the number (runs 4 and 5,
 builds 4 and 5), `scripts/testflight_distribute.py --apply` hands it to a group, and a tester now sits
-at `INVITED` having been invited by that hand-over alone. Two things are unfinished: **the gate has
-never been exercised** — no run has had a failing test, so nothing proves a red commit is stopped — and
-the *What to Test* note has not worked since run 3.
+at `INVITED` having been invited by that hand-over alone. **The gate is proven** — run 8 carried a
+deliberately failing test, failed at the pre-build hook, and delivered nothing. What is left is
+smaller: no human has yet installed a build from TestFlight, `release.sh` has not run since the
+`10000` bump, and the *What to Test* note lands on some runs and not others.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
 
@@ -696,6 +697,49 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
       number into the export regardless of what the project says. The stamp's only job is to make
       the archive match it.
 
+### Proven on Xcode Cloud — run 8, 2026-08-10, commit `afbedaf`
+
+**The gate.** A test was broken on purpose (`GateProofTests.swift`, one `XCTFail`), pushed to `main`,
+and reverted in the next commit. This is the run Decision 2 rests on, and it had never been done.
+
+```
+ci_pre_xcodebuild: run 8, commit afbedaf98448ce484275d4bf7deec4d077d81c3d
+ci_pre_xcodebuild: running scripts/verify-core-tests.sh
+...
+GateProofTests.swift:18: error: ... failed - deliberate failure
+	 Executed 9 tests, with 1 failure (0 unexpected)
+```
+
+- [x] **The run failed and nothing was delivered.** `completionStatus FAILED`, and the archive
+      action carries exactly one non-warning issue: `ShellScriptStep | Running ci_pre_xcodebuild.sh
+      script failed (exited with code 1)`. The iOS build list was 3, 4, 5, 6 before the push and 3,
+      4, 5, 6 after it.
+- [x] **The log stops where it should.** It ends on the test output — no `core tests passed`, no
+      `CURRENT_PROJECT_VERSION is now 8`. The gate fires before the stamp, so a red commit never
+      even reaches `agvtool`.
+- [x] **No archive was produced at all.** The action's only artifact is a `LOG_BUNDLE`. Runs that
+      deliver carry `ARCHIVE` and `ARCHIVE_EXPORT` beside it, so their absence is a second,
+      independent reading of the same fact.
+
+The revert went out as run 9, commit `43c3b08`, and closes the other half: **a clean commit still
+delivers.** `SUCCEEDED`, build `9` `VALID`, `betaGroups` empty as always. A gate that stops everything
+is not a gate, and the pair of runs is what distinguishes the two.
+
+Two things run 8 exposed that were not what it was testing:
+
+- **`autoCancel` burns run numbers.** The push carried two commits, so `f58634f` started run 7 and
+  `afbedaf` immediately cancelled it. `CANCELED` runs consume a number exactly as failed ones do —
+  the numbering is per product, not per delivered build, and it is why the break landed on run 8
+  rather than run 7. A number is not a promise that a build exists.
+- **Run 8 was heading for a duplicate anyway.** iOS `1.0.22` already holds build `8`, uploaded by
+  `release.sh` on 2026-05-01 and now expired — see the note in Decision 1. Had the tests passed,
+  the upload would have been rejected for repeating a version/build pair, and the run would have
+  failed for a reason with nothing to do with the gate. It did not happen, but only by luck of
+  ordering. **Expired builds still occupy their number**, and run 9 onward clears it only because
+  `9 > 8`; a `MARKETING_VERSION` that stays on `1.0.22` while the run counter walks up is safe from
+  here, but this is the collision the `10000` bump does not protect against, because the bump only
+  moves *future* `release.sh` builds.
+
 ### Still needs a real run
 
 - [x] A push to `main` produces a run that reaches `SUCCEEDED`. Run 2, `GIT_REF_CHANGE` on `9399175`.
@@ -724,11 +768,13 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
       its run number, with no collision. **Not yet exercised — `release.sh` has not run since the bump.**
 - [x] The widget extension's build number matches the app's. Both `1003` in the run 3 archive and both
       `3` in the uploaded IPA — Apple's rewrite covers the extension too, and both read `4` on run 4.
-- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Worked on run 3 and on
-      no run since** — builds 4 and 5 both carry run 3's note. The path and the carry-forward theory
-      have both been ruled out; see the open risk below.
-- [ ] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
-      build**. This is the one that proves the gate, and it is the only way to know Decision 2 worked.
+- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Intermittent, not
+      broken** — it worked on run 3, failed on runs 4, 5 and 6, and worked again on run 9. See the
+      open risk below; the path and the carry-forward theories are both ruled out.
+- [x] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
+      build**. Done on run 8 with a deliberate `XCTFail`, reverted immediately afterwards. Decision 2
+      is no longer a claim — see the run 8 section above for the evidence and for two hazards it
+      turned up on the way.
 - [ ] `scripts/ship-ios.sh` still works afterwards and does not collide with a CI build number.
 
 ---
@@ -749,15 +795,26 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
   (two archive actions, no audience) was wrong on both counts against this file, and a later edit in
   any of the three could put it back with no signal. `GET /v1/ciWorkflows/{id}` is the only way to
   know what it currently says.
-- **The tester note is picked up once and then never again — treat the mechanism as broken.**
-  Run 3's build carries its own note (`"task update\n\nBuild 3 from e762f5c7d8d7"`). Builds 4 **and
-  5** carry *that same note*, not their own, though both runs' `ci_post_clone` logs show the file
-  written correctly with their own subject and hash. Not eventual consistency: build 4 was polled
-  twelve times over 30 minutes and never changed.
+- **The tester note is intermittent, which is worse than broken.** Every build's note, read from
+  `GET /v1/builds/{id}/betaBuildLocalizations`:
 
-  So the hook does its job and something between the checkout and App Store Connect ignores the file
-  while carrying the previous build's note forward. Nothing distinguishes run 3 from runs 4 and 5 on
-  this repo's side, which makes run 3 the anomaly to explain rather than the behaviour to restore.
+  | Build | `whatsNew` |
+  |---|---|
+  | 3 | `task update` / `Build 3 from e762f5c7d8d7` — its own |
+  | 4 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
+  | 5 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
+  | 6 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
+  | 9 | `revert the deliberate test break…` / `Build 9 from 43c3b08b2f93` — its own |
+
+  Every one of those runs logged `ci_post_clone` writing the file with its own subject and hash, so
+  the hook is not the variable. Not eventual consistency either: build 4 was polled twelve times over
+  30 minutes and never changed, and build 6 still reads run 3's note days-old at the time of writing.
+
+  **The earlier reading of this — "picked up once on run 3 and never again" — was wrong**, and it was
+  wrong in the direction that stops you looking: a mechanism that has failed permanently gets
+  written off, and one that works two runs in five has to be explained. Run 9 is the counter-example.
+  It is also the first run after a *failed* run, which is the only difference anyone has spotted so
+  far and is thin enough that it may be coincidence.
 
   **Two explanations have been checked and both are wrong.** Record them so they are not tried again:
 
@@ -775,15 +832,21 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
   not, and it creates `tmp/` and runs `swift test` and deletes nothing, so it is not eating the file
   between `ci_post_clone` and the upload.
 
-  **The one place left to look is run 3 against run 5** — the run that worked against a run that did
-  not. Their log bundles have not been compared.
+  **The comparison to make is runs 3 and 9 against runs 4, 5 and 6** — two that worked against three
+  that did not, which is a far better experiment than the single pair available before. None of those
+  log bundles have been compared.
 
   Until then: **do not read a plausible-looking note as proof it came from this build** — check the
   build number inside it. A stale note is worse than no note, because it describes changes the
   tester does not have.
-- **The gate is a script, not a feature.** Anyone who deletes the `verify-core-tests.sh` line from
-  `ci_pre_xcodebuild.sh` removes the gate silently, and the run stays green. Nothing in Xcode Cloud
-  will report that.
+- **The gate is a script, not a feature.** It works — run 8 proves it — but anyone who deletes the
+  `verify-core-tests.sh` line from `ci_pre_xcodebuild.sh` removes it silently, and the run stays
+  green. Nothing in Xcode Cloud will report that. Proving it once does not make it durable, and
+  re-proving it costs a red push and a revert.
+- **A failed run hides the next failure behind it.** Run 8 failed at the gate, which is what it was
+  built to do, and in doing so concealed that its build number was already taken on `1.0.22`. A hook
+  that exits early means every later step is untested for that commit, so "the run failed for the
+  reason I expected" is never the same as "there was one thing wrong".
 - **TestFlight builds expire 90 days after upload** and then stop launching, with nothing to explain
   it beyond "Expired Build".
 - **Every internal tester is an account on the developer team.** There is no read-only "just let them
