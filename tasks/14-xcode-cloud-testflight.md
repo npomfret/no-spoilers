@@ -8,10 +8,13 @@ deliberately failing test, failed at the pre-build hook, and delivered nothing. 
 note is no longer Apple's to lose: the distribute command writes it. `appstore_status.py` reports
 which build the testers can actually install.
 
-**Two things are left, and neither is code.** Nobody has redeemed the TestFlight invitation on a
-phone, so no human has installed a build — the tester reads `appDevices []`. And `release.sh` has
-not run since the `10000` bump, so the two build-number bands have never been exercised against
-each other.
+**One thing is left, and it is not code.** `release.sh` has not run since the `10000` bump, so the
+two build-number bands have never been exercised against each other.
+
+**The chain is closed on a human.** Build 13, from commit `7fec1d7`, was installed on a phone and
+launched on 2026-08-10 — push, archive, test gate, upload, `testflight_distribute --apply`, someone
+tapping Install. Every step of this task has now been demonstrated on the real thing rather than
+inferred from a green status.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
 
@@ -798,7 +801,12 @@ Two things run 8 exposed that were not what it was testing:
       `buildAudienceType APP_STORE_ELIGIBLE`.
 - [x] **The build reaches no group on its own.** `GET /v1/builds/{id}?include=betaGroups` came back
       with `included: 0` after run 3 — Decision 3 behaving as designed.
-- [ ] **A tester can actually install it after the distribute command.** Half proven, 2026-08-10:
+- [x] **A tester can actually install it after the distribute command.** **Closed 2026-08-10: build
+      13 was installed on a phone and launched.** That is the whole chain — push, archive, gate,
+      upload, `--apply`, a person tapping Install — done end to end on one commit (`7fec1d7`), and
+      it is the only checkbox in this file that no API call could ever have ticked.
+
+      How it read before that, kept because the intermediate state is the one that misleads:
       `scripts/testflight_distribute.py --apply` put build 4 in `Internal`, and
       `GET /v1/builds/{id}?include=betaGroups` now names the group where it returned an empty
       `included` before. Re-running says "already there" and writes nothing. **What is still
@@ -808,9 +816,18 @@ Two things run 8 exposed that were not what it was testing:
       the `NO_INSTALLABLE_BUILDS` refusal of 2026-08-09 cannot recur while a build is in the group.
       What remains is a person opening TestFlight and the app launching. `VALID` proves nothing
       about that. Note `state` reads are eventually consistent and can flip back briefly.
-- [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
-      `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
-      no amount of distributing will change what they see. Diagnose that before touching the build.
+- [x] **A tester who has not redeemed the invite still sees "no builds available."** ~~Check
+      `appDevices` on the tester: an empty array means the code was never redeemed on a device.~~
+      **`appDevices` does not mean that, and this file said it did.** The tester read `state
+      INSTALLED` with `appDevices []` — stable across three consecutive reads — on a phone that had
+      just installed build 13. So an empty `appDevices` is compatible with a redeemed invitation
+      *and* an installed build, and using it as the redemption test gives a false negative on a
+      tester who is demonstrably fine.
+
+      **`state` is the field that answered.** It moved `NOT_INVITED` → `INVITED` → `INSTALLED`
+      across the three things that actually happened: the build reaching the group, the invitation
+      being redeemed, the app being installed. `appDevices` never moved at all. Read `state`, and
+      treat `appDevices` as telling you nothing either way.
 
       **Ask the group, not the tester.** `GET /v1/betaGroups/{id}/betaTesters` populates `state` and
       `appDevices`; `GET /v1/betaTesters/{id}` returns **`None` for both** on the same tester in the
@@ -819,9 +836,10 @@ Two things run 8 exposed that were not what it was testing:
       like "no devices", so the instinctive route gives you the right diagnosis by accident and the
       wrong one just as easily.
 
-      Current reading, 2026-08-10: `state INVITED`, `appDevices []`. **The invitation has never been
-      redeemed on a device**, which is why the install checkbox above is still open. That is a
-      person with a phone, not an API call.
+      ~~Current reading, 2026-08-10: `state INVITED`, `appDevices []`. **The invitation has never
+      been redeemed on a device.**~~ That inference was drawn from `appDevices` and it was wrong in
+      the one direction that matters — it declared a working setup broken. The `INVITED` reading was
+      correct at the time; the reason attached to it was not.
 - [x] ~~Its build number is `CI_BUILD_NUMBER + 1000`~~ — **disproved on run 3**, and the reason is now
       Phase 0 Decision 1. The uploaded build number is `CI_BUILD_NUMBER`, and no hook can change that.
 - [ ] After the `10000` bump: a `release.sh` iOS upload lands at `10001` and an Xcode Cloud run lands at
@@ -868,7 +886,7 @@ Two things run 8 exposed that were not what it was testing:
   | 10 | `make the distribute command own…` / `Build 10 from 7b50e5a24983` — its own |
   | 11 | **empty** — the first run with no `ci_post_clone.sh` |
   | 12 | `report which build the testers…` / `Build 12 from 033ed528c33f` — written by the API |
-  | 13 | **empty** — undistributed, so nothing has written it |
+  | 13 | arrived **empty**, then `record build 12: the note's…` / `Build 13 from 7fec1d7f88e7` |
 
   Every one of those runs logged `ci_post_clone` writing the file with its own subject and hash, so
   the hook is not the variable. Not eventual consistency either: build 4 was polled twelve times over
@@ -890,8 +908,9 @@ Two things run 8 exposed that were not what it was testing:
 
   **Empty, not absent — and the difference matters to the code.** Every Xcode Cloud build here
   carries exactly one `en-GB` `betaBuildLocalization`; on an undistributed build its `whatsNew` is
-  `null`. Builds 11 and 13 both read that way and neither has ever been touched by the script, so
-  Apple creates the localization and leaves it blank. The two expired `release.sh` uploads — build 8
+  `null`. Build 11 still reads that way, and build 13 did until it was distributed — neither had
+  been touched by the script when they were read, so Apple creates the localization and leaves it
+  blank. The two expired `release.sh` uploads — build 8
   on `1.0.22` and build 6 on `1.0.21` — carry **no** localization at all, so this is something the
   Xcode Cloud upload path does, not something every build gets.
 
@@ -961,8 +980,10 @@ Two things run 8 exposed that were not what it was testing:
   **The message now says which of the two it saw.** `note_state` replaced the inline conditional and
   reports four states — `has no en-GB localization`, `is empty`, `claims '…'`, `has no build
   marker` — so the line names the branch `write_note` is about to take instead of hiding it. Build
-  13 reads `what to test: is empty. Would set 'Build 13 from 7fec1d7f88e7'`, which is the reading
-  that was unavailable when this was got wrong. Five selftest cases pin the four states, 20 → 25.
+  13 read `what to test: is empty. Would set 'Build 13 from 7fec1d7f88e7'` on the dry run and
+  `is empty, now 'Build 13 from 7fec1d7f88e7'` on `--apply` — naming the `PATCH` in both, which is
+  the reading that was unavailable when this was got wrong. Five selftest cases pin the four
+  states, 20 → 25.
 
   It is worth naming the shape, because this file has now hit it twice: **a diagnostic that
   collapses two states produces a confident wrong answer, not an obviously missing one.** The other
