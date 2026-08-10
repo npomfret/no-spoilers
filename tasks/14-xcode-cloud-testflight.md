@@ -1,9 +1,26 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** IN PROGRESS — scripts written and locally verified; Phase 1 (the Xcode Cloud workflow) and the
-tester group still need doing in Xcode and App Store Connect, and nothing has been pushed yet.
+**Status:** IN PROGRESS — the workflow exists and two runs have gone green on Apple's hardware with both
+hooks working. Neither delivered: the workflow Xcode generated had no distribution audience. Patched since;
+the next run is the first that can reach TestFlight.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
+
+## Live configuration
+
+Recorded because none of it is discoverable from the repo, and `GET /v1/ciProducts` will not always
+show it (see Phase 1, "When Xcode will not let you create the workflow").
+
+| Thing | Id |
+|---|---|
+| Xcode Cloud product `NoSpoilersApp` | `1F3A0BBD-DC5B-44FA-A767-65B3E14A433B`, created 2026-08-10 |
+| Workflow `Default` | `6EE7E8AE-43B3-4A88-94AB-729C6EE45E6B` |
+| App record | `6761343835`, `pomocorp.NoSpoilers.NoSpoilersMac` — one record, iOS and macOS both |
+| Internal group | `e4840ac3-284b-4b6c-a41f-b400d6d0fac1` |
+| Repository | `npomfret/no-spoilers`, `b36f1212-d272-4b37-9ba0-50c3277fd1f2` |
+
+Workflow as it now stands: container `NoSpoilers/NoSpoilers.xcodeproj`, branch `main`, `autoCancel` on,
+one action — `ARCHIVE` / scheme `NoSpoilersApp` / `IOS` / `APP_STORE_ELIGIBLE`.
 
 ## Decisions taken
 
@@ -208,6 +225,74 @@ option that actually stops a broken build reaching a tester.
    link automatically means every push proposes itself to strangers, and the first build of each
    marketing version sits in Beta App Review regardless.
 
+### What Xcode actually generated, and why steps 2 and 4 above are not optional
+
+Create Workflow produced **two** archive actions, not one, and gave neither an audience:
+
+```
+ARCHIVE | scheme NoSpoilers    | MACOS | buildDistributionAudience: null
+ARCHIVE | scheme NoSpoilersApp | IOS   | buildDistributionAudience: null
+```
+
+So it archived the Mac app this task says must not be archived here, and produced the
+artifact-and-stop state step 4 warns about. Runs 1 and 2 both went `SUCCEEDED` and delivered
+nothing; App Store Connect stayed on build 8 throughout. Fixed with a single call:
+
+```
+PATCH /v1/ciWorkflows/6EE7E8AE-43B3-4A88-94AB-729C6EE45E6B
+  attributes.actions = [ one ARCHIVE, NoSpoilersApp, IOS, APP_STORE_ELIGIBLE ]
+```
+
+**A run snapshots the workflow when it starts.** Run 2 began 90 seconds before the patch and still
+carried the macOS action. Patching mid-flight changes nothing already queued.
+
+### When Xcode will not let you create the workflow
+
+Two symptoms, one cause, and an hour lost to it:
+
+- **Integrate → Manage Workflows greyed out**, and
+- **Create Workflow refusing with "a workflow with that name already exists".**
+
+They look contradictory — nothing to manage, yet something already exists — and they are the same
+fault. Xcode *lists* products to populate its menu, and `GET /v1/ciProducts` was returning
+`total: 0` while individual products still resolved by id. Create validates against the server,
+which had them. Xcode was reading an empty list and a non-empty server.
+
+The cause was a product in a broken state: `EDF20772-21CF-443B-9337-464D47B3F61F`, which belonged
+to a sibling project, had been renamed `NoSpoilersApp`, had this repo attached as its primary
+repository, and had **lost its `app` relationship entirely** — `relationships/app` returns
+`{"type": "apps"}` with no id and `GET …/app` returns a 500. A product with no app does not
+enumerate, and one unlistable product appears to make the whole list unlistable.
+
+What did not help, in case it is tempting:
+
+- **Clearing `~/Library/Developer/Xcode/UserData/XcodeCloud/`.** The cache was empty *because* the
+  list was empty; Xcode rebuilt it and it was empty again. Phase 6 already says that sqlite is a
+  cache and not a record — it is equally useless as a lever.
+- **The App Store Connect UI**, which showed the onboarding splash for this app and no product at
+  all. That screen is worth checking precisely because it is unambiguous: it means no product, not
+  a hidden one.
+
+What did work was retrying Create Workflow in Xcode later, which made a **new** product
+(`1F3A0BBD-…`, properly attached to app `6761343835`) and left the broken one in place. So: if the
+list is empty and the dialog says otherwise, look for an orphaned product by id before touching
+anything local.
+
+**Still outstanding:** `EDF20772-…` is orphaned and still holds the sibling project's `Default`
+workflow (`6229CF74-F464-4EF7-A6AE-64C7B8A21279`). That project keeps shipping — uploads go by
+bundle id, not by the product's app link — but its Xcode Cloud tab is presumably as empty as this
+one's was. `ciProducts` has no `PATCH`, so the only repair is `DELETE`, which takes its workflow and
+build history with it. Recorded here so that is recoverable rather than irreversible:
+
+```
+repository        npomfret/super-funmax-music  (3706b1f0-bfe2-472b-b936-b24b6043d789)
+containerFilePath apple/FunMaxMusic/FunMaxMusic.xcodeproj
+branch            main, autoCancel true, clean true
+action 1  TEST     scheme FunMaxMusic, IOS, ANY_IOS_SIMULATOR, isRequiredToPass true
+                   SPECIFIC_TEST_PLANS "UnitTests", iPhone 17 Pro / iOS 26.5 simulator
+action 2  ARCHIVE  scheme FunMaxMusic, IOS, APP_STORE_ELIGIBLE, isRequiredToPass true
+```
+
 ---
 
 ## Phase 2: Where the CI scripts go — DONE
@@ -292,7 +377,7 @@ Checked against the working tree, so you do not go looking:
 | App Store Connect API key | `AuthKey_S394C74APG.p8`, issuer `69a6de6e-…` | Already used by `ship-ios.sh` and proven — but it is a **Developer**-level key. Enough for everything in Phases 1–6; not enough for Phase 7. See below |
 | Signing | automatic, team `6FZN56WC8G` | Xcode Cloud manages its own certificates; `ExportOptions-AppStore.plist` is not used by it |
 | App Store Connect record | app `6761343835`, highest existing build **8** | Confirms the `+ 1000` offset lands clear of everything already uploaded |
-| Xcode Cloud product | **does not exist yet** | `GET /v1/ciProducts` returns only `FunMaxMusic`. The API cannot create one — Phase 1 has to happen in Xcode |
+| Xcode Cloud product | **exists**, `1F3A0BBD-…` | Created 2026-08-10 from Xcode. The API cannot create one, so this part of Phase 1 can only happen there — everything after it can be done over the API |
 
 The icon is worth re-checking after any redesign:
 
@@ -499,9 +584,38 @@ Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_RE
 - [x] `verify-core-tests.sh` needs nothing outside the checkout — the clean-runner risk below is closed.
 - [x] `agvtool` reaches all 6 configurations on this project, including the widget extension's own two.
 
+### Proven on Xcode Cloud — run 1, 2026-08-10, commit `f0b248f`
+
+Read out of the run's `LOG_BUNDLE` artifact, which is where the hook logs live:
+
+```
+ci_post_clone: writing /Volumes/workspace/repository/NoSpoilers/TestFlight/WhatToTest.en-GB.txt
+add Xcode Cloud CI hooks for the iOS TestFlight path
+
+Build 1 from f0b248f29170
+
+ci_pre_xcodebuild: run 1, commit f0b248f2917046c9419b718bc0af8f4410ee7884
+ci_pre_xcodebuild: running scripts/verify-core-tests.sh
+ci_pre_xcodebuild: core tests passed
+ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 1001 in all 6 configurations
+```
+
+- [x] **`verify-core-tests.sh` runs on a clean Xcode Cloud runner.** 8 tests, 0 failures. It creates
+      `tmp/` and overrides `HOME` under `/Volumes/workspace/repository` without complaint. This was the
+      largest open risk in this file and it is now closed on the real thing, not a local proxy.
+- [x] **The offset works.** `CI_BUILD_NUMBER=1` → `1001`, in all 6 configurations.
+- [x] **`ci_post_clone.sh` works on the runner**, writing the note under the Xcode-Cloud checkout path.
+- [x] **The hook ran once, not once per `xcodebuild`.** One `ci_pre_xcodebuild: run 1` line in the whole
+      log. The compute worry recorded below was overstated.
+
+Not proven by these runs, and worth being precise about: both had **no distribution audience**, so
+nothing was ever going to be uploaded. A green run here says the scripts work. It says nothing about
+delivery, and nothing about the gate — a passing test cannot demonstrate that a failing one stops
+anything.
+
 ### Still needs a real run
 
-- [ ] A push to `main` produces a run that reaches `SUCCEEDED`.
+- [x] A push to `main` produces a run that reaches `SUCCEEDED`. Run 2, `GIT_REF_CHANGE` on `9399175`.
 - [ ] The build appears in TestFlight as `VALID`, not *Missing Compliance*.
 - [ ] **The build reaches no group on its own**, which is the intended behaviour and worth seeing
       once: `GET /v1/builds/{id}?include=betaGroups` comes back with an empty `included` after a
@@ -524,15 +638,20 @@ Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_RE
 
 ## Open risks
 
-- ~~**`verify-core-tests.sh` on a clean runner.**~~ Closed: verified against a fresh clone, needs nothing
-  outside the checkout. Still worth watching on the first real run, since an Xcode Cloud runner is not
-  this machine.
-- **The hook runs before every `xcodebuild` invocation in the action**, so the core tests may run more
-  than once per build. Left as-is: a skip marker would be another way for the gate to silently disappear.
-  If it shows up in the compute numbers, revisit it here rather than in the script.
+- ~~**`verify-core-tests.sh` on a clean runner.**~~ Closed on run 1: 8 tests, 0 failures, on Apple's
+  hardware.
+- ~~**The hook runs before every `xcodebuild` invocation**, so the core tests may run more than once
+  per build.~~ Did not happen: one invocation per archive action in run 1. Left unmitigated, and a skip
+  marker is still the wrong fix — it would be another way for the gate to disappear silently.
 - **Compute allowance.** Archiving on every push spends against 25 hours a month that do not roll
   over. If `main` is busy, move the start condition to a tag or manual trigger. Adding the core tests
-  to every build makes each run longer.
+  to every build makes each run longer. Note that runs 1 and 2 fired 2 minutes apart, one manual and
+  one on the push, and both archived macOS as well — three archives' worth of allowance for nothing.
+- **The workflow is editable from three places and readable from one.** Xcode, the App Store Connect
+  UI, and `PATCH /v1/ciWorkflows` all write it; nothing in this repo pins it. What Xcode generated
+  (two archive actions, no audience) was wrong on both counts against this file, and a later edit in
+  any of the three could put it back with no signal. `GET /v1/ciWorkflows/{id}` is the only way to
+  know what it currently says.
 - **The gate is a script, not a feature.** Anyone who deletes the `verify-core-tests.sh` line from
   `ci_pre_xcodebuild.sh` removes the gate silently, and the run stays green. Nothing in Xcode Cloud
   will report that.
