@@ -706,10 +706,12 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
       `scripts/testflight_distribute.py --apply` put build 4 in `Internal`, and
       `GET /v1/builds/{id}?include=betaGroups` now names the group where it returned an empty
       `included` before. Re-running says "already there" and writes nothing. **What is still
-      unproven is the tester**, because the group has none — the invitation half of this needs
-      `state` to read `INVITED` rather than `NOT_INVITED`, and `VALID` proves neither. Note that
-      adding the build sends any pending invitation by itself, and that `state` reads are
-      eventually consistent — it can read `NOT_INVITED` again minutes later and settle.
+      unproven is the install itself.** The invitation half is now closed: a tester was added to
+      `Internal` and reads `state: INVITED`, `inviteType: EMAIL`, without anything calling
+      `betaTesterInvitations` — **adding the build sent it**, exactly as this file predicted, and
+      the `NO_INSTALLABLE_BUILDS` refusal of 2026-08-09 cannot recur while a build is in the group.
+      What remains is a person opening TestFlight and the app launching. `VALID` proves nothing
+      about that. Note `state` reads are eventually consistent and can flip back briefly.
 - [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
       `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
       no amount of distributing will change what they see. Diagnose that before touching the build.
@@ -743,14 +745,22 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
   (two archive actions, no audience) was wrong on both counts against this file, and a later edit in
   any of the three could put it back with no signal. `GET /v1/ciWorkflows/{id}` is the only way to
   know what it currently says.
-- **The tester note is not reliably picked up.** Run 3's build carries its own note
-  (`"task update\n\nBuild 3 from e762f5c7d8d7"`); run 4's build carries *that same note*, not its own,
-  even though run 4's `ci_post_clone` log shows the file written correctly with run 4's subject and
-  hash. So the hook is doing its job and something between the checkout and App Store Connect either
-  ignored the file or carried the previous build's note forward. Nothing distinguishes the two runs on
-  this repo's side. Treat *What to Test* as advisory until a run is seen to set it twice in a row, and
-  do not read a plausible-looking note as proof it came from this build — check the build number inside
-  it.
+- **The tester note is picked up once and then never again — treat the mechanism as broken.**
+  Run 3's build carries its own note (`"task update\n\nBuild 3 from e762f5c7d8d7"`). Builds 4 **and
+  5** carry *that same note*, not their own, though both runs' `ci_post_clone` logs show the file
+  written correctly with their own subject and hash. Not eventual consistency: build 4 was polled
+  twelve times over 30 minutes and never changed.
+
+  So the hook does its job and something between the checkout and App Store Connect ignores the file
+  while carrying the previous build's note forward. Nothing distinguishes run 3 from runs 4 and 5 on
+  this repo's side, which makes run 3 the anomaly to explain rather than the behaviour to restore.
+  The first thing to check is whether `NoSpoilers/TestFlight/` is the path Xcode Cloud actually reads
+  — it is beside the `.xcodeproj`, which is where the hooks must live, but the two locations are
+  documented separately and may not be the same place.
+
+  Until then: **do not read a plausible-looking note as proof it came from this build** — check the
+  build number inside it. A stale note is worse than no note, because it describes changes the
+  tester does not have.
 - **The gate is a script, not a feature.** Anyone who deletes the `verify-core-tests.sh` line from
   `ci_pre_xcodebuild.sh` removes the gate silently, and the run stays green. Nothing in Xcode Cloud
   will report that.
