@@ -48,6 +48,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 API = "https://api.appstoreconnect.apple.com"
@@ -58,7 +59,19 @@ API = "https://api.appstoreconnect.apple.com"
 BUNDLE_ID = "pomocorp.NoSpoilers.NoSpoilersMac"
 KEY_ID = "S394C74APG"
 ISSUER_ID = "69a6de6e-6d3e-47e3-e053-5b8c7c11a4d1"
-KEY_PATH = Path.home() / ".appstoreconnect" / "private_keys" / f"AuthKey_{KEY_ID}.p8"
+
+
+def key_path(key_id: str) -> Path:
+    """Where a downloaded App Store Connect key lives.
+
+    A function rather than one constant because this is not the only key:
+    `scripts/testflight_distribute.py` needs an App Manager key, and this one is
+    Developer level. Same directory, same naming — Apple's own.
+    """
+    return Path.home() / ".appstoreconnect" / "private_keys" / f"AuthKey_{key_id}.p8"
+
+
+KEY_PATH = key_path(KEY_ID)
 
 # App Store Connect rejects a token older than twenty minutes. A run is well
 # inside that; this is not a session.
@@ -239,13 +252,25 @@ def _screenshot_sets(client: Client, localization_id: str) -> list[dict]:
     return sets
 
 
-def gather(client: Client) -> dict:
-    """Everything the report needs, as plain data. No password ever enters it."""
-    apps = client.get("/v1/apps?limit=200")["data"]
+def find_app(get: "Callable[[str], dict]") -> dict:
+    """This app's record, or a hard stop.
+
+    Takes the caller's `get` so that a script writing with a different key can
+    find the same record without a second copy of this lookup —
+    `scripts/testflight_distribute.py` does exactly that. Absence is a
+    programming error, not a state to report: there is one App Store record and
+    every script here is about it.
+    """
+    apps = get("/v1/apps?limit=200")["data"]
     app = next((a for a in apps if a["attributes"].get("bundleId") == BUNDLE_ID), None)
     if not app:
         raise SystemExit(f"no App Store Connect record for {BUNDLE_ID}")
+    return app
 
+
+def gather(client: Client) -> dict:
+    """Everything the report needs, as plain data. No password ever enters it."""
+    app = find_app(client.get)
     attributes = app["attributes"]
     report: dict = {
         "app": {

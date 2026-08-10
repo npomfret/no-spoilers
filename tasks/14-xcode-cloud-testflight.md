@@ -1,8 +1,8 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** IN PROGRESS — the workflow exists and two runs have gone green on Apple's hardware with both
-hooks working. Neither delivered: the workflow Xcode generated had no distribution audience. Patched since;
-the next run is the first that can reach TestFlight.
+**Status:** IN PROGRESS — the workflow exists and delivers. Run 4 put build `4` on TestFlight as `VALID`
+and `APP_STORE_ELIGIBLE` with the archive and the IPA agreeing on the build number. What is left is the
+gate: no run has yet had a failing test, so nothing proves a red commit is stopped.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
 
@@ -563,12 +563,23 @@ POST /v1/betaAppReviewSubmissions
 `internalBuildState` reads `READY_FOR_BETA_TESTING`, and every tester has nothing. A post-action
 would do it, and Phase 1 step 6 is the argument for not using one.
 
-So this is a command, and it is the whole delivery step. The sibling project has it at
-`scripts/testflight_distribute.py`, worth copying rather than rewriting: dry-run by default,
-`--apply` to add the newest build, `--apply --submit` to send it for review as well. **It touches
-internal groups only unless `--group` names one** — reaching a public link should cost you the
-effort of typing its name, so that no future change to a default can publish something on your
-behalf.
+So this is a command, and it is the whole delivery step. **Built: `scripts/testflight_distribute.py`.**
+Dry-run by default, `--apply` to add the newest build, `--apply --submit` to send it for review as
+well. **It touches internal groups only unless `--group` names one** — reaching a public link should
+cost you the effort of typing its name, so that no future change to a default can publish something
+on your behalf.
+
+Adapted from the sibling's version rather than copied, because two things here are different and
+both are silent failures:
+
+- **The app record holds macOS and iOS**, so an unfiltered build list interleaves them and the
+  newest upload is as likely to be a Mac build. Every query filters on
+  `filter[preReleaseVersion.platform]=IOS`. Measured: the unfiltered list returns 8 builds, the
+  filtered one 4.
+- **Newest is by `uploadedDate`, not by build number.** The sibling sorts numerically because it has
+  one upload path. Decision 1 gave this repo two deliberately separate bands, so the highest number
+  is routinely the *older* build — after the next `release.sh` run, numeric sorting would pin
+  testers to `10001` and never offer them a CI build again. Both directions are in the selftest.
 
 Keep it separate from whatever reads state. One script writes to App Store Connect, one only
 issues `GET`s, and that split is what makes the report safe to run whenever the answer is in
@@ -660,6 +671,28 @@ nothing was ever going to be uploaded. A green run here says the scripts work. I
 delivery, and nothing about the gate — a passing test cannot demonstrate that a failing one stops
 anything.
 
+### Proven on Xcode Cloud — run 4, 2026-08-10, commit `0c3bd32`
+
+The first run with the offset removed, and the one that closes Decision 1. From the `LOG_BUNDLE`:
+
+```
+ci_pre_xcodebuild: run 4, commit 0c3bd3298aef1e45601e597e2bd1bfec516afea6
+ci_pre_xcodebuild: running scripts/verify-core-tests.sh
+ci_pre_xcodebuild: core tests passed
+ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
+```
+
+- [x] **The archive and the upload finally agree.** `CFBundleVersion` reads `4` in the `xcarchive`
+      (app, widget extension, both dSYMs) and `4` in the exported `app-store` IPA (app and widget).
+      Run 3's `1003`-vs-`3` split is gone.
+- [x] **App Store Connect recorded build `4`**, `VALID`, `APP_STORE_ELIGIBLE`, against pre-release
+      version `1.0.22`, with `betaGroups` empty.
+- [x] **Apple's rewrite is visible in the export options**, which is worth knowing when this next
+      surprises somebody: the distribution log opens with
+      `"manageAppVersionAndBuildNumber":false, ... "buildNumber":"4"`. Xcode Cloud passes the run
+      number into the export regardless of what the project says. The stamp's only job is to make
+      the archive match it.
+
 ### Still needs a real run
 
 - [x] A push to `main` produces a run that reaches `SUCCEEDED`. Run 2, `GIT_REF_CHANGE` on `9399175`.
@@ -669,10 +702,14 @@ anything.
       `buildAudienceType APP_STORE_ELIGIBLE`.
 - [x] **The build reaches no group on its own.** `GET /v1/builds/{id}?include=betaGroups` came back
       with `included: 0` after run 3 — Decision 3 behaving as designed.
-- [ ] **A tester can actually install it after the distribute command.** The same query then names
-      `Internal`, and the tester's `state` is `INVITED` rather than `NOT_INVITED`. `VALID` proves
-      neither. Note that adding the build sends any pending invitation by itself, and that `state`
-      reads are eventually consistent — it can read `NOT_INVITED` again minutes later and settle.
+- [ ] **A tester can actually install it after the distribute command.** Half proven, 2026-08-10:
+      `scripts/testflight_distribute.py --apply` put build 4 in `Internal`, and
+      `GET /v1/builds/{id}?include=betaGroups` now names the group where it returned an empty
+      `included` before. Re-running says "already there" and writes nothing. **What is still
+      unproven is the tester**, because the group has none — the invitation half of this needs
+      `state` to read `INVITED` rather than `NOT_INVITED`, and `VALID` proves neither. Note that
+      adding the build sends any pending invitation by itself, and that `state` reads are
+      eventually consistent — it can read `NOT_INVITED` again minutes later and settle.
 - [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
       `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
       no amount of distributing will change what they see. Diagnose that before touching the build.
@@ -681,9 +718,9 @@ anything.
 - [ ] After the `10000` bump: a `release.sh` iOS upload lands at `10001` and an Xcode Cloud run lands at
       its run number, with no collision. **Not yet exercised — `release.sh` has not run since the bump.**
 - [x] The widget extension's build number matches the app's. Both `1003` in the run 3 archive and both
-      `3` in the uploaded IPA — Apple's rewrite covers the extension too.
-- [x] *What to Test* in TestFlight shows the commit subject and short hash. Run 3's build carries
-      `en-GB -> "task update\n\nBuild 3 from e762f5c7d8d7"`.
+      `3` in the uploaded IPA — Apple's rewrite covers the extension too, and both read `4` on run 4.
+- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Worked on run 3, did not
+      on run 4** — see the open risk below.
 - [ ] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
       build**. This is the one that proves the gate, and it is the only way to know Decision 2 worked.
 - [ ] `scripts/ship-ios.sh` still works afterwards and does not collide with a CI build number.
@@ -706,6 +743,14 @@ anything.
   (two archive actions, no audience) was wrong on both counts against this file, and a later edit in
   any of the three could put it back with no signal. `GET /v1/ciWorkflows/{id}` is the only way to
   know what it currently says.
+- **The tester note is not reliably picked up.** Run 3's build carries its own note
+  (`"task update\n\nBuild 3 from e762f5c7d8d7"`); run 4's build carries *that same note*, not its own,
+  even though run 4's `ci_post_clone` log shows the file written correctly with run 4's subject and
+  hash. So the hook is doing its job and something between the checkout and App Store Connect either
+  ignored the file or carried the previous build's note forward. Nothing distinguishes the two runs on
+  this repo's side. Treat *What to Test* as advisory until a run is seen to set it twice in a row, and
+  do not read a plausible-looking note as proof it came from this build — check the build number inside
+  it.
 - **The gate is a script, not a feature.** Anyone who deletes the `verify-core-tests.sh` line from
   `ci_pre_xcodebuild.sh` removes the gate silently, and the run stays green. Nothing in Xcode Cloud
   will report that.
