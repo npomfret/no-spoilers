@@ -628,7 +628,9 @@ TESTFLIGHT (IOS)
 ```
 
 Five builds behind and **nothing under NEEDS YOU**, which is the whole design: that gap is the
-normal state of a repo whose delivery is a command, and the exit code stays 0 for it. The four ways
+normal state of a repo whose delivery is a command, and the exit code stays 0 for it. After the
+command runs, the same line reads `testers can install build 12 — the newest`, so the report says
+which of the two states you are in without ever making the ordinary one look like a fault. The four ways
 of reaching "nothing at all" — no group, every group empty, every build expired, no build in any
 group — each warn with their own line, because the fix differs in each case.
 
@@ -856,6 +858,7 @@ Two things run 8 exposed that were not what it was testing:
   | 9 | `revert the deliberate test break…` / `Build 9 from 43c3b08b2f93` — its own |
   | 10 | `make the distribute command own…` / `Build 10 from 7b50e5a24983` — its own |
   | 11 | **none at all** — the first run with no `ci_post_clone.sh` |
+  | 12 | `report which build the testers…` / `Build 12 from 033ed528c33f` — written by the API |
 
   Every one of those runs logged `ci_post_clone` writing the file with its own subject and hash, so
   the hook is not the variable. Not eventual consistency either: build 4 was polled twelve times over
@@ -920,6 +923,12 @@ Two things run 8 exposed that were not what it was testing:
   `betaBuildLocalizations`. Apple's pickup is off the critical path, and the failure mode is an HTTP
   error rather than silence. Proven on build 6, which read `Build 3 from e762f5c7d8d7` and now reads
   `Build 6 from 5dc0d8f16db0`.
+
+  **Both halves of that write have now run.** Build 6 exercised the `PATCH` — a localization existed
+  and its text was wrong. Build 12 exercised the `POST`, which had never run before: with
+  `ci_post_clone.sh` gone, Apple created no `en-GB` localization at all, the script reported
+  `what to test: is missing` rather than a stale claim, and the create branch made one. That is the
+  shape every future undistributed build arrives in, so it is the branch that matters from here.
 
   The check is **"does the note name this build"**, not "is there a note" — the `Build N from <sha>`
   marker, not the subject. Two commits off the same branch routinely share a subject (builds 3 and 6
