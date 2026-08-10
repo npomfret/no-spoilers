@@ -218,8 +218,10 @@ still sitting in `UNRESOLVED_ISSUES`.
 **Three things it cannot read, and prints as unknown rather than omitting.** App
 Privacy — the data-collection questionnaire — has no App Store Connect API
 endpoint at all. Price and availability need an App Manager key. And a
-rejection's actual reasons live in Resolution Center; the API gives you the word
-`REJECTED` and nothing else.
+rejection's actual reasons live in Resolution Center. The API gives you states
+and no prose: the version reads `REJECTED`, the submission `UNRESOLVED_ISSUES`,
+and each item inside that submission `REJECTED` or `APPROVED` — what was refused,
+never why. Resolution Center has no endpoint at all, so replying is browser work.
 
 ## Design Document
 

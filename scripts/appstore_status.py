@@ -29,9 +29,15 @@ session for that one action precisely because none exists. Price and
 availability are in the API and refused to a Developer-level key. A checklist
 that silently omits a required item reads as a finished checklist.
 
-**Rejection reasons are not in this API either.** A version reads `REJECTED` and
-its submission reads `UNRESOLVED_ISSUES`, and that is the whole of it — what App
-Review actually said lives in Resolution Center, in the browser.
+**Rejection reasons are not in this API either.** Three states are readable and
+no prose is: a version reads `REJECTED`, its submission reads
+`UNRESOLVED_ISSUES`, and each item inside that submission reads `REJECTED` or
+`APPROVED` — which says *what* was refused when a submission holds more than the
+version alone. Why is another matter. Resolution Center has no endpoint at all,
+not a forbidden one: `/v1/resolutionCenterThreads` and
+`/v1/resolutionCenterMessages` both answer `PATH_ERROR ... does not exist`, as
+does the relationship spelling off the app. What App Review said is in the
+browser.
 
 The exit code is the answer to "is anything waiting on me": 0 when nothing this
 report can see needs a person, 1 when something does.
@@ -420,6 +426,37 @@ def installable_phrase(testflight: dict) -> str:
     return f"build {version}, {behind} build{'' if behind == 1 else 's'} behind build {newest}"
 
 
+def submission_items(get: "Callable[[str], dict]", submission_id: str) -> list[str]:
+    """The state of each thing inside one review submission.
+
+    A submission is a container, not a single object: a version, and optionally
+    custom product pages, app events and experiments, each reviewed on its own.
+    The submission's own `state` says the whole thing has unresolved issues —
+    only the item states say which part Apple actually refused.
+
+    Fetched per submission rather than read off `include=items` on the
+    collection, where the inline list pages at ten and would silently drop the
+    rest. A submission big enough to truncate is exactly the one whose item
+    states are worth reading.
+    """
+    items = get(f"/v1/reviewSubmissions/{submission_id}/items?limit=50")["data"]
+    return [item["attributes"]["state"] for item in items]
+
+
+def item_states(states: list[str]) -> str:
+    """How the item states read on one line.
+
+    Tallied rather than listed because the API gives an item no name of its
+    own — its id is an opaque blob — so three lines reading `REJECTED` would
+    say nothing three times. What can be said is how many, and of what.
+    """
+    if not states:
+        return "no items"
+    if len(states) == 1:
+        return states[0]
+    return ", ".join(f"{states.count(state)} {state}" for state in dict.fromkeys(states))
+
+
 def gather(client: Client) -> dict:
     """Everything the report needs, as plain data. No password ever enters it."""
     app = find_app(client.get)
@@ -525,6 +562,7 @@ def gather(client: Client) -> dict:
             "platform": s["attributes"].get("platform"),
             "state": s["attributes"].get("state"),
             "submitted": (s["attributes"].get("submittedDate") or "")[:10] or None,
+            "items": submission_items(client.get, s["id"]),
         }
         for s in client.get(f"/v1/apps/{app['id']}/reviewSubmissions?limit=20")["data"]
     ]
@@ -676,7 +714,8 @@ def render(report: dict) -> str:
     if report["submissions"]:
         for submission in report["submissions"]:
             lines.append(
-                f"  {submission['platform']:<8} {submission['state']:<20} {submission['submitted'] or '—'}"
+                f"  {submission['platform']:<8} {submission['state']:<20} "
+                f"{submission['submitted'] or '—'}  {item_states(submission['items'])}"
             )
     else:
         lines.append("  none")
@@ -794,7 +833,14 @@ def _fixture(**overrides) -> dict:
         "categories": {"primary": "SPORTS", "secondary": None},
         "ageRating": "FOUR_PLUS",
         "versions": [_version()],
-        "submissions": [{"platform": "MAC_OS", "state": "COMPLETE", "submitted": "2026-04-25"}],
+        "submissions": [
+            {
+                "platform": "MAC_OS",
+                "state": "COMPLETE",
+                "submitted": "2026-04-25",
+                "items": ["APPROVED"],
+            }
+        ],
         "testflight": _distribution(),
     }
     report.update(overrides)
@@ -893,9 +939,44 @@ def _selftest() -> int:
     )
     expect(
         "unresolved submission",
-        _fixture(submissions=[{"platform": "IOS", "state": "UNRESOLVED_ISSUES", "submitted": "2026-05-15"}]),
+        _fixture(
+            submissions=[
+                {
+                    "platform": "IOS",
+                    "state": "UNRESOLVED_ISSUES",
+                    "submitted": "2026-05-15",
+                    "items": ["REJECTED"],
+                }
+            ]
+        ),
         "UNRESOLVED_ISSUES",
     )
+
+    # The item states are the only part of a rejection the API will say, so the
+    # two ways of losing them both have to be caught: reading none, and reading
+    # several and printing one.
+    if item_states([]) != "no items":
+        failures.append(f"empty submission: {item_states([])!r}")
+    if item_states(["REJECTED"]) != "REJECTED":
+        failures.append(f"single item: {item_states(['REJECTED'])!r}")
+    tallied = item_states(["APPROVED", "REJECTED", "APPROVED"])
+    if tallied != "2 APPROVED, 1 REJECTED":
+        failures.append(f"mixed items: {tallied!r}")
+
+    # `?limit=50` on the relationship rather than `include=items` on the
+    # collection: the inline list pages at ten, and a fetch that quietly
+    # returned the first ten of a twelve-item submission would read as a
+    # complete answer.
+    asked: list[str] = []
+
+    def _items(path: str) -> dict:
+        asked.append(path)
+        return {"data": [{"attributes": {"state": "APPROVED"}}, {"attributes": {"state": "REJECTED"}}]}
+
+    if submission_items(_items, "sub-1") != ["APPROVED", "REJECTED"]:
+        failures.append("submission_items dropped a state")
+    if asked != ["/v1/reviewSubmissions/sub-1/items?limit=50"]:
+        failures.append(f"submission_items asked for {asked}")
 
     # Screenshot families are per platform: a macOS version has desktop shots and
     # no iPhone ones, and asking it for iPhone screenshots would report a gap
@@ -1021,6 +1102,7 @@ def _selftest() -> int:
         "6 builds behind build 10",
         "NOT VISIBLE HERE",
         "Resolution Center only",
+        "COMPLETE             2026-04-25  APPROVED",
     ):
         if fragment not in rendered:
             failures.append(f"render dropped {fragment!r}")
@@ -1031,7 +1113,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 52 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 58 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
