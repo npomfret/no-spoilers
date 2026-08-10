@@ -832,9 +832,35 @@ Two things run 8 exposed that were not what it was testing:
   not, and it creates `tmp/` and runs `swift test` and deletes nothing, so it is not eating the file
   between `ci_post_clone` and the upload.
 
-  **The comparison to make is runs 3 and 9 against runs 4, 5 and 6** — two that worked against three
-  that did not, which is a far better experiment than the single pair available before. None of those
-  log bundles have been compared.
+  **The log bundles have now been compared — runs 3 and 9 against runs 4, 5 and 6 — and they cannot
+  answer it.** This was the last outstanding lead and it is a dead end, so it is recorded rather than
+  left looking promising:
+
+  - All five bundles hold the same 25 files. `xcodebuild-archive.log` is 1133 lines in every one of
+    them, `ci_pre_xcodebuild.log` 97, and the three export logs agree within a single line.
+  - `ci_post_clone.log` is identical in shape across all five and correct in all five, writing
+    `/Volumes/workspace/repository/NoSpoilers/TestFlight/WhatToTest.en-GB.txt` with that run's own
+    subject and hash. The hook was already cleared on the failing runs; it is now cleared on the
+    working ones too, which is the half that was missing.
+  - **`WhatToTest` appears in no other file in any bundle.** Not in the archive log, not in the
+    export logs, not in the distribution logs.
+  - A normalised diff of run 5's app-store export against run 9's — timestamps, UUIDs and numbers
+    stripped — differs only in `__NSSingleObjectArrayI` pointer addresses and one first-run
+    `Capabilities` directory creation. That is memory-address noise.
+  - `DVTITunesSoftwareService.log` is **one line**. The upload to App Store Connect is not in this
+    bundle, and no artifact type carries it: the action offers `ARCHIVE`, three `ARCHIVE_EXPORT`s,
+    `RESULT_BUNDLE` and `LOG_BUNDLE`, and none is an upload log.
+
+  So the note is attached server-side, after the last step Xcode Cloud shows you, and **no artifact
+  Apple exposes records whether it was read.** The runs are indistinguishable from this side, which
+  means the difference is not in anything this repo controls or can see. Chasing it further needs a
+  channel other than the log bundles.
+
+  The way out is probably to stop depending on it. `testflight_distribute.py` already runs per build
+  with a key that can write, and `betaBuildLocalizations` is a writable relationship — setting
+  `whatsNew` there at hand-over time would make the note as reliable as the delivery step and drop
+  Apple's pickup from the critical path entirely. That is a change to what the distribute command
+  owns, so it is a proposal, not a decision taken here.
 
   Until then: **do not read a plausible-looking note as proof it came from this build** — check the
   build number inside it. A stale note is worse than no note, because it describes changes the
