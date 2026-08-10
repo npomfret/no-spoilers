@@ -152,6 +152,38 @@ After upload, go to App Store Connect and submit for review.
 - Notarization: keychain profile `no-spoilers-notarytool` (set up once via `xcrun notarytool store-credentials`)
 - App Store upload: `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8` (download once from App Store Connect → Users and Access → Integrations → API)
 
+### Shipping an iOS build to TestFlight
+
+A push to `main` builds the iOS app on Xcode Cloud and uploads it to TestFlight. **The build reaches
+no tester until you hand it over.** That is a command rather than an automatic step, so that pushing
+several times a day does not notify every tester several times a day.
+
+```bash
+git push                                     # Xcode Cloud archives and uploads
+scripts/testflight_distribute.py             # dry run — says what it would do
+scripts/testflight_distribute.py --apply     # give the newest build to the internal group
+```
+
+`--apply` also writes the *What to Test* note from the commit that was built. It touches internal
+groups only: `--group NAME` is needed for any other, and `--submit` sends an external build for Beta
+App Review.
+
+To see who can install what:
+
+```bash
+scripts/appstore_status.py                   # the TESTFLIGHT section
+```
+
+`testers can install build 12, 1 build behind build 13` is the ordinary state after a push, not a
+warning — the newest build sits undistributed until you run the command above. Only "testers can
+install nothing" is reported as a problem.
+
+For a versioned App Store submission rather than a test build, use `scripts/ship-ios.sh`. The two
+paths keep separate build-number bands — Xcode Cloud counts from 1, `release.sh` from 10000 — so
+they cannot collide, and the build number in the app's About screen says which one shipped it.
+
+Full detail, including why delivery is manual: `tasks/14-xcode-cloud-testflight.md`.
+
 ### Asking what App Store Connect holds
 
 ```bash
