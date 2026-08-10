@@ -1,8 +1,11 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** IN PROGRESS — the workflow exists and delivers. Run 4 put build `4` on TestFlight as `VALID`
-and `APP_STORE_ELIGIBLE` with the archive and the IPA agreeing on the build number. What is left is the
-gate: no run has yet had a failing test, so nothing proves a red commit is stopped.
+**Status:** IN PROGRESS — the chain works end to end. A push archives, the tests gate it, the build
+uploads `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the number (runs 4 and 5,
+builds 4 and 5), `scripts/testflight_distribute.py --apply` hands it to a group, and a tester now sits
+at `INVITED` having been invited by that hand-over alone. Two things are unfinished: **the gate has
+never been exercised** — no run has had a failing test, so nothing proves a red commit is stopped — and
+the *What to Test* note has not worked since run 3.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
 
@@ -721,8 +724,9 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
       its run number, with no collision. **Not yet exercised — `release.sh` has not run since the bump.**
 - [x] The widget extension's build number matches the app's. Both `1003` in the run 3 archive and both
       `3` in the uploaded IPA — Apple's rewrite covers the extension too, and both read `4` on run 4.
-- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Worked on run 3, did not
-      on run 4** — see the open risk below.
+- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Worked on run 3 and on
+      no run since** — builds 4 and 5 both carry run 3's note. The path and the carry-forward theory
+      have both been ruled out; see the open risk below.
 - [ ] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
       build**. This is the one that proves the gate, and it is the only way to know Decision 2 worked.
 - [ ] `scripts/ship-ios.sh` still works afterwards and does not collide with a CI build number.
@@ -754,9 +758,25 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 4 in all 6 configurations
   So the hook does its job and something between the checkout and App Store Connect ignores the file
   while carrying the previous build's note forward. Nothing distinguishes run 3 from runs 4 and 5 on
   this repo's side, which makes run 3 the anomaly to explain rather than the behaviour to restore.
-  The first thing to check is whether `NoSpoilers/TestFlight/` is the path Xcode Cloud actually reads
-  — it is beside the `.xcodeproj`, which is where the hooks must live, but the two locations are
-  documented separately and may not be the same place.
+
+  **Two explanations have been checked and both are wrong.** Record them so they are not tried again:
+
+  - ~~The notes belong at the repository root, not beside the `.xcodeproj`.~~ **No.** The sibling
+    project on this same team writes them beside its project — `apple/FunMaxMusic/TestFlight/`,
+    against container `apple/FunMaxMusic/FunMaxMusic.xcodeproj`, gitignored exactly as here — and
+    its notes work. This repo's layout is the same shape and the workflow container confirms it:
+    `NoSpoilers/NoSpoilers.xcodeproj` beside `NoSpoilers/TestFlight/`. The path is right.
+  - ~~App Store Connect carries the previous note forward for builds of the same version, so this is
+    Apple's behaviour rather than a defect.~~ **No.** FunMaxMusic builds 24, 25, 26, 27 and 28 all
+    share pre-release version `1.0` and each carries its own distinct note. Per-build notes on one
+    version demonstrably work on this account.
+
+  Also cleared: `scripts/verify-core-tests.sh` is the only thing this repo runs that the sibling does
+  not, and it creates `tmp/` and runs `swift test` and deletes nothing, so it is not eating the file
+  between `ci_post_clone` and the upload.
+
+  **The one place left to look is run 3 against run 5** — the run that worked against a run that did
+  not. Their log bundles have not been compared.
 
   Until then: **do not read a plausible-looking note as proof it came from this build** — check the
   build number inside it. A stale note is worse than no note, because it describes changes the
