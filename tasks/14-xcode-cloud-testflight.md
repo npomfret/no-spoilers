@@ -36,9 +36,12 @@ one action — `ARCHIVE` / scheme `NoSpoilersApp` / `IOS` / `APP_STORE_ELIGIBLE`
 - **Decision 3: delivery to testers is a command, not a post-action.** Reversed on 2026-08-09 after the
   sibling project ran it both ways — the reasoning is in Phase 1 step 6, and it changes what the status
   report is allowed to warn about (Phase 7).
-- **Shebang:** both hooks are `#!/usr/bin/env bash` with `set -euo pipefail` (pre-build only), matching every
-  other script in `scripts/`, rather than the `#!/bin/sh` in the Phase 3/4 drafts below. `ci_post_clone.sh`
-  deliberately omits `set -e` — see Phase 4.
+- **Shebang:** the hook is `#!/usr/bin/env bash` with `set -euo pipefail`, matching every other script in
+  `scripts/`, rather than the `#!/bin/sh` in the Phase 3/4 drafts below.
+- **Decision 4: the tester note is written over the API, not by a hook.** Taken 2026-08-10, after
+  `ci_post_clone.sh` was built, shipped, and observed to be honoured on two runs out of five with no
+  way to tell which. `scripts/testflight_distribute.py` owns it now and the hook is deleted — see
+  Phase 4 and the tester-note risk.
 
 ## Goal
 
@@ -348,21 +351,23 @@ action 2  ARCHIVE  scheme FunMaxMusic, IOS, APP_STORE_ELIGIBLE, isRequiredToPass
 
 ## Phase 2: Where the CI scripts go — DONE
 
-Both scripts live in `NoSpoilers/ci_scripts/` — **beside `NoSpoilers.xcodeproj`, not at the
-repository root.** Same for the `NoSpoilers/TestFlight/` notes directory.
+The hook lives in `NoSpoilers/ci_scripts/` — **beside `NoSpoilers.xcodeproj`, not at the repository
+root.**
 
 ```
 no-spoilers/
   NoSpoilers/
     NoSpoilers.xcodeproj
     ci_scripts/            <- here
-    TestFlight/            <- and here
 ```
 
-Putting either at the repository root produces no error at all — just nothing happening. Both scripts
-must be committed executable (`chmod +x`).
+Putting it at the repository root produces no error at all — just nothing happening. It must be
+committed executable (`chmod +x`).
 
-Add `NoSpoilers/TestFlight/` to `.gitignore`; it is generated per build. Done, as `/NoSpoilers/TestFlight/`.
+**`NoSpoilers/TestFlight/` no longer exists**, and neither does its `.gitignore` entry. It held the
+*What to Test* note, which is now written over the API by `scripts/testflight_distribute.py` — see
+Phase 4 and the tester-note risk. The directory is still where Apple would look for such a file if
+anyone reinstates the mechanism, which is why the path is recorded rather than forgotten.
 
 ---
 
@@ -398,21 +403,31 @@ The log for it is inside the action's `LOG_BUNDLE` artifact, as `ci_pre_xcodebui
 
 ---
 
-## Phase 4: `ci_scripts/ci_post_clone.sh` — DONE
+## Phase 4: `ci_scripts/ci_post_clone.sh` — BUILT, THEN DELETED
 
-Written to `NoSpoilers/ci_scripts/ci_post_clone.sh`, mode `755`, and authoritative in the same way. It writes
-the TestFlight *What to Test* note from the commit being built, so nobody has to remember to.
+It existed, it worked, and it was removed on 2026-08-10. It wrote the TestFlight *What to Test* note
+from the commit being built, into `NoSpoilers/TestFlight/WhatToTest.en-GB.txt`, and every run logged
+it doing so correctly. **App Store Connect read that file on some runs and not others** — the table
+under the tester-note risk below has the measurements — and no artifact Apple exposes says which.
 
-One change from the draft: it checks `CI_PRIMARY_REPOSITORY_PATH` explicitly rather than leaning on `mkdir -p`
-failing. Unset, the draft would have tried to create `/NoSpoilers/TestFlight` at the filesystem root and
-reported nothing about why the note was missing.
+`scripts/testflight_distribute.py` now writes the note over the API, so the hook was the second
+implementation of a job already owned elsewhere, and the less reliable of the two. Deleted rather
+than kept as a fallback: a fallback that silently disagrees with the primary is how the stale note
+survived four builds without anyone noticing.
 
-**Opposite rule to the other script: a non-zero `ci_post_clone.sh` fails the entire run.** Every path
-ends at `exit 0` — no missing tester note is worth a failed delivery. Do not put the test gate here. This is
-also why this one script does not carry the repo-standard `set -euo pipefail`.
+What it cost to run it, kept because the rules are not obvious and apply to any future
+`ci_post_clone.sh`:
 
-Both scripts echo on success deliberately. An empty log is indistinguishable from a script that never
-ran, and that ambiguity cost a diagnosis on the project this came from.
+- **A non-zero `ci_post_clone.sh` fails the entire run**, not just one action — the opposite of
+  `ci_pre_xcodebuild.sh`. Every path in it ended at `exit 0`, because no missing tester note is worth
+  a failed delivery, and it deliberately did not carry the repo-standard `set -euo pipefail`. Never
+  put the test gate in this hook.
+- It checked `CI_PRIMARY_REPOSITORY_PATH` explicitly rather than leaning on `mkdir -p` failing.
+  Unset, it would otherwise have tried to create `/NoSpoilers/TestFlight` at the filesystem root and
+  reported nothing about why the note was missing.
+
+The surviving hook echoes on success deliberately. An empty log is indistinguishable from a script
+that never ran, and that ambiguity cost a diagnosis on the project this came from.
 
 ---
 
@@ -633,8 +648,10 @@ The link distributes nothing until a build passes review, so it is safe to creat
 Both hooks were run against a fresh `git clone` of this repo with `CI_PRIMARY_REPOSITORY_PATH`,
 `CI_BUILD_NUMBER` and `CI_COMMIT` set by hand, which is the whole of their contract with Xcode Cloud:
 
-- [x] `ci_post_clone.sh` writes `WhatToTest.en-GB.txt` containing the commit subject, build number and
-      12-character hash. Exit 0.
+- [x] ~~`ci_post_clone.sh` writes `WhatToTest.en-GB.txt` containing the commit subject, build number
+      and 12-character hash. Exit 0.~~ Held, and irrelevant: the script was deleted on 2026-08-10.
+      It is left here because it is the point — **the hook was never the thing that was broken**, and
+      proving it worked proved nothing about whether the note arrived.
 - [x] `ci_pre_xcodebuild.sh` end to end: 8 core tests pass, then all 6 `CURRENT_PROJECT_VERSION`
       occurrences move to `1007` for `CI_BUILD_NUMBER=7`. Exit 0.
 - [x] **The gate holds.** With a deliberately failing test added to `NoSpoilersCore`, the script exits **1**
@@ -666,7 +683,9 @@ ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now 1001 in all 6 configurations
       `tmp/` and overrides `HOME` under `/Volumes/workspace/repository` without complaint. This was the
       largest open risk in this file and it is now closed on the real thing, not a local proxy.
 - [x] **The offset works.** `CI_BUILD_NUMBER=1` → `1001`, in all 6 configurations.
-- [x] **`ci_post_clone.sh` works on the runner**, writing the note under the Xcode-Cloud checkout path.
+- [x] **`ci_post_clone.sh` works on the runner**, writing the note under the Xcode-Cloud checkout
+      path. It did this on every run and the note still went missing on three of them, which is why
+      the script no longer exists.
 - [x] **The hook ran once, not once per `xcodebuild`.** One `ci_pre_xcodebuild: run 1` line in the whole
       log. The compute worry recorded below was overstated.
 
@@ -869,10 +888,16 @@ Two things run 8 exposed that were not what it was testing:
   **Builds 4 and 5 have been left carrying build 3's note on purpose**, as the surviving specimen of
   the original fault. Do not tidy them up.
 
-  The hook stays, and this is now two implementations of one note format — the cost is real and is
-  accepted for one reason: the hook is the only thing that can write a note for a build nobody
-  distributes. If the format changes, both change. `note_text` is checked against the hook's exact
-  output in the selftest so the two cannot drift silently.
+  **`ci_post_clone.sh` has been deleted**, so one thing writes the note and it is the thing whose
+  failures are visible. Keeping it as a fallback was considered and rejected: a fallback that
+  disagrees with the primary and reports nothing is precisely how build 4, 5 and 6's notes went wrong
+  in the first place, and it would have put the unreliable mechanism back on the path for exactly the
+  builds nobody checks.
+
+  The cost, stated plainly: **a build nobody distributes now has no note of its own**, and App Store
+  Connect may show it a previous build's. That is the right way round — an undistributed build
+  reaches no tester, and the note becomes correct at the moment it starts mattering — but it does
+  mean the TestFlight UI can show a note for a build no human has been given.
 
   Until then: **do not read a plausible-looking note as proof it came from this build** — check the
   build number inside it. A stale note is worse than no note, because it describes changes the

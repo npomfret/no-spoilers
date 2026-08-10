@@ -21,7 +21,7 @@ This guide maps the current control plane and the places that define repo standa
 15. `scripts/verify-core-tests.sh` — canonical Swift package test wrapper.
 16. `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh` — canonical Xcode build wrappers.
 17. `scripts/release.sh` — the single release engine; `scripts/ship-*.sh` and `.github/workflows/release.yml` are wrappers over it.
-18. `NoSpoilers/ci_scripts/` — Xcode Cloud hooks for the iOS TestFlight path. See `docs/guides/building.md`.
+18. `NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh` — the only Xcode Cloud hook: the test gate and the build-number stamp for the iOS TestFlight path. See `docs/guides/building.md`.
 19. `scripts/appstore_status.py` — reads App Store Connect, writes nothing. Holds the shared ES256 token signing (`token`, `key_path`) and the app lookup (`find_app`) that `scripts/testflight_distribute.py` imports.
 20. `scripts/testflight_distribute.py` — the only Python here that writes to App Store Connect: hands the newest iOS build to a tester group and makes that build's *What to Test* note describe it. The read/write split between 19 and 20 is deliberate and carries a key boundary with it.
 

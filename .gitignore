@@ -6,9 +6,6 @@
 .claude/settings.local.json
 .build/
 
-# Generated per build by NoSpoilers/ci_scripts/ci_post_clone.sh
-/NoSpoilers/TestFlight/
-
 # Xcode user data
 *.xcuserstate
 xcuserdata/

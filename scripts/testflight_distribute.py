@@ -29,15 +29,21 @@ Decision 1.
 the two and the newest upload is as likely to be a Mac build. Every query here
 is filtered to `PLATFORM`.
 
-**It also repairs the *What to Test* note**, because Apple's own pickup of it
-cannot be relied on. `NoSpoilers/ci_scripts/ci_post_clone.sh` writes the note
-into the checkout on every run and App Store Connect reads it on some runs and
-not others: builds 3 and 9 carried their own note, builds 4, 5 and 6 all carried
-build 3's. Every one of those runs logged the file written correctly, the log
-bundles are indistinguishable, and no artifact Apple exposes records whether the
-file was read. So this script stops depending on it — it asks the Xcode Cloud
-run for the commit and writes `whatsNew` over the API, where the result is
-visible and the failure is an HTTP error rather than silence.
+**It owns the *What to Test* note.** Xcode Cloud's own mechanism — a
+`TestFlight/WhatToTest.en-GB.txt` file written into the checkout by a
+`ci_post_clone.sh` hook — was tried here and removed. App Store Connect read
+that file on some runs and not others: builds 3 and 9 carried their own note,
+builds 4, 5 and 6 all carried build 3's. Every one of those runs logged the file
+written correctly, the log bundles are indistinguishable, and no artifact Apple
+exposes records whether the file was read, so there is nothing to debug and no
+way to tell a working run from a broken one. This script asks the Xcode Cloud
+run for the commit and writes `whatsNew` over the API instead, where the result
+is visible and a failure is an HTTP error rather than silence.
+
+The trade is that a build **nobody distributes now has no note at all**, and may
+show a previous build's if App Store Connect carries one forward. That is the
+right way round: an undistributed build reaches no tester, and the note becomes
+correct at the moment it starts mattering.
 
 A stale note is worse than no note: it describes changes the tester does not
 have, and it looks entirely plausible while doing it. The check is therefore not
@@ -89,7 +95,8 @@ PLATFORM = "IOS"
 # in tasks/14-xcode-cloud-testflight.md under "Live configuration".
 CI_PRODUCT_ID = "1F3A0BBD-DC5B-44FA-A767-65B3E14A433B"
 
-# Matches the file `ci_post_clone.sh` writes: WhatToTest.en-GB.txt.
+# The app's only TestFlight locale. A build with no localization in it shows
+# testers nothing, which is why `write_note` can create one as well as set it.
 NOTE_LOCALE = "en-GB"
 
 # What each build state means for the question being asked here: can this build
@@ -233,12 +240,12 @@ def explain(is_internal: bool, detail: dict) -> tuple[str, str, bool]:
 
 
 def note_text(subject: str, sha: str, version: str) -> str:
-    """The tester note for a build, in `ci_post_clone.sh`'s format.
+    """The tester note for a build. This function defines the format.
 
-    Deliberately byte-for-byte what the hook writes. The two are separate
-    implementations of one format, which is a cost — but the alternative is a
-    note that changes shape depending on which mechanism happened to win, and
-    the whole problem here is not being able to tell them apart.
+    The subject says what changed; the `Build N from <sha>` line is what makes
+    the note checkable afterwards. Keep both — a note that cannot be traced to a
+    commit cannot be told apart from a stale one, which is the fault this whole
+    mechanism exists to avoid.
     """
     return f"{subject}\n\nBuild {version} from {sha[:12]}\n"
 
@@ -592,12 +599,15 @@ def _selftest() -> int:
     if unknown[2] or "SOMETHING_NEW" not in unknown[1]:
         failures.append("an unknown state was not reported as unknown")
 
-    # The note format has to match ci_post_clone.sh exactly, or the check below
-    # stops recognising the hook's own output and every build looks stale.
+    # `note_text` and `note_names_build` are two halves of one agreement: what
+    # is written must be what the staleness check recognises. Pinning the exact
+    # string is what stops a change to one silently marking every build stale.
     if note_text("add a thing", "43c3b08b2f931d1999b1cd28ec3e78f3662c8a74", "9") != (
         "add a thing\n\nBuild 9 from 43c3b08b2f93\n"
     ):
-        failures.append("note_text drifted from the format ci_post_clone.sh writes")
+        failures.append("note_text changed shape")
+    if not note_names_build(note_text("s", "abcdef1234567890", "42"), "42"):
+        failures.append("note_text and note_names_build disagree about the marker")
 
     if not note_names_build("add a thing\n\nBuild 9 from 43c3b08b2f93\n", "9"):
         failures.append("note_names_build rejected a build's own note")
@@ -634,7 +644,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 26 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 27 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
