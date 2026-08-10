@@ -11,10 +11,6 @@ public struct AboutView: View {
         self.onDone = onDone
     }
 
-    private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-    }
-
     public var body: some View {
         VStack(spacing: 0) {
             // ── Header ──────────────────────────────────────────
@@ -25,7 +21,7 @@ public struct AboutView: View {
                     .frame(width: 56, height: 56)
                 Text(Strings.AppInfo.name)
                     .font(.title3).fontWeight(.bold)
-                Text("v\(version)")
+                Text(Strings.AppInfo.version(AppVersion.marketing, build: AppVersion.build))
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)

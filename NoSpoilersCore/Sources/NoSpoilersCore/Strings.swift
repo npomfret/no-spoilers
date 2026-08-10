@@ -9,6 +9,14 @@ import SwiftUI
 public enum Strings {
     public enum AppInfo {
         public static let name: LocalizedStringKey = "No Spoilers"
+
+        /// The version line under the app name, e.g. `v1.0.22 (13)`.
+        /// The build number is included because the marketing version alone
+        /// cannot identify a build: every TestFlight build of a release shares
+        /// it, so `v1.0.22` was the same string on builds 3 through 13.
+        public static func version(_ marketing: String, build: String) -> String {
+            "v\(marketing) (\(build))"
+        }
     }
 
     public enum About {

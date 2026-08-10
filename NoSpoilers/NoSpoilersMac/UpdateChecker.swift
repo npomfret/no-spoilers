@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import NoSpoilersCore
 
 @MainActor
 final class UpdateChecker: ObservableObject {
@@ -24,7 +25,7 @@ final class UpdateChecker: ObservableObject {
         guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
         guard let release = try? JSONDecoder().decode(GitHubRelease.self, from: data) else { return }
         let remote  = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
-        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        let current = AppVersion.marketing
         latestVersion = remote
         currentVersion = current
         isUpdateAvailable = isNewer(remote, than: current)
