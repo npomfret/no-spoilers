@@ -26,26 +26,35 @@ The spoiler guarantee is architectural, not a settings toggle. The app's domain 
 
 ```
 no-spoilers/
-├── NoSpoilers/             # Shared Swift Package (business logic)
-│   ├── Sources/
-│   │   └── NoSpoilersCore/ # Session model, feed fetcher, cache
-│   └── Package.swift
-├── NoSpoilersApp/          # iOS app target
-├── NoSpoilersWidget/       # iOS widget extension target
-├── NoSpoilersMac/          # macOS app target (MenuBarExtra)
-├── research/               # Reference material
+├── NoSpoilersCore/             # Shared Swift package (business logic)
+│   ├── Package.swift
+│   ├── Sources/NoSpoilersCore/ # Session model, feed fetcher, cache, shared views
+│   └── Tests/NoSpoilersCoreTests/
+├── NoSpoilers/                 # Xcode project — all three app targets live here
+│   ├── NoSpoilers.xcodeproj
+│   ├── NoSpoilers/             # iOS app target (NoSpoilersApp)
+│   ├── NoSpoilersWidget/       # iOS widget extension (NoSpoilersWidgetExtension)
+│   ├── NoSpoilersMac/          # macOS app target (MenuBarExtra)
+│   └── ci_scripts/             # Xcode Cloud hooks — must sit beside the .xcodeproj
+├── scripts/                    # Build, release and App Store Connect tooling
+├── docs/                       # GitHub Pages site, brand, and contributor guides
+├── research/                   # Reference material
 │   ├── claude-code-research/
-│   └── example-project/    # CodexBar — architectural reference
-└── tasks/                  # Implementation task files
+│   └── example-project/        # CodexBar — architectural reference
+└── tasks/                      # Implementation task files
 ```
+
+The package is the shared code and knows nothing about the apps; the Xcode project holds the three
+targets and depends on it. The target and the directory are not always spelled the same — the iOS
+app target is `NoSpoilersApp` and lives in `NoSpoilers/NoSpoilers/`.
 
 ### Targets
 
 | Target | Platform | Purpose |
 |--------|----------|---------|
-| `NoSpoilersApp` | iOS 17+ | Host app, schedule fetch, App Group cache write |
-| `NoSpoilersWidget` | iOS 17+ | WidgetKit extension, reads App Group cache |
-| `NoSpoilersMac` | macOS 14+ | MenuBarExtra + popover, independent fetch |
+| `NoSpoilersApp` | iOS 26.2+ | Host app, schedule fetch, App Group cache write |
+| `NoSpoilersWidgetExtension` | iOS 26.2+ | WidgetKit extension, reads App Group cache |
+| `NoSpoilersMac` | macOS 26.2+ | MenuBarExtra + popover, independent fetch |
 
 ### Data Flow
 
@@ -77,8 +86,12 @@ A session is "watchable" when `endsAt < Date.now`.
 
 ## Platform Requirements
 
-- iOS 17+ (WidgetKit timeline features)
-- macOS 14+ (MenuBarExtra API)
+- iOS 26.2+
+- macOS 26.2+
+
+Both app targets set a deployment target of 26.2. The `NoSpoilersCore` package declares the lower
+`.iOS(.v17)` / `.macOS(.v14)` floor it actually needs, which is why those numbers appear in
+`Package.swift`; they are not what the shipped apps require.
 
 ## Data Source
 
