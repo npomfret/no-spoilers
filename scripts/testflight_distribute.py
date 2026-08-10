@@ -250,6 +250,25 @@ def note_claims(whats_new: str | None) -> str | None:
     return None
 
 
+def note_state(existing: dict | None) -> str:
+    """How the note reads now, in the terms that decide what has to be written.
+
+    The two empty-looking states are not the same thing. Apple creates an
+    `en-GB` localization for every Xcode Cloud build and leaves its `whatsNew`
+    null, so `is empty` means there is a record to `PATCH` and `has no en-GB
+    localization` means one has to be `POST`ed. Both used to print `is missing`,
+    and that one message was read as evidence that the create branch had run
+    when it never has — see the tester-note risk in task 14.
+    """
+    if existing is None:
+        return "has no en-GB localization"
+    current = existing["whatsNew"]
+    if not current:
+        return "is empty"
+    claim = note_claims(current)
+    return f"claims {claim!r}" if claim else "has no build marker"
+
+
 def source_commit(session: Session, version: str) -> dict | None:
     """The commit that produced this build, or None if Xcode Cloud did not.
 
@@ -322,8 +341,7 @@ def repair_note(session: Session, build: dict, apply: bool) -> None:
         print("what to test: names this build already")
         return
 
-    claim = note_claims(current)
-    seen = f"claims {claim!r}" if claim else ("has no build marker" if current else "is missing")
+    seen = note_state(existing)
     commit = source_commit(session, build["version"])
     if commit is None:
         print(f"what to test: {seen}, and no Xcode Cloud run produced this build, so leaving it")
@@ -560,6 +578,21 @@ def _selftest() -> int:
     if note_claims(None) is not None:
         failures.append("note_claims invented a marker from nothing")
 
+    # The two states that both used to read `is missing`. They differ in which
+    # branch of `write_note` runs, so one message for both makes the report
+    # useless as evidence about the write — which is exactly what happened.
+    if note_state(None) != "has no en-GB localization":
+        failures.append("note_state did not report an absent localization")
+    if note_state({"id": "x", "whatsNew": None}) != "is empty":
+        failures.append("note_state confused an empty localization with an absent one")
+    if note_state({"id": "x", "whatsNew": ""}) != "is empty":
+        failures.append("note_state did not treat empty text as empty")
+    stale = {"id": "x", "whatsNew": "task update\n\nBuild 3 from e762f5c7d8d7\n"}
+    if note_state(stale) != "claims 'Build 3 from e762f5c7d8d7'":
+        failures.append("note_state did not report another build's marker")
+    if note_state({"id": "x", "whatsNew": "just a subject"}) != "has no build marker":
+        failures.append("note_state did not report a note carrying no marker")
+
     if "App Manager" not in _hint(403) or ADMIN_KEY_ID not in _hint(403):
         failures.append("the 403 hint does not name the key")
     if _hint(200):
@@ -571,7 +604,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 20 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 25 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

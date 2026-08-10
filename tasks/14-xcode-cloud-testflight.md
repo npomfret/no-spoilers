@@ -83,8 +83,8 @@ upload if they are got wrong.
 
 ### Decision 1: the build number
 
-`CURRENT_PROJECT_VERSION` is currently `8` and `MARKETING_VERSION` is `1.0.22`, both maintained by
-`release.sh` off git tags.
+`CURRENT_PROJECT_VERSION` was `8` when this decision was taken and `MARKETING_VERSION` `1.0.22`, both
+maintained by `release.sh` off git tags. It now reads `10000` — the bump below is what changed it.
 
 **App Store Connect accepts a version/build pair exactly once**, and refuses anything that repeats
 it. Xcode Cloud exposes `CI_BUILD_NUMBER` — the run number — which starts at **1**. Stamping it
@@ -216,7 +216,9 @@ option that actually stops a broken build reaching a tester.
    `hasAccessToAllBuilds: true` — that flag can only be set at creation. Patching it afterwards returns
    `409 ENTITY_ERROR.ATTRIBUTE.NOT_ALLOWED`, and the only fix is to delete the group and make it again.
 
-   **The group has no testers in it.** An empty group builds and delivers fine and reaches nobody.
+   **The group was created with no testers in it**, and that is worth stating because an empty group
+   builds and delivers fine and reaches nobody — there is no error anywhere. It holds one tester now,
+   at `INVITED`; see the verification section for what that state does and does not prove.
 
    Adding one is two steps, and the first has a cost worth understanding:
 
@@ -634,6 +636,13 @@ which of the two states you are in without ever making the ordinary one look lik
 of reaching "nothing at all" — no group, every group empty, every build expired, no build in any
 group — each warn with their own line, because the fix differs in each case.
 
+**Both readings have now been observed on the real account, twelve minutes apart.** Distributing
+build 12 moved the line to `testers can install build 12 — the newest`; the next push produced run
+13 (`SUCCEEDED` on `7fec1d7`, build 13 `VALID`, `betaGroups` empty) and the line went to
+`testers can install build 12, 1 build behind build 13` on its own, with NEEDS YOU untouched. That
+is the cycle this section was written for, and it is now the observed default rather than the
+predicted one: **every push puts the report into the behind-state, and it stays quiet about it.**
+
 There is no cheap query for it. It walks the unexpired builds newest-first, asking each one `GET
 /v1/builds/{id}?include=betaGroups` until one comes back with a non-empty `included`, and stops
 after ten (`DISTRIBUTION_WALK`). That is one request per undistributed build, which is the price of
@@ -644,7 +653,7 @@ the group's own build list being useless.
 `testflight_distribute.py` imports them rather than keeping its own copies. The import direction
 only goes one way, so the shared code has to live in the report; and the report and the command
 must agree about which build is newest or they contradict each other in the same terminal. Their
-selftests moved with them: 52 cases in the report, 20 in the command.
+selftests moved with them: 52 cases in the report, 25 in the command.
 
 Ask a build which of these applies with `GET /v1/builds/{id}/buildBetaDetail`. Its
 `externalBuildState` is the only field that answers honestly, and
@@ -857,8 +866,9 @@ Two things run 8 exposed that were not what it was testing:
   | 6 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
   | 9 | `revert the deliberate test break…` / `Build 9 from 43c3b08b2f93` — its own |
   | 10 | `make the distribute command own…` / `Build 10 from 7b50e5a24983` — its own |
-  | 11 | **none at all** — the first run with no `ci_post_clone.sh` |
+  | 11 | **empty** — the first run with no `ci_post_clone.sh` |
   | 12 | `report which build the testers…` / `Build 12 from 033ed528c33f` — written by the API |
+  | 13 | **empty** — undistributed, so nothing has written it |
 
   Every one of those runs logged `ci_post_clone` writing the file with its own subject and hash, so
   the hook is not the variable. Not eventual consistency either: build 4 was polled twelve times over
@@ -872,11 +882,21 @@ Two things run 8 exposed that were not what it was testing:
   spotted.~~ **Dead.** Run 10 followed run 9, which succeeded, and picked its note up anyway.
 
   **Build 11 is the control, and it came out as predicted.** It is the first run with the hook
-  deleted, and its note is not stale — it is *absent*, and the distribute script reports
-  `what to test: is missing` rather than a previous build's text. So Apple was reading the hook's
+  deleted, and its note is not stale — it is *empty*, and the distribute script said so rather than
+  reporting a previous build's text. So Apple was reading the hook's
   file all along, on the runs where it worked, and nothing else was ever writing one. The
   intermittency was in the pickup, not in the writing, which is what every other reading of the
   evidence already said and is now confirmed from the other direction.
+
+  **Empty, not absent — and the difference matters to the code.** Every Xcode Cloud build here
+  carries exactly one `en-GB` `betaBuildLocalization`; on an undistributed build its `whatsNew` is
+  `null`. Builds 11 and 13 both read that way and neither has ever been touched by the script, so
+  Apple creates the localization and leaves it blank. The two expired `release.sh` uploads — build 8
+  on `1.0.22` and build 6 on `1.0.21` — carry **no** localization at all, so this is something the
+  Xcode Cloud upload path does, not something every build gets.
+
+  (That is also why the iOS build list appears to hold two build 6s. They are on different marketing
+  versions, so nothing collides; a build number is only unique within its version.)
 
   **Two explanations have been checked and both are wrong.** Record them so they are not tried again:
 
@@ -924,11 +944,30 @@ Two things run 8 exposed that were not what it was testing:
   error rather than silence. Proven on build 6, which read `Build 3 from e762f5c7d8d7` and now reads
   `Build 6 from 5dc0d8f16db0`.
 
-  **Both halves of that write have now run.** Build 6 exercised the `PATCH` — a localization existed
-  and its text was wrong. Build 12 exercised the `POST`, which had never run before: with
-  `ci_post_clone.sh` gone, Apple created no `en-GB` localization at all, the script reported
-  `what to test: is missing` rather than a stale claim, and the create branch made one. That is the
-  shape every future undistributed build arrives in, so it is the branch that matters from here.
+  **Only the `PATCH` half has ever run, and the reading that said otherwise was wrong.** Build 6
+  exercised it with a localization whose text was another build's; build 12 exercised it again with
+  one whose text was `null`. `write_note`'s `POST` branch — the one that creates a localization —
+  **has never executed**, and on the evidence above it may never execute, because Apple always
+  leaves one there to patch.
+
+  This was recorded here as "build 12 exercised the `POST`" and that was a mistake worth keeping,
+  because of *how* it was made. `repair_note` prints `what to test: is missing` from
+  `current = existing["whatsNew"] if existing else None`, so **one message covers two different
+  states**: no localization, and a localization holding nothing. Build 12 printed `is missing` and
+  the branch was inferred from the message. Builds 11 and 13 are what settle it — both untouched by
+  the script, both carrying an empty localization — so build 12 arrived holding one too and the
+  `existing is None` test was false.
+
+  **The message now says which of the two it saw.** `note_state` replaced the inline conditional and
+  reports four states — `has no en-GB localization`, `is empty`, `claims '…'`, `has no build
+  marker` — so the line names the branch `write_note` is about to take instead of hiding it. Build
+  13 reads `what to test: is empty. Would set 'Build 13 from 7fec1d7f88e7'`, which is the reading
+  that was unavailable when this was got wrong. Five selftest cases pin the four states, 20 → 25.
+
+  It is worth naming the shape, because this file has now hit it twice: **a diagnostic that
+  collapses two states produces a confident wrong answer, not an obviously missing one.** The other
+  was `GET /v1/betaGroups/{id}/builds` returning an empty list whether or not the build is in the
+  group. Both read as information. Neither is.
 
   The check is **"does the note name this build"**, not "is there a note" — the `Build N from <sha>`
   marker, not the subject. Two commits off the same branch routinely share a subject (builds 3 and 6
