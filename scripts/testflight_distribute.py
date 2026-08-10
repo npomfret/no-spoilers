@@ -27,7 +27,13 @@ Decision 1.
 
 **One App Store record covers macOS and iOS**, so an unfiltered build list mixes
 the two and the newest upload is as likely to be a Mac build. Every query here
-is filtered to `PLATFORM`.
+is filtered to `asc.TESTFLIGHT_PLATFORM`.
+
+Choosing which build that is — filtered, unexpired, newest by upload date — is
+`appstore_status`'s job, not a second copy here. The report walks the same list
+to say which build the testers can actually install, and the two must agree
+about what "newest" means or they will contradict each other in the same
+terminal.
 
 **It owns the *What to Test* note.** Xcode Cloud's own mechanism — a
 `TestFlight/WhatToTest.en-GB.txt` file written into the checkout by a
@@ -83,11 +89,6 @@ import appstore_status as asc
 # which is the least helpful error in this API — see `_hint`.
 ADMIN_KEY_ID = "ASC6H3SL2D"
 
-# Task 14 is the iOS delivery path. The Mac app ships Developer ID and Homebrew
-# through `scripts/release.sh` and has no TestFlight story here, so a build of it
-# turning up in this script's candidates would only ever be a mistake.
-PLATFORM = "IOS"
-
 # The Xcode Cloud product, hard-coded because it cannot be discovered reliably:
 # `GET /v1/ciProducts` has been observed answering `total: 0` on this team while
 # individual products still resolved by id, which is what made Xcode refuse to
@@ -136,16 +137,6 @@ EXTERNAL_STATES = {
     "IN_BETA_TESTING": ("already out with external testers", True),
     "EXPIRED": ("expired — TestFlight builds last 90 days", False),
 }
-
-
-def builds_path(app_id: str) -> str:
-    """Every build of this app on one platform.
-
-    The platform filter is not a convenience. Without it this returns the Mac
-    app's builds too, interleaved by date, and the newest upload is then as
-    likely to be a Mac build that has no business in an iOS tester group.
-    """
-    return f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={PLATFORM}&limit=200"
 
 
 class Session:
@@ -205,22 +196,6 @@ def _hint(code: int) -> str:
     if code == 401:
         return "\n\nA 401 means the .p8 is not an App Store Connect key, or the issuer is wrong."
     return ""
-
-
-def newest_build(builds: list[dict]) -> dict | None:
-    """The most recently uploaded build worth talking about.
-
-    By upload date, never by build number — the two upload paths into this app
-    use deliberately separate number bands, so the larger number is routinely
-    the older build. See the module docstring.
-
-    An expired build is not a candidate at any age: it will not install, and
-    picking it would hide the newest one that still would.
-    """
-    live = [b for b in builds if not b["expired"]]
-    if not live:
-        return None
-    return max(live, key=lambda b: b["uploaded"])
 
 
 def explain(is_internal: bool, detail: dict) -> tuple[str, str, bool]:
@@ -363,16 +338,6 @@ def repair_note(session: Session, build: dict, apply: bool) -> None:
     print(f"what to test: {seen}, now {marker!r}")
 
 
-def groups_holding(session: Session, build_id: str) -> set[str]:
-    """Which groups this build is actually in.
-
-    `GET /v1/betaGroups/{id}/builds` answers an empty list for an internal group
-    whether or not the build is in it, so it cannot be used for this.
-    """
-    response = session.get(f"/v1/builds/{build_id}?include=betaGroups")
-    return {g["id"] for g in response.get("included", [])}
-
-
 def testers(session: Session, group_id: str) -> list[dict]:
     return [
         {"email": t["attributes"]["email"], "state": t["attributes"]["state"]}
@@ -396,21 +361,15 @@ def gather(session: Session, only: str | None) -> dict:
     if not groups:
         raise SystemExit("this app has no tester groups, so there is nobody to deliver to")
 
-    builds = [
-        {
-            "id": b["id"],
-            "version": b["attributes"]["version"],
-            "expired": b["attributes"]["expired"],
-            "uploaded": b["attributes"]["uploadedDate"],
-        }
-        for b in session.get(builds_path(app_id))["data"]
-    ]
-    target = newest_build(builds)
+    builds = asc.platform_builds(session.get, app_id, asc.TESTFLIGHT_PLATFORM)
+    target = asc.newest_build(builds)
     if target is None:
-        raise SystemExit(f"no unexpired {PLATFORM} builds on App Store Connect at all")
+        raise SystemExit(
+            f"no unexpired {asc.TESTFLIGHT_PLATFORM} builds on App Store Connect at all"
+        )
 
     detail = session.get(f"/v1/builds/{target['id']}/buildBetaDetail")["data"]["attributes"]
-    holding = groups_holding(session, target["id"])
+    holding = asc.groups_holding(session.get, target["id"])
 
     plans = []
     for group in groups:
@@ -489,7 +448,10 @@ def main() -> int:
     session = Session()
     state = gather(session, arguments.group)
     build = state["build"]
-    print(f"newest {PLATFORM} build {build['version']}, uploaded {build['uploaded'][:16]}")
+    print(
+        f"newest {asc.TESTFLIGHT_PLATFORM} build {build['version']}, "
+        f"uploaded {build['uploaded'][:16]}"
+    )
 
     # The note belongs to the build, not to any group, so it is settled once
     # here rather than per group. It is also worth repairing on a build that is
@@ -528,44 +490,9 @@ def _selftest() -> int:
     """Offline. The judgement calls, not the requests."""
     failures: list[str] = []
 
-    def build(id_: str, version: str, uploaded: str, expired: bool = False) -> dict:
-        return {"id": id_, "version": version, "uploaded": uploaded, "expired": expired}
-
-    # The case this repo is actually in, and the reason this does not sort by
-    # build number: release.sh uploads from 10000 up, Xcode Cloud uses its run
-    # number, so the newest build has by far the smaller number. Sorting
-    # numerically would pin testers to whatever was last shipped by hand.
-    bands = [
-        build("manual", "10001", "2026-08-01T09:00:00-07:00"),
-        build("ci", "5", "2026-08-10T01:59:08-07:00"),
-    ]
-    if (newest := newest_build(bands)) is None or newest["id"] != "ci":
-        failures.append(f"newest_build sorted by number, not date: {newest}")
-
-    # And the other way round, so the test above is not passing by accident.
-    if (newest := newest_build(bands[::-1])) is None or newest["id"] != "ci":
-        failures.append("newest_build depends on the order the API returned")
-
-    # An expired build is never the answer, however new.
-    expired_newest = [
-        build("a", "3", "2026-08-01T00:00:00-07:00"),
-        build("b", "4", "2026-08-10T00:00:00-07:00", expired=True),
-    ]
-    if (newest := newest_build(expired_newest)) is None or newest["id"] != "a":
-        failures.append(f"newest_build chose an expired build: {newest}")
-
-    if newest_build([]) is not None:
-        failures.append("newest_build invented a build from nothing")
-    if newest_build([build("a", "1", "2026-01-01T00:00:00-07:00", expired=True)]) is not None:
-        failures.append("newest_build returned an expired build as the only candidate")
-
-    # One app record holds both platforms. Drop the filter and the newest upload
-    # is as likely to be the Mac app, which cannot go to an iOS tester group.
-    path = builds_path("123")
-    if f"filter[preReleaseVersion.platform]={PLATFORM}" not in path:
-        failures.append("builds_path lost the platform filter")
-    if "filter[app]=123" not in path:
-        failures.append("builds_path lost the app filter")
+    # Choosing the build — `newest_build`, `live_builds`, `builds_path` — is
+    # covered by `appstore_status --selftest`, which is where those live now
+    # that the report walks the same list.
 
     # The pair that matters: one build, two states, opposite answers. Every
     # build archived before the workflow was given an audience looks like this,
@@ -644,7 +571,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 27 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 20 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

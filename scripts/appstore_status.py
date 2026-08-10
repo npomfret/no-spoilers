@@ -10,8 +10,17 @@ matters most is the easiest to miss: **on 2026-08-09 the macOS 1.0.21 was
 READY_FOR_SALE while the iOS 1.0.21 of the same version number had been
 REJECTED for three months.** This prints both.
 
+It also reports TestFlight, where the thing worth knowing is not what exists but
+**which build the testers can actually install**. Handing a build over is a
+command somebody runs — see tasks/14-xcode-cloud-testflight.md, Phase 1 step 6 —
+so the newest build reaching nobody is the ordinary state after every push, and
+warning about it would leave this permanently red. Being *behind* is reported
+and never chased; only being able to install nothing at all is a problem.
+
 It issues `GET`s and nothing else. `scripts/release.sh` remains the only thing
-here that uploads or submits anything.
+here that uploads or submits anything, and `scripts/testflight_distribute.py`
+the only one that hands a build to a group — it shares the build-selection
+helpers below so the two cannot disagree about which build is newest.
 
 **Two required pages cannot be read at all, and are printed as unknown rather
 than left out.** App Privacy — the data-collection questionnaire — has no App
@@ -126,6 +135,20 @@ CONTACT = (
 # one with a `--json` mode whose output ends up pasted somewhere — has no reason
 # to hold a password at all. Whether one is set is the only part worth knowing.
 REVIEW_FIELDS = tuple(key for key, _ in CONTACT) + ("demoAccountName", "demoAccountRequired", "notes")
+
+# TestFlight delivery is the iOS path Task 14 built. The Mac app ships Developer
+# ID and Homebrew through `release.sh` and has no TestFlight story at all, so
+# this one section is iOS however much of the rest covers both platforms.
+TESTFLIGHT_PLATFORM = "IOS"
+
+# How far back to walk looking for a build some tester group holds. Handing a
+# build over is a command somebody runs rather than a post-action —
+# tasks/14-xcode-cloud-testflight.md, Phase 1 step 6 — so the newest builds sit
+# in no group as a matter of course, and this walk is the ordinary path rather
+# than a fallback. Ten covers a busy day of pushes. Past that the honest answer
+# is that nothing has been delivered in a long time, and paging further only
+# delays saying so.
+DISTRIBUTION_WALK = 10
 
 
 def _b64(raw: bytes) -> str:
@@ -268,6 +291,135 @@ def find_app(get: "Callable[[str], dict]") -> dict:
     return app
 
 
+def builds_path(app_id: str, platform: str) -> str:
+    """Every build of this app on one platform.
+
+    The platform filter is not a convenience. One record covers macOS and iOS
+    under Universal Purchase, so without it this returns both interleaved by
+    date and the newest upload is as likely to be a Mac build — measured on this
+    app, 8 unfiltered against 4 filtered.
+    """
+    return f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={platform}&limit=200"
+
+
+def platform_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> list[dict]:
+    """One platform's builds, cut down to the four fields anything here asks for."""
+    return [
+        {
+            "id": build["id"],
+            "version": build["attributes"]["version"],
+            "expired": build["attributes"]["expired"],
+            "uploaded": build["attributes"]["uploadedDate"],
+        }
+        for build in get(builds_path(app_id, platform))["data"]
+    ]
+
+
+def live_builds(builds: list[dict]) -> list[dict]:
+    """The builds a tester could install, most recently uploaded first.
+
+    By upload date, never by build number. Two upload paths feed this one app
+    record and their number bands are kept apart deliberately — `release.sh`
+    counts from 10000, Xcode Cloud uses its run number — so the larger number is
+    routinely the *older* build. See tasks/14-xcode-cloud-testflight.md, Phase 0
+    Decision 1.
+
+    Expired builds are dropped rather than ranked last. A TestFlight build stops
+    launching 90 days after upload, so an expired one is not a worse answer to
+    "what can they install", it is not an answer.
+    """
+    return sorted((b for b in builds if not b["expired"]), key=lambda b: b["uploaded"], reverse=True)
+
+
+def newest_build(builds: list[dict]) -> dict | None:
+    """The most recently uploaded installable build, or None if there is none."""
+    live = live_builds(builds)
+    return live[0] if live else None
+
+
+def groups_holding(get: "Callable[[str], dict]", build_id: str) -> set[str]:
+    """Which tester groups actually hold this build.
+
+    `GET /v1/betaGroups/{id}/builds` answers an empty list for an internal group
+    whether or not the build is in it, so it distinguishes nothing and looks
+    like a working substitute for this. Going the other way round is forbidden
+    outright: `GET /v1/builds/{id}/betaGroups` allows CREATE and DELETE only. It
+    has to be an *include* on the build, which is what this is.
+    """
+    return {g["id"] for g in get(f"/v1/builds/{build_id}?include=betaGroups").get("included") or []}
+
+
+def distribution(get: "Callable[[str], dict]", app_id: str) -> dict:
+    """Which build the testers can install, and how far behind it has fallen.
+
+    There is no cheap query for this and the expense is the point. Delivery is a
+    command somebody runs, so "the newest build reaches nobody" is the ordinary
+    state after every single push — warning about it would leave this report
+    permanently red, which is the same as having no warning at all and takes the
+    exit code down with it. The fact worth printing is the one nothing else
+    shows: which build the testers *do* have.
+
+    So walk the installable builds newest-first and stop at the first one any
+    group holds. That is one request per undistributed build, which is the price
+    of the group's own build list being useless.
+    """
+    groups = []
+    for group in get(f"/v1/apps/{app_id}/betaGroups?limit=50")["data"]:
+        # `meta.paging.total` rather than counting the page: an external group
+        # may hold thousands of testers and the count is the only part used.
+        paging = get(f"/v1/betaGroups/{group['id']}/betaTesters?limit=200")["meta"]["paging"]
+        groups.append(
+            {
+                "name": group["attributes"]["name"],
+                "internal": group["attributes"]["isInternalGroup"],
+                "testers": paging["total"],
+            }
+        )
+
+    live = live_builds(platform_builds(get, app_id, TESTFLIGHT_PLATFORM))
+    walked = live[:DISTRIBUTION_WALK]
+    behind, held = None, None
+    for index, build in enumerate(walked):
+        if groups_holding(get, build["id"]):
+            behind, held = index, build
+            break
+
+    return {
+        "platform": TESTFLIGHT_PLATFORM,
+        "groups": groups,
+        "newest": live[0]["version"] if live else None,
+        "installable": held["version"] if held else None,
+        "behind": behind,
+        "searched": len(walked) if held is None else behind + 1,
+        # Distinguishes "nobody has been given anything in a fortnight" from
+        # "nothing has ever been delivered", which read identically otherwise.
+        "truncated": held is None and len(live) > DISTRIBUTION_WALK,
+    }
+
+
+def installable_phrase(testflight: dict) -> str:
+    """The one line this section exists to print.
+
+    "nothing" is an answer and is written as one. A dash or a blank here reads as
+    missing data, and the state it would be hiding — every tester stuck without
+    an installable build — is precisely what this is for.
+    """
+    newest, version, behind = (
+        testflight["newest"],
+        testflight["installable"],
+        testflight["behind"],
+    )
+    if version is None:
+        if newest is None:
+            return "nothing — no unexpired build exists"
+        if testflight["truncated"]:
+            return f"nothing — none of the newest {testflight['searched']} builds is in a group"
+        return f"nothing — no build is in a group ({testflight['searched']} checked)"
+    if behind == 0:
+        return f"build {version} — the newest"
+    return f"build {version}, {behind} build{'' if behind == 1 else 's'} behind build {newest}"
+
+
 def gather(client: Client) -> dict:
     """Everything the report needs, as plain data. No password ever enters it."""
     app = find_app(client.get)
@@ -284,6 +436,7 @@ def gather(client: Client) -> dict:
         "ageRating": None,
         "versions": [],
         "submissions": [],
+        "testflight": None,
     }
 
     info = client.get(
@@ -375,6 +528,7 @@ def gather(client: Client) -> dict:
         }
         for s in client.get(f"/v1/apps/{app['id']}/reviewSubmissions?limit=20")["data"]
     ]
+    report["testflight"] = distribution(client.get, app["id"])
     return report
 
 
@@ -436,6 +590,26 @@ def attention(report: dict) -> list[str]:
                 f"the {submission['platform']} submission of {submission['submitted']} is still "
                 "UNRESOLVED_ISSUES: answer it in Resolution Center or withdraw it"
             )
+
+    # Testers being behind is not a problem — with delivery a manual command it
+    # is the normal state, and saying so every time would make this section
+    # noise. Only being able to install *nothing* is a failure, and each of
+    # these is a different way of arriving at it.
+    testflight = report["testflight"]
+    platform = testflight["platform"]
+    if not testflight["groups"]:
+        found.append(f"there is no TestFlight group, so no {platform} build can reach anybody")
+    elif not any(group["testers"] for group in testflight["groups"]):
+        found.append("every TestFlight group is empty, so handing a build over would reach nobody")
+    if testflight["newest"] is None:
+        found.append(
+            f"every {platform} TestFlight build has expired — they stop launching after 90 days"
+        )
+    elif testflight["installable"] is None:
+        found.append(
+            f"no {platform} build is in a tester group, so testers can install nothing: "
+            "scripts/testflight_distribute.py --apply hands over the newest"
+        )
     return found
 
 
@@ -507,6 +681,24 @@ def render(report: dict) -> str:
     else:
         lines.append("  none")
 
+    testflight = report["testflight"]
+    lines.append("")
+    lines.append(f"TESTFLIGHT ({testflight['platform']})")
+    if testflight["groups"]:
+        for group in testflight["groups"]:
+            count = group["testers"]
+            lines.append(
+                _row(
+                    "tester group",
+                    f"{group['name']} ({'internal' if group['internal'] else 'external'})",
+                    f"{count} tester{'' if count == 1 else 's'}",
+                )
+            )
+    else:
+        lines.append(_row("tester group", "none"))
+    lines.append(_row("newest build", testflight["newest"]))
+    lines.append(_row("testers can install", installable_phrase(testflight)))
+
     lines.append("")
     lines.append("NOT VISIBLE HERE")
     lines.append(_row("app privacy", "unknown", "no API endpoint exists; use the browser"))
@@ -575,6 +767,21 @@ def _version(**overrides) -> dict:
     return version
 
 
+def _distribution(**overrides) -> dict:
+    """The ordinary state of this repo: testers on a build, several pushes behind."""
+    entry = {
+        "platform": TESTFLIGHT_PLATFORM,
+        "groups": [{"name": "Internal", "internal": True, "testers": 1}],
+        "newest": "10",
+        "installable": "4",
+        "behind": 6,
+        "searched": 7,
+        "truncated": False,
+    }
+    entry.update(overrides)
+    return entry
+
+
 def _fixture(**overrides) -> dict:
     report = {
         "app": {
@@ -588,6 +795,7 @@ def _fixture(**overrides) -> dict:
         "ageRating": "FOUR_PLUS",
         "versions": [_version()],
         "submissions": [{"platform": "MAC_OS", "state": "COMPLETE", "submitted": "2026-04-25"}],
+        "testflight": _distribution(),
     }
     report.update(overrides)
     return report
@@ -722,8 +930,98 @@ def _selftest() -> int:
     if "ap19" in json.dumps(_fixture()):
         failures.append("a password reached a fixture")
 
+    # Ordering the builds is where this goes wrong silently. `release.sh`
+    # uploads from 10000 and Xcode Cloud uses its run number, so the newest
+    # build has by far the smaller number; sorting numerically would report
+    # testers as up to date on whatever was last shipped by hand.
+    def _build(id_: str, version: str, uploaded: str, expired: bool = False) -> dict:
+        return {"id": id_, "version": version, "uploaded": uploaded, "expired": expired}
+
+    bands = [
+        _build("manual", "10001", "2026-08-01T09:00:00-07:00"),
+        _build("ci", "5", "2026-08-10T01:59:08-07:00"),
+    ]
+    if (newest := newest_build(bands)) is None or newest["id"] != "ci":
+        failures.append(f"newest_build sorted by number, not date: {newest}")
+    # And the other way round, so the case above cannot pass by accident.
+    if (newest := newest_build(bands[::-1])) is None or newest["id"] != "ci":
+        failures.append("newest_build depends on the order the API returned")
+    if [b["id"] for b in live_builds(bands)] != ["ci", "manual"]:
+        failures.append("live_builds is not newest-first")
+
+    # An expired build is never the answer, however new: it will not launch, and
+    # offering it would hide the older one that still would.
+    expired_newest = [
+        _build("a", "3", "2026-08-01T00:00:00-07:00"),
+        _build("b", "4", "2026-08-10T00:00:00-07:00", expired=True),
+    ]
+    if (newest := newest_build(expired_newest)) is None or newest["id"] != "a":
+        failures.append(f"newest_build chose an expired build: {newest}")
+    if newest_build([]) is not None:
+        failures.append("newest_build invented a build from nothing")
+    if newest_build([_build("a", "1", "2026-01-01T00:00:00-07:00", expired=True)]) is not None:
+        failures.append("newest_build returned an expired build as the only candidate")
+
+    # One record holds both platforms, and a Mac build cannot go to an iOS
+    # tester group.
+    path = builds_path("123", TESTFLIGHT_PLATFORM)
+    if f"filter[preReleaseVersion.platform]={TESTFLIGHT_PLATFORM}" not in path:
+        failures.append("builds_path lost the platform filter")
+    if "filter[app]=123" not in path:
+        failures.append("builds_path lost the app filter")
+
+    # The phrase is the whole point of the section, so its four shapes are
+    # pinned. Singular and plural because "1 builds behind" is the kind of thing
+    # that makes a report look unmaintained.
+    if installable_phrase(_distribution(installable="10", behind=0)) != "build 10 — the newest":
+        failures.append("a fully delivered build is not reported as the newest")
+    if "1 build behind" not in installable_phrase(_distribution(installable="9", behind=1)):
+        failures.append("one build behind is not singular")
+    if "6 builds behind build 10" not in installable_phrase(_distribution()):
+        failures.append("the behind-count does not name both builds")
+    for name, entry in (
+        ("no builds at all", _distribution(newest=None, installable=None, behind=None, searched=0)),
+        ("walk truncated", _distribution(installable=None, behind=None, searched=10, truncated=True)),
+        ("nothing delivered", _distribution(installable=None, behind=None, searched=3)),
+    ):
+        if not installable_phrase(entry).startswith("nothing"):
+            failures.append(f"{name}: 'nothing' was not said plainly")
+
+    # The trap this section was designed around: with delivery a manual command
+    # the testers are behind after every push, and a warning that is always on
+    # is the same as no warning. Being behind must stay silent.
+    expect("testers behind but installing", _fixture(), None)
+    expect(
+        "nothing in any group",
+        _fixture(testflight=_distribution(installable=None, behind=None, searched=7)),
+        "can install nothing",
+    )
+    expect("no groups exist", _fixture(testflight=_distribution(groups=[])), "no TestFlight group")
+    expect(
+        "group with no testers",
+        _fixture(
+            testflight=_distribution(groups=[{"name": "Internal", "internal": True, "testers": 0}])
+        ),
+        "reach nobody",
+    )
+    # Everything expired says so, rather than blaming the delivery command for a
+    # hand-over that would not help.
+    gone = _fixture(
+        testflight=_distribution(newest=None, installable=None, behind=None, searched=0)
+    )
+    expect("every build expired", gone, "expired")
+    if any("can install nothing" in item for item in attention(gone)):
+        failures.append("an all-expired app was reported as an undelivered one")
+
     rendered = render(_fixture())
-    for fragment in ("APP INFORMATION", "IOS  1.0.22", "NOT VISIBLE HERE", "Resolution Center only"):
+    for fragment in (
+        "APP INFORMATION",
+        "IOS  1.0.22",
+        "TESTFLIGHT (IOS)",
+        "6 builds behind build 10",
+        "NOT VISIBLE HERE",
+        "Resolution Center only",
+    ):
         if fragment not in rendered:
             failures.append(f"render dropped {fragment!r}")
     if "!" in rendered:
@@ -733,7 +1031,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 32 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 52 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

@@ -4,9 +4,14 @@
 uploads `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the number (runs 4 and 5,
 builds 4 and 5), `scripts/testflight_distribute.py --apply` hands it to a group, and a tester now sits
 at `INVITED` having been invited by that hand-over alone. **The gate is proven** — run 8 carried a
-deliberately failing test, failed at the pre-build hook, and delivered nothing. What is left is
-smaller: no human has yet installed a build from TestFlight, `release.sh` has not run since the
-`10000` bump, and the *What to Test* note lands on some runs and not others.
+deliberately failing test, failed at the pre-build hook, and delivered nothing. The *What to Test*
+note is no longer Apple's to lose: the distribute command writes it. `appstore_status.py` reports
+which build the testers can actually install.
+
+**Two things are left, and neither is code.** Nobody has redeemed the TestFlight invitation on a
+phone, so no human has installed a build — the tester reads `appDevices []`. And `release.sh` has
+not run since the `10000` bump, so the two build-number bands have never been exercised against
+each other.
 **Depends on:** nothing — the App Store Connect record, API key, and signing already work via `scripts/ship-ios.sh`
 **Effort:** ~2 hours, most of it spent on the two decisions in Phase 0
 
@@ -605,7 +610,7 @@ issues `GET`s, and that split is what makes the report safe to run whenever the 
 doubt. It is also a real boundary: the read-only script runs on a Developer key, and only the
 distributing one is given the App Manager key.
 
-### What the status report should say, once delivery is manual
+### What the status report should say, once delivery is manual — BUILT
 
 This is the trap in the change. With no post-action, **the newest build is in no group as a matter
 of course**, so a "newest `VALID` build reaches nobody" warning fires after every single push. A
@@ -613,17 +618,31 @@ warning that is always on is the same as no warning, and it takes the exit code 
 
 Report the useful fact instead — **which build the testers can actually install, and how far
 behind the newest it has fallen** — and warn only when they can install *nothing at all*, which is
-the genuine failure:
+the genuine failure. `scripts/appstore_status.py` now prints it:
 
 ```
-  tester groups: Internal
-  testers can install: v1024, 1 build behind v1025
+TESTFLIGHT (IOS)
+  tester group        Internal (internal)   1 tester
+  newest build        11
+  testers can install build 4, 5 builds behind build 11
 ```
 
-There is no cheap query for it. Walk the live builds newest-first, asking each one `GET
-/v1/builds/{id}?include=betaGroups` until one comes back with a non-empty `included`, and stop
-after ten. That is one request per undistributed build, which is the price of the group's own
-build list being useless.
+Five builds behind and **nothing under NEEDS YOU**, which is the whole design: that gap is the
+normal state of a repo whose delivery is a command, and the exit code stays 0 for it. The four ways
+of reaching "nothing at all" — no group, every group empty, every build expired, no build in any
+group — each warn with their own line, because the fix differs in each case.
+
+There is no cheap query for it. It walks the unexpired builds newest-first, asking each one `GET
+/v1/builds/{id}?include=betaGroups` until one comes back with a non-empty `included`, and stops
+after ten (`DISTRIBUTION_WALK`). That is one request per undistributed build, which is the price of
+the group's own build list being useless.
+
+**The build-selection helpers moved into `appstore_status.py` to build this** — `builds_path`,
+`platform_builds`, `live_builds`, `newest_build`, `groups_holding`, and the `IOS` constant.
+`testflight_distribute.py` imports them rather than keeping its own copies. The import direction
+only goes one way, so the shared code has to live in the report; and the report and the command
+must agree about which build is newest or they contradict each other in the same terminal. Their
+selftests moved with them: 52 cases in the report, 20 in the command.
 
 Ask a build which of these applies with `GET /v1/builds/{id}/buildBetaDetail`. Its
 `externalBuildState` is the only field that answers honestly, and
@@ -781,6 +800,17 @@ Two things run 8 exposed that were not what it was testing:
 - [ ] **A tester who has not redeemed the invite still sees "no builds available."** Check
       `appDevices` on the tester: an empty array means the code was never redeemed on a device, and
       no amount of distributing will change what they see. Diagnose that before touching the build.
+
+      **Ask the group, not the tester.** `GET /v1/betaGroups/{id}/betaTesters` populates `state` and
+      `appDevices`; `GET /v1/betaTesters/{id}` returns **`None` for both** on the same tester in the
+      same second, and `GET /v1/betaTesters/{id}/appDevices` is a flat `404` — that relationship
+      does not exist. The obvious query is the one that answers `None`, and `None` reads exactly
+      like "no devices", so the instinctive route gives you the right diagnosis by accident and the
+      wrong one just as easily.
+
+      Current reading, 2026-08-10: `state INVITED`, `appDevices []`. **The invitation has never been
+      redeemed on a device**, which is why the install checkbox above is still open. That is a
+      person with a phone, not an API call.
 - [x] ~~Its build number is `CI_BUILD_NUMBER + 1000`~~ — **disproved on run 3**, and the reason is now
       Phase 0 Decision 1. The uploaded build number is `CI_BUILD_NUMBER`, and no hook can change that.
 - [ ] After the `10000` bump: a `release.sh` iOS upload lands at `10001` and an Xcode Cloud run lands at
@@ -824,6 +854,8 @@ Two things run 8 exposed that were not what it was testing:
   | 5 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
   | 6 | `task update` / `Build 3 from e762f5c7d8d7` — **run 3's** |
   | 9 | `revert the deliberate test break…` / `Build 9 from 43c3b08b2f93` — its own |
+  | 10 | `make the distribute command own…` / `Build 10 from 7b50e5a24983` — its own |
+  | 11 | **none at all** — the first run with no `ci_post_clone.sh` |
 
   Every one of those runs logged `ci_post_clone` writing the file with its own subject and hash, so
   the hook is not the variable. Not eventual consistency either: build 4 was polled twelve times over
@@ -831,9 +863,17 @@ Two things run 8 exposed that were not what it was testing:
 
   **The earlier reading of this — "picked up once on run 3 and never again" — was wrong**, and it was
   wrong in the direction that stops you looking: a mechanism that has failed permanently gets
-  written off, and one that works two runs in five has to be explained. Run 9 is the counter-example.
-  It is also the first run after a *failed* run, which is the only difference anyone has spotted so
-  far and is thin enough that it may be coincidence.
+  written off, and one that works three runs in six has to be explained.
+
+  ~~Run 9 is also the first run after a *failed* run, which is the only difference anyone has
+  spotted.~~ **Dead.** Run 10 followed run 9, which succeeded, and picked its note up anyway.
+
+  **Build 11 is the control, and it came out as predicted.** It is the first run with the hook
+  deleted, and its note is not stale — it is *absent*, and the distribute script reports
+  `what to test: is missing` rather than a previous build's text. So Apple was reading the hook's
+  file all along, on the runs where it worked, and nothing else was ever writing one. The
+  intermittency was in the pickup, not in the writing, which is what every other reading of the
+  evidence already said and is now confirmed from the other direction.
 
   **Two explanations have been checked and both are wrong.** Record them so they are not tried again:
 
@@ -920,9 +960,11 @@ Two things run 8 exposed that were not what it was testing:
 - **Delivery is a step somebody has to remember.** That is the deliberate choice in Phase 1 step 6,
   and this is its cost: forget the command and every signal — green run, `VALID` build,
   `READY_FOR_BETA_TESTING`, `hasAccessToAllBuilds: true`, working public link — reads as success
-  while the testers sit on a build from a fortnight ago. The mitigation is the report line naming
-  how far behind they are; there is no mechanism, only a habit and something that tells you when
-  the habit lapsed.
+  while the testers sit on a build from a fortnight ago. The mitigation now exists — the
+  `testers can install` line in `appstore_status.py` — but it is still only something that tells
+  you when the habit lapsed, not a mechanism. **It is deliberately silent about being behind**, so
+  it will report `5 builds behind` in the same untroubled tone whether that is an afternoon's
+  pushes or a month of forgetting. Nothing can distinguish those for you.
 - **A group with no builds gives no error, it gives silence.** The tester stays `NOT_INVITED`
   forever and no email is ever sent. Check with `GET /v1/builds/{id}?include=betaGroups` after
   every archive; an empty `included` is the whole diagnosis.
