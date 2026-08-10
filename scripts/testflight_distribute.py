@@ -29,6 +29,20 @@ Decision 1.
 the two and the newest upload is as likely to be a Mac build. Every query here
 is filtered to `PLATFORM`.
 
+**It also repairs the *What to Test* note**, because Apple's own pickup of it
+cannot be relied on. `NoSpoilers/ci_scripts/ci_post_clone.sh` writes the note
+into the checkout on every run and App Store Connect reads it on some runs and
+not others: builds 3 and 9 carried their own note, builds 4, 5 and 6 all carried
+build 3's. Every one of those runs logged the file written correctly, the log
+bundles are indistinguishable, and no artifact Apple exposes records whether the
+file was read. So this script stops depending on it — it asks the Xcode Cloud
+run for the commit and writes `whatsNew` over the API, where the result is
+visible and the failure is an HTTP error rather than silence.
+
+A stale note is worse than no note: it describes changes the tester does not
+have, and it looks entirely plausible while doing it. The check is therefore not
+"is there a note" but "does the note name *this* build".
+
 This is the only Python file here that writes to App Store Connect.
 `appstore_status.py` stays a report and issues `GET`s alone; keeping the two
 apart is what makes it safe to run the report whenever the answer is in doubt.
@@ -67,6 +81,16 @@ ADMIN_KEY_ID = "ASC6H3SL2D"
 # through `scripts/release.sh` and has no TestFlight story here, so a build of it
 # turning up in this script's candidates would only ever be a mistake.
 PLATFORM = "IOS"
+
+# The Xcode Cloud product, hard-coded because it cannot be discovered reliably:
+# `GET /v1/ciProducts` has been observed answering `total: 0` on this team while
+# individual products still resolved by id, which is what made Xcode refuse to
+# create the workflow. Fetching by id is the path that has never failed. Recorded
+# in tasks/14-xcode-cloud-testflight.md under "Live configuration".
+CI_PRODUCT_ID = "1F3A0BBD-DC5B-44FA-A767-65B3E14A433B"
+
+# Matches the file `ci_post_clone.sh` writes: WhatToTest.en-GB.txt.
+NOTE_LOCALE = "en-GB"
 
 # What each build state means for the question being asked here: can this build
 # reach this kind of tester, and what stands in the way. The states are Apple's;
@@ -155,6 +179,9 @@ class Session:
     def post(self, path: str, body: dict) -> dict:
         return self._call("POST", path, body)
 
+    def patch(self, path: str, body: dict) -> dict:
+        return self._call("PATCH", path, body)
+
 
 def _hint(code: int) -> str:
     """The two failures worth naming, because neither says what it means.
@@ -203,6 +230,130 @@ def explain(is_internal: bool, detail: dict) -> tuple[str, str, bool]:
         state, (f"in state {state}, which this script has not seen", False)
     )
     return state, reason, actionable
+
+
+def note_text(subject: str, sha: str, version: str) -> str:
+    """The tester note for a build, in `ci_post_clone.sh`'s format.
+
+    Deliberately byte-for-byte what the hook writes. The two are separate
+    implementations of one format, which is a cost — but the alternative is a
+    note that changes shape depending on which mechanism happened to win, and
+    the whole problem here is not being able to tell them apart.
+    """
+    return f"{subject}\n\nBuild {version} from {sha[:12]}\n"
+
+
+def note_names_build(whats_new: str | None, version: str) -> bool:
+    """Whether this note is about this build, rather than merely present.
+
+    The failure this exists for produces a note that is real, well-formed, and
+    about a different build. `from ` is load-bearing: without it, build 1's
+    marker matches build 10's note.
+    """
+    return bool(whats_new) and f"Build {version} from " in whats_new
+
+
+def note_claims(whats_new: str | None) -> str | None:
+    """The `Build N from <sha>` line a note carries, if it carries one.
+
+    This is the only part of a note that identifies it. Two builds off the same
+    branch routinely share a subject — `task update` and `task update` — so
+    reporting the subject alone prints the same string twice and says nothing.
+    """
+    if not whats_new:
+        return None
+    for line in whats_new.strip().split("\n"):
+        if line.startswith("Build ") and " from " in line:
+            return line.strip()
+    return None
+
+
+def source_commit(session: Session, version: str) -> dict | None:
+    """The commit that produced this build, or None if Xcode Cloud did not.
+
+    A build's version *is* its run number: Xcode Cloud rewrites CFBundleVersion
+    to CI_BUILD_NUMBER when it exports the IPA, so the two cannot disagree. See
+    tasks/14-xcode-cloud-testflight.md, Phase 0 Decision 1.
+
+    None is a valid answer, not a swallowed error. `release.sh` uploads from
+    10000 up and no run produced them, and a run started from Xcode by hand can
+    carry no source commit at all. Neither has a commit to name, and inventing
+    one would be worse than leaving the note alone.
+
+    `sort=-number` is required here — this endpoint answers oldest-first without
+    it, so the newest runs fall off the end of the page.
+    """
+    if not version.isdigit():
+        return None
+    runs = session.get(f"/v1/ciProducts/{CI_PRODUCT_ID}/buildRuns?limit=200&sort=-number")["data"]
+    run = next((r for r in runs if r["attributes"]["number"] == int(version)), None)
+    if run is None:
+        return None
+    commit = run["attributes"].get("sourceCommit")
+    if not commit:
+        return None
+    return {"subject": commit["message"].split("\n")[0], "sha": commit["commitSha"]}
+
+
+def note_on(session: Session, build_id: str) -> dict | None:
+    """This build's en-GB tester note, if it has one at all."""
+    for localization in session.get(f"/v1/builds/{build_id}/betaBuildLocalizations")["data"]:
+        if localization["attributes"]["locale"] == NOTE_LOCALE:
+            return {
+                "id": localization["id"],
+                "whatsNew": localization["attributes"].get("whatsNew"),
+            }
+    return None
+
+
+def write_note(session: Session, build_id: str, existing: dict | None, text: str) -> None:
+    """Set the note, creating the localization if Apple never made one."""
+    if existing is None:
+        session.post(
+            "/v1/betaBuildLocalizations",
+            {
+                "data": {
+                    "type": "betaBuildLocalizations",
+                    "attributes": {"locale": NOTE_LOCALE, "whatsNew": text},
+                    "relationships": {"build": {"data": {"type": "builds", "id": build_id}}},
+                }
+            },
+        )
+        return
+    session.patch(
+        f"/v1/betaBuildLocalizations/{existing['id']}",
+        {
+            "data": {
+                "type": "betaBuildLocalizations",
+                "id": existing["id"],
+                "attributes": {"whatsNew": text},
+            }
+        },
+    )
+
+
+def repair_note(session: Session, build: dict, apply: bool) -> None:
+    """Make the note describe this build, or say why it cannot."""
+    existing = note_on(session, build["id"])
+    current = existing["whatsNew"] if existing else None
+    if note_names_build(current, build["version"]):
+        print("what to test: names this build already")
+        return
+
+    claim = note_claims(current)
+    seen = f"claims {claim!r}" if claim else ("has no build marker" if current else "is missing")
+    commit = source_commit(session, build["version"])
+    if commit is None:
+        print(f"what to test: {seen}, and no Xcode Cloud run produced this build, so leaving it")
+        return
+
+    wanted = note_text(commit["subject"], commit["sha"], build["version"])
+    marker = note_claims(wanted)
+    if not apply:
+        print(f"what to test: {seen}. Would set {marker!r}. Re-run with --apply.")
+        return
+    write_note(session, build["id"], existing, wanted)
+    print(f"what to test: {seen}, now {marker!r}")
 
 
 def groups_holding(session: Session, build_id: str) -> set[str]:
@@ -331,7 +482,14 @@ def main() -> int:
     session = Session()
     state = gather(session, arguments.group)
     build = state["build"]
-    print(f"newest {PLATFORM} build {build['version']}, uploaded {build['uploaded'][:16]}\n")
+    print(f"newest {PLATFORM} build {build['version']}, uploaded {build['uploaded'][:16]}")
+
+    # The note belongs to the build, not to any group, so it is settled once
+    # here rather than per group. It is also worth repairing on a build that is
+    # already distributed: the testers have it, and what they were told about it
+    # may still be describing somebody else's commit.
+    repair_note(session, build, arguments.apply)
+    print()
 
     blocked = 0
     for plan in state["plans"]:
@@ -434,6 +592,37 @@ def _selftest() -> int:
     if unknown[2] or "SOMETHING_NEW" not in unknown[1]:
         failures.append("an unknown state was not reported as unknown")
 
+    # The note format has to match ci_post_clone.sh exactly, or the check below
+    # stops recognising the hook's own output and every build looks stale.
+    if note_text("add a thing", "43c3b08b2f931d1999b1cd28ec3e78f3662c8a74", "9") != (
+        "add a thing\n\nBuild 9 from 43c3b08b2f93\n"
+    ):
+        failures.append("note_text drifted from the format ci_post_clone.sh writes")
+
+    if not note_names_build("add a thing\n\nBuild 9 from 43c3b08b2f93\n", "9"):
+        failures.append("note_names_build rejected a build's own note")
+
+    # The real failure: build 4 carrying build 3's note. Well-formed, plausible,
+    # and about the wrong commit.
+    if note_names_build("task update\n\nBuild 3 from e762f5c7d8d7\n", "4"):
+        failures.append("note_names_build accepted another build's note")
+
+    # `from ` is what stops build 1 matching build 10's note.
+    if note_names_build("x\n\nBuild 10 from abc123456789\n", "1"):
+        failures.append("note_names_build matched a build number by prefix")
+
+    if note_names_build(None, "9") or note_names_build("", "9"):
+        failures.append("note_names_build treated a missing note as present")
+
+    # The marker is what the report prints, because subjects repeat: builds 3
+    # and 6 were both "task update" and only the marker tells them apart.
+    if note_claims("task update\n\nBuild 3 from e762f5c7d8d7\n") != "Build 3 from e762f5c7d8d7":
+        failures.append("note_claims did not find the build marker")
+    if note_claims("just a subject, no marker") is not None:
+        failures.append("note_claims invented a marker")
+    if note_claims(None) is not None:
+        failures.append("note_claims invented a marker from nothing")
+
     if "App Manager" not in _hint(403) or ADMIN_KEY_ID not in _hint(403):
         failures.append("the 403 hint does not name the key")
     if _hint(200):
@@ -445,7 +634,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 17 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 26 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

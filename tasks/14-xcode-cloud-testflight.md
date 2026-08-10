@@ -768,9 +768,9 @@ Two things run 8 exposed that were not what it was testing:
       its run number, with no collision. **Not yet exercised — `release.sh` has not run since the bump.**
 - [x] The widget extension's build number matches the app's. Both `1003` in the run 3 archive and both
       `3` in the uploaded IPA — Apple's rewrite covers the extension too, and both read `4` on run 4.
-- [ ] *What to Test* in TestFlight shows the commit subject and short hash. **Intermittent, not
-      broken** — it worked on run 3, failed on runs 4, 5 and 6, and worked again on run 9. See the
-      open risk below; the path and the carry-forward theories are both ruled out.
+- [x] *What to Test* in TestFlight shows the commit subject and short hash. Apple's own pickup is
+      **intermittent** — it worked on runs 3 and 9, failed on runs 4, 5 and 6 — and is no longer
+      relied on: `testflight_distribute.py` writes the note itself. See the open risk below.
 - [x] Breaking a `NoSpoilersCore` test and pushing produces a **failed run and no new TestFlight
       build**. Done on run 8 with a deliberate `XCTFail`, reverted immediately afterwards. Decision 2
       is no longer a claim — see the run 8 section above for the evidence and for two hazards it
@@ -856,11 +856,23 @@ Two things run 8 exposed that were not what it was testing:
   means the difference is not in anything this repo controls or can see. Chasing it further needs a
   channel other than the log bundles.
 
-  The way out is probably to stop depending on it. `testflight_distribute.py` already runs per build
-  with a key that can write, and `betaBuildLocalizations` is a writable relationship — setting
-  `whatsNew` there at hand-over time would make the note as reliable as the delivery step and drop
-  Apple's pickup from the critical path entirely. That is a change to what the distribute command
-  owns, so it is a proposal, not a decision taken here.
+  **Resolved by not depending on it.** `testflight_distribute.py` now writes the note itself: it asks
+  the run for the commit — a build's version *is* its run number, per Decision 1 — and `PATCH`es
+  `betaBuildLocalizations`. Apple's pickup is off the critical path, and the failure mode is an HTTP
+  error rather than silence. Proven on build 6, which read `Build 3 from e762f5c7d8d7` and now reads
+  `Build 6 from 5dc0d8f16db0`.
+
+  The check is **"does the note name this build"**, not "is there a note" — the `Build N from <sha>`
+  marker, not the subject. Two commits off the same branch routinely share a subject (builds 3 and 6
+  were both `task update`), so the subject cannot tell them apart and the marker always can.
+
+  **Builds 4 and 5 have been left carrying build 3's note on purpose**, as the surviving specimen of
+  the original fault. Do not tidy them up.
+
+  The hook stays, and this is now two implementations of one note format — the cost is real and is
+  accepted for one reason: the hook is the only thing that can write a note for a build nobody
+  distributes. If the format changes, both change. `note_text` is checked against the hook's exact
+  output in the selftest so the two cannot drift silently.
 
   Until then: **do not read a plausible-looking note as proof it came from this build** — check the
   build number inside it. A stale note is worse than no note, because it describes changes the
