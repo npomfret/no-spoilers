@@ -119,13 +119,22 @@ Required entitlements (iOS):
 
 ### Releasing
 
-Three wrapper scripts handle distribution. All auto-increment the version from the latest git tag, commit the bump, and push before building.
+Four wrapper scripts handle distribution, all over the one engine `scripts/release.sh`. Each
+suggests the next version, commits the bump, and pushes before building. **Releases run on your
+machine — there is no CI release path.**
 
 | Script | What it does |
 |--------|-------------|
-| `scripts/ship.sh` | Both channels in one run (recommended) |
+| `scripts/ship.sh` | All three channels in one run, version-locked (recommended) |
 | `scripts/ship-homebrew.sh` | Homebrew / Developer ID only |
 | `scripts/ship-appstore.sh` | Mac App Store only |
+| `scripts/ship-ios.sh` | iOS App Store only |
+
+The suggested version is one patch above the higher of the newest `vX.Y.Z` tag and the project's
+`MARKETING_VERSION`. It needs both: opening a version train without shipping it — which is what
+starting a fresh Xcode Cloud train does — moves the project ahead of the tags, and a suggestion
+based on tags alone would walk the project backwards, since `release.sh` sets `MARKETING_VERSION`
+to whatever it is given.
 
 **Release to both channels (normal flow):**
 
