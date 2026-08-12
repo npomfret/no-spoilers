@@ -73,17 +73,26 @@ def assess(products: list[dict], app_id: str, repo: str) -> list[str]:
     states this team has actually been in.
     """
     problems: list[str] = []
-    if not products:
+
+    # A listed product that no longer resolves by id is a ghost, and must not
+    # count. The list is a cache that has now been caught lying in *both*
+    # directions: reporting zero on 2026-08-12 while two products still
+    # resolved, and on the same afternoon still naming a product for minutes
+    # after a DELETE that answered 204. Counting a ghost is how this script
+    # reported "2 products" for a team holding one, which in turn produced the
+    # conclusion that two can coexist — from a team that has never held two.
+    live = [p for p in products if not p["ghost"]]
+
+    if not live:
         problems.append(
-            "the product list is empty, and that is two different situations wearing "
-            "one number: a team with genuinely no products, which is the only state "
-            "the wizard has ever created from, or products that exist and are "
-            "unlistable, where the wizard seizes one instead. This list cannot tell "
-            "you which — an unlistable product still resolves by id. Read "
-            "tasks/15-xcode-cloud-product-hijack.md before the wizard."
+            "no product resolves by id. That is the state the wizard has always "
+            "created from rather than seized — but it cannot be proven from here: "
+            "an unlistable product is invisible to a list and can only be found by "
+            "an id you already know. Read tasks/15-xcode-cloud-product-hijack.md "
+            "before the wizard."
         )
 
-    for product in products:
+    for product in live:
         name, pid = product["name"], product["id"]
         mine = product["appId"] == app_id
         repos = product["repositories"]
@@ -137,11 +146,15 @@ def gather(client: asc.Client, app_id: str) -> list[dict]:
 
     detailed = []
     for product in asc.ci_products(client.get):
+        # Re-fetch every listed id. Being in the list is not evidence of
+        # existing — see the note in `assess`.
+        _, gone = sub(f"/v1/ciProducts/{product['id']}")
         repos, repo_error = sub(f"/v1/ciProducts/{product['id']}/primaryRepositories")
         flows, flow_error = sub(f"/v1/ciProducts/{product['id']}/workflows")
         detailed.append(
             {
                 **product,
+                "ghost": bool(gone),
                 "mine": product["appId"] == app_id,
                 "repositories": [r["attributes"]["repositoryName"] for r in repos],
                 "workflows": [
@@ -159,8 +172,17 @@ def gather(client: asc.Client, app_id: str) -> list[dict]:
 
 
 def render(products: list[dict], problems: list[str], repo: str) -> str:
-    lines = [f"{len(products)} Xcode Cloud product(s); this repo is {repo}", ""]
-    for product in products:
+    live = [p for p in products if not p["ghost"]]
+    ghosts = [p for p in products if p["ghost"]]
+    lines = [f"{len(live)} Xcode Cloud product(s); this repo is {repo}", ""]
+    for product in ghosts:
+        lines.append(
+            f"{product['name']}  {product['id']}  (GHOST — listed but 404 by id; "
+            "deleted, and the list has not caught up. Not counted.)"
+        )
+    if ghosts:
+        lines.append("")
+    for product in live:
         owner = "ours" if product["mine"] else "another project"
         lines.append(f"{product['name']}  {product['id']}  ({owner})")
         lines.append(f"    app          {product['appId'] or 'NONE — orphaned'}")
@@ -204,6 +226,7 @@ def _product(**overrides) -> dict:
         "repositories": ["no-spoilers"],
         "workflows": [{"name": "Default", "container": "NoSpoilers/NoSpoilers.xcodeproj", "enabled": True}],
         "error": None,
+        "ghost": False,
     }
     product.update(overrides)
     return product
@@ -235,9 +258,12 @@ def _selftest() -> int:
     # The state to be in: our product and theirs, each minding its own repo.
     expect("healthy pair", [theirs, _product()], None)
 
-    # An empty list is not "nothing to report" — it is the precondition for the
-    # hijack, and the moment the wizard is most dangerous.
-    expect("empty list", [], "empty")
+    # Nothing resolving is the state every successful creation has started from,
+    # but it is still reported: it cannot be *proven* from here, since an
+    # unlistable product is invisible to a list and findable only by an id you
+    # already hold. Saying so is the whole job — the reversed version of this
+    # rule is what cost the third product.
+    expect("nothing resolves", [], "no product resolves by id")
 
     # 2026-08-12, exactly: both records orphaned, wearing each other's names,
     # each attached to one repo and building the other's project.
@@ -285,12 +311,28 @@ def _selftest() -> int:
     # does exactly this, and a checker that died on it would report nothing.
     expect("unreadable product", [_product(error="GET /v1/... -> HTTP 500")], "could not be read")
 
+    # 2026-08-12 17:0x: our product was deleted at 15:30 and the list still named
+    # it at 17:12, app relationship and all. A ghost must not be counted, or the
+    # team reads as occupied when it is empty — which is the difference between
+    # the wizard creating and the wizard seizing.
+    ghost = _product(id="F6A2F0EB", ghost=True)
+    expect("a ghost alone is an empty team", [ghost], "no product resolves by id")
+    expect("a ghost does not mask a real product", [ghost, theirs], None)
+
+    # And the mirror: a ghost must not be *checked* either. Its sub-resources all
+    # 404, and reporting those as faults would bury the one line that matters.
+    expect(
+        "ghost sub-resource errors are not reported",
+        [dict(ghost, error="GET /v1/.../primaryRepositories -> HTTP 404"), theirs],
+        None,
+    )
+
     # `repository()` must agree with the server's spelling of this repo, or
     # every direction check above is comparing against a name that never matches.
     if repository() != REPO:
         failures.append(f"repository() reads {repository()!r}, expected {REPO!r}")
 
-    cases = 9
+    cases = 12
     print(f"ci_health selftest: {cases} cases, {len(failures)} failure(s)")
     for failure in failures:
         print(f"  - {failure}")

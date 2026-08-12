@@ -199,12 +199,16 @@ that is the hijack path, and it is what cost two products.
 > push.
 >
 > What the FunMaxMusic timings actually show is a delay, not a cause. Its run #1 (`MANUAL`) was
-> 11:42 and its run #2 (`GIT_REF_CHANGE`) was 13:01 — **79 minutes**, with the product created at
-> 10:53. The manual run happened to fall inside that window. So the honest reading is that the
-> repository connection takes an hour or more to become live after creation, and the manual start
-> is a way to get a build in the meantime rather than a fix.
+> 11:42 and its run #2 (`GIT_REF_CHANGE`) was 13:01 — 79 minutes, with the product created at
+> 10:53. The manual run happened to fall inside that window rather than opening it.
 >
-> Practical consequence: after recreating, expect no push triggers for at least an hour, use
+> **"An hour or more" was too confident, on one sample — corrected again at 17:12.** Their next
+> product, created 15:39, took its first `GIT_REF_CHANGE` at 16:04: **25 minutes**. Two samples,
+> 25 and 79 minutes, and this repo's own product never triggered at all across four pushes in the
+> 50 minutes it survived. So: the connection goes live some tens of minutes after creation, the
+> spread is wide, and no number here is a rule.
+>
+> Practical consequence: after recreating, expect pushes to be ignored for a while, use
 > `POST /v1/ciBuildRuns` for anything urgent, and do not go near the wizard — a dead trigger looks
 > exactly like a misconfigured workflow, and "fix it by recreating" is the path that has destroyed
 > three products.
@@ -277,6 +281,43 @@ in Xcode's workflow editor before any run. It would have uploaded a macOS build 
 `CI_BUILD_NUMBER` on every push — a fourth delivery path into the band `release.sh` reserves from
 10000, and a 1.1.0 macOS train nobody asked for while 1.0.21 is live. Check for it on any future
 recreation; the wizard adds it from the schemes it finds, not from anything recorded here.
+
+## The list is a cache, and it has lied in both directions
+
+`GET /v1/ciProducts` is not evidence of anything on its own:
+
+- **2026-08-12 11:50** — returned `0` across eight checks over ten minutes while two products
+  still resolved by id.
+- **2026-08-12 15:30–17:12** — kept naming `F6A2F0EB` for over ninety minutes after a `DELETE`
+  that answered `204`, app relationship and all, while every by-id call returned `404`.
+
+**Only the by-id `404` is honest.** `ci_health.py` now re-fetches every listed id and excludes
+non-resolving records as ghosts, because counting one is precisely how this repo concluded that
+two products had coexisted on a team that has never held two.
+
+## Occurrence 4 was not the fault — it was a deliberate deletion
+
+`F6A2F0EB` was deleted from the `super-funmax-music` side at ~15:30Z with its configuration
+recorded first, and their wizard ran at 15:39:17Z into a team that was empty *by id* though the
+list still showed ours. Their commits `1e44b3d` (15:30:14Z) and `938374f` (15:41:15Z) record both
+halves, the second explicitly noting *"a stale list is not an occupied team"*.
+
+So no new failure mode: no rename, no repoint, app link intact in the listing, `404` on every
+by-id call. A completed `DELETE` plus a stale list explains every symptom.
+
+**What this costs us is the experiment.** Their product carries the workflow name `Default`, and
+ours had been deliberately named `NoSpoilers iOS` so that the two could not collide — but ours was
+gone before their wizard started, so nothing was tested. **Two products have still never existed
+on this team at the same time, and the workflow-name theory is exactly as unproven as it was this
+morning.** Every successful creation, all four of them, started from a team empty by id.
+
+That leaves one decisive experiment: create a second product, with a workflow named something
+other than `Default`, while a real one resolves. If it creates, the name is the contended
+resource and both projects can coexist by naming their workflows apart. If it seizes, two products
+cannot coexist on this team at all, and the bug report to Apple is the `500` on
+`GET /v1/ciProducts/{id}/app`. The cost of it failing is one recreation from empty, which is a
+procedure that now works reliably — but the product it would take is the *other* project's, so it
+is not a decision either repo can take alone.
 
 ### Cleared, 2026-08-12 15:0x
 
