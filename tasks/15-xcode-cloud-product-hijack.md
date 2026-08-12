@@ -191,6 +191,24 @@ So if your recreated product ignores the first push, that is expected. Start the
 API and let the following push prove the webhook. Do **not** go back to the wizard to "fix" it —
 that is the hijack path, and it is what cost two products.
 
+> **The causal claim in that paragraph is wrong — corrected 2026-08-12 16:0x.** Starting a run by
+> hand does not prime the trigger. This repo's recreated product was manually run at 15:52, it
+> succeeded, and the push at 15:58 still produced nothing after eight minutes of polling — four
+> pushes now with no `GIT_REF_CHANGE` at all. `lastAccessedDate` on the repository record reads
+> `14:53:00Z`, which is run #2's own checkout: Apple has not looked at the repo in response to any
+> push.
+>
+> What the FunMaxMusic timings actually show is a delay, not a cause. Its run #1 (`MANUAL`) was
+> 11:42 and its run #2 (`GIT_REF_CHANGE`) was 13:01 — **79 minutes**, with the product created at
+> 10:53. The manual run happened to fall inside that window. So the honest reading is that the
+> repository connection takes an hour or more to become live after creation, and the manual start
+> is a way to get a build in the meantime rather than a fix.
+>
+> Practical consequence: after recreating, expect no push triggers for at least an hour, use
+> `POST /v1/ciBuildRuns` for anything urgent, and do not go near the wizard — a dead trigger looks
+> exactly like a misconfigured workflow, and "fix it by recreating" is the path that has destroyed
+> three products.
+
 ## Occurrence 3, 2026-08-12 14:53 — the second-product question, answered
 
 This repo ran Create Workflow with the list reporting exactly `1`: FunMaxMusic's recreated
