@@ -80,7 +80,7 @@ doing that automatically is a decision this task takes deliberately against — 
 
 `scripts/ship-ios.sh` stays. This runs alongside it: Xcode Cloud for continuous internal builds,
 `release.sh` for versioned App Store submissions. The macOS app is **out of scope** — it ships via
-Developer ID and Homebrew (Task 08) and must not be archived here.
+Developer ID and Homebrew (`scripts/ship-homebrew.sh`) and must not be archived here.
 
 ---
 
