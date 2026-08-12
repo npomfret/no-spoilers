@@ -1,9 +1,12 @@
 # Task 15: Xcode Cloud "Create Workflow" hijacks a sibling project's product
 
-**Status:** OPEN — diagnosed and cleared 2026-08-12 from the `super-funmax-music` side.
-**This repo's Xcode Cloud product was deleted as part of the repair and has to be recreated
-here.** Its workflow config is recorded below verbatim for exactly that purpose. Runs #1–#17
-are gone; TestFlight builds are not.
+**Status:** OPEN — this repo is working again as of 2026-08-12 15:31, and the fault is not
+resolved. Product `F6A2F0EB` was created into a proven-empty team and has delivered
+`1.1.0 build 1` to TestFlight, so nothing here blocks this repo. What remains open is the fault
+itself: `super-funmax-music` still has no product, and its recreation is the live test of the
+workflow-name theory below. **If that attempt seizes `F6A2F0EB`, the theory is dead and this
+becomes a bug report to Apple** rather than a procedure. Three products have been lost so far.
+Runs #1–#17 and FunMaxMusic's #1–#5 are gone; TestFlight builds never were.
 
 **Do not run Integrate → Create Workflow while any product exists on this team.** The wizard
 creates only from genuinely zero products; with one already there it seizes that one instead.

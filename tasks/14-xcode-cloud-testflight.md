@@ -1,13 +1,19 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** BLOCKED as of 2026-08-12 — **none of the below currently runs.** This repo's Xcode
-Cloud product was deleted to clear the fault in `tasks/15-xcode-cloud-product-hijack.md`, taking
-runs #1–#17 with it, so a push to `main` now archives nothing. Everything described here was
-demonstrated on a product that no longer exists; it is the reasoning behind the rules in
-`docs/guides/building.md`, not a description of what is running. The two unchecked boxes are
-blocked twice over — on the product being recreated, and on iOS being shippable at all, which the
-trademark rejection currently prevents. TestFlight builds 1–17 survive; they live on the app
-record, not the product.
+**Status:** RUNNING AGAIN as of 2026-08-12 15:31, on a rebuilt product. The chain below was
+blocked for most of that day: the original product was deleted to clear the fault in
+`tasks/15-xcode-cloud-product-hijack.md`, taking runs #1–#17 with it, and the first attempt to
+recreate it destroyed a third product instead. Product `F6A2F0EB` now archives scheme
+`NoSpoilersApp` on every push to `main`, its workflow named `NoSpoilers iOS` rather than `Default`
+for the reason recorded in task 15. Re-proven on the new product rather than assumed: run #1
+passed the test gate, archived, and uploaded **1.1.0 build 1 `VALID`**, and
+`testflight_distribute.py` found the product by the app it builds and offered the hand-over.
+
+Two things carried over from the rebuild. **Run numbering restarted at 1**, which is why
+`MARKETING_VERSION` moved to 1.1.0 — build numbers are unique per version train and 1.0.22 already
+held 3–17, leaving only 1, 2 and 7 free. And the surviving unchecked box is still blocked on iOS
+being shippable at all, which the trademark rejection prevents; that is not a CI matter.
+TestFlight builds 1–17 were never at risk — they live on the app record, not the product.
 
 **What it demonstrated, while it existed** — the chain worked end to end. A push archived, the tests
 gated it, the build uploaded `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the
