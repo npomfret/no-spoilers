@@ -197,6 +197,27 @@ they cannot collide, and the build number in the app's About screen says which o
 
 Full detail, including why delivery is manual: `tasks/14-xcode-cloud-testflight.md`.
 
+### Checking Xcode Cloud is wired to the right project
+
+```bash
+scripts/ci_health.py                         # PASS, or every problem it can see
+```
+
+**Run this immediately after Integrate → Create Workflow, before pushing.** Two projects share
+this Apple team, and that wizard has twice seized the other one's Xcode Cloud product — renaming
+it, repointing it at whichever repo ran the wizard, and leaving the other project building
+nothing while its own workflow still reads as perfectly valid. It is invisible from the victim's
+side. `tasks/15-xcode-cloud-product-hijack.md` has the mechanism.
+
+So the check asks in both directions: no product of ours attached to another project's
+repository, and no product of theirs attached to ours. If it says `STOP`, do **not** rerun the
+wizard — retrying is the thing that seizes the next product.
+
+This repo currently has **no Xcode Cloud product**: both were deleted on 2026-08-12 to clear the
+fault, taking runs #1–#17 with them. Until one is recreated, `testflight_distribute.py` stops
+before it writes anything and tells you so. TestFlight builds are unaffected — they live on the
+app record, not the product.
+
 ### Asking what App Store Connect holds
 
 ```bash

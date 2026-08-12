@@ -297,6 +297,87 @@ def find_app(get: "Callable[[str], dict]") -> dict:
     return app
 
 
+def ci_products(get: "Callable[[str], dict]") -> list[dict]:
+    """Every Xcode Cloud product on the team, each with the app it builds.
+
+    `include=app` is what makes this worth having in one place. Without it the
+    list carries links and no ids, so answering "whose product is this" costs a
+    call per product — and on an orphaned product that call is an HTTP 500,
+    which turns a question into a crash. With it, an orphan is simply a product
+    whose `app` relationship has a type and no id, which is a value to test
+    rather than an error to survive. See tasks/15-xcode-cloud-product-hijack.md.
+    """
+    products = get("/v1/ciProducts?limit=200&include=app")["data"]
+    return [
+        {
+            "id": product["id"],
+            "name": product["attributes"]["name"],
+            "created": product["attributes"].get("createdDate"),
+            "appId": (product["relationships"]["app"].get("data") or {}).get("id"),
+        }
+        for product in products
+    ]
+
+
+def select_ci_product(products: list[dict], app_id: str) -> str:
+    """The one product that builds `app_id`, or a hard stop naming why not.
+
+    **Matched on the app it builds, never on its name.** This is the safety
+    property, not a style choice. The fault in task 15 renames a product to the
+    project that ran the wizard, so after a hijack the record called
+    `NoSpoilersApp` was the sibling project's and the record called
+    `FunMaxMusic` was this repo's. Name-matching would have picked precisely the
+    wrong one and pointed this repo's tooling at another team member's project.
+    The `app` relationship is the field the fault does not forge: it strips it
+    to nothing rather than repointing it, so a seized product fails to match
+    anything instead of matching the wrong thing.
+
+    Two products claiming one app is not a tie to break. It means a record is
+    mid-hijack, and choosing either could act on a sibling's product, so it
+    stops.
+    """
+    ours = [p for p in products if p["appId"] == app_id]
+    if len(ours) == 1:
+        return ours[0]["id"]
+    if not ours:
+        seen = ", ".join(
+            "{} -> app {}".format(p["name"], p["appId"] or "NONE (orphaned)") for p in products
+        )
+        raise SystemExit(
+            "no Xcode Cloud product builds this app.\n"
+            f"{len(products)} product(s) on the team: {seen or 'none'}\n"
+            "Recreate it with Integrate > Create Workflow in Xcode, then run "
+            "scripts/ci_health.py. Read tasks/15-xcode-cloud-product-hijack.md "
+            "first — retrying that wizard while the list is empty seizes another "
+            "project's product instead of creating one."
+        )
+    raise SystemExit(
+        f"{len(ours)} Xcode Cloud products claim this app: "
+        f"{', '.join(p['id'] for p in ours)}\n"
+        "One of them is building something else. Do not guess which; see "
+        "tasks/15-xcode-cloud-product-hijack.md."
+    )
+
+
+def find_ci_product(get: "Callable[[str], dict]", app_id: str) -> str:
+    """This app's Xcode Cloud product id, discovered, or a hard stop.
+
+    Discovered rather than recorded, because the id does not survive. This was
+    a constant until 2026-08-12, on the reasoning that `GET /v1/ciProducts`
+    could not be trusted — it was answering `total: 0` while products resolved
+    by id. That was never an API quirk to route around: it was the fault in
+    task 15, where an orphaned product makes the whole list unlistable. The
+    orphans were deleted, and the constant they left behind pointed at a record
+    that no longer existed, which took `testflight_distribute.py` down with it,
+    dry run included. A recorded id survives exactly until the next deletion.
+
+    Absence is a hard stop rather than `None`. Every caller here is asking
+    about a build Xcode Cloud produced, so a missing product means the question
+    is unanswerable, not that the answer is nothing.
+    """
+    return select_ci_product(ci_products(get), app_id)
+
+
 def builds_path(app_id: str, platform: str) -> str:
     """Every build of this app on one platform.
 
@@ -977,6 +1058,56 @@ def _selftest() -> int:
         failures.append("submission_items dropped a state")
     if asked != ["/v1/reviewSubmissions/sub-1/items?limit=50"]:
         failures.append(f"submission_items asked for {asked}")
+
+    # Picking the Xcode Cloud product, replayed against the real state of
+    # 2026-08-12 recorded in tasks/15-xcode-cloud-product-hijack.md. Every case
+    # here is one this team has actually been in, and the cost of getting one
+    # wrong is this repo's tooling driving another project's product.
+    OURS, THEIRS = "6761343835", "6770023782"
+
+    # The hijack, exactly as it stood: the record *named* NoSpoilersApp belonged
+    # to the sibling, and the record named FunMaxMusic was ours. Anything that
+    # reads the name picks the sibling's product here.
+    hijacked = [
+        {"id": "EDF20772", "name": "NoSpoilersApp", "appId": THEIRS},
+        {"id": "1F3A0BBD", "name": "FunMaxMusic", "appId": OURS},
+    ]
+    if select_ci_product(hijacked, OURS) != "1F3A0BBD":
+        failures.append("select_ci_product followed the name instead of the app")
+
+    # A sibling's product must never be selected, whatever it is called and
+    # however alone it is in the list. Today's real state: one product, theirs.
+    for lonely in ("FunMaxMusic", "NoSpoilersApp"):
+        try:
+            chosen = select_ci_product([{"id": "CADFB659", "name": lonely, "appId": THEIRS}], OURS)
+            failures.append(f"select_ci_product chose a sibling product named {lonely}: {chosen}")
+        except SystemExit:
+            pass
+
+    # An orphan — the seized record, stripped of its app — must not be adopted
+    # just because it is the only thing left.
+    try:
+        chosen = select_ci_product([{"id": "EDF20772", "name": "NoSpoilersApp", "appId": None}], OURS)
+        failures.append(f"select_ci_product adopted an orphan: {chosen}")
+    except SystemExit:
+        pass
+
+    # Mid-hijack: two records claiming our app is not a tie to break.
+    try:
+        chosen = select_ci_product(
+            [{"id": "a", "name": "x", "appId": OURS}, {"id": "b", "name": "y", "appId": OURS}], OURS
+        )
+        failures.append(f"select_ci_product guessed between two claimants: {chosen}")
+    except SystemExit:
+        pass
+
+    # And the ordinary case still works, with a sibling sitting beside us.
+    healthy = [
+        {"id": "CADFB659", "name": "FunMaxMusic", "appId": THEIRS},
+        {"id": "NEW", "name": "NoSpoilersApp", "appId": OURS},
+    ]
+    if select_ci_product(healthy, OURS) != "NEW":
+        failures.append("select_ci_product missed the healthy product")
 
     # Screenshot families are per platform: a macOS version has desktop shots and
     # no iPhone ones, and asking it for iPhone screenshots would report a gap

@@ -89,13 +89,6 @@ import appstore_status as asc
 # which is the least helpful error in this API — see `_hint`.
 ADMIN_KEY_ID = "ASC6H3SL2D"
 
-# The Xcode Cloud product, hard-coded because it cannot be discovered reliably:
-# `GET /v1/ciProducts` has been observed answering `total: 0` on this team while
-# individual products still resolved by id, which is what made Xcode refuse to
-# create the workflow. Fetching by id is the path that has never failed. Recorded
-# in tasks/14-xcode-cloud-testflight.md under "Live configuration".
-CI_PRODUCT_ID = "1F3A0BBD-DC5B-44FA-A767-65B3E14A433B"
-
 # The app's only TestFlight locale. A build with no localization in it shows
 # testers nothing, which is why `write_note` can create one as well as set it.
 NOTE_LOCALE = "en-GB"
@@ -269,7 +262,7 @@ def note_state(existing: dict | None) -> str:
     return f"claims {claim!r}" if claim else "has no build marker"
 
 
-def source_commit(session: Session, version: str) -> dict | None:
+def source_commit(session: Session, product_id: str, version: str) -> dict | None:
     """The commit that produced this build, or None if Xcode Cloud did not.
 
     A build's version *is* its run number: Xcode Cloud rewrites CFBundleVersion
@@ -281,12 +274,18 @@ def source_commit(session: Session, version: str) -> dict | None:
     carry no source commit at all. Neither has a commit to name, and inventing
     one would be worse than leaving the note alone.
 
+    A product that does not exist is *not* one of those cases, which is why the
+    id is found by `asc.find_ci_product` and passed in rather than looked up
+    here. It was a constant until the product it named was deleted, and then
+    every path through this script raised a bare 404 — including the dry run,
+    which is the one that is supposed to be safe to run when things look wrong.
+
     `sort=-number` is required here — this endpoint answers oldest-first without
     it, so the newest runs fall off the end of the page.
     """
     if not version.isdigit():
         return None
-    runs = session.get(f"/v1/ciProducts/{CI_PRODUCT_ID}/buildRuns?limit=200&sort=-number")["data"]
+    runs = session.get(f"/v1/ciProducts/{product_id}/buildRuns?limit=200&sort=-number")["data"]
     run = next((r for r in runs if r["attributes"]["number"] == int(version)), None)
     if run is None:
         return None
@@ -333,7 +332,7 @@ def write_note(session: Session, build_id: str, existing: dict | None, text: str
     )
 
 
-def repair_note(session: Session, build: dict, apply: bool) -> None:
+def repair_note(session: Session, product_id: str, build: dict, apply: bool) -> None:
     """Make the note describe this build, or say why it cannot."""
     existing = note_on(session, build["id"])
     current = existing["whatsNew"] if existing else None
@@ -342,7 +341,7 @@ def repair_note(session: Session, build: dict, apply: bool) -> None:
         return
 
     seen = note_state(existing)
-    commit = source_commit(session, build["version"])
+    commit = source_commit(session, product_id, build["version"])
     if commit is None:
         print(f"what to test: {seen}, and no Xcode Cloud run produced this build, so leaving it")
         return
@@ -405,7 +404,7 @@ def gather(session: Session, only: str | None) -> dict:
                 "testers": testers(session, group["id"]),
             }
         )
-    return {"build": target, "plans": plans}
+    return {"appId": app_id, "build": target, "plans": plans}
 
 
 def deliver(session: Session, build: dict, plan: dict, submit: bool) -> None:
@@ -471,11 +470,16 @@ def main() -> int:
         f"uploaded {build['uploaded'][:16]}"
     )
 
+    # Found by the app it builds, never by its name — a hijacked product wears
+    # the other project's name, so the name is the one field that lies. See
+    # `asc.select_ci_product`.
+    product_id = asc.find_ci_product(session.get, state["appId"])
+
     # The note belongs to the build, not to any group, so it is settled once
     # here rather than per group. It is also worth repairing on a build that is
     # already distributed: the testers have it, and what they were told about it
     # may still be describing somebody else's commit.
-    repair_note(session, build, arguments.apply)
+    repair_note(session, product_id, build, arguments.apply)
     print()
 
     blocked = 0

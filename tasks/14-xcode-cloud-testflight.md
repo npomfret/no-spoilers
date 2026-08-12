@@ -23,10 +23,15 @@ inferred from a green status.
 Recorded because none of it is discoverable from the repo, and `GET /v1/ciProducts` will not always
 show it (see Phase 1, "When Xcode will not let you create the workflow").
 
+> **The product and workflow below no longer exist.** Both were deleted on 2026-08-12 to clear the
+> fault described in `tasks/15-xcode-cloud-product-hijack.md`, and both now answer `404`. The app
+> record, repository and internal group are untouched and still correct. Task 15 has the workflow
+> config to rebuild from.
+
 | Thing | Id |
 |---|---|
-| Xcode Cloud product `NoSpoilersApp` | `1F3A0BBD-DC5B-44FA-A767-65B3E14A433B`, created 2026-08-10 |
-| Workflow `Default` | `6EE7E8AE-43B3-4A88-94AB-729C6EE45E6B` |
+| ~~Xcode Cloud product `NoSpoilersApp`~~ | ~~`1F3A0BBD-DC5B-44FA-A767-65B3E14A433B`, created 2026-08-10~~ — deleted 2026-08-12 |
+| ~~Workflow `Default`~~ | ~~`6EE7E8AE-43B3-4A88-94AB-729C6EE45E6B`~~ — deleted with its product |
 | App record | `6761343835`, `pomocorp.NoSpoilers.NoSpoilersMac` — one record, iOS and macOS both |
 | Internal group | `e4840ac3-284b-4b6c-a41f-b400d6d0fac1` |
 | Repository | `npomfret/no-spoilers`, `b36f1212-d272-4b37-9ba0-50c3277fd1f2` |
@@ -337,16 +342,28 @@ What did not help, in case it is tempting:
   all. That screen is worth checking precisely because it is unambiguous: it means no product, not
   a hidden one.
 
-What did work was retrying Create Workflow in Xcode later, which made a **new** product
-(`1F3A0BBD-…`, properly attached to app `6761343835`) and left the broken one in place. So: if the
-list is empty and the dialog says otherwise, look for an orphaned product by id before touching
-anything local.
+~~What did work was retrying Create Workflow in Xcode later, which made a **new** product
+(`1F3A0BBD-…`, properly attached to app `6761343835`) and left the broken one in place.~~
 
-**Still outstanding:** `EDF20772-…` is orphaned and still holds the sibling project's `Default`
-workflow (`6229CF74-F464-4EF7-A6AE-64C7B8A21279`). That project keeps shipping — uploads go by
-bundle id, not by the product's app link — but its Xcode Cloud tab is presumably as empty as this
-one's was. `ciProducts` has no `PATCH`, so the only repair is `DELETE`, which takes its workflow and
-build history with it. Recorded here so that is recoverable rather than irreversible:
+**Wrong, and expensively so — corrected 2026-08-12. Do not retry Create Workflow while the list
+is empty.** The retry did not create anything. It *seized* the sibling project's product, renamed
+it, repointed it at this repo, and left the sibling unable to build from that day on. The
+appearance of a clean new product beside a broken one was the same single record being read twice
+under two names. Four days later the wizard was run from the sibling and did the same in reverse,
+taking `1F3A0BBD-…`. The fault is self-perpetuating: an orphan makes the list unlistable, and an
+unlistable list is what makes the wizard hijack instead of create.
+
+Full mechanism, the state of both products, and the recovery in
+`tasks/15-xcode-cloud-product-hijack.md`. The safe reading of this section is its first half: if
+the list is empty and the dialog says otherwise, look for an orphaned product by id, and delete it
+before creating anything.
+
+~~**Still outstanding:**~~ **Closed 2026-08-12.** `EDF20772-…` was orphaned and still held the
+sibling project's `Default` workflow (`6229CF74-F464-4EF7-A6AE-64C7B8A21279`). It was deleted
+(`HTTP 204`, then confirmed `404`) along with `1F3A0BBD-…`; `super-funmax-music` has since been
+recreated as `CADFB659-EC1D-48C9-9B34-EB2A225D6BD3` and resolves its app. The reasoning below held
+up: `ciProducts` has no `PATCH`, so `DELETE` was the only repair, and it took both workflows and
+all run history with it. Recorded here so that was recoverable rather than irreversible:
 
 ```
 repository        npomfret/super-funmax-music  (3706b1f0-bfe2-472b-b936-b24b6043d789)

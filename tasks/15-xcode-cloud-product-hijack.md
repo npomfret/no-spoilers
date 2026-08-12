@@ -102,6 +102,52 @@ retrying the wizard, because retrying is what hijacks the sibling.
 Order matters: `super-funmax-music` is being recreated first, so confirm the list shows it
 before creating this one.
 
+## FunMaxMusic's restore baseline, taken 2026-08-12 12:0x
+
+Recorded from this repo because this repo is the one about to run the wizard, and the wizard's
+victim is the one project that will not notice. If the fault recurs, `CADFB659-…` is what has to
+come back. Verified healthy at the time of recording: `/app` → `200`, and `scripts/ci_health.py`
+→ `PASS`.
+
+```
+product           CADFB659-EC1D-48C9-9B34-EB2A225D6BD3  "FunMaxMusic", created 2026-08-12T10:53:48Z
+app               6770023782  pomocorp.FunMaxMusic
+repository        npomfret/super-funmax-music  (3706b1f0-bfe2-472b-b936-b24b6043d789)
+workflow          EFDA9C91-8FBA-4A35-A58D-DA4135077DBE  "Default", enabled, clean, not locked
+containerFilePath apple/FunMaxMusic/FunMaxMusic.xcodeproj
+branch            main (exact, not prefix), autoCancel true, no file/folder rule
+pull requests     no start condition
+action 1  TEST     "UnitTests - iOS", scheme FunMaxMusic, IOS, isRequiredToPass true
+                   SPECIFIC_TEST_PLANS "UnitTests", Recommended iPhones / iOS 26.5 simulator
+action 2  ARCHIVE  "Archive - iOS", scheme FunMaxMusic, IOS, APP_STORE_ELIGIBLE,
+                   isRequiredToPass true
+```
+
+Run history restarted at #1 — the recreation lost #1–#28, the same way this repo lost #1–#17. As
+of 13:0x it holds run #1 (`MANUAL`, `SUCCEEDED`) and run #2 (`GIT_REF_CHANGE`, **`FAILED`**). The
+failure is in that project's own build, not interference from here: this repo has no Xcode Cloud
+product at all right now, so it owns nothing that could reach theirs.
+
+## Guarding against a third occurrence
+
+`scripts/ci_health.py` checks the invariant in both directions, which is the part no other tool
+looks at:
+
+- no product of ours may be attached to another project's repository
+- **no product of theirs may be attached to ours**
+
+The second is the one that costs somebody else four days. A hijack is invisible from the victim's
+side — their workflow stays valid and enabled, and only the product's repository attachment
+moves — so nothing on their end reports it.
+
+`scripts/testflight_distribute.py` no longer holds a recorded product id. It finds the product by
+**the app it builds, never by name**: after a hijack the record named `NoSpoilersApp` was the
+sibling's and the record named `FunMaxMusic` was this repo's, so name-matching would have pointed
+this repo's tooling straight at another project's product. `app` is the field the fault strips
+rather than forges, so a seized record matches nothing instead of matching wrongly. Both
+behaviours are replayed against this exact state in `appstore_status.py --selftest` and
+`ci_health.py --selftest`.
+
 ## Recreating it worked — with one caveat worth knowing before you try
 
 `super-funmax-music` recreated its product cleanly once both orphans were gone. Xcode was quit
@@ -119,18 +165,18 @@ workflow  EFDA9C91-…  Default, enabled
 `GET /v1/ciProducts` reports **1**, not 0. That is the check that matters — run it immediately
 after creating yours.
 
-**The caveat: a push to `main` did not trigger a run.** Two pushes and roughly eight minutes of
-polling produced nothing, on a workflow that was enabled, unlocked, correctly branch-conditioned
-on `main`, and whose repository Apple could plainly see (`gitReferences` resolved `refs/heads/main`).
+**The caveat: the first push after recreation triggers nothing.** Eight minutes of polling
+produced no run, on a workflow that was enabled, unlocked, correctly branch-conditioned on
+`main`, and whose repository Apple could plainly see (`gitReferences` resolved `refs/heads/main`).
 
 `POST /v1/ciBuildRuns` with the workflow relationship started run #1 immediately
 (`startReason: MANUAL`), and it completed `SUCCEEDED` — checkout, `UnitTests`, archive, and an
-upload that reached TestFlight `VALID`. So the workflow is sound and the *trigger* is the part
-that did not come back with it. Whether it wires itself up after the first manual run is still
-unknown; that is the next thing to watch here.
+upload that reached TestFlight `VALID`. **The next push then triggered run #2 on its own**,
+`startReason: GIT_REF_CHANGE`. The trigger arrives late, not never.
 
-If your recreated product behaves the same, do not retry the wizard to "fix" it — that is the
-hijack path. Start a run over the API instead.
+So if your recreated product ignores the first push, that is expected. Start the run over the
+API and let the following push prove the webhook. Do **not** go back to the wizard to "fix" it —
+that is the hijack path, and it is what cost two products.
 
 ## Still untested
 
