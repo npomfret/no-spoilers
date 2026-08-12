@@ -282,6 +282,29 @@ in Xcode's workflow editor before any run. It would have uploaded a macOS build 
 10000, and a 1.1.0 macOS train nobody asked for while 1.0.21 is live. Check for it on any future
 recreation; the wizard adds it from the schemes it finds, not from anything recorded here.
 
+## FunMaxMusic's restore baseline, taken 2026-08-12 17:2x
+
+Recorded from this repo because this repo is about to run the wizard, and the wizard's victim is
+the one project that will not notice. Verified resolving at the time of recording.
+
+```
+product           28472948-8E80-4EF5-BEF7-7D9A75871315  "FunMaxMusic", created 2026-08-12T15:39:17Z
+app               6770023782
+repository        npomfret/super-funmax-music  (3706b1f0-bfe2-472b-b936-b24b6043d789)
+workflow          91354094-734F-4096-A93A-17A502322EE5  "Default", enabled, clean, not locked
+containerFilePath apple/FunMaxMusic/FunMaxMusic.xcodeproj
+branch            main (exact, not prefix), autoCancel true, no file/folder rule
+pull requests     no start condition; no tag or schedule condition
+action 1  TEST     "UnitTests - iOS", scheme FunMaxMusic, IOS, test plan "UnitTests",
+                   isRequiredToPass true
+action 2  ARCHIVE  "Archive - iOS", scheme FunMaxMusic, IOS, APP_STORE_ELIGIBLE,
+                   isRequiredToPass true
+runs at capture   #1 MANUAL SUCCEEDED 15:51, #2 GIT_REF_CHANGE CANCELED 16:04,
+                  #3 GIT_REF_CHANGE 16:11
+```
+
+**Their workflow is named `Default`. Ours must not be.** That is the entire experiment.
+
 ## The list is a cache, and it has lied in both directions
 
 `GET /v1/ciProducts` is not evidence of anything on its own:
