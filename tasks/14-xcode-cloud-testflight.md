@@ -1,9 +1,18 @@
 # Task 14: Xcode Cloud → TestFlight for the iOS app
 
-**Status:** IN PROGRESS — the chain works end to end. A push archives, the tests gate it, the build
-uploads `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the number (runs 4 and 5,
-builds 4 and 5), `scripts/testflight_distribute.py --apply` hands it to a group, and a tester now sits
-at `INVITED` having been invited by that hand-over alone. **The gate is proven** — run 8 carried a
+**Status:** BLOCKED as of 2026-08-12 — **none of the below currently runs.** This repo's Xcode
+Cloud product was deleted to clear the fault in `tasks/15-xcode-cloud-product-hijack.md`, taking
+runs #1–#17 with it, so a push to `main` now archives nothing. Everything described here was
+demonstrated on a product that no longer exists; it is the reasoning behind the rules in
+`docs/guides/building.md`, not a description of what is running. The two unchecked boxes are
+blocked twice over — on the product being recreated, and on iOS being shippable at all, which the
+trademark rejection currently prevents. TestFlight builds 1–17 survive; they live on the app
+record, not the product.
+
+**What it demonstrated, while it existed** — the chain worked end to end. A push archived, the tests
+gated it, the build uploaded `VALID` and `APP_STORE_ELIGIBLE` with the archive and IPA agreeing on the
+number (runs 4 and 5, builds 4 and 5), `scripts/testflight_distribute.py --apply` handed it to a group,
+and a tester reached `INVITED` by that hand-over alone. **The gate was proven** — run 8 carried a
 deliberately failing test, failed at the pre-build hook, and delivered nothing. The *What to Test*
 note is no longer Apple's to lose: the distribute command writes it. `appstore_status.py` reports
 which build the testers can actually install.
