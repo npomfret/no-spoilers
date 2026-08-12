@@ -230,12 +230,42 @@ then let the second project run its wizard. If the second one still seizes, the 
 dead, two products genuinely cannot coexist, and that is the report to Apple — with the `500` on
 `GET /v1/ciProducts/{id}/app` as the symptom, since it is unambiguous and reproducible.
 
-### Until it is resolved, do not push to `main` here
+### This repo's restore baseline, taken 2026-08-12 15:1x
 
-The seized product is attached to `no-spoilers`, and the trigger follows the product's repository
-attachment. A push to this repo can now start a run that checks out this repo and tries to build
-`apple/FunMaxMusic/FunMaxMusic.xcodeproj`. It fails, and it fails in the other project's run
-history.
+Recorded before `super-funmax-music` runs its wizard, because that attempt is the experiment and
+this product is what it would take. Created from a genuinely empty team — `404` on the seized id
+*and* `total 0` — which is the only state that has ever produced a product rather than a theft.
+
+```
+product           F6A2F0EB-1577-4C80-B65B-1A5528247E1D  "NoSpoilersApp", created 2026-08-12T14:08:21Z
+app               6761343835  pomocorp.NoSpoilers.NoSpoilersMac
+repository        npomfret/no-spoilers  (b36f1212-d272-4b37-9ba0-50c3277fd1f2)
+workflow          52C80043-0E46-4EE1-A1D3-2D48736B622D  "NoSpoilers iOS", enabled, clean, not locked
+containerFilePath NoSpoilers/NoSpoilers.xcodeproj
+branch            main (exact, not prefix), autoCancel true, no file/folder rule
+pull requests     no start condition; no tag or schedule condition either
+action 1  ARCHIVE  "Archive - iOS", scheme NoSpoilersApp, IOS, APP_STORE_ELIGIBLE,
+                   isRequiredToPass true
+```
+
+**The workflow is deliberately not called `Default`.** If the name theory holds, that name is the
+contended resource, and leaving it unoccupied is what lets the other project create.
+
+The wizard also added a second action, `Archive - macOS` on scheme `NoSpoilers`, which was removed
+in Xcode's workflow editor before any run. It would have uploaded a macOS build numbered from
+`CI_BUILD_NUMBER` on every push — a fourth delivery path into the band `release.sh` reserves from
+10000, and a 1.1.0 macOS train nobody asked for while 1.0.21 is live. Check for it on any future
+recreation; the wizard adds it from the schemes it finds, not from anything recorded here.
+
+### Cleared, 2026-08-12 15:0x
+
+While the seizure stood, a push here was unsafe: the trigger follows the product's repository
+attachment, so a push to `no-spoilers` would have started a run that checked out this repo and
+tried to build `apple/FunMaxMusic/FunMaxMusic.xcodeproj`, failing in the other project's run
+history. `DELETE` returned `204`, the id then read `404` and the list `0` — both, which is what
+distinguishes an empty team from an unlistable one — and the product above was created into that
+emptiness. FunMaxMusic's runs #1–#5 went with it; that record was unrepairable either way, since
+`ciProducts` takes no `PATCH` and its `app` relationship was already stripped.
 
 Two things task 14 already ruled out and that remain ruled out: clearing
 `~/Library/Developer/Xcode/UserData/XcodeCloud/` (the cache is empty *because* the list is), and

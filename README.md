@@ -218,13 +218,15 @@ So the check asks in both directions: no product of ours attached to another pro
 repository, and no product of theirs attached to ours. If it says `STOP`, do **not** rerun the
 wizard — retrying is the thing that seizes the next product.
 
-This repo currently has **no Xcode Cloud product of its own**, and as of 2026-08-12 14:53 there
-is a seized one attached to this repository that belongs to the other project. **Do not push to
-`main` until that is cleared** — the trigger follows the product's repository attachment, so a
-push from here starts a run that tries to build the other project's `.xcodeproj` out of this
-checkout, and fails in their run history. Until a real product exists,
-`testflight_distribute.py` stops before it writes anything and tells you so. TestFlight builds
-are unaffected — they live on the app record, not the product.
+This repo's product was recreated on 2026-08-12 at 15:08 after the third seizure, into a team
+proven empty by `404` on the old id *and* `total 0` — the pair, since either alone is ambiguous.
+Its workflow is called `NoSpoilers iOS` rather than `Default`, deliberately: the abort message is
+*"Workflow name already exists"*, and leaving that name unoccupied is what may let the other
+project create its own. Run history restarts at #1, which is why `MARKETING_VERSION` moved to
+1.1.0 — TestFlight build numbers are unique per version train and 1.0.22 already holds 3–17.
+Without a product, `testflight_distribute.py` stops before it writes anything and says so;
+TestFlight builds themselves are unaffected by any of this, living on the app record rather than
+the product.
 
 ### Asking what App Store Connect holds
 
