@@ -11,9 +11,13 @@ while its workflow still reads as valid — the trigger follows the *product's*
 repository attachment, not the workflow's.
 
 Two projects share this team, `no-spoilers` and `super-funmax-music`, and the
-fault has now run in both directions: 2026-08-08 it took FunMaxMusic's product
-for this repo, 2026-08-12 it took this repo's for FunMaxMusic. Four days of that
-project's builds were lost to it before anyone noticed. So the question this
+fault has now run three times in both directions: 2026-08-08 it took
+FunMaxMusic's product for this repo, 2026-08-12 11:xx it took this repo's for
+FunMaxMusic, and 2026-08-12 14:53 it took FunMaxMusic's replacement — that last
+one while this script reported PASS on a listable, healthy, single-product list
+minutes earlier. Four days of that project's builds were lost to the first
+before anyone noticed. Note what this means: a PASS here says nothing is
+*currently* crossed, never that the wizard is safe to run. So the question this
 answers is not "is my CI fine" but **"is my CI standing on someone else's
 project"**, and it is asked in both directions:
 
@@ -71,8 +75,12 @@ def assess(products: list[dict], app_id: str, repo: str) -> list[str]:
     problems: list[str] = []
     if not products:
         problems.append(
-            "the product list is empty. Creating a product now is what triggers the "
-            "hijack — read tasks/15-xcode-cloud-product-hijack.md before the wizard."
+            "the product list is empty, and that is two different situations wearing "
+            "one number: a team with genuinely no products, which is the only state "
+            "the wizard has ever created from, or products that exist and are "
+            "unlistable, where the wizard seizes one instead. This list cannot tell "
+            "you which — an unlistable product still resolves by id. Read "
+            "tasks/15-xcode-cloud-product-hijack.md before the wizard."
         )
 
     for product in products:

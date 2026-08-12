@@ -5,8 +5,18 @@
 here.** Its workflow config is recorded below verbatim for exactly that purpose. Runs #1–#17
 are gone; TestFlight builds are not.
 
-**Do not run Integrate → Create Workflow while `GET /v1/ciProducts` returns an empty list.**
+**Do not run Integrate → Create Workflow while any product exists on this team.** The wizard
+creates only from genuinely zero products; with one already there it seizes that one instead.
 Every attempt destroys one more product. That is the whole finding.
+
+> **This rule is the reverse of what this file said until 2026-08-12 14:53, and the old wording
+> cost a third product.** It read *"do not run it while `GET /v1/ciProducts` returns an empty
+> list"*, which reads the list count as the danger signal. The count cannot carry that meaning:
+> it returns `0` both when the team truly has no products (creation works — that is how
+> FunMaxMusic was recreated at 10:53) and when products exist but one is orphaned and has made
+> the list unlistable (creation seizes). Those are opposite situations behind one number.
+> Occurrence 3 below ran the wizard against a list of exactly `1`, listable and healthy, on the
+> strength of that sentence.
 
 ## What task 14 saw, and what it missed
 
@@ -178,12 +188,54 @@ So if your recreated product ignores the first push, that is expected. Start the
 API and let the following push prove the webhook. Do **not** go back to the wizard to "fix" it —
 that is the hijack path, and it is what cost two products.
 
-## Still untested
+## Occurrence 3, 2026-08-12 14:53 — the second-product question, answered
 
-Whether two products can coexist in this team at all. Every observation so far involves exactly
-one surviving record, and both hijacks happened while a second was being created. If the fault
-recurs on the second creation, that is the thing to report to Apple — with the 500 on
-`GET /v1/ciProducts/{id}/app` as the concrete symptom, since it is unambiguous and reproducible.
+This repo ran Create Workflow with the list reporting exactly `1`: FunMaxMusic's recreated
+product, listable, `/app` resolving `200`, `ci_health.py` `PASS` minutes earlier. It seized that
+product. Same signature, no variation:
+
+```
+CADFB659  created 10:53:48Z as FunMaxMusic's
+  name         FunMaxMusic          ->  NoSpoilersApp
+  repository   super-funmax-music   ->  no-spoilers
+  app          6770023782           ->  stripped, GET .../app -> HTTP 500
+  workflow     EFDA9C91 "Default", unchanged, still apple/FunMaxMusic/FunMaxMusic.xcodeproj
+  runs         1-5, last 13:45, runs 3/4/5 SUCCEEDED — a working product, taken mid-life
+```
+
+`GET /v1/ciProducts` went `1` -> `0` at the moment of the abort. The two products deleted at
+11:55 stayed deleted; nothing was resurrected.
+
+**So two products cannot be brought into being on this team by this wizard.** Every creation that
+has ever worked here started from genuinely zero: FunMaxMusic's at 10:53, and task 14's original.
+Every creation attempted with one product already present has seized it instead — three for
+three, in both directions, now including a case where the list was in perfect health. The list
+being unlistable is a *consequence* of the seizure, never its cause.
+
+### The likelier mechanism, and the cheap test
+
+The error is *"Workflow name already exists"*, and it is probably literal. Every product created
+here gets a workflow named `Default`, because that is what the wizard names it. If workflow names
+collide team-wide rather than per-product, then the second creation is refused on the name — and
+the refusal happens *after* the rename and repoint, which is the whole fault. That fits all three
+occurrences and the two successes without needing "second products are impossible" to be true.
+
+It predicts a fix that costs nothing to try: **rename the surviving product's workflow off
+`Default` before running the wizard again.** `PATCH /v1/ciWorkflows/{id}` is the lever, and unlike
+`ciProducts` that resource does accept writes.
+
+Whoever creates second bears the risk if the prediction is wrong, so the order should be: delete
+the seized record, let one project create from zero, rename its workflow immediately, and only
+then let the second project run its wizard. If the second one still seizes, the name theory is
+dead, two products genuinely cannot coexist, and that is the report to Apple — with the `500` on
+`GET /v1/ciProducts/{id}/app` as the symptom, since it is unambiguous and reproducible.
+
+### Until it is resolved, do not push to `main` here
+
+The seized product is attached to `no-spoilers`, and the trigger follows the product's repository
+attachment. A push to this repo can now start a run that checks out this repo and tries to build
+`apple/FunMaxMusic/FunMaxMusic.xcodeproj`. It fails, and it fails in the other project's run
+history.
 
 Two things task 14 already ruled out and that remain ruled out: clearing
 `~/Library/Developer/Xcode/UserData/XcodeCloud/` (the cache is empty *because* the list is), and
