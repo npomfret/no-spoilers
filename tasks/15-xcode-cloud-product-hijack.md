@@ -31,6 +31,54 @@ at risk. Order accordingly, deliberately.
 
 ---
 
+## Recreating a product costs a marketing version
+
+**A new product restarts `CI_BUILD_NUMBER` at 1.** The builds the deleted product uploaded are
+still on the app record, so the first archive after a recreation re-presents a `(version, build)`
+pair that is already spent.
+
+**This does not fail the build.** It compiles, tests, archives and goes green, then dies minutes
+later at *"Preparing build for App Store Connect failed"*. A green run is not a delivered build.
+
+The mitigation is to **bump `MARKETING_VERSION` before the first push after a recreation**. Both
+projects did this — `no-spoilers` went 1.0.22 → 1.1.0, `super-funmax-music` went 1.2 → 1.3 — and
+both landed on run 1. Reported by the `super-funmax-music` session, 2026-08-13, who nearly lost a
+run to it.
+
+Check what is already spent before pushing. One call, verified 2026-08-13:
+
+```
+GET /v1/builds?filter[app]={id}&filter[preReleaseVersion.platform]=IOS
+    &include=preReleaseVersion&limit=200
+```
+
+`included` carries the marketing versions; each build's
+`relationships.preReleaseVersion.data.id` joins to one. The sibling session hit HTTP 400 including
+`preReleaseVersion` on `/v1/apps/{id}/builds` and fell back to two calls — that is a limitation of
+that endpoint, not of the include. The filtered `/v1/builds` collection accepts it.
+
+What that returned for this app on iOS:
+
+```
+1.0.21  [6]
+1.0.22  [3,4,5,6,8,9,10,11,12,13,14,15,16,17]
+1.1.0   [1]
+1.1.1   [1, 2, 3, 10002]
+```
+
+Two things to read out of that. The 1.0.22 train has holes at 1, 2 and 7 — free slots do not have
+to be at the end, so "next number" is not the same question as "next free number". And 1.1.1 holds
+both bands side by side: 1–3 from Xcode Cloud, 10002 from `release.sh`. The band separation works.
+
+**The tax is avoidable and neither project has spent the effort.** App Store Connect enforces that
+a build number rises within its version, not that it starts at 1, so an offset in the CI hook would
+end it. Four recreations have now burned four marketing versions on `super-funmax-music`, an app
+that has never shipped one. Both projects have kept the bump rule for now on the grounds that a
+recreation should be rare; `super-funmax-music` has written down a fifth recreation as the point to
+reconsider.
+
+---
+
 ## Current state, 2026-08-13
 
 **Two live products, coexisting.** Two ghosts also remain in the listing; ignore them.
