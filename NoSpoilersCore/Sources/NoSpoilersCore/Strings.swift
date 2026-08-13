@@ -24,7 +24,6 @@ public enum Strings {
         public static let scheduleData: LocalizedStringKey       = "Schedule data"
         public static let sessionData: LocalizedStringKey        = "Session data"
         public static let flagIcons: LocalizedStringKey          = "Flag icons"
-        public static let branding: LocalizedStringKey           = "F1 logo"
         public static let trademarks: LocalizedStringKey         = "Trademarks"
         public static let trademarkDisclaimer: LocalizedStringKey = "Formula 1, F1, and related marks are trademarks of Formula One Licensing BV. This app is not affiliated with, endorsed by, or sponsored by Formula One Licensing BV, Liberty Media, or the FIA."
         public static let done: LocalizedStringKey               = "Done"

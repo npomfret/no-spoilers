@@ -81,16 +81,22 @@ public enum NoSpoilersBadgeStyle {
 public enum NoSpoilersWordmarkSize {
     case large
     case medium
-    case small
 
-    var frame: CGSize {
+    var fontSize: CGFloat {
         switch self {
         case .large:
-            return CGSize(width: 72, height: 18)
+            return 15
         case .medium:
-            return CGSize(width: 48, height: 12)
-        case .small:
-            return CGSize(width: 68, height: 17)
+            return 11
+        }
+    }
+
+    var tracking: CGFloat {
+        switch self {
+        case .large:
+            return 1.4
+        case .medium:
+            return 1.0
         }
     }
 }
@@ -141,6 +147,11 @@ public struct NoSpoilersCard<Content: View>: View {
     }
 }
 
+/// The product's own wordmark: the app name set in brand red.
+///
+/// It is type rather than an image so that there is no mark to license, and so
+/// that the name in the header is the same string as the name everywhere else —
+/// `Strings.AppInfo.name`, uppercased for display only.
 public struct NoSpoilersWordmark: View {
     private let size: NoSpoilersWordmarkSize
 
@@ -149,12 +160,12 @@ public struct NoSpoilersWordmark: View {
     }
 
     public var body: some View {
-        Image("f1logo", bundle: noSpoilersCoreBundle)
-            .renderingMode(.template)
-            .resizable()
-            .scaledToFit()
+        Text(Strings.AppInfo.name)
+            .textCase(.uppercase)
+            .font(.system(size: size.fontSize, weight: .heavy))
+            .tracking(size.tracking)
             .foregroundStyle(BrandPalette.signalRed)
-            .frame(width: size.frame.width, height: size.frame.height)
+            .fixedSize()
     }
 }
 

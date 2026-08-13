@@ -3,32 +3,6 @@ import Combine
 import AppKit
 import NoSpoilersCore
 
-// MARK: - Menu bar image helpers
-
-private func rasterizeNSImage(_ img: NSImage, size pts: CGSize, tintColor: NSColor? = nil) -> NSImage {
-    let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-    let w = Int(pts.width * scale)
-    let h = Int(pts.height * scale)
-    let ctx = CGContext(
-        data: nil, width: w, height: h,
-        bitsPerComponent: 8, bytesPerRow: 0,
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-    ctx.scaleBy(x: scale, y: scale)
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
-    img.draw(in: CGRect(origin: .zero, size: pts))
-    if let tint = tintColor {
-        tint.set()
-        CGRect(origin: .zero, size: pts).fill(using: .sourceAtop)
-    }
-    NSGraphicsContext.restoreGraphicsState()
-    return NSImage(cgImage: ctx.makeImage()!, size: pts)
-}
-
-private let f1MenuBarLogo: NSImage =
-    rasterizeNSImage(NSImage(resource: ImageResource(name: "f1logo", bundle: noSpoilersCoreBundle)), size: CGSize(width: 32, height: 8), tintColor: NSColor(BrandPalette.signalRed))
-
 // MARK: - Menu bar label view
 //
 // Rendered inside a real NSHostingView attached to NSStatusItem.button — full SwiftUI pipeline,
@@ -52,8 +26,12 @@ private struct MenuBarLabelView: View {
         let showFlagItem = showFlag && !flagCode.isEmpty
         let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
         HStack(spacing: 4) {
-            Image(nsImage: f1MenuBarLogo)
-                .interpolation(.none)
+            // The status item's only always-present element: the countdown
+            // label is optional and the flag is off by default, so this is what
+            // stops the menu bar item collapsing to nothing.
+            Image("nospoilers-icon", bundle: noSpoilersCoreBundle)
+                .resizable()
+                .frame(width: 16, height: 16)
             if showFlagItem {
                 separatorDot
                 FlagImage(countryCode: flagCode, height: 14)

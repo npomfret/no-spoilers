@@ -36,7 +36,7 @@ enum Strings {
     }
     enum Settings {
         static let appName: LocalizedStringKey      = "No Spoilers"
-        static let tagline: LocalizedStringKey      = "F1 schedule · spoiler free"
+        static let tagline: LocalizedStringKey      = "Grand Prix schedule · spoiler free"
         static let launchAtLogin: LocalizedStringKey = "Launch at Login"
         static let menuBar: LocalizedStringKey      = "Menu Bar"
         static let showFlag: LocalizedStringKey     = "Flag"

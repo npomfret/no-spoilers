@@ -226,21 +226,68 @@ while the wordmark is in the app; Phase 1 makes it true.
 
 ---
 
+## The version record cannot be submitted as it stands
+
+Found 2026-08-13 while checking readiness. The iOS `appStoreVersion` is labelled `1.0.21` and has a
+build from a different train attached:
+
+```
+appStoreVersions/50ebef6d   versionString 1.0.21   PREPARE_FOR_SUBMISSION
+  build 046e610d            build 5, train 1.1.1, uploaded 2026-08-13
+project MARKETING_VERSION   1.1.1
+```
+
+The 1.0.21 train holds exactly one build, `6`, expired since April; the rejected build 8 is in the
+1.0.22 train. So `versionString` needs PATCHing to match whatever build is finally submitted — and
+that build has to be a new one regardless, since build 5 predates Phase 1.
+
+Note also that the version is now `PREPARE_FOR_SUBMISSION`, not `REJECTED` as the header of this file
+says. That is why the metadata PATCHes were accepted at all. The *submission* is still
+`UNRESOLVED_ISSUES`; an editable version does not close a rejection.
+
 ## Plan
 
-### Phase 1 — remove the logo (unblocks 4.1(a), and makes the correction honest)
+### Phase 1 — remove the logo (unblocks 4.1(a), and makes the correction honest) — **DONE 2026-08-13**
 
-- Replace the `f1logo` asset with an original mark. `nospoilers-icon.imageset` exists in the same
-  catalogue and may serve.
-- `NoSpoilersWordmark` in `SharedChrome.swift` is the shared boundary — change it there and all
-  three call sites follow. Do not special-case the menu bar.
-- **Fail fast**: the replacement must be a required resource. No `??`, no placeholder image, no
-  sentinel. Missing asset must crash.
-- Delete `f1logo.imageset` and the Wikimedia acknowledgement row in `AboutView.swift`.
-- **Keep the trademark disclaimer** — it is accurate and appropriate for an app that schedules
-  someone else's events.
-- All user-visible strings via `Strings.swift`, including `Strings.About.branding` (currently
-  `"F1 logo"`).
+**The replacement is type, not an image.** `NoSpoilersWordmark` now renders
+`Text(Strings.AppInfo.name).textCase(.uppercase)` in `BrandPalette.signalRed`, so there is no mark
+to license and the header shows the same string as the app name everywhere else. Sizes became
+`fontSize`/`tracking` instead of a fixed `CGSize`; the unused `.small` case went with the image.
+Nothing needed a fail-fast guard in the end, because nothing loads a resource any more.
+
+The menu bar could not simply lose its mark: `MenuBarLabelView` shows the countdown only when
+`showCountdown` is on and the flag only when `showFlag` is on, so the logo was the one always-present
+element and deleting it would have left an empty status item. It now draws `nospoilers-icon` — the
+app's own icon, a checkered-flag blindfold, already used by `AboutView` — at 16 × 16.
+
+What changed:
+
+```
+SharedChrome.swift            NoSpoilersWordmark: Image("f1logo") -> Text, sized by font
+                              NoSpoilersWordmarkSize: frame -> fontSize/tracking, .small deleted
+NoSpoilersMac/ContentView.swift  inline Image("f1logo") -> NoSpoilersWordmark(size: .medium)
+                                 private `f1Red` alias deleted, BrandPalette.signalRed inlined
+NoSpoilersMacApp.swift        rasterizeNSImage() and f1MenuBarLogo deleted (30 lines);
+                              menu bar draws nospoilers-icon at 16x16
+AboutView.swift               Wikimedia "F1 logo" acknowledgement row deleted
+Core Strings.swift            About.branding deleted
+NoSpoilersMac/Strings.swift   tagline -> "Grand Prix schedule · spoiler free"
+NoSpoilersWidget/Strings.swift  widgetDescription -> "Grand Prix weekend sessions — never the result."
+Flags.xcassets/f1logo.imageset  deleted (the SVG was the actual Formula One wordmark path)
+```
+
+Two of those were convergence rather than de-branding, and both were pre-existing drift: the macOS
+popover drew the wordmark with its own inline `Image` instead of the shared `NoSpoilersWordmark`, and
+`f1Red` was a private alias for a `BrandPalette` colour the same file otherwise used directly.
+
+**Kept: the trademark disclaimer.** It is accurate and it is the opposite of a misleading reference.
+
+Verified: `verify-core-tests.sh` 11 tests 0 failures, `verify-ios-build.sh`, `verify-mac-build.sh`,
+`verify-widget-build.sh` all **BUILD SUCCEEDED**;
+`grep -rn "f1logo\|f1Red\|f1MenuBarLogo\|rasterizeNSImage\|About.branding" --include="*.swift" .`
+returns nothing.
+
+`contentRightsDeclaration: DOES_NOT_USE_THIRD_PARTY_CONTENT` is now true rather than false.
 
 ### Phase 2 — clean the remaining metadata
 
@@ -251,8 +298,16 @@ while the wordmark is in the app; Phase 1 makes it true.
 
 ### Phase 3 — answer 4.2.2 with screenshots, not prose
 
-Widget-on-Home-Screen screenshots first; decide on Live Activities / notifications / App Intents
-separately.
+**Show all three widget sizes.** Small, medium and large render genuinely different amounts of the
+weekend, and "one glanceable surface, three densities, never a result in any of them" is an argument
+a web page cannot make. It costs two screenshots rather than three, because of how the Home Screen
+grid packs: large is 4 rows and medium is 2, which fills a 6-row page exactly, so the smalls go on a
+second page. Same again on iPad — the reviewer's device. Four shots against nine free slots.
+
+`scripts/screenshots.py` already does the capture against fixture data. The only manual step is
+placing each widget once per simulator; there is no `simctl` verb for it (`scripts/screenshots.py:26`).
+
+Then decide on Live Activities / notifications / App Intents separately.
 
 ### Phase 4 — reply and resubmit
 
@@ -272,9 +327,10 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 
 ## Verification
 
-- [ ] `grep -rn "f1logo" --include="*.swift" .` returns nothing
-- [ ] `f1logo.imageset` deleted
-- [ ] `verify-core-tests.sh`, `verify-ios-build.sh`, `verify-mac-build.sh`, `verify-widget-build.sh` pass
+- [x] `grep -rn "f1logo" --include="*.swift" .` returns nothing (2026-08-13)
+- [x] `f1logo.imageset` deleted (2026-08-13)
+- [x] `verify-core-tests.sh`, `verify-ios-build.sh`, `verify-mac-build.sh`, `verify-widget-build.sh` pass (2026-08-13)
+- [x] Widget gallery description no longer says "F1" (2026-08-13)
 - [ ] No screenshot on either platform contains the Formula One wordmark
 - [ ] At least one iOS screenshot shows the Home Screen widget
 - [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description

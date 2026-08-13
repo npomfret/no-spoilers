@@ -51,12 +51,6 @@ public struct AboutView: View {
                     detail: "flag-icons by Lipis",
                     url: URL(string: "https://github.com/lipis/flag-icons")!
                 )
-                Divider().padding(.leading, 16)
-                acknowledgementRow(
-                    title: Strings.About.branding,
-                    detail: "Wikimedia Commons",
-                    url: URL(string: "https://commons.wikimedia.org/wiki/File:Formula_One_logo.svg")!
-                )
             }
 
             Divider()

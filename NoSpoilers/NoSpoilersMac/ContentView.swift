@@ -3,8 +3,6 @@ import Combine
 import ServiceManagement
 import NoSpoilersCore
 
-private let f1Red = BrandPalette.signalRed
-
 // MARK: - MenuRowButtonStyle
 
 private struct MenuRowButtonStyle: ButtonStyle {
@@ -128,11 +126,7 @@ struct WeekendPopoverView: View {
         VStack(alignment: .leading, spacing: 6) {
             // Row 1: logo · GP name (centered) · flag
             HStack(alignment: .center, spacing: 10) {
-                Image("f1logo", bundle: noSpoilersCoreBundle)
-                    .resizable()
-                    .renderingMode(.template)
-                    .foregroundStyle(f1Red)
-                    .frame(width: 48, height: 12)
+                NoSpoilersWordmark(size: .medium)
                 Spacer()
                 Text(weekend.grandPrixName)
                     .font(.headline)
@@ -179,7 +173,7 @@ struct WeekendPopoverView: View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? f1Red : BrandPalette.upcomingBlue)
+                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? BrandPalette.signalRed : BrandPalette.upcomingBlue)
                 .frame(width: 3, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.kind.displayName)

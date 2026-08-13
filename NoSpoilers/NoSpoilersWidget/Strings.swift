@@ -18,7 +18,7 @@ enum Strings {
         static let weekendCard: LocalizedStringKey        = "Weekend"
         static let comingUp: LocalizedStringKey           = "Next up"
         static let displayName: LocalizedStringKey        = "No Spoilers"
-        static let widgetDescription: LocalizedStringKey  = "F1 race weekend sessions — no results."
+        static let widgetDescription: LocalizedStringKey  = "Grand Prix weekend sessions — never the result."
         static func moreSessions(_ count: Int) -> String  { "+\(count) more session\(count == 1 ? "" : "s")" }
         static func locationAndCountry(_ location: String, _ country: String) -> String      { "\(location), \(country)" }
         static func locationAndCountrySmall(_ location: String, _ country: String) -> String { "\(location) - \(country)" }
