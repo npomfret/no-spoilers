@@ -1,6 +1,19 @@
 # Task 18: Automate App Store screenshots — seed, then capture
 
-**Status: OPEN. Design agreed in outline, one decision outstanding before writing code.**
+**Status: script written and proven end to end, 2026-08-13. One manual step outstanding — the
+widget is not on the simulator's Home Screen yet, so the capture is currently of a Home Screen
+without it.**
+
+`scripts/screenshots.py`. Whole run takes 22 seconds:
+
+```
+scripts/screenshots.py --device BA115C57-DAB3-4EAF-9590-222F33DC5567 --expect 1242x2688
+  seeded    .../AppGroup/32C9C09C-.../schedule-cache.json
+  captured  tmp/screenshots/iphone-11-pro-max.png
+  1242x2688 — accepted
+```
+
+**Scope, decided 2026-08-13: one screenshot. It is a widget — it does not need ten.**
 
 Serves task 16: the iOS listing carries one iPhone and one iPad screenshot, both of a scrolling
 list, and **the widget is not pictured at all** — which is the single strongest answer to the
@@ -39,8 +52,39 @@ Everything below was run, not assumed.
 
 **Not verified, and to be checked before relying on it:** that a widget placed on a simulator Home
 Screen survives shutdown and reboot. It is device state so it should, but the whole design leans on
-it. **Do not hardcode the required App Store pixel dimensions from memory** — read them from Apple
-or from an existing accepted screenshot at the time of writing.
+it.
+
+### Three things that only came out of running it
+
+1. **The required size is not the newest phone.** App Store Connect's iPhone slot on this listing
+   asks for **1242 × 2688 or 1284 × 2778** — the 6.5"/6.7" sizes. `iPhone 17 Pro Max` captures
+   1320 × 2868 and would be refused. **`iPhone 11 Pro Max` is natively 1242 × 2688** and is already
+   installed. `--expect 1242x2688` makes a wrong device fail in seconds instead of at upload;
+   resizing is not an option, the aspect ratios differ.
+
+2. **`CODE_SIGNING_ALLOWED=NO` strips the App Group entitlement, and the seed step then has nowhere
+   to write.** `scripts/verify-ios-build.sh` uses that flag, correctly — it only needs a compile.
+   A screenshot build must not copy it: without the entitlement
+   `simctl get_app_container … group.pomocorp.no-spoilers` exits 117 and there is no shared
+   container at all. Build with default simulator signing:
+   ```
+   xcodebuild build -project NoSpoilers/NoSpoilers.xcodeproj -scheme NoSpoilersApp \
+     -destination 'id=<udid>' -derivedDataPath tmp/DerivedData/NoSpoilersApp-sim \
+     COMPILER_INDEX_STORE_ENABLE=NO
+   ```
+   `codesign -d --entitlements` reports an empty dict for a simulator build either way, so it is a
+   misleading check. Ask `simctl get_app_container … groups` instead — that answers the question
+   that matters.
+
+3. **Device names are not unique, even within one runtime.** This machine has two `iPhone 11 Pro
+   Max`, both on iOS 26.4. The script refuses to guess and prints the UDIDs; pass one. Same for
+   `-destination`, which fails the build with a device list if the name is ambiguous.
+
+### The hazard, demonstrated
+
+The first real run captured a valid 1242 × 2688 Home Screen with no NoSpoilers widget on it and no
+error of any kind — which is exactly the failure this task predicted. Until the widget is placed,
+every run produces a correct picture of the wrong thing.
 
 ---
 
@@ -61,6 +105,23 @@ screenshot reading "3 months ago" a quarter later, and it will do it silently.
 
 Pick offsets that show the app at its best and exercise more than one state: a session finished, a
 session live, a session upcoming.
+
+**Do not launch the app after seeding — it destroys the fixture.** `ScheduleStore.refresh()`
+fetches from the network and then calls `cache.save(...)` *unconditionally*
+(`NoSpoilersCore/Sources/NoSpoilersCore/ScheduleStore.swift:83-86`). It does not consult
+`isFresh`, so a fresh fixture is no defence: the first refresh overwrites it with the real
+calendar, and the screenshot then shows whatever the season actually holds.
+
+**Rebooting the simulator is the forcing function instead.** The widget reads the cache directly
+(`resolveWidgetData()` returns on a non-empty cache hit and never touches the network), and a boot
+makes WidgetKit request fresh timelines for everything on the Home Screen. So the order is: write
+fixture → `simctl shutdown` → `simctl boot` → wait → capture, with the app never launched.
+
+The fixture is `[RaceWeekend]`, which encodes as
+`{round, name, location, sessions: {<kind>: <iso8601>}}`. Kind keys are the feed's, not Swift's:
+`fp1`, `fp2`, `fp3`, `qualifying`, `sprintQualifying`, `sprint`, `gp`
+(`SessionKind.swift:4-10`). `name` must be one of the values `RaceWeekend.countryCode` switches on
+or the flag falls back to 🏁 (`RaceWeekend.swift:22-45`).
 
 ### 2. Place the widget — the one step that cannot be scripted
 
@@ -103,17 +164,18 @@ Per `CLAUDE.md`, and because every one of these has a tempting silent fallback:
 
 ---
 
-## Decision needed before writing it
+## Decided: Python, `scripts/screenshots.py`
 
-**Bash or Python?** The repo has two established conventions and this sits between them:
-`scripts/*.sh` for build and release orchestration, stdlib-only Python (`appstore_status.py`,
-`ci_health.py`, `testflight_distribute.py`) for anything talking to App Store Connect.
+The repo has two conventions and this sat between them: `scripts/*.sh` for build and release
+orchestration, stdlib-only Python for anything talking to App Store Connect. Python won because the
+fixture needs JSON with dates computed relative to now, which is unpleasant in bash, and because an
+upload step would belong beside the other App Store Connect writers and could reuse their token
+signing. **Not a third convention.**
 
-**Recommendation: Python, `scripts/screenshots.py`**, following the existing Python conventions —
-stdlib only, no venv, a `--dry-run`-by-default posture like `testflight_distribute.py`. Two reasons:
-the fixture needs JSON with dates computed relative to now, which is unpleasant in bash; and if the
-upload step is ever added it belongs beside the other App Store Connect writers and can reuse their
-token signing and app lookup. **Do not create a third convention.**
+One deliberate departure from `testflight_distribute.py`: **`--dry-run` exists but is not the
+default.** That script defaults to dry-run because it writes to App Store Connect, where a mistake
+is public. This one writes to a simulator and a local directory, and rebooting a simulator you own
+is not a thing to be protected from.
 
 ---
 
