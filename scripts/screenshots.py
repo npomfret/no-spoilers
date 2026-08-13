@@ -274,10 +274,14 @@ def ensure_installed(udid: str, install: Path | None) -> None:
             f"{APP_BUNDLE_ID} is not installed on {udid}\n"
             "Build it and pass --install, e.g.\n"
             "  xcodebuild build -project NoSpoilers/NoSpoilers.xcodeproj -scheme NoSpoilersApp \\\n"
-            "    -destination 'platform=iOS Simulator,name=<device>' \\\n"
-            "    -derivedDataPath tmp/DerivedData/NoSpoilersApp-sim CODE_SIGNING_ALLOWED=NO\n"
-            "  scripts/screenshots.py --device <device> \\\n"
-            "    --install tmp/DerivedData/NoSpoilersApp-sim/Build/Products/Debug-iphonesimulator/NoSpoilersApp.app"
+            f"    -destination 'id={udid}' \\\n"
+            "    -derivedDataPath tmp/DerivedData/NoSpoilersApp-sim COMPILER_INDEX_STORE_ENABLE=NO\n"
+            f"  scripts/screenshots.py --device {udid} \\\n"
+            "    --install tmp/DerivedData/NoSpoilersApp-sim/Build/Products/Debug-iphonesimulator/NoSpoilersApp.app\n"
+            "\n"
+            "Do NOT add CODE_SIGNING_ALLOWED=NO. It strips the App Group entitlement, and the\n"
+            "seed step then has no shared container to write to. Use default simulator signing.\n"
+            "Device names are not unique on this machine, so pass a UDID to -destination too."
         )
 
 
