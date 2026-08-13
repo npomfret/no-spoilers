@@ -131,6 +131,27 @@ That makes the 4.2.2 problem worse than described, not better: a reviewer openin
 saw **nothing**. The single strongest counter-argument — a Home Screen widget that renders the next
 session without opening anything — was not shown, because nothing was.
 
+### The iOS App Review notes describe the macOS app. Found 2026-08-13.
+
+`appStoreReviewDetails/d3ee6a64-9fe0-4928-91ca-9054c47f4382`, attached to the **iOS** version:
+
+> "This is a menu bar app. After launching, the icon appears in the top-right of the menu bar.
+> Click it to open the popover showing the Grand Prix schedule."
+
+There is no menu bar on an iPad. The single instruction the reviewer was given describes a different
+platform's app, and following it finds nothing. A reviewer who launches the app, looks for the thing
+the developer told them to look for, and does not find it, has been handed the 4.2.2 conclusion —
+"limited or no native functionality" — by the submission itself. **This is a stronger candidate for
+why 4.2.2 kept being restated than anything in the description**, and it costs one PATCH to fix.
+
+`demoAccountRequired` is `true` and a demo account is set, on an app whose own listing says "No
+account. No sign-in." Nothing in the app has a login. That is a third thing in this submission that
+does not match the app, after the logo denial and the Lock Screen claim.
+
+The replacement notes should say it is a Home Screen widget, and tell the reviewer to add it —
+long-press the Home Screen, tap the widget, search "No Spoilers" — because a widget is invisible
+until someone puts it there. Not yet written; needs a decision on the demo account at the same time.
+
 Concrete moves, in order of value:
 
 1. ~~**Screenshot the widget on a Home Screen.**~~ **DONE 2026-08-13.** Task 18 built
@@ -143,9 +164,19 @@ Concrete moves, in order of value:
    **It did not have to wait for Phase 1** — `NoSpoilersWordmark` / `f1logo` appear in
    `NoSpoilers/NoSpoilers/ContentView.swift:138,241` and the macOS app but nowhere in
    `NoSpoilersWidget.swift`, so the widget capture is already free of the Formula One mark.
-2. **Fill the remaining screenshot slots** — up to 10 are allowed, 1 is used. Show the countdown,
-   the tabbed schedule, offline state, the About screen. **These are app-UI shots and therefore do
-   wait on Phase 1**, unlike the widget one.
+2. ~~**Fill the remaining screenshot slots.**~~ **Six uploaded 2026-08-13**, replacing the single
+   iPhone shot, which was deleted. All three widget families on both device classes, every one
+   showing the seeded fixture rather than a stale timeline (task 18 has why that distinction cost
+   four attempts). `assetDeliveryState: COMPLETE`, no errors, confirmed by `appstore_status.py`:
+   ```
+   set 6dd79562-86c6-4f9f-99d5-ccd61e615116  APP_IPHONE_65          1242 x 2688
+       no-spoilers-widget-{large,medium,small}-iphone.png
+   set a204142d-8352-462a-b685-ae12db9db457  APP_IPAD_PRO_3GEN_129  2048 x 2732
+       no-spoilers-widget-{large,medium,small}-ipad.png
+   ```
+   Large leads each set deliberately — it carries the most functionality per glance, and the App
+   Store shows them in order. **Still open: app-UI shots** (countdown, tabbed schedule, offline
+   state, About). Those needed Phase 1, which is now done, so nothing blocks them.
 3. **Consider native surfaces that make the point structurally**, not just visually: a Live Activity
    or Dynamic Island for a running session, local notifications ahead of a session start, Lock
    Screen widgets, a Shortcuts/App Intents action. Each is impossible in a browser. This is product
@@ -331,13 +362,13 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 - [x] `f1logo.imageset` deleted (2026-08-13)
 - [x] `verify-core-tests.sh`, `verify-ios-build.sh`, `verify-mac-build.sh`, `verify-widget-build.sh` pass (2026-08-13)
 - [x] Widget gallery description no longer says "F1" (2026-08-13)
-- [ ] No screenshot on either platform contains the Formula One wordmark
-- [ ] At least one iOS screenshot shows the Home Screen widget
+- [x] No iOS screenshot contains the Formula One wordmark — all six are widget captures, and the widget never drew it (2026-08-13). macOS listing screenshot still to retake.
+- [x] At least one iOS screenshot shows the Home Screen widget — six, covering all three families (2026-08-13)
 - [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description
 - [ ] Website and README de-branded
 - [x] iOS description, keywords, promotional text and subtitle rewritten (2026-08-13)
 - [x] No metadata claim unsupported by the code — Lock Screen widget claim removed
-- [ ] At least one iPad screenshot, since the reviewer reviews on an iPad
+- [x] At least one iPad screenshot, since the reviewer reviews on an iPad — three, at 2048 x 2732 (2026-08-13)
 - [x] Delete `NoSpoilersWidgetLiveActivity.swift` and `NoSpoilersWidgetControl.swift` (2026-08-13)
 - [ ] ~~iOS `whatsNew` written~~ — locked by Apple on a first release, not actionable
 - [ ] Resolution Center answered, including the correction
