@@ -119,18 +119,32 @@ videos.
 Arguing again is unlikely to work. **What has not been tried is making the native functionality
 visible in the listing itself.**
 
-The listing carries **one** iPhone screenshot and **one** iPad screenshot, both showing a scrolling
-list of sessions. That is precisely what "content aggregated from the Internet, not sufficiently
-different from a web browsing experience" looks like. The single strongest 4.2.2 counter-argument —
-a Home Screen widget that renders the next session without opening anything — **is not shown at
-all.**
+**Corrected 2026-08-13: the iOS listing carried no screenshots at all.** This section previously
+said one iPhone and one iPad screenshot of a scrolling list; queried directly, iOS version 1.0.21
+(`50ebef6d-a70c-41f0-8252-a8014fb9d47e`, locale `443131a2-5fa6-42a1-8d6e-85e01ebe5db1`) held
+**zero** `appScreenshotSets`. The scrolling-list screenshots are on the **macOS** listing, whose
+en-GB localization (`38b916ff-085d-4163-8c4f-70a18b732647`) holds one `APP_DESKTOP` set with a
+single 1280 × 800 JPG still named `Gemini_Generated_Image_utojutojutojutoj.jpg`.
+
+That makes the 4.2.2 problem worse than described, not better: a reviewer opening the iOS listing
+saw **nothing**. The single strongest counter-argument — a Home Screen widget that renders the next
+session without opening anything — was not shown, because nothing was.
 
 Concrete moves, in order of value:
 
-1. **Screenshot the widget on a Home Screen.** Small, medium and large families if they exist. This
-   is the one thing that cannot be a web page.
+1. ~~**Screenshot the widget on a Home Screen.**~~ **DONE 2026-08-13.** Task 18 built
+   `scripts/screenshots.py` and captured it; uploaded to the iOS en-GB listing via
+   `appstoreconnect-bot`, `assetDeliveryState: COMPLETE` at 1242 × 2688:
+   ```
+   set   6dd79562-86c6-4f9f-99d5-ccd61e615116  APP_IPHONE_65
+   shot  f18086cf-e786-4d9a-893f-d3a1eb417467  no-spoilers-widget-iphone-65.png
+   ```
+   **It did not have to wait for Phase 1** — `NoSpoilersWordmark` / `f1logo` appear in
+   `NoSpoilers/NoSpoilers/ContentView.swift:138,241` and the macOS app but nowhere in
+   `NoSpoilersWidget.swift`, so the widget capture is already free of the Formula One mark.
 2. **Fill the remaining screenshot slots** — up to 10 are allowed, 1 is used. Show the countdown,
-   the tabbed schedule, offline state, the About screen.
+   the tabbed schedule, offline state, the About screen. **These are app-UI shots and therefore do
+   wait on Phase 1**, unlike the widget one.
 3. **Consider native surfaces that make the point structurally**, not just visually: a Live Activity
    or Dynamic Island for a running session, local notifications ahead of a session start, Lock
    Screen widgets, a Shortcuts/App Intents action. Each is impossible in a browser. This is product
