@@ -139,17 +139,32 @@ one, but the blast radius of getting it wrong now includes a sibling project.
 
 ---
 
-## Decisions needed
+## Decisions
 
-1. **Is the Mac App Store the core macOS product, or is Homebrew?** Everything else follows from
-   this and it is a product question, not an engineering one. Homebrew reaches users in minutes;
-   the App Store takes days and has already demonstrated it can reject. If Homebrew is genuinely
-   where the macOS users are, the current ordering is correct and this task is mostly about the
-   defects above.
-2. **Does macOS get Xcode Cloud and TestFlight (option D)?** Without it, "Homebrew is an add-on" is
-   an aspiration, because nothing else on macOS is fast.
-3. **How much of the defect list to take now**, given task 16 is the live priority and this is
-   tooling.
+1. **DECIDED 2026-08-13: the App Store is the core product. Homebrew is an add-on.**
+   Options A and B are done — see below. On iOS the core product is specifically **the live
+   updating widget**, which is also the 4.2.2 argument in task 16; the two tasks meet there.
+2. **OPEN — does macOS get Xcode Cloud and TestFlight (option D)?** Until it does, "Homebrew is an
+   add-on" is an aspiration, because nothing else on macOS is fast.
+3. **OPEN — how much of the defect list to take now**, given task 16 is the live priority. Note
+   that A reduced the cost of two of them: a Homebrew tap or notary failure can no longer lose the
+   store upload, only the Homebrew publish.
+
+### Done: A and B
+
+`release.sh`, 2026-08-13:
+
+- **App Store now runs before Developer ID** in `--channel both`. Both export from the same
+  already-valid archive, so this costs nothing and removes the coupling. A Homebrew failure still
+  fails the run loudly under `set -e`; it can no longer take the upload with it. The reason is
+  written into the file above the channel so it does not get "tidied" back.
+- **`--platform` and `--channel` are now required.** The old defaults were `macos` +
+  `developer-id`, so a bare invocation shipped the add-on. All four `ship-*.sh` wrappers already
+  passed both explicitly, so nothing else changed.
+
+Verified: `bash -n` clean on all ten shell scripts; bare, platform-only and invalid-combination
+invocations each exit 1 before touching the working tree. **Not verified by a real release** — that
+needs an actual ship and has not been run.
 
 ---
 

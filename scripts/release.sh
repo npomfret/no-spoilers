@@ -14,12 +14,12 @@ export PATH="/usr/bin:/bin:${PATH}"
 #   Interactive:  scripts/release.sh
 #   Explicit:     scripts/release.sh 1.0.0
 #
-# Platforms (--platform, default: macos):
+# Platforms (--platform, required):
 #
 #   macos  Builds the NoSpoilers scheme for macOS. Supports developer-id, app-store, both.
 #   ios    Builds the NoSpoilersApp scheme for iOS. Supports app-store only.
 #
-# Channels (--channel, default: developer-id):
+# Channels (--channel, required):
 #
 #   developer-id  Notarized zip → GitHub release → homebrew tap (macos only)
 #     --notarytool-key /path/to.p8 --notarytool-key-id KEY_ID --notarytool-issuer ISSUER_ID
@@ -48,8 +48,12 @@ fi
 
 # ── Options ──────────────────────────────────────────────────────────────────
 
-PLATFORM="macos"
-CHANNEL="developer-id"
+# No defaults. Both are required, because the only safe default was the wrong
+# one: bare `release.sh` used to ship macOS Developer ID, so asking for nothing
+# shipped the add-on channel. Every caller in scripts/ passes both explicitly,
+# so requiring them costs nothing and removes a way to ship the wrong thing.
+PLATFORM=""
+CHANNEL=""
 NOTARYTOOL_KEY=""
 NOTARYTOOL_KEY_ID=""
 NOTARYTOOL_ISSUER=""
@@ -73,13 +77,15 @@ done
 
 case "$PLATFORM" in
   macos|ios) ;;
+  "") echo "--platform is required (macos or ios)" >&2; exit 1 ;;
   *) echo "Unknown platform: ${PLATFORM} (expected macos or ios)" >&2; exit 1 ;;
 esac
 
-if [[ "$CHANNEL" != "developer-id" && "$CHANNEL" != "app-store" && "$CHANNEL" != "both" ]]; then
-  echo "Unknown channel: ${CHANNEL} (expected developer-id, app-store, or both)" >&2
-  exit 1
-fi
+case "$CHANNEL" in
+  developer-id|app-store|both) ;;
+  "") echo "--channel is required (developer-id, app-store, or both)" >&2; exit 1 ;;
+  *) echo "Unknown channel: ${CHANNEL} (expected developer-id, app-store, or both)" >&2; exit 1 ;;
+esac
 
 if [[ "$PLATFORM" == "ios" && "$CHANNEL" != "app-store" ]]; then
   echo "iOS only supports --channel app-store (got: ${CHANNEL})" >&2
@@ -172,6 +178,70 @@ xcodebuild archive \
   MARKETING_VERSION="${VERSION}" \
   CURRENT_PROJECT_VERSION="${NEW_BUILD}"
 
+# ── Channel: app-store ───────────────────────────────────────────────────────
+#
+# The App Store is the core product, so it goes first and Homebrew follows.
+# Do not swap these back. Both channels export from the same archive, which is
+# already built and valid by this point, but notarization is a multi-minute wait
+# on an Apple service — and under `set -e` a notary failure used to kill the run
+# before the store upload was ever attempted. In that order the add-on channel
+# takes the core product down with it after the expensive work has succeeded.
+# This way round, a Homebrew failure still fails the run loudly; it just cannot
+# cost you the upload. See tasks/17-release-process-asymmetry.md.
+
+if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
+  PACKAGE_PATH="${EXPORT_PATH_APPSTORE}/${APPSTORE_PACKAGE_NAME}"
+
+  echo "==> Exporting for App Store..."
+  xcodebuild -exportArchive \
+    -archivePath "${ARCHIVE_PATH}" \
+    -exportOptionsPlist "NoSpoilers/ExportOptions-AppStore.plist" \
+    -exportPath "${EXPORT_PATH_APPSTORE}" \
+    -allowProvisioningUpdates
+
+  echo ""
+  echo "  Package: ${PACKAGE_PATH}"
+
+  if [[ -n "$API_KEY" ]]; then
+    # altool resolves the key by filename from fixed locations; ensure it's there.
+    ALTOOL_KEYS_DIR="${HOME}/.appstoreconnect/private_keys"
+    ALTOOL_KEY_DEST="${ALTOOL_KEYS_DIR}/AuthKey_${API_KEY_ID}.p8"
+    if [[ ! -f "${ALTOOL_KEY_DEST}" ]]; then
+      mkdir -p "${ALTOOL_KEYS_DIR}"
+      cp "${API_KEY}" "${ALTOOL_KEY_DEST}"
+    fi
+
+    echo "==> Validating package..."
+    xcrun altool --validate-app \
+      -f "${PACKAGE_PATH}" \
+      --type "${ALTOOL_TYPE}" \
+      --apiKey "${API_KEY_ID}" \
+      --apiIssuer "${API_ISSUER}"
+
+    echo "==> Uploading to App Store Connect..."
+    xcrun altool --upload-app \
+      -f "${PACKAGE_PATH}" \
+      --type "${ALTOOL_TYPE}" \
+      --apiKey "${API_KEY_ID}" \
+      --apiIssuer "${API_ISSUER}"
+
+    tag_version
+
+    echo ""
+    echo "Done (app-store / ${PLATFORM})! v${VERSION} uploaded. Submit for review in App Store Connect."
+  else
+    tag_version
+
+    echo ""
+    echo "No API key provided. Upload the package manually:"
+    echo "  xcrun altool --upload-app -f '${PACKAGE_PATH}' --type ${ALTOOL_TYPE} \\"
+    echo "    --apiKey KEY_ID --apiIssuer ISSUER_ID"
+    echo "  Or drag '${PACKAGE_PATH}' into Transporter.app"
+    echo ""
+    echo "Then submit for review in App Store Connect."
+  fi
+fi
+
 # ── Channel: developer-id (macos only) ──────────────────────────────────────
 
 if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
@@ -241,59 +311,4 @@ if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
 
   echo ""
   echo "Done (developer-id)! v${VERSION} is live on Homebrew."
-fi
-
-# ── Channel: app-store ───────────────────────────────────────────────────────
-
-if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
-  PACKAGE_PATH="${EXPORT_PATH_APPSTORE}/${APPSTORE_PACKAGE_NAME}"
-
-  echo "==> Exporting for App Store..."
-  xcodebuild -exportArchive \
-    -archivePath "${ARCHIVE_PATH}" \
-    -exportOptionsPlist "NoSpoilers/ExportOptions-AppStore.plist" \
-    -exportPath "${EXPORT_PATH_APPSTORE}" \
-    -allowProvisioningUpdates
-
-  echo ""
-  echo "  Package: ${PACKAGE_PATH}"
-
-  if [[ -n "$API_KEY" ]]; then
-    # altool resolves the key by filename from fixed locations; ensure it's there.
-    ALTOOL_KEYS_DIR="${HOME}/.appstoreconnect/private_keys"
-    ALTOOL_KEY_DEST="${ALTOOL_KEYS_DIR}/AuthKey_${API_KEY_ID}.p8"
-    if [[ ! -f "${ALTOOL_KEY_DEST}" ]]; then
-      mkdir -p "${ALTOOL_KEYS_DIR}"
-      cp "${API_KEY}" "${ALTOOL_KEY_DEST}"
-    fi
-
-    echo "==> Validating package..."
-    xcrun altool --validate-app \
-      -f "${PACKAGE_PATH}" \
-      --type "${ALTOOL_TYPE}" \
-      --apiKey "${API_KEY_ID}" \
-      --apiIssuer "${API_ISSUER}"
-
-    echo "==> Uploading to App Store Connect..."
-    xcrun altool --upload-app \
-      -f "${PACKAGE_PATH}" \
-      --type "${ALTOOL_TYPE}" \
-      --apiKey "${API_KEY_ID}" \
-      --apiIssuer "${API_ISSUER}"
-
-    tag_version
-
-    echo ""
-    echo "Done (app-store / ${PLATFORM})! v${VERSION} uploaded. Submit for review in App Store Connect."
-  else
-    tag_version
-
-    echo ""
-    echo "No API key provided. Upload the package manually:"
-    echo "  xcrun altool --upload-app -f '${PACKAGE_PATH}' --type ${ALTOOL_TYPE} \\"
-    echo "    --apiKey KEY_ID --apiIssuer ISSUER_ID"
-    echo "  Or drag '${PACKAGE_PATH}' into Transporter.app"
-    echo ""
-    echo "Then submit for review in App Store Connect."
-  fi
 fi
