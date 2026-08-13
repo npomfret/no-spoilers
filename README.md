@@ -99,7 +99,7 @@ Both app targets set a deployment target of 26.2. The `NoSpoilersCore` package d
 
 Feed URL: `https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json`
 
-The feed schema has been verified to contain no result data. See `tasks/01-verify-feed-schema.md`.
+The feed schema has been verified to contain no result data.
 
 ## Install
 
