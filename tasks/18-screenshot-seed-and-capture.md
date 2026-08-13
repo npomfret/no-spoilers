@@ -80,11 +80,42 @@ it.
    Max`, both on iOS 26.4. The script refuses to guess and prints the UDIDs; pass one. Same for
    `-destination`, which fails the build with a device list if the name is ambiguous.
 
+4. **The Today View is not the Home Screen, and the widget has to be on the Home Screen.** Adding a
+   widget by swiping right lands it on the Today View, which the capture can never reach: a boot
+   always returns to Home Screen page 1, and `simctl` has no gesture, scroll or page-navigation
+   verb. This caught two attempts in a row on 2026-08-13 and both times the evidence looked like a
+   missing or broken widget rather than a wrong page.
+
+   **Telling them apart in a screenshot: the Today View has no dock and no Search pill.** If the
+   image has a dock, it is a Home Screen page. Move the widget with long-press → Edit Home Screen →
+   drag right onto page 1, and clear the stock Maps and Calendar widgets off that page while in
+   jiggle mode or they end up in the App Store listing.
+
+5. **The other simulator on this machine runs a different app.** `iPhone 17` has a build from before
+   the bundle-ID change installed — `get_app_container … pomocorp.NoSpoilers.NoSpoilersMac` returns
+   *No such file or directory* there, and its widget logs under
+   `pomocorp.NoSpoilers.NoSpoilersWidget` rather than
+   `pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget`. It is not a target device — it captures
+   1206 × 2622, which this listing does not accept — so delete the stale app rather than debug it.
+
 ### The hazard, demonstrated
 
 The first real run captured a valid 1242 × 2688 Home Screen with no NoSpoilers widget on it and no
 error of any kind — which is exactly the failure this task predicted. Until the widget is placed,
 every run produces a correct picture of the wrong thing.
+
+It then did it three more times, across two separate rounds of "it's added now", because the widget
+was on the Today View. Each capture was a correct screenshot of Home Screen page 1, and page 1
+genuinely had no NoSpoilers widget on it. **The script cannot distinguish "you have not added it"
+from "you added it somewhere I cannot photograph", and the output looks identical.** That is the
+argument for the baseline check under Verification below, not a nice-to-have.
+
+### Do not launch the app between seeding and capture
+
+Demonstrated 2026-08-13: opening the app to find the widget replaced the 3-weekend fixture with the
+real 23-weekend calendar within seconds, exactly as `ScheduleStore.refresh()` predicts. Harmless —
+re-running the script re-seeds — but a capture taken in that window shows live data and is not
+reproducible.
 
 ---
 
