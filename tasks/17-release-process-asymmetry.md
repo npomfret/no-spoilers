@@ -1,7 +1,7 @@
 # Task 17: Homebrew is being treated as the core macOS product
 
-**Status: OPEN, diagnosis only. No changes proposed for approval yet — the decisions at the bottom
-come first.**
+**Status: OPEN, LOW PRIORITY (2026-08-13). The two changes that follow directly from the core-product
+decision are done; what remains is tooling cleanup and behind task 16 and task 18.**
 
 Raised 2026-08-13: the macOS release process feels very different from the iOS one, and Homebrew
 looks like it is being treated as the main product rather than an add-on.
