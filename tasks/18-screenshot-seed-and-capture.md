@@ -1,10 +1,17 @@
 # Task 18: Automate App Store screenshots — seed, then capture
 
-**Status: DONE for iPhone, 2026-08-13. `tmp/screenshots/iphone-11-pro-max.png` is a clean
-1242 × 2688 capture of the widget with live countdowns and nothing else on the page.** The one
-manual step — placing the widget on Home Screen page 1 of
-`BA115C57-DAB3-4EAF-9590-222F33DC5567` — is done and is device state, so every future run is fully
-scripted. iPad is not done; nobody has decided whether the listing needs one.
+**Status: DONE for both platforms and all three widget sizes, 2026-08-13.** Six captures live in
+`tmp/screenshots/`, every one showing the seeded fixture rather than stale data:
+
+```
+no-spoilers-screenshots-{small,medium,large}.png   1242 x 2688   iPhone 11 Pro Max clone
+ipad-air-13-inch-m4-{small,medium,large}.png       2048 x 2732   iPad Air 13-inch (M4)
+```
+
+2048 × 2732 is the size task 16 flagged as required, and the iPad is the reviewer's device.
+
+**Placing the widget is no longer manual.** `--widget-size {small,medium,large}` does it. See
+"The layout is a plist" below — this closes the task's central claim that step 2 cannot be scripted.
 
 **It paid for itself on the first good capture.** The label under the widget read `NoSpoilersApp`:
 the iOS target had no `INFOPLIST_KEY_CFBundleDisplayName`, so the Home Screen name fell back to
@@ -27,7 +34,11 @@ scripts/screenshots.py --device BA115C57-DAB3-4EAF-9590-222F33DC5567 --expect 12
   1242x2688 — accepted
 ```
 
-**Scope, decided 2026-08-13: one screenshot. It is a widget — it does not need ten.**
+**Scope, revised 2026-08-13: three sizes per device class, not one.** The earlier "it is a widget,
+it does not need ten" stands against filling all ten slots, but small, medium and large render
+genuinely different amounts of the weekend, and "one glanceable surface, three densities, never a
+result in any of them" is the 4.2.2 argument made in pictures rather than prose. Six shots against
+twenty free slots.
 
 Serves task 16: the iOS listing carries one iPhone and one iPad screenshot, both of a scrolling
 list, and **the widget is not pictured at all** — which is the single strongest answer to the
@@ -111,6 +122,70 @@ it.
    `pomocorp.NoSpoilers.NoSpoilersWidget` rather than
    `pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget`. It is not a target device — it captures
    1206 × 2622, which this listing does not accept — so delete the stale app rather than debug it.
+
+### The layout is a plist, so step 2 was scriptable after all
+
+SpringBoard keeps the Home Screen in `<device>/data/Library/SpringBoard/IconState.plist` and reads
+it back on boot. The widget is one dictionary in `iconLists[0]`, and its family is a plain string:
+
+```
+bundleIdentifier   pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget
+elementType        widget
+gridSize           small | medium | large
+widgetIdentifier   NoSpoilersWidget
+```
+
+`--widget-size` rewrites that entry, or writes one from scratch on a device that has never had the
+widget placed — which is how the iPad went from nothing to three captures without anyone touching
+it. The edit must happen while the device is **shut down**: SpringBoard writes the file on exit, so
+an edit made while it is running is silently overwritten by the copy in memory. `capture()` already
+shuts down between seeding and the final boot, which is exactly the right window.
+
+It also clears page 1 to just our widget, which kills the Today-View trap below — page 1 is the only
+page a capture can reach — and keeps Apple's stock Maps and News widgets out of the listing.
+
+`confirm_widget_size()` re-reads the plist after the boot, because SpringBoard validates what it
+reads and drops anything it dislikes without a word.
+
+### The reboot renders, it does not reload — and that cost four wrong screenshots
+
+This task's original claim was that "the reboot is the reload". It is true only the first time a
+device draws the widget. WidgetKit stores the generated timeline in `Library/chronod/chrono.sql`
+and reuses it until its own reload date, which for this widget is the next session boundary, hours
+out. A reboot re-renders that stored timeline against the current wall clock.
+
+The result is the worst kind of wrong: on 2026-08-13 the iPhone captures showed "Race 48 min" while
+the fixture on disk said four hours, because the timeline had been generated at 10:56 that morning.
+Every other line in the picture was internally consistent with it. **Nothing in the output says the
+data is three hours old.**
+
+Tried and did not work, all on 2026-08-13:
+
+| Attempt | Result |
+|---|---|
+| `simctl shutdown` + `boot` | same stale timeline |
+| `launchctl kickstart -k system/com.apple.chronod` | same stale timeline |
+| delete `Library/Caches/com.apple.chrono/snapshot-cache/<widget>` | same stale timeline |
+| delete `Library/chronod/chrono.sql*` | blank widget, then the same stale timeline |
+| `simctl clone` to a fresh UDID | inherits the stale timeline |
+
+**`--install` is what invalidates it.** Reinstalling the app drops the stored timeline and the next
+boot regenerates it from the seeded cache. Every capture that looked right on the first attempt had
+`--install` on it, which is why the failure hid for so long.
+
+So the reliable sequence on a device captured before is: run once with `--install`, then run again
+without it. The install run is not usable anyway — see below.
+
+### Two ways an install run produces a valid screenshot of the wrong thing
+
+1. **The first capture after `--install` is blank.** WidgetKit has not registered the extension yet
+   and the Home Screen draws an empty rounded rectangle. Seen on the iPad's first ever capture and
+   again after `chrono.sql` was deleted.
+2. **Installing can leave the device on the new icon's page.** Two captures came back showing Home
+   Screen page 2 — Fitness, Watch, Contacts, Files — which is indistinguishable from a widget that
+   was never placed.
+
+Both are cured by running a second time. Both are documented in the script's docstring.
 
 ### The hazard, demonstrated
 
@@ -230,10 +305,13 @@ is not a thing to be protected from.
       *(they will not, and cannot: the countdowns advance between runs — "3 hrs, 59 min" became
       "3 hrs, 54 min" five minutes later. Reframe this as "differ only in the countdowns and the
       status-bar clock" before trying to satisfy it.)*
-- [ ] A run with the widget removed from the Home Screen **fails**, and says why
-      — **still the biggest gap.** Four runs produced valid screenshots with no widget in them and
-      exit code 0. Now that a good capture exists it can serve as the baseline for this check.
+- [x] A run with the widget removed from the Home Screen **fails**, and says why — largely moot now
+      that `--widget-size` places it rather than trusting it to be there, and
+      `confirm_widget_size()` fails loudly if SpringBoard drops the entry. **Still uncovered: the
+      widget being present but rendering blank or stale.** Both were seen on 2026-08-13 and both
+      exit 0 with a valid PNG.
 - [ ] A run months later still shows a sensible countdown, not "3 months ago"
+- [x] All three widget families captured on both device classes (2026-08-13)
 - [x] Output resolutions match what App Store Connect accepts for each family — 1242 × 2688,
       enforced by `--expect`
 - [x] Every captured screenshot is free of the Formula One wordmark — the widget never used it, so

@@ -17,14 +17,33 @@ and then calls `cache.save(...)` unconditionally — it does not consult
 `isFresh` — so the first refresh replaces the fixture with the real calendar.
 Launching the app to "make it pick up the data" destroys the data.
 
-**The reboot is the reload.** Nothing on the command line can ask WidgetKit for a
-new timeline. Booting does: the Home Screen comes up and every widget on it is
-asked to render. The widget reads the App Group cache directly and only falls
-back to the network when that cache is empty, so a seeded fixture is what it
-draws.
+**The reboot renders; it does not reload.** Booting makes the Home Screen draw
+every widget on it, and the widget reads the App Group cache directly rather
+than the network, so on a device seeing this widget for the first time a seeded
+fixture is what it draws. But WidgetKit keeps the generated timeline in
+`Library/chronod/chrono.sql` and reuses it until its own reload date, which for
+this widget is the next session boundary — hours away. **A reboot does not
+invalidate it, and neither does restarting `chronod` or deleting `chrono.sql`
+and the snapshot cache; all three were tried on 2026-08-13.** The screenshot
+then shows a countdown computed hours ago, on a picture that is otherwise
+perfect and internally consistent.
 
-Placing the widget on the Home Screen is manual and one-time per simulator —
-there is no `simctl` verb for it. See tasks/18-screenshot-seed-and-capture.md.
+**`--install` is the invalidation.** Reinstalling the app drops the widget's
+stored timeline, so the next boot regenerates it from the seeded cache. The run
+that does the installing is not the usable one — see below — so the reliable
+sequence for a device that has been captured before is `--install` once, then
+capture again.
+
+**Placing the widget is `--widget-size`, not a manual step.** There is no
+`simctl` verb for it, but SpringBoard keeps the Home Screen layout in a plain
+plist and reads it back on boot, so the widget and its size are just data:
+
+    <device>/data/Library/SpringBoard/IconState.plist
+      iconLists[0][0]  { bundleIdentifier, elementType: widget, gridSize: large }
+
+`--widget-size` finds that entry and rewrites `gridSize`, or writes one from
+scratch if the device has never had the widget placed. It must happen while the
+device is shut down — SpringBoard rewrites the file on exit and would undo it.
 
 Stdlib only, like the other Python here. No venv, no install.
 
@@ -34,9 +53,17 @@ newest. As of 2026-08-13 the iPhone slot on this listing accepts 1242x2688 or
 the device, and `iPhone 17 Pro Max` at 1320x2868 is refused. Pass `--expect` and
 find out in seconds rather than at upload.
 
+**The first capture after `--install` is blank.** WidgetKit has not registered
+the extension yet, so the Home Screen draws an empty rounded rectangle — a
+correct screenshot of a widget with no timeline. Run it a second time; the
+capture is cheap and the second one is right. Installing can also leave the
+device on whichever page the new icon landed on rather than page 1, which looks
+exactly like a missing widget.
+
 Usage:
     scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688
     scripts/screenshots.py --device "iPhone 11 Pro Max" --device "iPad Pro 13-inch (M5)"
+    scripts/screenshots.py --device "iPhone 11 Pro Max" --widget-size small
     scripts/screenshots.py --device "iPhone 11 Pro Max" --install path/to/NoSpoilersApp.app
     scripts/screenshots.py --device "iPhone 11 Pro Max" --dry-run
 
@@ -48,15 +75,30 @@ simulator you own is not a thing to be protected from.
 
 import argparse
 import json
+import plistlib
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 APP_BUNDLE_ID = "pomocorp.NoSpoilers.NoSpoilersMac"
 APP_GROUP_ID = "group.pomocorp.no-spoilers"
+WIDGET_BUNDLE_ID = f"{APP_BUNDLE_ID}.NoSpoilersWidget"
+# The `kind` string NoSpoilersWidgetBundle registers, not a bundle identifier.
+WIDGET_KIND = "NoSpoilersWidget"
 CACHE_FILENAME = "schedule-cache.json"
+
+# `gridSize` values SpringBoard accepts, and the families the widget declares in
+# NoSpoilersWidget.swift. Keep the two in step: asking for a family the widget
+# does not support gets the entry silently dropped from the layout.
+WIDGET_SIZES = ("small", "medium", "large")
+
+# Relative to the device's `dataPath`, which simctl reports — the containing
+# directory is derivable from the UDID but asking is what makes this survive a
+# machine that keeps its simulators somewhere else.
+SPRINGBOARD_STATE = "Library/SpringBoard/IconState.plist"
 
 # How long to let the Home Screen settle after boot before capturing. WidgetKit
 # renders a placeholder first and swaps in the real timeline a moment later; a
@@ -237,6 +279,103 @@ def boot(udid: str) -> None:
     run("xcrun", "simctl", "bootstatus", udid, "-b")
 
 
+def springboard_state(udid: str) -> Path:
+    """The Home Screen layout file for this device."""
+    listing = json.loads(run("xcrun", "simctl", "list", "devices", "-j"))
+    for devices in listing["devices"].values():
+        for device in devices:
+            if device["udid"] == udid:
+                path = Path(device["dataPath"]) / SPRINGBOARD_STATE
+                if not path.is_file():
+                    raise SystemExit(
+                        f"no Home Screen state at {path}\n"
+                        "The device has never finished a boot. Run:\n"
+                        f"  xcrun simctl boot {udid} && xcrun simctl bootstatus {udid} -b"
+                    )
+                return path
+    raise SystemExit(f"no simulator with udid {udid}")
+
+
+def set_widget_size(udid: str, size: str) -> None:
+    """Put the widget on Home Screen page 1 at `size`.
+
+    The device must be shut down. SpringBoard writes this file on exit, so an
+    edit made while it is running is overwritten by the version in memory — and
+    the capture then shows the old size, which looks like the edit silently
+    failing rather than being undone.
+
+    An existing entry is resized in place; a device that has never had the
+    widget placed gets one written from scratch as the sole content of page 1.
+    Page 1 is the only page reachable: a boot lands there and `simctl` has no
+    gesture or page-navigation verb, so anything on page 2 cannot be captured.
+    Clearing the page also keeps Apple's stock widgets out of the listing.
+    """
+    path = springboard_state(udid)
+    state = plistlib.loads(path.read_bytes())
+
+    existing = next(
+        (
+            entry
+            for page in state.get("iconLists") or []
+            for entry in page
+            if isinstance(entry, dict) and entry.get("bundleIdentifier") == WIDGET_BUNDLE_ID
+        ),
+        None,
+    )
+    if existing is not None:
+        existing["gridSize"] = size
+        state["iconLists"][0] = [existing]
+        action = "resized"
+    else:
+        state["iconLists"][0] = [
+            {
+                "allowsExternalSuggestions": True,
+                "allowsSuggestions": True,
+                "bundleIdentifier": WIDGET_BUNDLE_ID,
+                "containerBundleIdentifier": APP_BUNDLE_ID,
+                "displayIdentifier": str(uuid.uuid4()).upper(),
+                "elementType": "widget",
+                "gridSize": size,
+                "iconType": "custom",
+                "uniqueIdentifier": str(uuid.uuid4()).upper(),
+                "widgetIdentifier": WIDGET_KIND,
+            }
+        ]
+        action = "placed"
+
+    path.write_bytes(plistlib.dumps(state))
+    print(f"  {action} {WIDGET_KIND} on page 1 at {size}")
+
+
+def confirm_widget_size(udid: str, size: str) -> None:
+    """Prove the layout survived the boot.
+
+    SpringBoard validates what it reads and drops anything it does not like —
+    a family the widget does not declare, a malformed entry — without saying so.
+    What it writes back after booting is the honest answer, and it is the
+    difference between a screenshot of the wrong size and one of nothing at all.
+    """
+    state = plistlib.loads(springboard_state(udid).read_bytes())
+    page_one = (state.get("iconLists") or [[]])[0]
+    entry = next(
+        (
+            e
+            for e in page_one
+            if isinstance(e, dict) and e.get("bundleIdentifier") == WIDGET_BUNDLE_ID
+        ),
+        None,
+    )
+    if entry is None:
+        raise SystemExit(
+            f"SpringBoard dropped {WIDGET_KIND} from page 1 on {udid}.\n"
+            f"Check that NoSpoilersWidget declares the {size} family in supportedFamilies."
+        )
+    if entry.get("gridSize") != size:
+        raise SystemExit(
+            f"asked for {size}, SpringBoard kept {entry.get('gridSize')!r} on {udid}"
+        )
+
+
 def app_group_container(udid: str) -> Path:
     """Where the widget reads its cache from.
 
@@ -314,20 +453,26 @@ def capture(
     out_dir: Path,
     install: Path | None,
     expected: list[tuple[int, int]],
+    widget_size: str | None,
     dry_run: bool,
 ) -> Path:
     udid = device_udid(device)
     # Name the file after the device, not after whatever the caller typed — a
     # UDID passed to disambiguate would otherwise produce a filename nobody can
-    # match to a screenshot slot in App Store Connect.
+    # match to a screenshot slot in App Store Connect. The size joins it because
+    # three sizes of one device would otherwise overwrite each other.
     slug = "".join(c if c.isalnum() else "-" for c in device_name(udid).lower()).strip("-")
     while "--" in slug:
         slug = slug.replace("--", "-")
+    if widget_size:
+        slug = f"{slug}-{widget_size}"
     destination = out_dir / f"{slug}.png"
 
     if dry_run:
         print(f"{device} [{udid}]")
         print(f"  seed    <app group>/{CACHE_FILENAME}")
+        if widget_size:
+            print(f"  place   {WIDGET_KIND} on page 1 at {widget_size}")
         print(f"  reboot  shutdown, boot, settle {SETTLE_SECONDS}s")
         print(f"  capture {destination}")
         return destination
@@ -339,9 +484,15 @@ def capture(
     cache_file.write_text(fixture_json(datetime.now(timezone.utc)))
     print(f"  seeded {cache_file}")
 
-    # Reboot rather than launch: see the module docstring.
+    # Reboot rather than launch: see the module docstring. The layout edit goes
+    # between the shutdown and the boot — SpringBoard is not running to undo it,
+    # and the boot is what reads it back.
     run("xcrun", "simctl", "shutdown", udid)
+    if widget_size:
+        set_widget_size(udid, widget_size)
     boot(udid)
+    if widget_size:
+        confirm_widget_size(udid, widget_size)
     time.sleep(SETTLE_SECONDS)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -365,6 +516,11 @@ def main() -> int:
         metavar="WxH",
         help="accepted pixel size, repeatable; the capture fails if it matches none",
     )
+    parser.add_argument(
+        "--widget-size",
+        choices=WIDGET_SIZES,
+        help="place the widget on Home Screen page 1 at this size before capturing",
+    )
     parser.add_argument("--dry-run", action="store_true", help="print the plan and do nothing")
     args = parser.parse_args()
 
@@ -377,7 +533,7 @@ def main() -> int:
 
     for device in args.device:
         print(device)
-        capture(device, args.out, args.install, expected, args.dry_run)
+        capture(device, args.out, args.install, expected, args.widget_size, args.dry_run)
 
     if not args.dry_run:
         print(
