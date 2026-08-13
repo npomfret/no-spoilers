@@ -24,14 +24,6 @@ enum Strings {
         static func locationAndCountrySmall(_ location: String, _ country: String) -> String { "\(location) - \(country)" }
         static func dateRange(start: String, end: String) -> String { "\(start) → \(end)" }
     }
-    enum Control {
-        static let startTimer: LocalizedStringKey             = "Start Timer"
-        static let on: LocalizedStringKey                     = "On"
-        static let off: LocalizedStringKey                    = "Off"
-        // ControlWidget system metadata
-        static let controlDisplayName: LocalizedStringResource = "Timer"
-        static let controlDescription: LocalizedStringResource = "An example control that runs a timer."
-    }
     enum OffSeason {
         static let badge: LocalizedStringKey              = "Off-season"
         static let body: LocalizedStringKey               = "The next race weekend will appear here as soon as it gets close enough to matter."

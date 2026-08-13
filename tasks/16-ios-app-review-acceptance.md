@@ -203,14 +203,23 @@ disclaimer; it does not remove the mark.
    (M3)`, and the iOS listing has no iPad screenshot at all. Whoever fills the remaining slots
    should treat `APP_IPAD_PRO_3GEN_129` as required, not optional — the reviewer is looking at the
    iPad listing.
-2. **Xcode template junk in the widget target.** `NoSpoilersWidgetLiveActivity.swift` renders
-   `Text("Hello \(context.state.emoji)")` with a Dynamic Island reading "Leading" / "Trailing", and
-   `NoSpoilersWidgetControl.swift` is a "Start a timer" Control widget whose provider is
-   `let isRunning = true // Check if the timer is running`. Neither ships — `NoSpoilersWidgetBundle`
-   lists only `NoSpoilersWidget()` — so there is no review exposure today. But a Control Center
-   toggle called "Timer" inside a race-schedule app is a 4.2.2 gift to the next reviewer if anyone
-   ever adds them to the bundle, and `NoSpoilersWidgetControl.kind` still carries the stale
-   `pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget` id. Delete both files.
+2. ~~**Xcode template junk in the widget target.**~~ **Deleted 2026-08-13.**
+   `NoSpoilersWidgetLiveActivity.swift` rendered `Text("Hello \(context.state.emoji)")` with a
+   Dynamic Island reading "Leading" / "Trailing", and `NoSpoilersWidgetControl.swift` was a
+   "Start a timer" Control widget whose provider was `let isRunning = true // Check if the timer is
+   running`. They were **not** dead files: `NoSpoilersWidget` is a
+   `PBXFileSystemSynchronizedRootGroup` excluding only `Info.plist`, so both compiled into the
+   shipping extension — they were merely absent from `NoSpoilersWidgetBundle`, which is what made
+   them invisible to a user. Both gone, plus the now-dead `Strings.Control` block.
+   `verify-widget-build.sh` passes, `ExtractAppIntentsMetadata` now reports "Extracted no relevant
+   App Intents symbols", and the extension links only `-framework SwiftUI -framework WidgetKit`.
+
+3. **The widget gallery description says "F1".** `NoSpoilersWidget/Strings.swift:21` is
+   `widgetDescription = "F1 race weekend sessions — no results."`, fed to `.description()` on the
+   widget configuration. **This is the text iOS shows in the widget picker when a user — or a
+   reviewer — adds the widget.** It is user-visible app content carrying the mark, on the one
+   surface the App Store screenshot now points at. Belongs in Phase 1 with the wordmark; left alone
+   for now so Phase 1 lands as one coordinated change rather than a trickle.
 
 `contentRightsDeclaration` on the app record is `DOES_NOT_USE_THIRD_PARTY_CONTENT`. That is not true
 while the wordmark is in the app; Phase 1 makes it true.
@@ -273,7 +282,7 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 - [x] iOS description, keywords, promotional text and subtitle rewritten (2026-08-13)
 - [x] No metadata claim unsupported by the code — Lock Screen widget claim removed
 - [ ] At least one iPad screenshot, since the reviewer reviews on an iPad
-- [ ] Delete `NoSpoilersWidgetLiveActivity.swift` and `NoSpoilersWidgetControl.swift`
+- [x] Delete `NoSpoilersWidgetLiveActivity.swift` and `NoSpoilersWidgetControl.swift` (2026-08-13)
 - [ ] ~~iOS `whatsNew` written~~ — locked by Apple on a first release, not actionable
 - [ ] Resolution Center answered, including the correction
 - [ ] `appstore_status.py` shows the iOS version out of `REJECTED`
