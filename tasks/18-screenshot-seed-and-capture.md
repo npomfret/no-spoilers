@@ -1,8 +1,22 @@
 # Task 18: Automate App Store screenshots — seed, then capture
 
-**Status: script written and proven end to end, 2026-08-13. One manual step outstanding — the
-widget is not on the simulator's Home Screen yet, so the capture is currently of a Home Screen
-without it.**
+**Status: DONE for iPhone, 2026-08-13. `tmp/screenshots/iphone-11-pro-max.png` is a clean
+1242 × 2688 capture of the widget with live countdowns and nothing else on the page.** The one
+manual step — placing the widget on Home Screen page 1 of
+`BA115C57-DAB3-4EAF-9590-222F33DC5567` — is done and is device state, so every future run is fully
+scripted. iPad is not done; nobody has decided whether the listing needs one.
+
+**It paid for itself on the first good capture.** The label under the widget read `NoSpoilersApp`:
+the iOS target had no `INFOPLIST_KEY_CFBundleDisplayName`, so the Home Screen name fell back to
+`PRODUCT_NAME` → `TARGET_NAME`, while `NoSpoilersMac` had set it to `"No Spoilers"` all along. The
+app has never shipped on iOS so no user saw it, but it would have gone out with the next approval.
+**No screenshot of the app's own UI could have caught this** — only the widget puts the containing
+app's name on screen. Fixed in `7d64a1b`.
+
+**The wordmark does not block this screenshot.** `NoSpoilersWordmark` / `f1logo` appear in
+`NoSpoilers/NoSpoilers/ContentView.swift:138,241` and the macOS app, but **not anywhere in
+`NoSpoilersWidget.swift`**. So this capture is already free of the Formula One mark and does not
+have to wait for task 16 Phase 1 — unlike any screenshot of the app's own UI, which does.
 
 `scripts/screenshots.py`. Whole run takes 22 seconds:
 
@@ -213,12 +227,22 @@ is not a thing to be protected from.
 ## Verification
 
 - [ ] Two consecutive runs with no code change produce identical screenshots
+      *(they will not, and cannot: the countdowns advance between runs — "3 hrs, 59 min" became
+      "3 hrs, 54 min" five minutes later. Reframe this as "differ only in the countdowns and the
+      status-bar clock" before trying to satisfy it.)*
 - [ ] A run with the widget removed from the Home Screen **fails**, and says why
+      — **still the biggest gap.** Four runs produced valid screenshots with no widget in them and
+      exit code 0. Now that a good capture exists it can serve as the baseline for this check.
 - [ ] A run months later still shows a sensible countdown, not "3 months ago"
-- [ ] Output resolutions match what App Store Connect accepts for each family
-- [ ] Every captured screenshot is free of the Formula One wordmark (task 16 Phase 1 first)
-- [ ] `scripts/verify-*.sh` unaffected — this adds tooling, it must not touch app code
+- [x] Output resolutions match what App Store Connect accepts for each family — 1242 × 2688,
+      enforced by `--expect`
+- [x] Every captured screenshot is free of the Formula One wordmark — the widget never used it, so
+      this one does not depend on task 16 Phase 1
+- [x] `scripts/verify-*.sh` unaffected — `verify-ios-build.sh` passes; the only app-code change was
+      the display-name setting, which was a bug this task found
 - [ ] `docs/guides/building.md` and `docs/guides/important-code.md` updated with the new script
+- [ ] Decide whether the iPad slot needs a screenshot too, and if so which simulator produces an
+      accepted size
 
 ---
 
