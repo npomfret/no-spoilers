@@ -1,6 +1,6 @@
 # No Spoilers
 
-**[nospoilers.app](https://npomfret.github.io/no-spoilers)** — a spoiler-safe F1 race weekend widget for iPhone and macOS.
+**[nospoilers.app](https://npomfret.github.io/no-spoilers)** — a spoiler-free Grand Prix weekend widget for iPhone and macOS.
 
 [Privacy Policy](https://npomfret.github.io/no-spoilers/privacy.html)
 
@@ -8,11 +8,11 @@ Shows the full race weekend timeline — past sessions (watchable now) and upcom
 
 ## The Problem
 
-F1 fans who watch on replay need to know when sessions happen. Every existing source — Google, the F1 app, sports sites — shows race results the moment you look for schedule information. There is no safe place to check.
+Fans who watch on replay need to know when sessions happen. Every existing source — Google, the official series app, sports sites — shows race results the moment you look for schedule information. There is no safe place to check.
 
 ## The Solution
 
-A native widget on your iPhone home screen and macOS menubar that shows:
+A native widget on your iPhone Home Screen and macOS menubar that shows:
 
 - Sessions that have ended: ready to watch
 - Current or next session: countdown in local time

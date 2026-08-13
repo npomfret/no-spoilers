@@ -102,10 +102,47 @@ description "...keeps you on top of the F1 race weekend..."
 The pending rename lives in a second appInfo (`859a5495`, `REJECTED`) and cannot take effect while
 the version is rejected. A reviewer examining "the metadata" for this app can see the macOS side.
 
-### And the website
+### And the website — FIXED 2026-08-13
 
-`docs/index.html` uses "F1" six times and "Formula 1" once; `docs/privacy.html` and `docs/brand.md`
-also. Both `supportUrl` and `marketingUrl` point there.
+`docs/index.html` used "F1" six times and "Formula 1" once; `docs/privacy.html` once. Both
+`supportUrl` and `marketingUrl` point there, so this page is one click from the submission.
+
+`docs/brand.md` turned out to be clean — it is a palette and typography document and never named
+the series. The earlier note listing it was wrong.
+
+| Where | Was | Now |
+| --- | --- | --- |
+| `index.html` `<title>` | `No Spoilers   Spoiler-safe F1 for macOS` | `No Spoilers — the spoiler-free Grand Prix schedule` |
+| `index.html` `<meta description>` | `A macOS menu bar app that shows the F1 race weekend schedule…` | `A Home Screen widget for iPhone and a menu bar app for Mac…` |
+| `index.html` hero | `The F1 race weekend schedule for your Mac and iPhone` | `The Grand Prix weekend schedule for your Mac and iPhone` |
+| `index.html` footer credit | `F1 logo: Wikimedia Commons` | deleted |
+| `index.html` App Store href | `…/app/no-spoilers-f1/id6761343835` | `…/app/id6761343835` |
+| `index.html` feature card | `Home screen widgets` | `Home Screen widgets` |
+| `privacy.html` | `publicly available Formula 1 race schedule data` | `publicly available race schedule data` |
+| `README.md` | `spoiler-safe F1 race weekend widget` | `spoiler-free Grand Prix weekend widget` |
+| `README.md` | `F1 fans… the F1 app` | `Fans… the official series app` |
+
+**The title and meta description were also wrong about the product, not just the branding.** They
+described a macOS menu bar app. A reviewer following `marketingUrl` from an *iOS* submission landed
+on a page that did not describe the thing they were reviewing — the same failure as the review
+notes fixed above, from the same cause: copy written when this was a Mac-only product.
+
+**The footer trademark disclaimer was deliberately kept**, naming Formula 1, F1 and Formula One
+Licensing BV. It matches `Strings.About.trademarkDisclaimer`, which still ships in the binary. Note
+the App Store *description* uses a different, generic form ("not affiliated with… any racing series,
+team, circuit or broadcaster") — that one avoids putting the mark into indexed App Store metadata, a
+concern that does not apply to a disclaimer in your own site footer. Naming the mark owner is the
+standard nominative-fair-use form and is strictly more protective.
+
+**Three "F1" strings remain and all are correct.** `github.com/sportstimes/f1` is the real upstream
+feed path (`index.html`, `privacy.html`, `README.md` ×2) and `openf1.org` is the real session-data
+host. Changing either would break a link.
+
+**The App Store href change does not clean the address bar today.** `apps.apple.com/gb/app/id6761343835`
+301-redirects to the slug form, and the slug is derived from the *live* app name — so it currently
+lands on `…/no-spoilers-f1/…`. Verified with `curl -o /dev/null -w '%{redirect_url}'`. The ID form is
+still the right href: it is the one that survives the pending rename, and when
+`No Spoilers - Grand Prix` goes live the redirect target stops containing "f1" on its own.
 
 ---
 
@@ -338,7 +375,7 @@ returns nothing.
 
 - Retake **all** screenshots after Phase 1, on both platforms. The current ones contain the logo.
 - De-brand the macOS listing: name, subtitle, keywords, description.
-- De-brand `docs/index.html`, `docs/privacy.html`, `docs/brand.md`, `README.md`.
+- ~~De-brand `docs/index.html`, `docs/privacy.html`, `README.md`.~~ Done 2026-08-13. `docs/brand.md` was already clean.
 - Write iOS `whatsNew`.
 
 ### Phase 3 — answer 4.2.2 with screenshots, not prose
@@ -379,7 +416,7 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 - [x] No iOS screenshot contains the Formula One wordmark — all six are widget captures, and the widget never drew it (2026-08-13). macOS listing screenshot still to retake.
 - [x] At least one iOS screenshot shows the Home Screen widget — six, covering all three families (2026-08-13)
 - [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description
-- [ ] Website and README de-branded
+- [x] Website and README de-branded (2026-08-13)
 - [x] iOS description, keywords, promotional text and subtitle rewritten (2026-08-13)
 - [x] No metadata claim unsupported by the code — Lock Screen widget claim removed
 - [x] At least one iPad screenshot, since the reviewer reviews on an iPad — three, at 2048 x 2732 (2026-08-13)
