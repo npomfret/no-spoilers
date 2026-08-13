@@ -19,9 +19,10 @@ node dist/cli.js report          # submissions -> thread -> messages + rejection
 ```
 
 It authenticates by capturing a browser request (`pbpaste | npx asc login`), so the session lasts
-hours and `asc status` shows what is left. It is **read-only as of 2026-08-13** — replying, saving
-a draft and uploading evidence are all writes and none have been captured yet, so Phase 4 below
-still goes through the browser unless someone adds them.
+hours and `asc status` shows what is left. **It writes**: `set-build`, `upload-screenshot`,
+`delete-screenshot` and a raw `patch <resource>/<id> '<json:api body>'`, which covers screenshots
+and every metadata field. **Replying in the Resolution Center is still unmapped**, so Phase 4 below
+goes through the browser unless someone captures that write.
 
 The two tools do not overlap and neither should grow the other's job: `scripts/appstore_status.py`
 is the public API, key-authenticated and GET-only, and can see the review *state* but never the
@@ -152,7 +153,67 @@ Concrete moves, in order of value:
 4. **Put the widget in the App Review notes** with an explicit instruction to add it to the Home
    Screen, since a reviewer will not discover it otherwise.
 
-`whatsNew` for iOS `en-GB` is also empty, which `appstore_status.py` flags.
+`whatsNew` for iOS `en-GB` is empty and **cannot be filled** — PATCHing it returns
+`409 STATE_ERROR "Attribute 'whatsNew' cannot be edited at this time"`, because 1.0.21 is the first
+iOS release and there is no previous version for release notes to describe. `appstore_status.py`
+flags it; the flag is a false positive for a first release and should be taught to skip it.
+
+### iOS copy rewritten 2026-08-13, widget-first
+
+Done with `asc patch`. Originals are in `tmp/asc-metadata-backup/ios-*-BEFORE.json`, so a revert is
+one PATCH. What changed and why:
+
+- **Subtitle** `Spoiler-free GP race schedule` → `Spoiler-free GP race widget` (27/30). Still free of
+  "F1", so 4.1(c) stays fixed, and the widget — the answer to 4.2.2 — is now visible in search
+  results, not buried in paragraph six.
+- **Description** rewritten. The old one was 3748 characters of which roughly two thousand were
+  trailing spaces and leading indentation from some earlier paste; it would have rendered ragged on
+  the product page. The new one is 1948 characters of actual text. `THE WIDGET` is the first
+  section after the hook. Added `WORKS OFFLINE` — true, and a web browsing experience cannot do it.
+  Removed "the official apps", which invited exactly the comparison 4.1(a) is about. Added a plain
+  non-affiliation line at the end.
+- **Keywords** — dropped `menu bar` (macOS-only, dead weight in an iPhone search index) and stopped
+  repeating words already in the name and subtitle, which Apple indexes anyway. Now
+  `motorsport,racing,schedule,qualifying,practice,sprint,countdown,timetable,replay,catch up` (89).
+- **Promotional text** — see below. It was making a false claim.
+
+**The old promotional text claimed a Lock Screen widget. There isn't one.**
+`NoSpoilersWidget.swift:717` is `.supportedFamilies([.systemSmall, .systemMedium, .systemLarge])` —
+Home Screen only, no `.accessory*` families. The listing said "the full race weekend at a glance in
+a widget on your lock screen". **This is the second false statement in this app's metadata**, after
+"no official Formula One logos or imagery are used". A reviewer who reads 4.1(a), adds the widget to
+a Lock Screen to check, and finds it is not offered, has been given a reason to distrust everything
+else in the reply. Now fixed; every claim in the new copy was checked against the code first:
+
+| Claim | Verified at |
+|---|---|
+| widget in small, medium, large | `NoSpoilersWidget.swift:717` |
+| works offline from a cached calendar | `ScheduleStore.swift:21` loads cache at init, `:93` falls back on refresh failure |
+| your own time zone and date format | `Strings.swift:36-41`, `Locale.current` / `TimeZone.current` |
+| Practice, Sprint Qualifying, Sprint, Qualifying, race | `SessionKind.swift:4-10` |
+| no account, no tracking, no ads | no analytics SDK anywhere; the only `URLSession` is the schedule fetch |
+
+**Wording alone does not fix 4.1(a).** The cause is the Formula One wordmark in the shipped app and
+therefore in the screenshots — Phase 1. This rewrite removes the invited comparison and adds the
+disclaimer; it does not remove the mark.
+
+### Two more things found while checking those claims
+
+1. **The reviewer used an iPad.** The 05-17 rejection header reads `Review Device: iPad Air 11-inch
+   (M3)`, and the iOS listing has no iPad screenshot at all. Whoever fills the remaining slots
+   should treat `APP_IPAD_PRO_3GEN_129` as required, not optional — the reviewer is looking at the
+   iPad listing.
+2. **Xcode template junk in the widget target.** `NoSpoilersWidgetLiveActivity.swift` renders
+   `Text("Hello \(context.state.emoji)")` with a Dynamic Island reading "Leading" / "Trailing", and
+   `NoSpoilersWidgetControl.swift` is a "Start a timer" Control widget whose provider is
+   `let isRunning = true // Check if the timer is running`. Neither ships — `NoSpoilersWidgetBundle`
+   lists only `NoSpoilersWidget()` — so there is no review exposure today. But a Control Center
+   toggle called "Timer" inside a race-schedule app is a 4.2.2 gift to the next reviewer if anyone
+   ever adds them to the bundle, and `NoSpoilersWidgetControl.kind` still carries the stale
+   `pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget` id. Delete both files.
+
+`contentRightsDeclaration` on the app record is `DOES_NOT_USE_THIRD_PARTY_CONTENT`. That is not true
+while the wordmark is in the app; Phase 1 makes it true.
 
 ---
 
@@ -209,7 +270,11 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 - [ ] At least one iOS screenshot shows the Home Screen widget
 - [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description
 - [ ] Website and README de-branded
-- [ ] iOS `whatsNew` written
+- [x] iOS description, keywords, promotional text and subtitle rewritten (2026-08-13)
+- [x] No metadata claim unsupported by the code — Lock Screen widget claim removed
+- [ ] At least one iPad screenshot, since the reviewer reviews on an iPad
+- [ ] Delete `NoSpoilersWidgetLiveActivity.swift` and `NoSpoilersWidgetControl.swift`
+- [ ] ~~iOS `whatsNew` written~~ — locked by Apple on a first release, not actionable
 - [ ] Resolution Center answered, including the correction
 - [ ] `appstore_status.py` shows the iOS version out of `REJECTED`
 
