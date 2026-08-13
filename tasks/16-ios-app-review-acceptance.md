@@ -148,9 +148,23 @@ why 4.2.2 kept being restated than anything in the description**, and it costs o
 account. No sign-in." Nothing in the app has a login. That is a third thing in this submission that
 does not match the app, after the logo denial and the Lock Screen claim.
 
-The replacement notes should say it is a Home Screen widget, and tell the reviewer to add it —
-long-press the Home Screen, tap the widget, search "No Spoilers" — because a widget is invisible
-until someone puts it there. Not yet written; needs a decision on the demo account at the same time.
+**Fixed 2026-08-13.** `asc patch appStoreReviewDetails/d3ee6a64…`; the original is in
+`tmp/asc-metadata-backup/ios-review-details-BEFORE.json`, so a revert is one PATCH. The notes now
+lead with "No Spoilers is a Home Screen widget. That is the product on iPhone and iPad", give the
+three steps to add it — a widget is invisible until someone places it — and describe what each of
+the three sizes shows. Those descriptions were written from the six uploaded captures, not from
+memory, so a reviewer comparing notes to screenshots to app finds the same thing three times.
+
+The demo account is gone: `demoAccountRequired` is now `false` and both fields read back `null`.
+Nothing in the app has a sign-in, so it was a credential attached to an app that has no use for one.
+
+The notes also **correct the menu-bar instruction explicitly**, rather than quietly replacing it —
+same principle as the logo correction in Phase 4, and for the same reason: a reviewer who has been
+misdirected once needs to be told, or the next submission reads as the same developer being vague
+again.
+
+Verified by reading back through both APIs: `asc review-details` shows the new notes with
+`demoAccountName: None`, and `appstore_status.py` reports `demo account  not required`.
 
 Concrete moves, in order of value:
 
@@ -181,8 +195,8 @@ Concrete moves, in order of value:
    or Dynamic Island for a running session, local notifications ahead of a session start, Lock
    Screen widgets, a Shortcuts/App Intents action. Each is impossible in a browser. This is product
    work and needs a decision about scope.
-4. **Put the widget in the App Review notes** with an explicit instruction to add it to the Home
-   Screen, since a reviewer will not discover it otherwise.
+4. ~~**Put the widget in the App Review notes**~~ **DONE 2026-08-13**, along with removing the
+   menu-bar instruction that sent the reviewer looking for the wrong platform's app. See above.
 
 `whatsNew` for iOS `en-GB` is empty and **cannot be filled** — PATCHing it returns
 `409 STATE_ERROR "Attribute 'whatsNew' cannot be edited at this time"`, because 1.0.21 is the first
