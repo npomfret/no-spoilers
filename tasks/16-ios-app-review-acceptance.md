@@ -182,8 +182,9 @@ the developer told them to look for, and does not find it, has been handed the 4
 why 4.2.2 kept being restated than anything in the description**, and it costs one PATCH to fix.
 
 `demoAccountRequired` is `true` and a demo account is set, on an app whose own listing says "No
-account. No sign-in." Nothing in the app has a login. That is a third thing in this submission that
-does not match the app, after the logo denial and the Lock Screen claim.
+account. No sign-in." Nothing in the app has a login. That is a second thing in this submission that
+does not match the app, after the logo denial. *(This sentence said "a third… after the logo denial
+and the Lock Screen claim". The Lock Screen claim turned out to be true — see the correction below.)*
 
 **Fixed 2026-08-13.** `asc patch appStoreReviewDetails/d3ee6a64…`; the original is in
 `tmp/asc-metadata-backup/ios-review-details-BEFORE.json`, so a revert is one PATCH. The notes now
@@ -259,15 +260,39 @@ one PATCH. What changed and why:
 - **Keywords** — dropped `menu bar` (macOS-only, dead weight in an iPhone search index) and stopped
   repeating words already in the name and subtitle, which Apple indexes anyway. Now
   `motorsport,racing,schedule,qualifying,practice,sprint,countdown,timetable,replay,catch up` (89).
-- **Promotional text** — see below. It was making a false claim.
+- **Promotional text** — rewritten. It dropped a Lock Screen claim it should have kept; see below.
 
-**The old promotional text claimed a Lock Screen widget. There isn't one.**
-`NoSpoilersWidget.swift:717` is `.supportedFamilies([.systemSmall, .systemMedium, .systemLarge])` —
-Home Screen only, no `.accessory*` families. The listing said "the full race weekend at a glance in
-a widget on your lock screen". **This is the second false statement in this app's metadata**, after
-"no official Formula One logos or imagery are used". A reviewer who reads 4.1(a), adds the widget to
-a Lock Screen to check, and finds it is not offered, has been given a reason to distrust everything
-else in the reply. Now fixed; every claim in the new copy was checked against the code first:
+**CORRECTED 2026-08-13: the Lock Screen claim was not false, and this file was wrong to call it
+one.** The old promotional text said "the full race weekend at a glance in a widget on your lock
+screen", and it was removed on the strength of the argument that follows, which does not hold:
+
+> `NoSpoilersWidget.swift:717` is `.supportedFamilies([.systemSmall, .systemMedium, .systemLarge])` —
+> Home Screen only, no `.accessory*` families, therefore no Lock Screen widget.
+
+**Declaring no `.accessory*` families does not mean the widget cannot appear on a Lock Screen.**
+Those three system families are exactly what iPadOS puts on the Lock Screen, and what StandBy
+renders on iPhone. The user confirmed from a device that the widget does appear there. The reasoning
+above inferred a user-visible behaviour from a declaration in source without checking the behaviour,
+which is the same class of error as the logo denial it was written to avoid.
+
+**Both consequences are now undone.** The drafted App Review reply had confessed to a second false
+statement that was never made; that came out before sending. And the promotional text had lost a
+true, load-bearing selling point — a widget that appears on the Lock Screen is a strong 4.2.2
+argument, because a web page cannot be there. Restored 2026-08-13:
+
+```
+was  A Home Screen widget with the whole race weekend on it: which sessions have finished
+     and are safe to watch, a live countdown to the next one, and never the result.
+now  A Home Screen and Lock Screen widget with the whole race weekend on it: which sessions
+     are safe to watch, a live countdown to the next one, and never the result.        (161/170)
+```
+
+The word "widget" is kept deliberately — the whole 4.2.2 answer rests on it, so the sentence names
+the product before it names the surfaces. Backup in `tmp/asc-metadata-backup/ios-promo-BEFORE-lockscreen.json`;
+verified by `appstore_status.py`, which reads the public API with a different key, rather than by
+trusting the PATCH response.
+
+The rest of the new copy was checked against the code first:
 
 | Claim | Verified at |
 |---|---|
@@ -417,13 +442,30 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 - [x] Widget gallery description no longer says "F1" (2026-08-13)
 - [x] No iOS screenshot contains the Formula One wordmark — all six are widget captures, and the widget never drew it (2026-08-13). macOS listing screenshot still to retake.
 - [x] At least one iOS screenshot shows the Home Screen widget — six, covering all three families (2026-08-13)
-- [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description
+- [ ] macOS listing free of "F1" / "Formula 1" in name, subtitle, keywords, description. Name and
+      subtitle are shared (`appInfoLocalizations`) and the pending record is already clean, but the
+      macOS keywords still read `F1,Formula 1,schedule,spoiler free,menu bar,calendar,widget` and
+      are **not editable while that version is `READY_FOR_SALE`** — it needs a new macOS version.
+      Mitigated for now by scoping the reply's metadata sentence to "on this listing", so it stays
+      true whichever listing a reviewer checks (2026-08-13)
 - [x] Website and README de-branded (2026-08-13)
 - [x] iOS description, keywords, promotional text and subtitle rewritten (2026-08-13)
-- [x] No metadata claim unsupported by the code — Lock Screen widget claim removed
+- [x] No metadata claim unsupported by the code. The Lock Screen claim was removed on a wrong
+      reading of `supportedFamilies`; restored 2026-08-13 after the user confirmed it from a device
 - [x] At least one iPad screenshot, since the reviewer reviews on an iPad — three, at 2048 x 2732 (2026-08-13)
 - [x] Delete `NoSpoilersWidgetLiveActivity.swift` and `NoSpoilersWidgetControl.swift` (2026-08-13)
 - [ ] ~~iOS `whatsNew` written~~ — locked by Apple on a first release, not actionable
+- [x] Every third-party source the app actually uses is named in the reply (2026-08-13). The draft
+      had claimed "no third-party content at all… its only data is sportstimes/f1". False:
+      `ScheduleStore.swift:19` builds a `SessionEndConfirmer`, which polls `api.openf1.org`
+      (`/sessions` and `/race_control`) for the confirmed finish time, and the widget reads the
+      result at `NoSpoilersWidget.swift:84`. The About screen credits three sources — sportstimes/f1,
+      OpenF1, flag-icons by Lipis — so a reviewer disproves the claim by opening the app. Same class
+      of error as the logo denial and the Lock Screen claim: a statement about the app written from
+      an assumption rather than from the code. Rewritten to name all three and to say exactly what is
+      read from OpenF1 (one timestamp, no results).
+- [x] The Wikimedia Commons credit for the Formula One logo went with the image in `525a6e0`;
+      nothing stale left in Acknowledgements (2026-08-13)
 - [ ] Resolution Center answered, including the correction
 - [ ] `appstore_status.py` shows the iOS version out of `REJECTED`
 
