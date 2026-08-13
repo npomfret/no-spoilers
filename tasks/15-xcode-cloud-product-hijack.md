@@ -1,9 +1,13 @@
 # Task 15: Xcode Cloud "Create Workflow" destroys a sibling project's product
 
-**Status: OPEN.** Read this before touching Xcode Cloud from either `no-spoilers` or
-`super-funmax-music`. The two projects share Apple team `6FZN56WC8G`, and a fault in Xcode's
-Create Workflow wizard has destroyed **four** Xcode Cloud products between 2026-08-08 and
-2026-08-13. It is invisible from the victim's side.
+**Status: RESOLVED in practice, OPEN as a hazard.** As of 2026-08-13 08:04Z **both projects hold a
+working Xcode Cloud product at the same time** — the first time that has ever been true. The
+underlying wizard fault is not fixed and will bite the next person who creates carelessly.
+
+Read this before touching Xcode Cloud from either `no-spoilers` or `super-funmax-music`. The two
+projects share Apple team `6FZN56WC8G`, and a fault in Xcode's Create Workflow wizard destroyed
+**three** Xcode Cloud products between 2026-08-08 and 2026-08-12, plus one deliberate deletion. It
+is invisible from the victim's side.
 
 This file is written for both projects. Times are UTC where they came from the API (`Z`) and local
 BST otherwise; the earliest entries mix the two and could not be reconciled afterwards.
@@ -27,40 +31,56 @@ at risk. Order accordingly, deliberately.
 
 ---
 
-## Current state, 2026-08-13 ~09:00
+## Current state, 2026-08-13
 
-One product resolves. This repo's, created into a team empty by id, deliberately holding **no run
-history** because it is the record exposed to the experiment below.
+**Two live products, coexisting.** Two ghosts also remain in the listing; ignore them.
 
 ```
-9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F  "NoSpoilersApp"
-  app        6761343835  pomocorp.NoSpoilers.NoSpoilersMac
-  repository npomfret/no-spoilers
-  workflow   7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers iOS"
-```
+9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F  "NoSpoilersApp"   created 08-13T07:53:56Z
+  app 6761343835  pomocorp.NoSpoilers.NoSpoilersMac    repository npomfret/no-spoilers
+  workflow 7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers iOS"
+  run #1 GIT_REF_CHANGE SUCCEEDED, commit 4ab0e12
 
-`super-funmax-music` has no product and is creating one now. **That creation is the experiment.**
+340CDC9B-A9BA-4B2D-A11C-3548AA5E087F  "FunMaxMusic"     created 08-13T08:04:25Z
+  app 6770023782                                        repository npomfret/super-funmax-music
+
+GHOSTS (listed, 404 by id — not products):
+  F6A2F0EB-…  deleted 08-12 15:30Z, still listed 18+ hours later
+  28472948-…  deleted 08-12 evening
+```
 
 ---
 
-## The experiment in progress
+## The experiment, and what it did and did not prove
 
 The abort message is *"Workflow name already exists."* Every product the wizard creates gets a
 workflow called `Default`. If workflow names collide **team-wide** rather than per-product, then a
 second creation is refused on the name — and the refusal happens after the rename and repoint,
-which is the entire fault. That fits all four failures and all four successes without requiring
-"a team can only hold one product" to be true, which is absurd on its face.
+which is the entire fault. That fits every failure and every success without requiring "a team can
+only hold one product" to be true, which is absurd on its face.
 
-So this repo's workflow is deliberately named `NoSpoilers iOS`, leaving `Default` free.
-`super-funmax-music` creates second, and should name its workflow `FunMaxMusic iOS`.
+So `super-funmax-music` was deleted first and recreated **second**, into a team whose only workflow
+was named `NoSpoilers iOS`, and its own was named `FunMaxMusic iOS`.
 
-| Outcome | Meaning | Cost |
-|---|---|---|
-| It creates | The name collision is the fault. Both projects coexist by naming workflows apart. | none |
-| It seizes `9C40B27D` | Theory dead. Two products cannot share this team. | one empty product, and a bug report to Apple |
+**Result: it created cleanly. Nothing was seized.** `9C40B27D` and its `/app` both answered `200`
+throughout, checked from the other project immediately after.
 
-The bug report, if it comes to that: `GET /v1/ciProducts/{id}/app` returns **HTTP 500** on a
-product Apple's own wizard mangled. Unambiguous and reproducible.
+**But two variables changed at once, and the honest reading is weaker than the result looks:**
+
+- the workflow names were made unique, **and**
+- the ordering was reversed so the second mover was the one with nothing to lose
+
+This single run cannot separate "the unique name fixed it" from "going second is what matters"
+from "the fault needed some state that is not present today". Testing the name theory properly
+would need a run with two workflows both called `Default` and nothing else different — which
+nobody should do now that both products are real and accumulating history. Credit for insisting on
+this caveat goes to the `super-funmax-music` session; the temptation was to write this up as proof.
+
+**Operationally it does not matter much.** Do both: create only into a team empty by id, and never
+let two workflows share a name. They cost nothing and one of them is doing the work.
+
+If the fault ever recurs, the bug report to Apple is `GET /v1/ciProducts/{id}/app` returning
+**HTTP 500** on a product Apple's own wizard mangled — unambiguous and reproducible.
 
 ---
 
@@ -162,9 +182,9 @@ acted on, and cost something.
 |---|---|
 | *"Retrying Create Workflow makes a new product and leaves the broken one in place"* (task 14) | It seizes the sibling's product. Caused occurrences 2 and 3. |
 | *"Do not run the wizard while `GET /v1/ciProducts` returns an empty list"* | Backwards. Empty **by id** is the only state creation has ever worked from. This wording caused occurrence 3. |
-| *"Two products cannot coexist on this team"* | Never demonstrated. Asserted from a list total that was counting a ghost. |
+| *"Two products cannot coexist on this team"* | Never demonstrated, and now disproved — both exist as of 2026-08-13 08:04Z. Asserted from a list total that was counting a ghost. |
 | *"Starting a run by hand primes the trigger"* | It does not. Tested directly: manual run at 15:52 succeeded, the 15:58 push still produced nothing. |
-| *"The trigger takes an hour or more"* | One sample. The next product triggered in 25 minutes. |
+| *"The trigger takes an hour or more"* | One sample. Later products triggered in 25 minutes and 5 minutes. There is no number. |
 | *"Set Distribution Preparation to TestFlight"* | No such option. It is **App Store**, and it defaults to **None**. |
 
 The pattern is worth naming: **every recorded *fact about the world* here has rotted — product
@@ -178,15 +198,39 @@ recorded `CI_PRODUCT_ID` beside it took a whole script down, dry run included.
 
 - **2026-08-12 11:50** — returned `0` across eight checks over ten minutes while two products still
   resolved by id.
-- **2026-08-12 15:30 → 17:12+** — kept naming `F6A2F0EB` for over ninety minutes after a `DELETE`
-  that answered `204`, app relationship and all, while every by-id call returned `404`.
+- **2026-08-12 15:30 → 2026-08-13 09:00+** — kept naming `F6A2F0EB` for **eighteen hours and
+  counting** after a `DELETE` that answered `204`, app relationship and all, while every by-id call
+  returned `404`.
 
 **Only the by-id call is honest.** A listed product that `404`s by id is a *ghost*: it must not be
-counted, and its sub-resource `404`s must not be reported as faults. `scripts/ci_health.py` now
-re-fetches every listed id and excludes ghosts — counting one is exactly how this repo concluded
-that two products had coexisted on a team that has never held two.
+counted, and its sub-resource `404`s must not be reported as faults. `asc.ci_products` re-fetches
+every listed id and marks ghosts — counting one is exactly how this repo concluded that two
+products had coexisted on a team that had never held two.
 
 Expect a newly created product **not** to appear in the list immediately. Check it by id.
+
+### The ghost bug bites twice, and the second bite is the dangerous one
+
+**A ghost keeps its `app` relationship in the listing.** So this repo's own deleted product claimed
+this repo's app exactly as loudly as the live one, and `select_ci_product` — which deliberately
+stops rather than guess when two records claim one app — fired on a perfectly healthy team:
+
+```
+2 Xcode Cloud products claim this app: 9C40B27D-…, F6A2F0EB-…
+```
+
+`testflight_distribute.py` was dead on 2026-08-13 for exactly this reason. The
+`super-funmax-music` session hit the same class of bug independently and warned about it: they had
+made their listing helper ghost-safe and left a later call that took an id from that list and
+fetched its `/workflows` with an unguarded `get`, which raised on the `404`. Their words, and they
+are the general lesson:
+
+> the ghost lesson was learned in one function and not the other. If your invariant is only
+> enforced at the listing site, check every other path that takes an id from that list.
+
+So ghost-detection now lives in `asc.ci_products`, the one place both tools get their products
+from, rather than in each caller. `ci_health.py` consumes the flag instead of re-deriving it —
+this concern living in one function and not another is the bug itself.
 
 ---
 
@@ -199,6 +243,10 @@ After creation, pushes are ignored for a while. Samples:
 | `CADFB659` | 10:53 | 13:01 | 79 min |
 | `28472948` | 15:39 | 16:04 | 25 min |
 | `F6A2F0EB` | 14:08 | never, across 4 pushes | died at 50 min |
+| `9C40B27D` | 08-13 07:53:56Z | 07:58:57Z | **5 min** |
+
+Five minutes, twenty-five, seventy-nine, and never. **There is no rule here** — do not plan around
+a number, and do not read a quiet first push as a broken workflow.
 
 `scmRepositories/{id}` `lastAccessedDate` tells you whether Apple has looked at the repo at all —
 on `F6A2F0EB` it never advanced past its own checkout.

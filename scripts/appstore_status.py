@@ -306,6 +306,20 @@ def ci_products(get: "Callable[[str], dict]") -> list[dict]:
     which turns a question into a crash. With it, an orphan is simply a product
     whose `app` relationship has a type and no id, which is a value to test
     rather than an error to survive. See tasks/15-xcode-cloud-product-hijack.md.
+
+    Every id is then re-fetched, because **being in this list is not evidence of
+    existing.** The list is a cache and it has lied in both directions: it read
+    `0` for ten minutes while two products still resolved, and it went on
+    serving a deleted product for eighteen hours after a `DELETE` that answered
+    `204`. A listed record that `404`s by id is a *ghost*, and it still carries
+    its `app` relationship — so a ghost of this repo's own product looks exactly
+    like a second claimant to `select_ci_product` below, which is a hard stop.
+    That is not hypothetical: it killed `testflight_distribute.py` outright on
+    2026-08-13 until the probe was added here.
+
+    One call per product, and it belongs here rather than in each caller: the
+    ghost lesson learned in one function and not another is the shape of the bug
+    itself.
     """
     products = get("/v1/ciProducts?limit=200&include=app")["data"]
     return [
@@ -314,9 +328,19 @@ def ci_products(get: "Callable[[str], dict]") -> list[dict]:
             "name": product["attributes"]["name"],
             "created": product["attributes"].get("createdDate"),
             "appId": (product["relationships"]["app"].get("data") or {}).get("id"),
+            "ghost": not _resolves(get, product["id"]),
         }
         for product in products
     ]
+
+
+def _resolves(get: "Callable[[str], dict]", product_id: str) -> bool:
+    """Does this product still exist, asked of the one endpoint that answers."""
+    try:
+        get(f"/v1/ciProducts/{product_id}")
+        return True
+    except SystemExit:
+        return False
 
 
 def select_ci_product(products: list[dict], app_id: str) -> str:
@@ -335,13 +359,23 @@ def select_ci_product(products: list[dict], app_id: str) -> str:
     Two products claiming one app is not a tie to break. It means a record is
     mid-hijack, and choosing either could act on a sibling's product, so it
     stops.
+
+    Ghosts are excluded before any of that. A deleted product keeps its `app`
+    relationship in the listing, so its ghost claims this app as loudly as the
+    live record does — and the stop above would then fire on a team that is
+    perfectly healthy.
     """
-    ours = [p for p in products if p["appId"] == app_id]
+    ours = [p for p in products if p["appId"] == app_id and not p["ghost"]]
     if len(ours) == 1:
         return ours[0]["id"]
     if not ours:
         seen = ", ".join(
-            "{} -> app {}".format(p["name"], p["appId"] or "NONE (orphaned)") for p in products
+            "{} -> app {}{}".format(
+                p["name"],
+                p["appId"] or "NONE (orphaned)",
+                " [GHOST: listed but 404 by id]" if p["ghost"] else "",
+            )
+            for p in products
         )
         raise SystemExit(
             "no Xcode Cloud product builds this app.\n"
@@ -1068,9 +1102,12 @@ def _selftest() -> int:
     # The hijack, exactly as it stood: the record *named* NoSpoilersApp belonged
     # to the sibling, and the record named FunMaxMusic was ours. Anything that
     # reads the name picks the sibling's product here.
+    def ci(id_, name, app, ghost=False):
+        return {"id": id_, "name": name, "appId": app, "ghost": ghost}
+
     hijacked = [
-        {"id": "EDF20772", "name": "NoSpoilersApp", "appId": THEIRS},
-        {"id": "1F3A0BBD", "name": "FunMaxMusic", "appId": OURS},
+        ci("EDF20772", "NoSpoilersApp", THEIRS),
+        ci("1F3A0BBD", "FunMaxMusic", OURS),
     ]
     if select_ci_product(hijacked, OURS) != "1F3A0BBD":
         failures.append("select_ci_product followed the name instead of the app")
@@ -1079,7 +1116,7 @@ def _selftest() -> int:
     # however alone it is in the list. Today's real state: one product, theirs.
     for lonely in ("FunMaxMusic", "NoSpoilersApp"):
         try:
-            chosen = select_ci_product([{"id": "CADFB659", "name": lonely, "appId": THEIRS}], OURS)
+            chosen = select_ci_product([ci("CADFB659", lonely, THEIRS)], OURS)
             failures.append(f"select_ci_product chose a sibling product named {lonely}: {chosen}")
         except SystemExit:
             pass
@@ -1087,27 +1124,44 @@ def _selftest() -> int:
     # An orphan — the seized record, stripped of its app — must not be adopted
     # just because it is the only thing left.
     try:
-        chosen = select_ci_product([{"id": "EDF20772", "name": "NoSpoilersApp", "appId": None}], OURS)
+        chosen = select_ci_product([ci("EDF20772", "NoSpoilersApp", None)], OURS)
         failures.append(f"select_ci_product adopted an orphan: {chosen}")
     except SystemExit:
         pass
 
     # Mid-hijack: two records claiming our app is not a tie to break.
     try:
-        chosen = select_ci_product(
-            [{"id": "a", "name": "x", "appId": OURS}, {"id": "b", "name": "y", "appId": OURS}], OURS
-        )
+        chosen = select_ci_product([ci("a", "x", OURS), ci("b", "y", OURS)], OURS)
         failures.append(f"select_ci_product guessed between two claimants: {chosen}")
     except SystemExit:
         pass
 
     # And the ordinary case still works, with a sibling sitting beside us.
     healthy = [
-        {"id": "CADFB659", "name": "FunMaxMusic", "appId": THEIRS},
-        {"id": "NEW", "name": "NoSpoilersApp", "appId": OURS},
+        ci("CADFB659", "FunMaxMusic", THEIRS),
+        ci("NEW", "NoSpoilersApp", OURS),
     ]
     if select_ci_product(healthy, OURS) != "NEW":
         failures.append("select_ci_product missed the healthy product")
+
+    # 2026-08-13, and the reason this exists: our own deleted product was still
+    # being listed eighteen hours later, carrying our app id. It claims this app
+    # exactly as loudly as the live record, so counting it turns a healthy team
+    # into "2 products claim this app" and stops the tool dead. It did.
+    with_ghost = [
+        ci("F6A2F0EB", "NoSpoilersApp", OURS, ghost=True),
+        ci("9C40B27D", "NoSpoilersApp", OURS),
+    ]
+    if select_ci_product(with_ghost, OURS) != "9C40B27D":
+        failures.append("select_ci_product counted a ghost as a second claimant")
+
+    # A ghost must not be selectable even when it is the only thing claiming us:
+    # acting on a deleted product is not better than stopping.
+    try:
+        chosen = select_ci_product([ci("F6A2F0EB", "NoSpoilersApp", OURS, ghost=True)], OURS)
+        failures.append(f"select_ci_product selected a ghost: {chosen}")
+    except SystemExit:
+        pass
 
     # Screenshot families are per platform: a macOS version has desktop shots and
     # no iPhone ones, and asking it for iPhone screenshots would report a gap
@@ -1244,7 +1298,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 58 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 60 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

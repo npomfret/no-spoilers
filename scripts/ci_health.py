@@ -146,15 +146,14 @@ def gather(client: asc.Client, app_id: str) -> list[dict]:
 
     detailed = []
     for product in asc.ci_products(client.get):
-        # Re-fetch every listed id. Being in the list is not evidence of
-        # existing — see the note in `assess`.
-        _, gone = sub(f"/v1/ciProducts/{product['id']}")
+        # `ghost` arrives from asc.ci_products, which re-fetches every listed id.
+        # Deliberately not re-derived here: this exact concern living in one
+        # function and not another is the bug it exists to prevent.
         repos, repo_error = sub(f"/v1/ciProducts/{product['id']}/primaryRepositories")
         flows, flow_error = sub(f"/v1/ciProducts/{product['id']}/workflows")
         detailed.append(
             {
                 **product,
-                "ghost": bool(gone),
                 "mine": product["appId"] == app_id,
                 "repositories": [r["attributes"]["repositoryName"] for r in repos],
                 "workflows": [
