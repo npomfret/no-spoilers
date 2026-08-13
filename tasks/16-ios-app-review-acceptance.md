@@ -10,6 +10,23 @@ The full Resolution Center thread was retrieved on 2026-08-13 from the private
 using a browser session cookie. **There is no public API for this** — `appstore_status.py` reports
 the state and says so. Anything below quoted from Apple is verbatim.
 
+**Use `appstoreconnect-bot` for this, not a hand-rolled curl.**
+`/Users/nickpomfret/projects/appstoreconnect-bot` is a sibling repo covering exactly this gap:
+
+```sh
+cd ../appstoreconnect-bot && npm install && npm run build
+node dist/cli.js report          # submissions -> thread -> messages + rejections + draft
+```
+
+It authenticates by capturing a browser request (`pbpaste | npx asc login`), so the session lasts
+hours and `asc status` shows what is left. It is **read-only as of 2026-08-13** — replying, saving
+a draft and uploading evidence are all writes and none have been captured yet, so Phase 4 below
+still goes through the browser unless someone adds them.
+
+The two tools do not overlap and neither should grow the other's job: `scripts/appstore_status.py`
+is the public API, key-authenticated and GET-only, and can see the review *state* but never the
+conversation. Session cookies (`dqsid`, `myacinfo`, `itctx`, `as_*`) must not land in either repo.
+
 ---
 
 ## What Apple actually said, round by round
