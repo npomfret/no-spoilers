@@ -28,6 +28,26 @@ Three delivery paths exist. They must not be merged or duplicated.
 - Xcode Cloud archives scheme `NoSpoilersApp` on every push to `main` and uploads to TestFlight. **The build arrives attached to no tester group and nobody can install it until it is put in one** — that is a command somebody runs, deliberately, not a post-action. Task 14 Phase 1 step 6 is the argument. Its hook lives in `NoSpoilers/ci_scripts/`, beside the Xcode project — Xcode Cloud ignores a `ci_scripts` directory at the repository root.
   - `ci_pre_xcodebuild.sh` runs `scripts/verify-core-tests.sh` and then stamps `CURRENT_PROJECT_VERSION` to `CI_BUILD_NUMBER`. It is the only hook.
   - **There is deliberately no `ci_post_clone.sh`.** One existed, writing `NoSpoilers/TestFlight/WhatToTest.en-GB.txt` from the commit subject, and App Store Connect read that file on some runs and not others — builds 3 and 9 carried their own note, builds 4, 5 and 6 all carried build 3's. Nothing in any artifact records whether the file was read, so a working run and a broken one are indistinguishable. Do not reinstate it; `testflight_distribute.py` writes the note over the API instead, and two mechanisms writing one note is how you get a stale one nobody can explain.
+- **Deleting and recreating an Xcode Cloud product costs a marketing version.** A new product restarts `CI_BUILD_NUMBER` at 1, but the builds the old product uploaded are still on the app record, so the first archive re-presents a `(version, build)` pair that is already spent. **It does not fail the build** — it compiles, tests, archives, goes green, and dies minutes later at *"Preparing build for App Store Connect failed"*. A green run is not a delivered build. Bump `MARKETING_VERSION` before the first push after a recreation; that is the only mitigation that does not require knowing which numbers are free. Both projects did this on 2026-08-12 (`no-spoilers` 1.0.22 → 1.1.0) and both landed on run 1. To see what is spent:
+  ```
+  GET /v1/builds?filter[app]={id}&filter[preReleaseVersion.platform]=IOS
+      &include=preReleaseVersion&limit=200
+  ```
+  `included` carries the marketing versions; each build joins via `relationships.preReleaseVersion.data.id`. (`/v1/apps/{id}/builds` returns HTTP 400 for that include; the filtered collection accepts it.) **Trains have holes** — 1.0.22 is missing builds 1, 2 and 7 — so "next number" and "next free number" are different questions, and a collision can land several green runs in rather than immediately.
+- **`GET /v1/ciProducts` is a cache and it lies in both directions.** It lists products that answer `404` by id, and has omitted live ones. Only the by-id call is honest; `scripts/ci_health.py` re-fetches every listed id, which is why it reports ghosts separately. Run it immediately after Integrate → Create Workflow. **That wizard has only ever created successfully from a team with zero products** — run with one already present it seized the existing one three times between 2026-08-08 and 2026-08-12, renaming it and repointing it at whichever repo ran the wizard, invisibly from the victim's side. **If it errors, stop and do not retry**: the damage happens before the error is shown, so a retry takes the next product. Two projects share Apple team `6FZN56WC8G`, so the blast radius includes `super-funmax-music`.
+- **Restore baseline for this repo's product**, so it can be rebuilt if it is ever lost. Verified by `ci_health.py` on 2026-08-13:
+  ```
+  product           9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F  "NoSpoilersApp"
+  app               6761343835  pomocorp.NoSpoilers.NoSpoilersMac
+  repository        npomfret/no-spoilers
+  workflow          7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers iOS", enabled, not locked
+  containerFilePath NoSpoilers/NoSpoilers.xcodeproj
+  branch            main (exact, not prefix), autoCancel true, no file/folder rule
+  pull requests     no start condition; no tag or schedule condition
+  action 1  ARCHIVE  "Archive - iOS", scheme NoSpoilersApp, IOS, APP_STORE_ELIGIBLE,
+                     isRequiredToPass true
+  ```
+  Name the workflow `NoSpoilers iOS`, never `Default` — two products both called `Default` under one team is how the wizard's victim goes unnoticed. No TEST action by design; the gate is `ci_pre_xcodebuild.sh`, above.
 - **The two upload paths are kept apart by the committed `CURRENT_PROJECT_VERSION`, which starts at `10000`.** `release.sh` increments from there (10001, 10002, …); Xcode Cloud uses its run number. Do not lower that committed value — build numbers only ever increase, and the bands would start to overlap.
 - No CI script can influence the build number that reaches App Store Connect: Xcode Cloud rewrites `CFBundleVersion` to `CI_BUILD_NUMBER` when it exports the IPA, after the hook and after the archive. The stamp exists so the archive agrees with the upload, not to control it. Task 14 Phase 0 Decision 1 has the measurements.
 - Xcode Cloud does not gate delivery on its TEST action, so the `verify-core-tests.sh` call in `ci_pre_xcodebuild.sh` is the only test gate on TestFlight builds. Removing it leaves runs green and the gate gone.

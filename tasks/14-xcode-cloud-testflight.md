@@ -2,10 +2,10 @@
 
 **Status:** RUNNING AGAIN as of 2026-08-12 15:31, on a rebuilt product. The chain below was
 blocked for most of that day: the original product was deleted to clear the fault in
-`tasks/15-xcode-cloud-product-hijack.md`, taking runs #1–#17 with it, and the first attempt to
+the Create Workflow hijack (see `docs/guides/building.md`), taking runs #1–#17 with it, and the first attempt to
 recreate it destroyed a third product instead. Product `F6A2F0EB` now archives scheme
 `NoSpoilersApp` on every push to `main`, its workflow named `NoSpoilers iOS` rather than `Default`
-for the reason recorded in task 15. Re-proven on the new product rather than assumed: run #1
+for the reason recorded in `docs/guides/building.md`. Re-proven on the new product rather than assumed: run #1
 passed the test gate, archived, and uploaded **1.1.0 build 1 `VALID`**, and
 `testflight_distribute.py` found the product by the app it builds and offered the hand-over.
 
@@ -39,9 +39,13 @@ Recorded because none of it is discoverable from the repo, and `GET /v1/ciProduc
 show it (see Phase 1, "When Xcode will not let you create the workflow").
 
 > **The product and workflow below no longer exist.** Both were deleted on 2026-08-12 to clear the
-> fault described in `tasks/15-xcode-cloud-product-hijack.md`, and both now answer `404`. The app
-> record, repository and internal group are untouched and still correct. Task 15 has the workflow
-> config to rebuild from.
+> Create Workflow fault, and both now answer `404`. The app record, repository and internal group
+> are untouched and still correct. The restore baseline for the live product is in
+> `docs/guides/building.md`.
+>
+> **Product `F6A2F0EB-…` named in the status line above is itself a ghost as of 2026-08-13** —
+> listed by `GET /v1/ciProducts` but `404` by id. The live product is
+> `9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F`, confirmed by `ci_health.py`.
 
 | Thing | Id |
 |---|---|
@@ -368,8 +372,8 @@ under two names. Four days later the wizard was run from the sibling and did the
 taking `1F3A0BBD-…`. The fault is self-perpetuating: an orphan makes the list unlistable, and an
 unlistable list is what makes the wizard hijack instead of create.
 
-Full mechanism, the state of both products, and the recovery in
-`tasks/15-xcode-cloud-product-hijack.md`. The safe reading of this section is its first half: if
+Full mechanism and the restore baseline are in `docs/guides/building.md`.
+The safe reading of this section is its first half: if
 the list is empty and the dialog says otherwise, look for an orphaned product by id, and delete it
 before creating anything.
 

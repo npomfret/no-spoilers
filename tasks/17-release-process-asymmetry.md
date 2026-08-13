@@ -78,7 +78,7 @@ the only fast one. Demoting it to an add-on without giving macOS a beta channel 
 anything, it just removes the one channel that works.
 
 Note also that the macOS `ARCHIVE` action was **deliberately deleted** during the 2026-08-13
-product recreation (task 15) — the wizard added it unrequested and it was removed to keep the
+product recreation — the wizard added it unrequested and it was removed to keep the
 restore minimal. That was the right call under the circumstances and is not a decision anyone
 made on the merits.
 
@@ -134,7 +134,8 @@ should not be `developer-id`. Possibly no default at all — require `--channel`
 Xcode Cloud workflow, gated by the same `ci_pre_xcodebuild.sh` hook, delivering to TestFlight for
 macOS. This is the change that would actually make the two platforms symmetric, and it is the one
 that would let Homebrew become a genuine add-on rather than a demoted core.
-**Read task 15 before touching that workflow** — editing it is not the same operation as creating
+**Read the Xcode Cloud bullets in `docs/guides/building.md` before touching that workflow** —
+editing it is not the same operation as creating
 one, but the blast radius of getting it wrong now includes a sibling project.
 
 ---

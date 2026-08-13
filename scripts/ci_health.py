@@ -2,8 +2,7 @@
 """Is Xcode Cloud wired to the right projects, and is anything mid-hijack.
 
 Run this **immediately after Integrate > Create Workflow**, and before trusting
-any Xcode Cloud state. It exists because of the fault in
-`tasks/15-xcode-cloud-product-hijack.md`: Create Workflow does not reliably
+any Xcode Cloud state. It exists because Create Workflow does not reliably
 create. When the product list is unlistable it seizes an existing product,
 renames it to the project you ran it from, repoints that product's repository
 at your repo, and aborts. The sibling project then builds nothing, silently,
@@ -29,7 +28,9 @@ invisible from the victim's side until their builds stop.
 
 `GET`s only. It cannot repair anything — `ciProducts` has no `PATCH`, and the
 only lever is `DELETE`, which takes the workflow and run history with it. Doing
-that is a person's decision, taken with task 15 open.
+that is a person's decision — and it costs a marketing version, because a new
+product restarts CI_BUILD_NUMBER at 1 against build numbers already spent on the
+app record. See "Continuous delivery" in docs/guides/building.md.
 
 Exit code answers "does this need a person": 0 clean, 1 not.
 
@@ -88,8 +89,8 @@ def assess(products: list[dict], app_id: str, repo: str) -> list[str]:
             "no product resolves by id. That is the state the wizard has always "
             "created from rather than seized — but it cannot be proven from here: "
             "an unlistable product is invisible to a list and can only be found by "
-            "an id you already know. Read tasks/15-xcode-cloud-product-hijack.md "
-            "before the wizard."
+            "an id you already know. Read the Xcode Cloud bullets in "
+            "docs/guides/building.md before the wizard."
         )
 
     for product in live:

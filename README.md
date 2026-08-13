@@ -216,7 +216,7 @@ scripts/ci_health.py                         # PASS, or every problem it can see
 this Apple team, and that wizard has now three times seized the other one's Xcode Cloud product —
 renaming it, repointing it at whichever repo ran the wizard, and leaving the other project
 building nothing while its own workflow still reads as perfectly valid. It is invisible from the
-victim's side. `tasks/15-xcode-cloud-product-hijack.md` has the mechanism.
+victim's side. `docs/guides/building.md` has the mechanism and the restore baseline.
 
 **The wizard has only ever created from a team with zero products.** Run it with one already
 present and it takes that one; that is what all three occurrences are, including one where this

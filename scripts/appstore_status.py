@@ -305,7 +305,7 @@ def ci_products(get: "Callable[[str], dict]") -> list[dict]:
     call per product — and on an orphaned product that call is an HTTP 500,
     which turns a question into a crash. With it, an orphan is simply a product
     whose `app` relationship has a type and no id, which is a value to test
-    rather than an error to survive. See tasks/15-xcode-cloud-product-hijack.md.
+    rather than an error to survive. See docs/guides/building.md.
 
     Every id is then re-fetched, because **being in this list is not evidence of
     existing.** The list is a cache and it has lied in both directions: it read
@@ -347,7 +347,7 @@ def select_ci_product(products: list[dict], app_id: str) -> str:
     """The one product that builds `app_id`, or a hard stop naming why not.
 
     **Matched on the app it builds, never on its name.** This is the safety
-    property, not a style choice. The fault in task 15 renames a product to the
+    property, not a style choice. The Create Workflow fault renames a product to the
     project that ran the wizard, so after a hijack the record called
     `NoSpoilersApp` was the sibling project's and the record called
     `FunMaxMusic` was this repo's. Name-matching would have picked precisely the
@@ -381,15 +381,16 @@ def select_ci_product(products: list[dict], app_id: str) -> str:
             "no Xcode Cloud product builds this app.\n"
             f"{len(products)} product(s) on the team: {seen or 'none'}\n"
             "Recreate it with Integrate > Create Workflow in Xcode, then run "
-            "scripts/ci_health.py. Read tasks/15-xcode-cloud-product-hijack.md "
-            "first — retrying that wizard while the list is empty seizes another "
+            "scripts/ci_health.py. Read the Xcode Cloud bullets in "
+            "docs/guides/building.md first — retrying that wizard while the list "
+            "is empty seizes another "
             "project's product instead of creating one."
         )
     raise SystemExit(
         f"{len(ours)} Xcode Cloud products claim this app: "
         f"{', '.join(p['id'] for p in ours)}\n"
         "One of them is building something else. Do not guess which; see "
-        "tasks/15-xcode-cloud-product-hijack.md."
+        "docs/guides/building.md."
     )
 
 
@@ -400,7 +401,8 @@ def find_ci_product(get: "Callable[[str], dict]", app_id: str) -> str:
     a constant until 2026-08-12, on the reasoning that `GET /v1/ciProducts`
     could not be trusted — it was answering `total: 0` while products resolved
     by id. That was never an API quirk to route around: it was the fault in
-    task 15, where an orphaned product makes the whole list unlistable. The
+    the Create Workflow fault, where an orphaned product makes the list
+    unlistable. The
     orphans were deleted, and the constant they left behind pointed at a record
     that no longer existed, which took `testflight_distribute.py` down with it,
     dry run included. A recorded id survives exactly until the next deletion.
@@ -1094,7 +1096,7 @@ def _selftest() -> int:
         failures.append(f"submission_items asked for {asked}")
 
     # Picking the Xcode Cloud product, replayed against the real state of
-    # 2026-08-12 recorded in tasks/15-xcode-cloud-product-hijack.md. Every case
+    # 2026-08-12, when two projects' products were crossed. Every case
     # here is one this team has actually been in, and the cost of getting one
     # wrong is this repo's tooling driving another project's product.
     OURS, THEIRS = "6761343835", "6770023782"
