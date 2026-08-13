@@ -82,12 +82,18 @@ public enum NoSpoilersWordmarkSize {
     case large
     case medium
 
+    /// `.medium` is deliberately small. It shares a 300pt-wide row in the macOS
+    /// popover with the centred Grand Prix name, and type is wider than the
+    /// image it replaced: at 9pt the wordmark measures 71.5pt against the old
+    /// logo's 48pt, which keeps every calendar name except
+    /// "Barcelona-Catalunya Grand Prix" on one line. That one wrapped before
+    /// this change too.
     var fontSize: CGFloat {
         switch self {
         case .large:
             return 15
         case .medium:
-            return 11
+            return 9
         }
     }
 
@@ -96,7 +102,7 @@ public enum NoSpoilersWordmarkSize {
         case .large:
             return 1.4
         case .medium:
-            return 1.0
+            return 0.6
         }
     }
 }
