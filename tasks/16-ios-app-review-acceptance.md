@@ -205,8 +205,8 @@ Verified by reading back through both APIs: `asc review-details` shows the new n
 
 Concrete moves, in order of value:
 
-1. ~~**Screenshot the widget on a Home Screen.**~~ **DONE 2026-08-13.** Task 18 built
-   `scripts/screenshots.py` and captured it; uploaded to the iOS en-GB listing via
+1. ~~**Screenshot the widget on a Home Screen.**~~ **DONE 2026-08-13.** `scripts/screenshots.py`
+   captured it; uploaded to the iOS en-GB listing via
    `appstoreconnect-bot`, `assetDeliveryState: COMPLETE` at 1242 × 2688:
    ```
    set   6dd79562-86c6-4f9f-99d5-ccd61e615116  APP_IPHONE_65
@@ -217,8 +217,10 @@ Concrete moves, in order of value:
    `NoSpoilersWidget.swift`, so the widget capture is already free of the Formula One mark.
 2. ~~**Fill the remaining screenshot slots.**~~ **Six uploaded 2026-08-13**, replacing the single
    iPhone shot, which was deleted. All three widget families on both device classes, every one
-   showing the seeded fixture rather than a stale timeline (task 18 has why that distinction cost
-   four attempts). `assetDeliveryState: COMPLETE`, no errors, confirmed by `appstore_status.py`:
+   showing the seeded fixture rather than a stale timeline — that distinction cost four wrong
+   captures, and the App Store screenshots section of `docs/guides/building.md` records why only
+   `--install` clears a stored timeline. `assetDeliveryState: COMPLETE`, no errors, confirmed by
+   `appstore_status.py`:
    ```
    set 6dd79562-86c6-4f9f-99d5-ccd61e615116  APP_IPHONE_65          1242 x 2688
        no-spoilers-widget-{large,medium,small}-iphone.png

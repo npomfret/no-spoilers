@@ -263,6 +263,29 @@ and no prose: the version reads `REJECTED`, the submission `UNRESOLVED_ISSUES`,
 and each item inside that submission `REJECTED` or `APPROVED` — what was refused,
 never why. Resolution Center has no endpoint at all, so replying is browser work.
 
+### Taking App Store screenshots
+
+```bash
+scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688 --widget-size large
+```
+
+Seeds a fixture into the App Group container, places the widget at the given size, boots the
+simulator and captures to `tmp/screenshots/`. `--device` takes a name or a UDID and is repeatable;
+a name matching two simulators is refused with the candidate UDIDs rather than guessed at, which is
+the usual case once you have several runtimes installed. `--dry-run` prints the plan and stops.
+
+Shooting against a fixture rather than the live
+calendar is the whole point: the same command produces the same picture in March and in August,
+where the real feed gives you the off-season state half the year.
+
+The app is never launched during a run, and must not be — `ScheduleStore.refresh()` saves the
+network result unconditionally, so opening the app to "make it pick up the data" is what destroys
+the seeded data.
+
+`--expect` fails a wrong device in seconds instead of at upload. **A blank or stale widget still
+exits 0 with a valid PNG, so look at the picture before uploading it.** Full detail, including why
+only `--install` clears a stored timeline: `docs/guides/building.md`.
+
 ## Design Document
 
 Full design rationale, architecture decisions, and implementation notes:

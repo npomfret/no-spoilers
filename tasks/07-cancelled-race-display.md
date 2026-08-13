@@ -1,7 +1,7 @@
 # Task 07: Cancelled Race Display
 
 **Status:** TODO
-**Depends on:** Task 04 (WidgetKit timeline working)
+**Depends on:** nothing — the WidgetKit timeline it builds on has shipped
 **Effort:** ~2 hours
 **Priority:** Low — deferred from v1
 

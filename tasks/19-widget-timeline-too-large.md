@@ -1,6 +1,6 @@
 # Task 19: the widget builds a timeline for the whole season, and shows grey bars while it does
 
-**Status: OPEN, found 2026-08-13 while capturing App Store screenshots (task 18). Not yet fixed.**
+**Status: OPEN, found 2026-08-13 while capturing App Store screenshots. Not yet fixed.**
 
 The widget takes **3–6 seconds** to produce its first timeline. SpringBoard gives up waiting well
 before that and keeps showing the redacted placeholder — the app's own layout drawn as grey bars.
@@ -116,8 +116,10 @@ the worst case directly. Pick one and write down why.
 
 ## Related
 
-- **Task 18** — this is why the screenshot pipeline needed a settle delay at all, and why a run can
-  capture a grey widget that looks like a rendering bug.
+- **`scripts/screenshots.py`** — this is why the screenshot pipeline needs a `SETTLE_SECONDS` delay
+  at all, and why a run can capture a grey widget that looks like a rendering bug. See the App Store
+  screenshots section of `docs/guides/building.md`, which records that the delay must not be widened
+  to paper over this.
 - **Task 16** — the listing has to show the widget working. A screenshot of the placeholder is
   worse than no screenshot.
 - **Task 07** — cancelled-race handling is downstream of the staleness half of this.

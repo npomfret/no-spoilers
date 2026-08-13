@@ -58,3 +58,52 @@ Three delivery paths exist. They must not be merged or duplicated.
 - `scripts/appstore_status.py` reads what App Store Connect holds for both platforms and writes nothing. Keep it that way: `release.sh` and `testflight_distribute.py` are the only things here that write, and the split is what makes the report safe to run at any time. It is stdlib-only Python and needs no venv or install, and it owns the shared token signing, app lookup and build selection that the distribute script imports.
   - **Its `TESTFLIGHT` section answers "what can a tester install right now", not "does a build exist".** It walks the unexpired iOS builds newest-first asking each `?include=betaGroups` until one is in a group, and prints how far behind that has fallen — `testers can install build 4, 5 builds behind build 11`. **Being behind is never a warning.** Delivery is a manual command, so the newest build reaches nobody after every push; warning about it would leave the report permanently red and take the exit code with it. Only installing *nothing* is reported under NEEDS YOU.
 - **The two Python scripts hold different App Store Connect keys, and that is the point.** The report runs on the Developer-level key `S394C74APG`; only `testflight_distribute.py` uses the App Manager key `ASC6H3SL2D`. A Developer key reads every endpoint involved and is then refused the write with an empty `403` that looks like a malformed request.
+
+## App Store screenshots
+
+`scripts/screenshots.py` captures them from a simulator against fixture data. Its docstring is the
+long-form reference and is kept current; what follows is the policy around it.
+
+```
+scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688 --widget-size large
+```
+
+`--device` takes a simulator name or a UDID and is repeatable. **A name matching more than one
+simulator is refused**, not guessed at — the script prints the candidate UDIDs and stops, which is
+the common case on a machine carrying several runtimes. `--dry-run` prints the plan and touches
+nothing.
+
+- **Screenshots are taken against a fixture, never the live calendar**, so the same command produces
+  the same picture in March and in August. Out of season the widget correctly renders its off-season
+  state, and mid-season it renders whichever race happens to be next; neither is a listing asset.
+  The fixture offsets are relative to run time and must stay that way.
+- **Never launch the app to make it pick up the fixture.** `ScheduleStore.refresh()` saves the
+  network result unconditionally, so launching replaces the fixture with the real calendar. The
+  script seeds, reboots and captures without ever opening the app, and that sequence is not
+  incidental.
+- **Placing the widget is `--widget-size`, not a manual step.** There is no `simctl` verb for it, but
+  SpringBoard keeps the Home Screen layout in `Library/SpringBoard/IconState.plist` and reads it back
+  on boot, so the widget and its family are just data. It has to be written while the device is shut
+  down or SpringBoard undoes it on exit. Ask for a family the widget does not declare and the entry
+  is silently dropped, so `WIDGET_SIZES` and the widget's declared families must stay in step.
+- **`--install` is the only thing that invalidates a stored timeline.** WidgetKit keeps it in
+  `chronod/chrono.sql` until its own reload date — hours away for this widget. Rebooting, restarting
+  `chronod`, and deleting `chrono.sql` were all tried and none of them work. The first capture after
+  an install is blank because the extension is not registered yet, so the sequence for a device that
+  has been captured before is `--install` once, then capture again.
+- **Pick the device by the pixel size the listing slot accepts, not by what is newest**, and pass
+  `--expect` so a wrong one fails in seconds rather than at upload. `iPhone 11 Pro Max` is natively
+  1242 × 2688 and accepted; `iPhone 17 Pro Max` at 1320 × 2868 is refused.
+- **A blank or stale widget still exits 0 with a valid PNG.** `--expect` checks pixel dimensions and
+  `confirm_widget_size()` checks the layout entry survived; neither can tell you the widget rendered
+  real content. Both failures were seen on 2026-08-13 and both look like a successful run. **Look at
+  the picture before uploading it** — that is the check, and there is not a scripted substitute.
+- **Do not widen `SETTLE_SECONDS` to make a grey capture come good.** The widget's first timeline is
+  genuinely slow to build; see `tasks/19-widget-timeline-too-large.md`. Widening the delay hides that
+  on the one machine that takes screenshots and leaves it in front of every user.
+- Two runs with no code change are **not** byte-identical and cannot be — the countdowns advance and
+  the status-bar clock moves. Expect them to differ only in those.
+- **Keep `INFOPLIST_KEY_CFBundleDisplayName` set on the iOS target.** Without it the Home Screen name
+  falls back through `PRODUCT_NAME` to `TARGET_NAME` and reads `NoSpoilersApp`. Only a widget
+  screenshot shows this, because only the widget puts the containing app's name on screen; it was
+  found this way in `7d64a1b` and would otherwise have shipped.

@@ -77,7 +77,7 @@ back must not still see it — re-query on `scenePhase` becoming `.active`.
 **Do not reuse the Live Activity or Control widget stubs.** `NoSpoilersWidgetLiveActivity.swift`
 and `NoSpoilersWidgetControl.swift` are unmodified Xcode template scaffolding, not registered in
 `NoSpoilersWidgetBundle`, and rendering `Text("Hello \(context.state.emoji)")`. They are not a head
-start on anything (task 18, Related).
+start on anything.
 
 ---
 
@@ -86,7 +86,11 @@ start on anything (task 18, Related).
 - **An App Preview video showing how to add the widget.** Deferred deliberately: separate toolchain
   (`simctl io recordVideo`, 15–30s, strict format and resolution rules), does not answer the
   rejection, and the demo belongs *in* the app rather than in the listing. Revisit after approval.
-- Any attempt to script or automate widget placement. Task 18 §2 covers why that is a dead end.
+- Any attempt to script or automate widget placement on a user's device. **`scripts/screenshots.py`
+  does exactly that with `--widget-size`, and it is not a precedent**: it works by rewriting
+  SpringBoard's `IconState.plist` on a shut-down simulator whose container it owns. Nothing
+  equivalent is reachable from inside a sandboxed app on a real device, which is why the card above
+  instructs rather than acts.
 
 ---
 
