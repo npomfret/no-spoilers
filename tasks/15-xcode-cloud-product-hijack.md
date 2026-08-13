@@ -67,8 +67,15 @@ What that returned for this app on iOS:
 ```
 
 Two things to read out of that. The 1.0.22 train has holes at 1, 2 and 7 — free slots do not have
-to be at the end, so "next number" is not the same question as "next free number". And 1.1.1 holds
-both bands side by side: 1–3 from Xcode Cloud, 10002 from `release.sh`. The band separation works.
+to be at the end, so **"next number" is not the same question as "next free number"**, and the
+bump is the only mitigation that needs neither answered. And 1.1.1 holds both bands side by side:
+1–3 from Xcode Cloud, 10002 from `release.sh`. The band separation works.
+
+**The holes are what make this dangerous rather than merely annoying.** On 1.0.22 the collision
+would have landed on run 3, after two green delivered builds. `super-funmax-music` checked their
+own ledger against this and found 1.0 holding 19–28, so slots 1–18 are free: a recreated product
+there would have gone green *eighteen times* before colliding — long enough to conclude the
+pipeline is fixed and stop watching it. An immediate rejection would be the kinder failure.
 
 **The tax is avoidable and neither project has spent the effort.** App Store Connect enforces that
 a build number rises within its version, not that it starts at 1, so an offset in the CI hook would
@@ -76,6 +83,12 @@ end it. Four recreations have now burned four marketing versions on `super-funma
 that has never shipped one. Both projects have kept the bump rule for now on the grounds that a
 recreation should be rare; `super-funmax-music` has written down a fifth recreation as the point to
 reconsider.
+
+It is not a one-line change, which is the actual reason it keeps not happening. The offset belongs
+in `ci_pre_xcodebuild.sh`, and the whole point is to survive a recreation *without a human
+remembering* — so it needs a durable per-product base rather than a constant, and a constant is
+precisely what the next recreation invalidates. `super-funmax-music` owns this if it gets built;
+this repo takes theirs rather than writing a second one.
 
 ---
 
@@ -256,6 +269,11 @@ every listed id and marks ghosts — counting one is exactly how this repo concl
 products had coexisted on a team that had never held two.
 
 Expect a newly created product **not** to appear in the list immediately. Check it by id.
+
+**Precedence, when this file and the `super-funmax-music` ledger disagree about what was true at a
+given moment: prefer whichever was read by id.** Both projects were reading the API within a minute
+of the same events, and the list was wrong in both directions inside that window — so two honest
+records can contradict each other without either being careless. Their proposal, and it is right.
 
 ### The ghost bug bites twice, and the second bite is the dangerous one
 
