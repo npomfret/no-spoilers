@@ -282,6 +282,44 @@ in Xcode's workflow editor before any run. It would have uploaded a macOS build 
 10000, and a 1.1.0 macOS train nobody asked for while 1.0.21 is live. Check for it on any future
 recreation; the wizard adds it from the schemes it finds, not from anything recorded here.
 
+## The experiment, set up 2026-08-13 08:5x
+
+FunMaxMusic's product was deleted first, by the owner's decision, so that **this repo is the one
+exposed**. The wizard seizes the product that already exists, so the first mover is the victim and
+the second merely gets an error — the reverse of the ordering used on 2026-08-12, and the reason
+that day cost FunMaxMusic two products.
+
+This repo's product, created into a team empty by id (both prior ids `404`):
+
+```
+product           9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F  "NoSpoilersApp", created 2026-08-13
+app               6761343835  pomocorp.NoSpoilers.NoSpoilersMac
+repository        npomfret/no-spoilers  (b36f1212-d272-4b37-9ba0-50c3277fd1f2)
+workflow          7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers iOS", enabled, not locked
+containerFilePath NoSpoilers/NoSpoilers.xcodeproj
+branch            main (exact, not prefix), autoCancel true, no file/folder rule
+action 1  ARCHIVE  "Archive - iOS", scheme NoSpoilersApp, IOS, APP_STORE_ELIGIBLE,
+                   isRequiredToPass true
+runs              none — deliberately. It is left empty until FunMaxMusic has created,
+                  because zero history is what makes it cheap to lose.
+```
+
+**It is deliberately not named `Default`.** FunMaxMusic now creates second, into a team where the
+only workflow is called `NoSpoilers iOS`. If creation succeeds, the collision is the fault and two
+projects coexist by naming workflows apart. If it seizes this product, the theory is dead, two
+products cannot share this team, and the report to Apple is the `500` on
+`GET /v1/ciProducts/{id}/app`.
+
+Two UI notes for whoever runs the wizard next, since the recorded settings did not match what
+Xcode actually shows:
+
+- There is no "TestFlight" option. It is **Distribution Preparation: App Store**, which is what
+  produces `APP_STORE_ELIGIBLE`. The default is `None`, which archives and uploads nothing.
+- "Exact match" is not a control. *Custom Branches* with `main` typed in is exact; the API records
+  it as `isPrefix: false`.
+- The wizard again fitted an `Archive - macOS` action nobody asked for, built from the schemes it
+  found. Deleted in the editor before saving. Expect it every time.
+
 ## FunMaxMusic's restore baseline, taken 2026-08-12 17:2x
 
 Recorded from this repo because this repo is about to run the wizard, and the wizard's victim is
