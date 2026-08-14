@@ -50,7 +50,7 @@ Three delivery paths exist. They must not be merged or duplicated.
   product           9C40B27D-5C9B-4AB2-A9A2-6B97616BAA3F  "NoSpoilersApp"
   app               6761343835  pomocorp.NoSpoilers.NoSpoilersMac
   repository        npomfret/no-spoilers
-  workflow          7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers iOS", enabled, not locked
+  workflow          7A43B70B-3311-4954-A625-AB82333B6503  "NoSpoilers", enabled, not locked
   containerFilePath NoSpoilers/NoSpoilers.xcodeproj
   branch            main (exact, not prefix), autoCancel true, no file/folder rule
   pull requests     no start condition; no tag or schedule condition
@@ -59,7 +59,7 @@ Three delivery paths exist. They must not be merged or duplicated.
   action 2  ARCHIVE  "Archive - macOS", scheme NoSpoilers, MACOS, APP_STORE_ELIGIBLE,
                      isRequiredToPass true, destination ANY_MAC   (added 2026-08-14)
   ```
-  Name the workflow `NoSpoilers iOS`, never `Default` — two products both called `Default` under one team is how the wizard's victim goes unnoticed. **The name is now wrong and it is safe to correct**: it archives both platforms, so it should read `NoSpoilers`. No TEST action by design; the gate is `ci_pre_xcodebuild.sh`, above.
+  Name the workflow `NoSpoilers`, never `Default` — two products both called `Default` under one team is how the wizard's victim goes unnoticed. It was `NoSpoilers iOS` until 2026-08-14; the platform came out of the name when the macOS action went in, because a workflow that says iOS and archives both is the kind of drift that makes people trust the wrong thing. No TEST action by design; the gate is `ci_pre_xcodebuild.sh`, above.
   - Adding the action was `PATCH /v1/ciWorkflows/{id}` with `attributes.actions` set to the whole array, existing action included — the field replaces, it does not append, so a PATCH that omits action 1 deletes it. The `CiPlatform` value is `MACOS`, **not** the `MAC_OS` that `filter[preReleaseVersion.platform]` wants on `/v1/builds`; the two enums differ by an underscore and only one of them is ever right in a given call. Send `destination: null` and the server fills in `ANY_MAC` itself. `ciProducts` has no PATCH, but `ciWorkflows` does, so this is an edit and not a re-run of the wizard that keeps hijacking the sibling project.
 - **The two upload paths are kept apart by the committed `CURRENT_PROJECT_VERSION`, which starts at `10000`.** `release.sh` increments from there (10001, 10002, …), one step per ship run now rather than one per platform; Xcode Cloud uses its run number. Do not lower that committed value — build numbers only ever increase, and the bands would start to overlap.
 - No CI script can influence the build number that reaches App Store Connect: Xcode Cloud rewrites `CFBundleVersion` to `CI_BUILD_NUMBER` when it exports the IPA, after the hook and after the archive. The stamp exists so the archive agrees with the upload, not to control it. Task 14 Phase 0 Decision 1 has the measurements.

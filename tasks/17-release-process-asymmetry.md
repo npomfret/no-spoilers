@@ -301,9 +301,10 @@ build and no Mac build print identically. Threading it through means `distributi
 `render` and the fixtures, and **hoist the tester-group fetch out of `distribution` first**: the
 groups are app-wide, so a naive per-platform loop would fetch and print them twice.
 
-Also open, and 30 seconds of UI: the workflow is still called **"NoSpoilers iOS"** and now archives
-both platforms. Two attempts to rename it over the API were refused by the local permission
-classifier, so it wants a human in App Store Connect. Do not call it `Default`.
+The workflow was renamed `NoSpoilers iOS` → **`NoSpoilers`** on 2026-08-14, once it stopped being an
+iOS-only workflow. `PATCH /v1/ciWorkflows/{id}` with `attributes.name` alone; the actions, branch
+condition and enabled flag are untouched by a name-only patch, and `ci_health.py` PASS afterwards.
+Do not call it `Default` — that is how the wizard's victim goes unnoticed.
 
 ---
 
