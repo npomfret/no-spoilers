@@ -52,12 +52,12 @@ public class ScheduleStore: ObservableObject {
             let confirmed = confirmer.confirmedEndDates[pairs[i].session.id]
             return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next, confirmedEndAt: confirmed) == .inProgress
         }).map({ pairs[$0] }) {
-            precondition(!live.weekend.countryCode.isEmpty, "Live session \(live.session.id) has empty countryCode")
             return live
         }
-        guard let next = pairs.first(where: { $0.session.startsAt > now }) else { return nil }
-        precondition(!next.weekend.countryCode.isEmpty, "Upcoming session \(next.session.id) has empty countryCode")
-        return next
+        // No assertion about the country code here. It used to `precondition` on one being present,
+        // which made an unmappable Grand Prix name — round 16 of the live 2026 feed — a crash
+        // rather than a missing flag. See `RaceWeekend.countryCode`.
+        return pairs.first(where: { $0.session.startsAt > now })
     }
 
     public func menuBarLabel(showSession: Bool, showCountdown: Bool) -> String {

@@ -18,7 +18,17 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
     public var id: Int { round }
     public var grandPrixName: String { Strings.RaceNames.grandPrix(name) }
     public var countryName: String { Strings.CountryNames.name(for: name) }
-    public var countryCode: String {
+    /// ISO country code for the flag asset, or nil when the feed names a Grand Prix in a way this
+    /// mapping does not cover.
+    ///
+    /// Nil is a real state, not a placeholder. The 2026 feed carries round 16 as
+    /// "Bahrain Grand Prix (Malaysia)" at Sepang, which matches nothing here. This used to return
+    /// `""` and `ScheduleStore` used to `precondition` on the result being non-empty, so the
+    /// combination was a scheduled crash: the menu bar app would have died the moment that round
+    /// became the next session. A country we cannot identify is possible data — the feed is not
+    /// ours and its naming changes — so it is modelled, not asserted away. `FlagImage` renders a
+    /// chequered flag for nil, which is the honest answer.
+    public var countryCode: String? {
         switch name {
         case "Australian":          return "AU"
         case "Chinese":             return "CN"
@@ -42,13 +52,7 @@ public struct RaceWeekend: Codable, Identifiable, Hashable {
         case "Las Vegas":           return "US"
         case "Qatar":               return "QA"
         case "Abu Dhabi":           return "AE"
-        default:                    return ""
-        }
-    }
-    public var countryFlag: String {
-        guard countryCode.count == 2 else { return "🏁" }
-        return countryCode.uppercased().unicodeScalars.reduce("") {
-            $0 + (Unicode.Scalar($1.value + 127397).map(String.init) ?? "")
+        default:                    return nil
         }
     }
 

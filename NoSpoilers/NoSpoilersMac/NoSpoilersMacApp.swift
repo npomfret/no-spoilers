@@ -22,8 +22,8 @@ private struct MenuBarLabelView: View {
     var body: some View {
         let _ = tick
         let pair = store.liveOrNextSessionPair()
-        let flagCode = pair?.weekend.countryCode ?? ""
-        let showFlagItem = showFlag && !flagCode.isEmpty
+        let flagCode = pair?.weekend.countryCode ?? nil
+        let showFlagItem = showFlag && flagCode != nil
         let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
         HStack(spacing: 4) {
             // The status item's only always-present element: the countdown

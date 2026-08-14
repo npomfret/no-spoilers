@@ -30,7 +30,7 @@ struct SessionViewModel: Identifiable {
 
 struct UpcomingWeekendViewModel {
     let round: Int
-    let countryCode: String
+    let countryCode: String?
     let name: String
     let location: String
     let startsAt: Date
@@ -73,72 +73,59 @@ private struct WidgetDataSnapshot {
     let confirmedEndDates: [String: Date]
 }
 
-private struct WidgetFeedResponse: Codable {
-    let races: [RaceWeekend]
+private extension WidgetDataSnapshot {
+    init(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) {
+        self.init(
+            weekends: weekends,
+            allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
+            confirmedEndDates: confirmedEndDates
+        )
+    }
 }
 
-/// Reads weekends from the shared cache; if the cache is empty or inaccessible, fetches
-/// from the network synchronously and writes back to cache so the next reload is fast.
-private func resolveWidgetData() -> WidgetDataSnapshot {
+/// Reads weekends from the shared cache; if the cache is empty or inaccessible, fetches from the
+/// network and writes back to cache so the next reload is fast.
+///
+/// The fetch goes through `ScheduleFetcher` like everything else. This used to be a second
+/// implementation — its own `Codable` response type, its own hardcoded feed URL, and a
+/// `DispatchSemaphore` to make an async API synchronous. `getTimeline` takes a completion handler,
+/// so there was never a need to block: it can just await.
+private func resolveWidgetData() async -> WidgetDataSnapshot {
     let cache = ScheduleCache()
     let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
 
     let cacheResult = Result { try cache.load(for: NoSpoilersConfig.appGroupID) }
     switch cacheResult {
     case .success(let weekends) where !weekends.isEmpty:
-        log.error("cache hit: \(weekends.count) weekends")
-        return WidgetDataSnapshot(
-            weekends: weekends,
-            allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
-            confirmedEndDates: confirmedEndDates
-        )
+        log.info("cache hit: \(weekends.count) weekends")
+        return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
     case .success:
-        log.error("cache empty — falling back to network fetch")
+        log.info("cache empty — falling back to network fetch")
     case .failure(let error):
         log.error("cache load failed: \(error) — falling back to network fetch")
     }
 
-    // Cache miss or App Group unavailable — fetch directly so the widget does not need the app to run first.
-    let feedURL = URL(string: "https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json")!
-    var weekends: [RaceWeekend] = []
-    var fetchStatus: Int?
-    var fetchError: Error?
-    let semaphore = DispatchSemaphore(value: 0)
-    // Use ephemeral config — Apple recommends against URLSession.shared in extension contexts.
-    let session = URLSession(configuration: .ephemeral)
-    session.dataTask(with: feedURL) { bytes, response, error in
-        fetchStatus = (response as? HTTPURLResponse)?.statusCode
-        fetchError = error
-        if let bytes, fetchStatus == 200 {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            weekends = (try? decoder.decode(WidgetFeedResponse.self, from: bytes))?.races.sorted { $0.round < $1.round } ?? []
-        }
-        semaphore.signal()
-    }.resume()
-    let waitResult = semaphore.wait(timeout: .now() + 8)
-
-    if waitResult == .timedOut {
-        log.error("network fetch timed out after 8s")
-    } else if let error = fetchError {
-        log.error("network fetch error: \(error)")
-    } else {
-        log.error("network fetch: HTTP \(fetchStatus ?? -1), decoded \(weekends.count) weekends")
-    }
-
-    // Persist back to cache so the next timeline request skips the fetch.
+    // Cache miss or App Group unavailable — fetch directly so the widget does not need the app to
+    // have run first.
     do {
-        try cache.save(weekends, for: NoSpoilersConfig.appGroupID)
-        log.error("wrote \(weekends.count) weekends back to cache")
+        let weekends = try await ScheduleFetcher().fetch()
+        log.info("network fetch: \(weekends.count) weekends")
+        // Only persist a successful fetch. Writing an empty array back would overwrite a cache
+        // that may be corrupt-but-recoverable with a known-bad value, and would do it precisely
+        // when the network is the thing that is broken.
+        do {
+            try cache.save(weekends, for: NoSpoilersConfig.appGroupID)
+            log.info("wrote \(weekends.count) weekends back to cache")
+        } catch {
+            log.error("cache save failed: \(error)")
+        }
+        return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
     } catch {
-        log.error("cache save failed: \(error)")
+        // No cache and no network. `noDataView` is the modelled state for this; there is nothing
+        // to invent and nothing to save.
+        log.error("network fetch failed: \(error)")
+        return WidgetDataSnapshot(weekends: [], confirmedEndDates: confirmedEndDates)
     }
-
-    return WidgetDataSnapshot(
-        weekends: weekends,
-        allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
-        confirmedEndDates: confirmedEndDates
-    )
 }
 
 private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
@@ -295,13 +282,21 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
             completion(placeholderEntry(at: now))
             return
         }
-        completion(makeEntry(at: now, data: resolveWidgetData()))
+        Task {
+            completion(makeEntry(at: now, data: await resolveWidgetData()))
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NoSpoilersEntry>) -> Void) {
+        Task {
+            completion(await buildTimeline())
+        }
+    }
+
+    private func buildTimeline() async -> Timeline<NoSpoilersEntry> {
         let now = Date()
         let horizon = now.addingTimeInterval(timelineHorizon)
-        let data = resolveWidgetData()
+        let data = await resolveWidgetData()
 
         let boundaries = timelineBoundaryDates(after: now, upTo: horizon, data: data)
         let kept = Array(boundaries.prefix(maxTimelineEntries))
@@ -317,7 +312,7 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
         // is never left showing state it has already outlived.
         let reloadAt = kept.count < boundaries.count ? kept.last! : horizon
 
-        completion(Timeline(entries: kept.map { makeEntry(at: $0, data: data) }, policy: .after(reloadAt)))
+        return Timeline(entries: kept.map { makeEntry(at: $0, data: data) }, policy: .after(reloadAt))
     }
 }
 
