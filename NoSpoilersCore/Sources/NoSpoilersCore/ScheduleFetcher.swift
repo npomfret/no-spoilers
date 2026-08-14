@@ -19,7 +19,16 @@ public actor ScheduleFetcher {
     /// Ephemeral rather than `URLSession.shared`: this runs inside the widget extension as well as
     /// the apps, and Apple advises against `.shared` in extension contexts. Losing the URL cache
     /// costs nothing — `ScheduleCache` is the caching layer.
-    private let session = URLSession(configuration: .ephemeral)
+    ///
+    /// Timeouts are short and explicit. The widget's own fetch used to bound itself at 8 seconds
+    /// and that bound has to survive here, because a widget stuck waiting on a hung request shows
+    /// the redacted placeholder — grey bars — for as long as it waits. See task 19.
+    private let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 20
+        return URLSession(configuration: configuration)
+    }()
 
     public init() {}
 

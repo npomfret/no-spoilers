@@ -14,8 +14,8 @@ public enum RaceWeekendResolver {
     public static func currentWeekend(
         in weekends: [RaceWeekend],
         at now: Date,
-        imminentWindow: TimeInterval = 5 * 86_400,
-        confirmedEndDates: [String: Date]
+        confirmedEndDates: [String: Date],
+        imminentWindow: TimeInterval = 5 * 86_400
     ) -> RaceWeekend? {
         sorted(weekends).first { weekend in
             guard firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil else {
