@@ -14,6 +14,26 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
+                // Swiping is otherwise the only way between 23 weekends, with page dots as the
+                // only indication of where you are. If a swipe does not take — the thing this
+                // screen was reported for — there is no other route back to the weekend that
+                // matters. Only shown when you have actually navigated away from it.
+                if let currentIndex = currentWeekendIndex, currentIndex != selectedWeekendIndex {
+                    Button {
+                        selectedWeekendIndex = currentIndex
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.caption2)
+                            Text(Strings.Navigation.currentWeekend)
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(BrandPalette.secondaryText)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Strings.Navigation.jumpToCurrentWeekend)
+                }
                 Spacer()
                 Button {
                     showAbout = true
@@ -66,19 +86,12 @@ struct ContentView: View {
             AboutView(onDone: { showAbout = false })
         }
         .onAppear {
-            if !weekendsLoaded && !sortedWeekends.isEmpty {
-                selectedWeekendIndex = initialWeekendIndex()
-                weekendsLoaded = true
-            }
+            homeSelectionIfNeeded()
+            setupRefreshTimer()
         }
         .task { await refresh() }
         .onChange(of: store.weekends) { _, _ in
-            if !sortedWeekends.isEmpty {
-                if !weekendsLoaded {
-                    selectedWeekendIndex = initialWeekendIndex()
-                    weekendsLoaded = true
-                }
-            }
+            homeSelectionIfNeeded()
         }
         // `now` is read by every session row on every page, so writing it invalidates the whole
         // TabView — mid-swipe included. Nothing on this screen renders sub-minute granularity
@@ -94,12 +107,24 @@ struct ContentView: View {
             Task { await refresh() }
             setupRefreshTimer()
         }
-        .onAppear {
-            setupRefreshTimer()
-        }
         .onDisappear {
             refreshTimer?.cancel()
         }
+    }
+
+    /// Picks the page to show on first load, and keeps the selection valid afterwards.
+    ///
+    /// The selection used to be chosen once, latched, and never looked at again: if the schedule
+    /// shrank — a shorter season, or a cache that loaded fewer weekends than the network did —
+    /// `selectedWeekendIndex` could name a page no `.tag` matched, leaving the pager on nothing.
+    private func homeSelectionIfNeeded() {
+        guard !sortedWeekends.isEmpty else { return }
+        if !weekendsLoaded {
+            selectedWeekendIndex = initialWeekendIndex()
+            weekendsLoaded = true
+            return
+        }
+        selectedWeekendIndex = min(selectedWeekendIndex, sortedWeekends.count - 1)
     }
 
     private var backgroundGradient: some View {
@@ -116,6 +141,12 @@ struct ContentView: View {
 
     private var sortedWeekends: [RaceWeekend] {
         store.weekends.sorted { $0.round < $1.round }
+    }
+
+    /// The page the app would open on right now — live weekend, else one that finished in the last
+    /// day, else the next one up. Nil when there is nothing to show.
+    private var currentWeekendIndex: Int? {
+        sortedWeekends.isEmpty ? nil : initialWeekendIndex()
     }
 
     /// Wall-clock minute a date falls in. Used to decide whether republishing `now` could change

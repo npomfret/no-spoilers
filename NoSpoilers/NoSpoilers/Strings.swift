@@ -32,6 +32,10 @@ enum Strings {
         static func sessionUpcoming(name: String, countdown: String) -> String { "\(name) \(countdown)" }
         static func dateRange(start: String, end: String) -> String         { "\(start) to \(end)" }
     }
+    enum Navigation {
+        static let currentWeekend: LocalizedStringKey     = "Current"
+        static let jumpToCurrentWeekend: LocalizedStringKey = "Jump to the current race weekend"
+    }
     enum Error {
         static let unavailableTitle: LocalizedStringKey   = "Schedule unavailable"
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."
