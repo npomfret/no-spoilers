@@ -6,6 +6,7 @@
 #                         this repo has already claimed, skipping any tag that is
 #                         already taken. Falls back to 1.0.0 for a repo with
 #                         neither a version tag nor a project version.
+#   current_build_number  Print the CURRENT_PROJECT_VERSION the project holds.
 #
 # "Already claimed" is the higher of two sources, and it needs both:
 #
@@ -20,13 +21,33 @@
 # the project, and release.sh seds MARKETING_VERSION to whatever it is given, so
 # the suggestion silently walks the project backwards.
 
-suggest_next_version() {
-  local PBXPROJ TAGGED PROJECT BASE MAJOR MINOR PATCH SUGGESTED
+pbxproj_path() {
+  local PBXPROJ
   PBXPROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/NoSpoilers/NoSpoilers.xcodeproj/project.pbxproj"
   if [[ ! -f "$PBXPROJ" ]]; then
-    echo "suggest_next_version: no project at ${PBXPROJ}" >&2
+    echo "no project at ${PBXPROJ}" >&2
     return 1
   fi
+  printf '%s' "$PBXPROJ"
+}
+
+# The build number the project currently holds. Shared because ship.sh has to
+# know it before it calls release.sh: one ship run is one build number across
+# every platform, and two readers of the same line would drift.
+current_build_number() {
+  local PBXPROJ BUILD
+  PBXPROJ="$(pbxproj_path)" || return 1
+  BUILD=$(grep -m1 -E "CURRENT_PROJECT_VERSION = [0-9]+;" "$PBXPROJ" | grep -oE "[0-9]+")
+  if [[ -z "$BUILD" ]]; then
+    echo "could not read CURRENT_PROJECT_VERSION from ${PBXPROJ}" >&2
+    return 1
+  fi
+  printf '%s' "$BUILD"
+}
+
+suggest_next_version() {
+  local PBXPROJ TAGGED PROJECT BASE MAJOR MINOR PATCH SUGGESTED
+  PBXPROJ="$(pbxproj_path)" || return 1
 
   TAGGED=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
   PROJECT=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')

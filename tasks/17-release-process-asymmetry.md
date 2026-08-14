@@ -1,7 +1,9 @@
 # Task 17: Homebrew is being treated as the core macOS product
 
-**Status: OPEN, LOW PRIORITY (2026-08-13). The two changes that follow directly from the core-product
-decision are done; what remains is tooling cleanup and behind task 16.**
+**Status: OPEN on one question only (updated 2026-08-14). The core-product decision is made and its
+two changes are done; the defect list is done bar the dry run. What is left is option D — whether
+macOS gets Xcode Cloud and TestFlight — which is a product decision, not cleanup, and is behind
+task 16.**
 
 Raised 2026-08-13: the macOS release process feels very different from the iOS one, and Homebrew
 looks like it is being treated as the main product rather than an add-on.
@@ -30,7 +32,10 @@ is **the channel set and the CI coverage**, not the code.
 
 ## Where Homebrew is treated as the core product
 
-Five places, all in `release.sh`:
+Five places, all in `release.sh`. **Line numbers below are as they stood on 2026-08-13 and have
+since moved; 1 and 2 are fixed.** 4 is left alone deliberately — the cask builds its download URL out
+of that exact name (`…/download/v#{version}/NoSpoilers-#{version}.zip`), so renaming the artifact
+is a coordinated change across two repositories in exchange for consistency in a filename.
 
 1. **It is the default.** `PLATFORM="macos"`, `CHANNEL="developer-id"` (`release.sh:51-52`). Running
    the engine bare ships Homebrew. The add-on is what you get when you ask for nothing.
@@ -86,34 +91,32 @@ made on the merits.
 
 ## Defects worth fixing whatever is decided about the philosophy
 
-These are independent of the add-on question.
+These are independent of the add-on question. **Four of the five were fixed 2026-08-14** — see
+"Done: the defect list" below. The one left open is the last.
 
-- **The version bump is committed and pushed before anything is built.**
-  `release.sh:147-154` commits and pushes; the archive is at `:164`. A build failure leaves a
-  pushed `bump to vX (build N)` commit and no artifact anywhere. `ship.sh` invokes the engine
-  twice, so a macOS success followed by an iOS failure leaves **two** pushed bump commits and one
-  platform shipped.
+- ~~**The version bump is committed and pushed before anything is built.**~~ FIXED.
+  A build failure left a pushed `bump to vX (build N)` commit and no artifact anywhere, and
+  `ship.sh` invokes the engine twice, so a macOS success followed by an iOS failure left **two**
+  pushed bump commits and one platform shipped.
 
-- **One `ship.sh` run produces two different build numbers for one version.** Each invocation
-  bumps `CURRENT_PROJECT_VERSION` independently (`release.sh:134-142`), which is why 1.1.1 carries
-  10001 on macOS and 10002 on iOS. Harmless today, but the docs say the channels are
-  "version-locked" and the build numbers visibly are not.
+- ~~**One `ship.sh` run produces two different build numbers for one version.**~~ FIXED.
+  Each invocation bumped `CURRENT_PROJECT_VERSION` independently, which is why 1.1.1 carries
+  10001 on macOS and 10002 on iOS. Harmless in itself, but the docs said the channels were
+  "version-locked" and the build numbers visibly were not.
 
-- **The Homebrew tap path is unchecked and reaches outside the repository.**
-  ```
-  release.sh:236   HOMEBREW_TAP_DIR="$(dirname "$(realpath "$0")")/../../homebrew-tap"
-  ```
-  No existence check, no branch check, no clean-tree check. The checkout is present today
-  (`../homebrew-tap/Casks/no-spoilers.rb`). If it were missing, `sed -i ''` fails *after*
-  notarization has completed and the GitHub release has been published. **Per the repo's fail-fast
-  rule this should be a precondition at the top of the run, not a discovery at the end of it.**
+- ~~**The Homebrew tap path is unchecked and reaches outside the repository.**~~ FIXED.
+  `HOMEBREW_TAP_DIR="$(dirname "$(realpath "$0")")/../../homebrew-tap"` had no existence check. If
+  the checkout were missing, `sed -i ''` failed *after* notarization had completed and the GitHub
+  release had been published.
 
-- **Re-running after a partial failure is not safe.** `tag_version` guards the tag, but
-  `gh release create` at `:230` is unguarded. *(Unverified — check `gh`'s behaviour on an existing
-  release before acting on this.)*
+- ~~**Re-running after a partial failure is not safe.**~~ FIXED, and the note to verify `gh` first
+  was right to be there: **`gh release view` is the honest probe** — exit 0 for an existing
+  release, exit 1 for a missing one (checked against `v1.1.1` and `v99.99.99` on 2026-08-14).
 
-- **The two writing tools have opposite safety postures.** `testflight_distribute.py` is dry-run by
-  default and needs `--apply`. `release.sh` has no dry run and pushes to two repositories.
+- **OPEN — the two writing tools have opposite safety postures.** `testflight_distribute.py` is
+  dry-run by default and needs `--apply`. `release.sh` has no dry run and pushes to two
+  repositories. Not taken because a real `--dry-run` has to guard every mutating command in the
+  engine, and half its value — knowing the run cannot die on a missing tap — is now in preflight.
 
 ---
 
@@ -146,10 +149,11 @@ one, but the blast radius of getting it wrong now includes a sibling project.
    Options A and B are done — see below. On iOS the core product is specifically **the live
    updating widget**, which is also the 4.2.2 argument in task 16; the two tasks meet there.
 2. **OPEN — does macOS get Xcode Cloud and TestFlight (option D)?** Until it does, "Homebrew is an
-   add-on" is an aspiration, because nothing else on macOS is fast.
-3. **OPEN — how much of the defect list to take now**, given task 16 is the live priority. Note
-   that A reduced the cost of two of them: a Homebrew tap or notary failure can no longer lose the
-   store upload, only the Homebrew publish.
+   add-on" is an aspiration, because nothing else on macOS is fast. **This is the only thing left
+   in this task.**
+3. **DECIDED 2026-08-14: take all of the defect list except the dry run.** Option C and the other
+   three are done; see below. The dry run is the one that needs new machinery rather than
+   reordering existing machinery, and preflight already removes its most-cited benefit.
 
 ### Done: A and B
 
@@ -167,6 +171,37 @@ Verified: `bash -n` clean on all ten shell scripts; bare, platform-only and inva
 invocations each exit 1 before touching the working tree. **Not verified by a real release** — that
 needs an actual ship and has not been run.
 
+### Done: the defect list, 2026-08-14
+
+- **Commit and push moved below the archive** (`release.sh`). The sed stays above it, so the
+  archive is still built from a working tree that agrees with the flags it is passed; only the
+  commit waits for an artifact to exist. An `ERR` trap between the two reports that the project is
+  modified and unpushed. It deliberately does not revert — that file is not exclusively ours.
+- **`--build N`** added to `release.sh`, and `ship.sh` chooses one number for the whole run.
+- **`current_build_number` and `pbxproj_path`** added to `_version.sh`, which is where shared
+  release shell already lives. `ship.sh` needs the number before it calls the engine, and two
+  readers of that pbxproj line would drift.
+- **Preflight** section in `release.sh`: `--channel developer-id|both` now resolves the tap and
+  fails at the top of the run if the cask file or its git checkout is missing.
+- **`gh release create` guarded** by `gh release view`, falling back to `gh release upload
+  --clobber`.
+
+Verified 2026-08-14 without shipping anything:
+
+| check | evidence |
+|---|---|
+| `bash -n` on all eleven shell scripts | clean |
+| helpers read the project | `current_build_number` → `10002`, matching the pbxproj line |
+| argument validation | bare, platform-only, `ios + developer-id`, `--build abc`, `--build 1e3` all exit 1, working tree untouched |
+| tap preflight fires | missing cask (both `developer-id` and `both`) and non-git tap dir each exit 1 before any build |
+| tap preflight is scoped | `--channel app-store` runs straight past it |
+| **failed archive leaves no commit** | throwaway git repo + unbuildable project: archive failed, trap reported, `git log` still 1 commit, nothing pushed, pbxproj left modified |
+| `--build` pins and is idempotent | 500 → 501 unpinned; `--build 777` → 777; second invocation with 777 → 777 |
+| `ci_health.py` | PASS, both products resolve by id |
+
+Not run: the four `verify-*.sh` wrappers. This change is shell-only and none of them source
+`_version.sh` (`release.sh` and `ship.sh` are its only readers), so they answer nothing about it.
+
 ---
 
 ## Verification
@@ -174,8 +209,9 @@ needs an actual ship and has not been run.
 Whatever is done here:
 
 - [ ] `scripts/ship.sh` still ships all three channels from one version, proven by a real run
-- [ ] A deliberately failed channel leaves no pushed bump commit for an unshipped build
-- [ ] The four `scripts/verify-*.sh` wrappers pass
-- [ ] `scripts/ci_health.py` clean, and both Xcode Cloud products still resolve by id
-- [ ] `docs/guides/building.md` updated in the same change — it is the canonical description and is
+      — **still the gap; everything above is proven short of an actual ship**
+- [x] A deliberately failed channel leaves no pushed bump commit for an unshipped build
+- [ ] The four `scripts/verify-*.sh` wrappers pass — not applicable to a shell-only change
+- [x] `scripts/ci_health.py` clean, and both Xcode Cloud products still resolve by id
+- [x] `docs/guides/building.md` updated in the same change — it is the canonical description and is
       currently accurate
