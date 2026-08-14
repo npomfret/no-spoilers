@@ -71,13 +71,12 @@ public class ScheduleStore: ObservableObject {
             if isLive {
                 label = label.isEmpty ? Strings.MenuBar.live : Strings.MenuBar.liveWithSession(label)
             } else {
-                let secs = Int(pair.session.startsAt.timeIntervalSince(now))
-                let days = secs / 86_400
-                let h = secs / 3600
-                let m = (secs % 3600) / 60
-                let timeStr = days >= 1 ? Strings.MenuBar.countdownDays(days)
-                            : h > 0    ? Strings.MenuBar.countdownHoursMinutes(h, m)
-                                       : Strings.MenuBar.countdownMinutes(m)
+                // The menu bar has one line and shares it with the app icon, so this stops at
+                // hours where the popover behind it goes down to seconds.
+                let remaining = DurationBreakdown(until: pair.session.startsAt, from: now)
+                let timeStr = remaining.days >= 1 ? Strings.MenuBar.countdownDays(remaining.days)
+                            : remaining.hours > 0 ? Strings.MenuBar.countdownHoursMinutes(remaining.hours, remaining.minutes)
+                                                  : Strings.MenuBar.countdownMinutes(remaining.minutes)
                 label = label.isEmpty ? timeStr : Strings.MenuBar.sessionWithCountdown(label, timeStr)
             }
         }

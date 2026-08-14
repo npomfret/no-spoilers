@@ -44,16 +44,19 @@ enum SessionState {
 
 // MARK: - Helpers
 
+/// Thin wrapper over the shared resolver, purely to keep the `[String: Date]` lookup off every
+/// call site here. The logic itself now lives in `SessionResolver` — this was the only correct
+/// implementation of it, and both apps were using `session.endsAt` instead.
 private func effectiveSessionEndDate(
     for session: Session,
     nextSession: Session?,
     confirmedEndDates: [String: Date]
 ) -> Date {
-    let fallbackEnd = confirmedEndDates[session.id] ?? (session.endsAt + session.kind.gracePeriod)
-    guard let nextSession else {
-        return fallbackEnd
-    }
-    return min(nextSession.startsAt, fallbackEnd)
+    SessionResolver.effectiveEndDate(
+        for: session,
+        nextSession: nextSession,
+        confirmedEndAt: confirmedEndDates[session.id]
+    )
 }
 
 private func sessionState(for session: Session, nextSession: Session?, at now: Date, confirmedEndDates: [String: Date]) -> SessionState {
@@ -173,8 +176,8 @@ private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntr
     if let previous = sortedWeekends.last(where: {
         !$0.allSessions.isEmpty &&
         RaceWeekendResolver.firstNonFinishedSession(in: $0, at: now, confirmedEndDates: confirmedEndDates) == nil
-    }), let lastSession = previous.allSessions.last {
-        let endTime = effectiveSessionEndDate(for: lastSession, nextSession: nil, confirmedEndDates: confirmedEndDates)
+    }) {
+        let endTime = RaceWeekendResolver.effectiveEndDate(of: previous, confirmedEndDates: confirmedEndDates)
         if now.timeIntervalSince(endTime) < 24 * 3600 {
             let prevSessions = previous.allSessions
             let sessionVMs = prevSessions.indices.map { i -> SessionViewModel in
@@ -241,12 +244,10 @@ private func timelineBoundaryDates(after now: Date, upTo horizon: Date, data: Wi
         }
     }
 
-    for weekend in data.weekends {
+    for weekend in data.weekends where !weekend.allSessions.isEmpty {
         // Schedule the boundary where the 24h "recently finished" window expires.
-        if let lastSession = weekend.allSessions.last {
-            let endTime = effectiveSessionEndDate(for: lastSession, nextSession: nil, confirmedEndDates: data.confirmedEndDates)
-            appendIfWithinHorizon(endTime.addingTimeInterval(24 * 3600))
-        }
+        let endTime = RaceWeekendResolver.effectiveEndDate(of: weekend, confirmedEndDates: data.confirmedEndDates)
+        appendIfWithinHorizon(endTime.addingTimeInterval(24 * 3600))
     }
 
     for index in data.allSessions.indices {

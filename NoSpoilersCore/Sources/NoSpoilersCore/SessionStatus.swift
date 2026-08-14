@@ -40,4 +40,24 @@ public struct SessionResolver {
         if now < graceEnd { return .inProgress }
         return .finished
     }
+
+    /// When a session is actually considered over.
+    ///
+    /// This is not `Session.endsAt`, which is only `startsAt + kind.defaultDuration` — the
+    /// *scheduled* end. The effective end is the confirmed end time if we have one, otherwise the
+    /// end of the grace window, and never later than the next session starting.
+    ///
+    /// The distinction is user-visible: the race grace period is 90 minutes, so labelling a
+    /// finished race from `endsAt` said "finished 1h 40m ago" at the moment this considers it just
+    /// over. Both apps used to do exactly that while the widget did it correctly, which is why
+    /// this now lives here and all three call it.
+    public static func effectiveEndDate(
+        for session: Session,
+        nextSession: Session?,
+        confirmedEndAt: Date?
+    ) -> Date {
+        let end = confirmedEndAt ?? (session.endsAt + session.kind.gracePeriod)
+        guard let nextSession else { return end }
+        return min(nextSession.startsAt, end)
+    }
 }

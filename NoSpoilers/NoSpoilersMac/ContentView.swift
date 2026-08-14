@@ -37,7 +37,7 @@ struct WeekendPopoverView: View {
         let now = self.now
         let displayWeekend: RaceWeekend? = {
             if let previous = recentlyFinishedWeekend(at: now),
-               now.timeIntervalSince(endTime(of: previous)) < 24 * 3600 {
+               now.timeIntervalSince(RaceWeekendResolver.effectiveEndDate(of: previous, confirmedEndDates: store.confirmedEndDates)) < 24 * 3600 {
                 return previous
             }
             return RaceWeekendResolver.firstActiveWeekend(in: store.weekends, at: now, confirmedEndDates: store.confirmedEndDates)
@@ -102,11 +102,6 @@ struct WeekendPopoverView: View {
                 !$0.allSessions.isEmpty &&
                 RaceWeekendResolver.firstNonFinishedSession(in: $0, at: now, confirmedEndDates: store.confirmedEndDates) == nil
             }
-    }
-
-    private func endTime(of weekend: RaceWeekend) -> Date {
-        guard let last = weekend.allSessions.last else { return .distantPast }
-        return store.confirmedEndDates[last.id] ?? (last.endsAt + last.kind.gracePeriod)
     }
 
     private func weekendView(_ weekend: RaceWeekend, now: Date) -> some View {
@@ -185,7 +180,7 @@ struct WeekendPopoverView: View {
             }
             .frame(minWidth: 100, alignment: .leading)
             Spacer()
-            statusBadge(status: status, session: session, at: now)
+            statusBadge(status: status, session: session, nextSession: nextSession, at: now)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -196,14 +191,24 @@ struct WeekendPopoverView: View {
     }
 
     @ViewBuilder
-    private func statusBadge(status: SessionStatus, session: Session, at now: Date) -> some View {
+    private func statusBadge(status: SessionStatus, session: Session, nextSession: Session?, at now: Date) -> some View {
         switch status {
         case .finished:
-            let secs = Int(now.timeIntervalSince(session.endsAt))
-            let h = secs / 3600
-            let m = (secs % 3600) / 60
+            // Measured from the effective end, not `session.endsAt`. The scheduled end is 90
+            // minutes before a race is considered over, so this used to open at "finished 1h 40m
+            // ago" the moment the session flipped.
+            let endedAt = SessionResolver.effectiveEndDate(
+                for: session,
+                nextSession: nextSession,
+                confirmedEndAt: store.confirmedEndDates[session.id]
+            )
+            let elapsed = DurationBreakdown(since: endedAt, to: now)
             NoSpoilersStatusBadge(
-                text: Strings.Popover.finishedAgo(h > 0 ? Strings.Popover.durationHours(h) : Strings.Popover.durationMinutes(m)),
+                text: Strings.Popover.finishedAgo(
+                    elapsed.totalHours > 0
+                        ? Strings.Popover.durationHours(elapsed.totalHours)
+                        : Strings.Popover.durationMinutes(elapsed.minutes)
+                ),
                 style: .finished
             )
         case .inProgress:
@@ -213,17 +218,15 @@ struct WeekendPopoverView: View {
         }
     }
 
+    /// Goes all the way down to seconds, unlike iOS. The popover is open in front of you while you
+    /// read it, so a static minutes reading looks frozen.
     private func countdown(to date: Date, from now: Date) -> String {
-        let secs = Int(date.timeIntervalSince(now))
-        guard secs > 0 else { return Strings.Popover.countdownZero }
-        let d = secs / 86_400
-        let h = (secs % 86_400) / 3600
-        let m = (secs % 3600) / 60
-        let s = secs % 60
-        if d >= 1 { return Strings.Popover.countdownDaysHoursMinutes(d, h, m) }
-        if h >= 1 { return Strings.Popover.countdownHoursMinutesSeconds(h, m, s) }
-        if m >= 1 { return Strings.Popover.countdownMinutesSeconds(m, s) }
-        return Strings.Popover.countdownSeconds(s)
+        let remaining = DurationBreakdown(until: date, from: now)
+        guard !remaining.isElapsed else { return Strings.Popover.countdownZero }
+        if remaining.days >= 1 { return Strings.Popover.countdownDaysHoursMinutes(remaining.days, remaining.hours, remaining.minutes) }
+        if remaining.hours >= 1 { return Strings.Popover.countdownHoursMinutesSeconds(remaining.hours, remaining.minutes, remaining.seconds) }
+        if remaining.minutes >= 1 { return Strings.Popover.countdownMinutesSeconds(remaining.minutes, remaining.seconds) }
+        return Strings.Popover.countdownSeconds(remaining.seconds)
     }
 
     private func nextRoundFooter(_ weekend: RaceWeekend, now: Date) -> some View {

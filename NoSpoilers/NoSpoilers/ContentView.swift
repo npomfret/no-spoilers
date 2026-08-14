@@ -223,7 +223,7 @@ struct ContentView: View {
 
                         Spacer()
 
-                        statusBadge(for: session, status: status)
+                        statusBadge(for: session, nextSession: nextSession, status: status)
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -335,23 +335,19 @@ struct ContentView: View {
             return nil
         }
         // Only return it if it finished within the last 24 hours
-        guard now.timeIntervalSince(endTime(of: finished)) < 24 * 3600 else {
+        let endedAt = RaceWeekendResolver.effectiveEndDate(of: finished, confirmedEndDates: store.confirmedEndDates)
+        guard now.timeIntervalSince(endedAt) < 24 * 3600 else {
             return nil
         }
         return finished
     }
 
-    private func endTime(of weekend: RaceWeekend) -> Date {
-        guard let last = weekend.allSessions.last else { return .distantPast }
-        return store.confirmedEndDates[last.id] ?? (last.endsAt + last.kind.gracePeriod)
-    }
-
     @ViewBuilder
-    private func statusBadge(for session: Session, status: SessionStatus) -> some View {
+    private func statusBadge(for session: Session, nextSession: Session?, status: SessionStatus) -> some View {
         switch status {
         case .finished:
             NoSpoilersStatusBadge(
-                text: Strings.Sessions.finishedAgo(finishedAgo(since: session.endsAt)),
+                text: Strings.Sessions.finishedAgo(finishedAgo(since: effectiveEnd(of: session, nextSession: nextSession))),
                 style: .finished
             )
         case .inProgress:
@@ -365,7 +361,7 @@ struct ContentView: View {
         let nextSession = nextChronologicalSession(after: session, in: sessions)
         switch SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id]) {
         case .finished:
-            return Strings.Sessions.sessionFinished(name: session.kind.displayName, ago: finishedAgo(since: session.endsAt))
+            return Strings.Sessions.sessionFinished(name: session.kind.displayName, ago: finishedAgo(since: effectiveEnd(of: session, nextSession: nextSession)))
         case .inProgress:
             return Strings.Sessions.sessionInProgress(session.kind.displayName)
         case .upcoming:
@@ -380,25 +376,35 @@ struct ContentView: View {
         return index + 1 < sessions.count ? sessions[index + 1] : nil
     }
 
-    private func countdown(to date: Date) -> String {
-        let secs = Int(date.timeIntervalSince(now))
-        guard secs > 0 else { return Strings.Sessions.countdownNow }
-
-        let days = secs / 86_400
-        let hours = (secs % 86_400) / 3_600
-        let minutes = (secs % 3_600) / 60
-
-        if days >= 1 { return Strings.Sessions.countdownDaysHours(days, hours) }
-        if hours >= 1 { return Strings.Sessions.countdownHoursMinutes(hours, minutes) }
-        return Strings.Sessions.countdownMinutes(minutes)
+    /// When a session is actually over — the confirmed end if we have one, otherwise the end of
+    /// the grace window. Not `session.endsAt`, which is only the scheduled end and reads 90
+    /// minutes early for a race.
+    private func effectiveEnd(of session: Session, nextSession: Session?) -> Date {
+        SessionResolver.effectiveEndDate(
+            for: session,
+            nextSession: nextSession,
+            confirmedEndAt: store.confirmedEndDates[session.id]
+        )
     }
 
+    /// Tiers stop at minutes: this screen is glanced at, and a ticking seconds field would mean
+    /// invalidating every page once a second. The macOS popover, which is open in front of you,
+    /// deliberately goes finer.
+    private func countdown(to date: Date) -> String {
+        let remaining = DurationBreakdown(until: date, from: now)
+        guard !remaining.isElapsed else { return Strings.Sessions.countdownNow }
+
+        if remaining.days >= 1 { return Strings.Sessions.countdownDaysHours(remaining.days, remaining.hours) }
+        if remaining.hours >= 1 { return Strings.Sessions.countdownHoursMinutes(remaining.hours, remaining.minutes) }
+        return Strings.Sessions.countdownMinutes(remaining.minutes)
+    }
+
+    /// Hours here are `totalHours`, not hours-within-a-day: a session finished two days ago reads
+    /// "48h", which is what this has always shown.
     private func finishedAgo(since date: Date) -> String {
-        let secs = max(0, Int(now.timeIntervalSince(date)))
-        let hours = secs / 3_600
-        let minutes = (secs % 3_600) / 60
-        if hours >= 1 { return Strings.Sessions.durationHours(hours) }
-        return Strings.Sessions.durationMinutes(minutes)
+        let elapsed = DurationBreakdown(since: date, to: now)
+        if elapsed.totalHours >= 1 { return Strings.Sessions.durationHours(elapsed.totalHours) }
+        return Strings.Sessions.durationMinutes(elapsed.minutes)
     }
 
     private func dateRange(from start: Date, to end: Date) -> String {
