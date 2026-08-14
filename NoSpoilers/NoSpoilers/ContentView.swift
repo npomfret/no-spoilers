@@ -419,26 +419,41 @@ struct ContentView: View {
             .autoconnect()
             .sink { _ in
                 Task { await refresh() }
-                // Reschedule in case the interval changed (event started/ended)
+                // Reschedule: the interval this timer was built from may no longer be the right
+                // one now that time has passed.
                 setupRefreshTimer()
             }
     }
 
+    private static let activeRefreshInterval: TimeInterval = 5 * 60
+    private static let idleRefreshInterval: TimeInterval = 3600
+    /// How far ahead of a session start the fast cadence kicks in.
+    private static let imminentWindow: TimeInterval = 3600
+
+    /// How long until the next refresh should happen.
+    ///
+    /// Five minutes while a session is live or about to start, hourly otherwise — but the idle
+    /// case also wakes early enough to catch the moment the *next* session enters the imminent
+    /// window. Returning a flat hour instead would mean a session starting 59 minutes after a
+    /// check is not noticed until the following hourly tick, by which point it has already begun.
     private func refreshInterval() -> TimeInterval {
-        // Check if any session is currently in progress or upcoming in the next hour
+        var nextWake = Self.idleRefreshInterval
+
         for weekend in sortedWeekends {
             for session in weekend.allSessions {
-                let status = SessionResolver.status(for: session, at: now, nextSession: nil)
-                if status == .inProgress {
-                    return 5 * 60  // Refresh every 5 minutes during active sessions
+                if SessionResolver.status(for: session, at: now, nextSession: nil, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
+                    return Self.activeRefreshInterval
                 }
-                let secondsUntilSession = session.startsAt.timeIntervalSince(now)
-                if secondsUntilSession > 0 && secondsUntilSession < 3600 {
-                    return 5 * 60  // Refresh every 5 minutes when session starting soon
+                let untilStart = session.startsAt.timeIntervalSince(now)
+                guard untilStart > 0 else { continue }
+                if untilStart < Self.imminentWindow {
+                    return Self.activeRefreshInterval
                 }
+                nextWake = min(nextWake, untilStart - Self.imminentWindow)
             }
         }
-        return 3600  // Refresh hourly when no events are active
+        // Never busy-loop, however close the boundary is.
+        return max(60, nextWake)
     }
 
     private func initialWeekendIndex() -> Int {

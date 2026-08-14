@@ -9,6 +9,12 @@ public class ScheduleStore: ObservableObject {
     private let appGroupID: String?
     private let cache = ScheduleCache()
     private let confirmer: SessionEndConfirmer
+    /// The refresh currently running, if any. Callers that arrive while one is in flight join it
+    /// rather than starting a second fetch — three of them overlap on launch (`init`, the view's
+    /// `.task`, and `scenePhase == .active`), and without this the first one to finish would clear
+    /// `isRefreshing` while the others were still running, dropping the skeleton before there was
+    /// anything to show.
+    private var inFlightRefresh: Task<Void, Never>?
 
     /// Confirmed actual end dates for sessions, keyed by `Session.id`.
     /// Populated by the OpenF1 free-tier poller once data enters the historical window.
@@ -80,13 +86,29 @@ public class ScheduleStore: ObservableObject {
 
     /// Fetch → save to cache → update published state.
     /// On failure: use cache (even stale). On cache miss: blank state.
+    ///
+    /// Concurrent callers join the fetch already in flight instead of starting another.
     public func refresh() async {
+        if let existing = inFlightRefresh {
+            await existing.value
+            return
+        }
+        let task = Task { await performRefresh() }
+        inFlightRefresh = task
+        await task.value
+        if inFlightRefresh == task { inFlightRefresh = nil }
+    }
+
+    private func performRefresh() async {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
             let weekends = try await ScheduleFetcher().fetch()
             try? cache.save(weekends, for: appGroupID)
-            let changed = weekends.map(\.round) != self.weekends.map(\.round)
+            // Compare the weekends themselves, not just their round numbers. A session moved by an
+            // hour, a weekend rescheduled, or a race cancelled in place all leave the round list
+            // identical, and the widget would never be told.
+            let changed = weekends != self.weekends
             self.weekends = weekends
             if changed { WidgetCenter.shared.reloadAllTimelines() }
         } catch {
