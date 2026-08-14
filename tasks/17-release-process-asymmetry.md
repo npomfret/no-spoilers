@@ -1,9 +1,9 @@
 # Task 17: Homebrew is being treated as the core macOS product
 
-**Status: OPEN on one question only (updated 2026-08-14). The core-product decision is made and its
-two changes are done; the defect list is done bar the dry run. What is left is option D — whether
-macOS gets Xcode Cloud and TestFlight — which is a product decision, not cleanup, and is behind
-task 16.**
+**Status: OPEN, and everything left needs a real run (updated 2026-08-14). All four decisions are
+made; A, B, C, option D's CI half and four of the five defects are done. What remains cannot be
+proven from a laptop: the first Xcode Cloud run that archives macOS, and the TestFlight half of
+option D, which is deliberately left until a macOS build exists to test it against.**
 
 Raised 2026-08-13: the macOS release process feels very different from the iOS one, and Homebrew
 looks like it is being treated as the main product rather than an add-on.
@@ -62,13 +62,15 @@ is a coordinated change across two repositories in exchange for consistency in a
 
 ## The real asymmetry, which is not about Homebrew at all
 
+As it stood 2026-08-13. The CI and test-gate rows were closed on 2026-08-14; the beta row was not.
+
 | | macOS | iOS |
 |---|---|---|
-| CI build | **none** | Xcode Cloud, every push to `main` |
-| Automated test gate before shipping | **none** | `ci_pre_xcodebuild.sh` runs `verify-core-tests.sh` |
-| Routes to the store | local `release.sh` | local `release.sh` **and** Xcode Cloud |
-| Beta channel | **none** | TestFlight |
-| Build-number bands in use | 10001+ | 10000+ *and* 1…n |
+| CI build | ~~**none**~~ → Xcode Cloud, same workflow | Xcode Cloud, every push to `main` |
+| Automated test gate before shipping | ~~**none**~~ → the same `ci_pre_xcodebuild.sh` | `ci_pre_xcodebuild.sh` runs `verify-core-tests.sh` |
+| Routes to the store | local `release.sh` **and** Xcode Cloud | local `release.sh` **and** Xcode Cloud |
+| Beta channel | **still none** — builds upload, nothing distributes them | TestFlight |
+| Build-number bands in use | 10001+ *and* 1…n | 10000+ *and* 1…n |
 
 Verified 2026-08-13 — the product holds exactly one workflow and one action:
 
@@ -85,7 +87,8 @@ anything, it just removes the one channel that works.
 Note also that the macOS `ARCHIVE` action was **deliberately deleted** during the 2026-08-13
 product recreation — the wizard added it unrequested and it was removed to keep the
 restore minimal. That was the right call under the circumstances and is not a decision anyone
-made on the merits.
+made on the merits. **It was put back on the merits on 2026-08-14**, by hand and by id rather than
+by wizard; see "Done: option D" below.
 
 ---
 
@@ -146,11 +149,14 @@ one, but the blast radius of getting it wrong now includes a sibling project.
 ## Decisions
 
 1. **DECIDED 2026-08-13: the App Store is the core product. Homebrew is an add-on.**
+   **Reaffirmed 2026-08-14: the Homebrew channel stays. It is less important, not unwanted.**
+   "Add-on" is a statement about priority and ordering, never a plan to retire the channel — do not
+   read anything in this file, or the App Store running first in `--channel both`, as licence to
+   delete it. It is a real distribution route with real users on it.
    Options A and B are done — see below. On iOS the core product is specifically **the live
    updating widget**, which is also the 4.2.2 argument in task 16; the two tasks meet there.
-2. **OPEN — does macOS get Xcode Cloud and TestFlight (option D)?** Until it does, "Homebrew is an
-   add-on" is an aspiration, because nothing else on macOS is fast. **This is the only thing left
-   in this task.**
+2. **DECIDED 2026-08-14: yes — macOS gets Xcode Cloud (option D).** The CI half is done; the
+   TestFlight half is not. See below.
 3. **DECIDED 2026-08-14: take all of the defect list except the dry run.** Option C and the other
    three are done; see below. The dry run is the one that needs new machinery rather than
    reordering existing machinery, and preflight already removes its most-cited benefit.
@@ -201,6 +207,52 @@ Verified 2026-08-14 without shipping anything:
 
 Not run: the four `verify-*.sh` wrappers. This change is shell-only and none of them source
 `_version.sh` (`release.sh` and `ship.sh` are its only readers), so they answer nothing about it.
+
+### Done: option D, the CI half, 2026-08-14
+
+A second `ARCHIVE` action, scheme `NoSpoilers`, platform `MACOS`, added to the existing workflow
+`7A43B70B-3311-4954-A625-AB82333B6503` by `PATCH /v1/ciWorkflows/{id}` with the App Manager key.
+The full before/after is in `docs/guides/building.md`, which is the canonical description.
+
+**One workflow, not two.** Actions in a workflow share the run number, so one commit now produces
+iOS build N and macOS build N. Two workflows would have given the platforms different build numbers
+for the same commit — the exact defect `ship.sh` was fixed for two hours earlier in this task.
+
+Checked before writing, because `building.md` warns that a spent `(version, build)` pair goes green
+and then dies at *"Preparing build for App Store Connect failed"*:
+
+```
+IOS     1.1.1  builds 1–14, 10002        next run is 15 — free
+MAC_OS  1.1.1  build 10001 only          next run is 15 — free
+```
+
+The macOS train has never used a CI-band number; every pre-2026-08 macOS build was build 1 or 2 of
+its own version, and `release.sh` sits at 10001. The bands do not collide.
+
+Verified: the workflow's before/after diff is the new action and `lastModifiedDate`, nothing else —
+name, branch condition, `containerFilePath`, `isEnabled` and `clean` are untouched. `ci_health.py`
+PASS afterwards, with `super-funmax-music` still pointing at its own repository.
+
+**Not verified, and cannot be without a push:** that the macOS action actually builds, signs and
+uploads. Signing is the real unknown — Xcode Cloud provisions macOS App Store distribution itself,
+and this project has only ever signed macOS locally. The first run is the test.
+
+### Open: option D, the TestFlight half
+
+The action uploads. Nothing distributes it, and *"forgetting it looks exactly like success"* is
+this repo's own phrasing for that failure.
+
+- `scripts/testflight_distribute.py` is iOS-only: `asc.TESTFLIGHT_PLATFORM = "IOS"`, whose comment
+  reads "The Mac app ... has no TestFlight story at all". That comment is now wrong, and the
+  constant needs to become a parameter.
+- `scripts/appstore_status.py` reports one TESTFLIGHT section, also iOS-only.
+- Left until a real macOS build exists to run it against. Generalising the platform against no
+  macOS build would be untested code guarding the step whose whole purpose is catching a silent
+  gap.
+
+Also open, and 30 seconds of UI: the workflow is still called **"NoSpoilers iOS"** and now archives
+both platforms. Two attempts to rename it over the API were refused by the local permission
+classifier, so it wants a human in App Store Connect. Do not call it `Default`.
 
 ---
 
