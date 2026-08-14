@@ -27,6 +27,7 @@ Deliver non-trivial product or code changes without introducing pattern drift, d
 9. If the task changes behavior, plan the smallest meaningful `test-changes` verification before handoff.
 10. If the task needs compile or toolchain confidence, plan the smallest meaningful `build-verify` check before handoff.
 11. For broad or architectural changes, use `codebase-explorer` for discovery and `pattern-compliance-reviewer` for read-only drift review.
+12. For substantial multi-step work, create and maintain a concise `tasks/*.md` file with the goal, approved pattern, verification, and open risks.
 
 ## Stop and ask before
 

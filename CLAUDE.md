@@ -1,90 +1,40 @@
 # No Spoilers
 
-Use Claude Code routing surfaces first:
+Spoiler-free Formula 1 weekend timelines for iOS, macOS, and WidgetKit. Keep this root contract short; detailed policy belongs in `.claude/rules/`, `.claude/skills/`, agents, and `docs/guides/`.
 
-- skills in `.claude/skills/`
-- agents in `.claude/agents/`
-- rules in `.claude/rules/`
-- hooks in `.claude/settings.json`
+## Non-negotiables
 
-Keep this file small. Put detailed guidance in rules or skills instead of growing always-on memory.
+- The spoiler-free guarantee is architectural: results, standings, driver news, and result-shaped fields must never enter models, storage, fixtures, UI, logs, or tests. Load `.claude/rules/spoiler-safety.md` for product-code work.
+- Read the actual repository before making claims. Do not invent commands, targets, schemes, paths, bundle IDs, entitlement keys, or defaults.
+- For non-trivial work: audit upstream, downstream, lateral precedent, and tests; refactor for the current requirement; then implement and verify.
+- Reuse the approved pattern or stop and ask before adding a dependency, abstraction, file layout, naming convention, or second implementation style.
+- Fail loudly for impossible missing data. Never hide it with defaults, sentinels, or optionality.
+- Do not overwrite unrelated changes or take destructive actions without approval. Never claim completion without command evidence.
 
-## You
+## Product map
 
-- Answer minimally.
-- Be direct. Be Concise.
-- Question the user and push back on things that are weird, unclear or feel just "wrong".
-- The user likes bullet point summaries.
-
-## Always-On Reading
-
-Read these first for every task:
-
-- `@docs/guides/general.md`
-- `@docs/guides/workflows-and-tasks.md`
-- `@docs/guides/important-code.md`
-
-Read these when the task touches their area:
-
-- `@docs/guides/swift-patterns.md`
-- `@docs/guides/building.md`
-- `@docs/guides/testing.md`
-- `@docs/brand.md` — when touching colours, typography, or visual style in any target or on the web
-
-## Project state
-
-- This repo is becoming a Swift project for macOS and iOS.
-- Verify the real project structure before assuming anything about targets, schemes, packages, scripts, entitlements, or build commands.
-- The project should converge on a small number of strong patterns. Claude must refactor toward those patterns, not add parallel implementations.
-
-## Fail fast
-
-Missing data that should never be missing is a programming error, not a runtime condition to handle gracefully. Code must crash immediately and loudly rather than silently producing wrong output.
-
-- Use `precondition`, force-unwrap (`!`), or `fatalError` for data or resources that must always be present.
-- Never use `?? defaultValue` to paper over a missing resource or unexpected nil — crash instead.
-- Never return a sentinel value (empty string, placeholder image, zero) to signal a missing resource — crash instead.
-- Optional return types are only appropriate when absence is a valid, expected state (e.g. no upcoming session). They must never be used to silently swallow errors.
-
-## Hard constraints
-
-- Do not invent commands, scripts, paths, targets, schemes, bundle identifiers, Info.plist keys, entitlement names, environment variables, or defaults. Read the repo first.
-- For non-trivial feature work, audit the relevant code paths first, identify the approved pattern, refactor the area into a clean host for the change when needed, then implement.
-- Never introduce a new dependency, abstraction family, file layout, naming convention, or implementation pattern without explicit approval when no repo standard already exists.
-- Prefer the established local pattern for the same outcome. If no approved pattern exists yet, stop and propose the new pattern before implementing it broadly.
-- Heavy refactoring is preferred over leaving duplicate or inconsistent implementations in place.
-- Encapsulate behavior behind shared boundaries when the same concern appears more than once.
-- Duplicate helpers, variant architectures, and one-off implementation styles are correctness problems, not style issues.
-- Ask before destructive actions or high-risk ambiguity.
-- Never revert, overwrite, or clean up unrelated user changes.
-- Keep changes small and scoped unless the task explicitly asks for a broader refactor.
-- Never claim completion without command evidence.
+- `NoSpoilersCore/` — shared schedule-only domain, fetching, caching, and shared views.
+- `NoSpoilers/` — iOS app, WidgetKit extension, macOS menu-bar app, and Xcode Cloud hook.
+- `scripts/` — canonical verification, release, screenshot, and App Store Connect tooling.
 
 ## Routing
 
-- Load `pattern-governance-reference` for substantial work, refactors, or any task where multiple implementations are possible.
-- Use `feature-workflow` for non-trivial features, bug fixes, behavior changes, and refactors.
-- Use `claude-setup-maintenance` when changing `CLAUDE.md`, `.claude/`, Claude-facing guides, hooks, commands, or verification wrappers.
-- Use `implement-apple-change` for Swift, SwiftUI, UIKit, AppKit, project-structure, or Apple-platform refactors and implementation work.
-- Use `build-verify` for compile, type, build, or toolchain confidence.
-- Use `test-changes` for behavior-risk verification after a fix or behavior change.
-- Use `review-working-tree` for read-only audits of correctness, regressions, duplication, and missing verification.
-- Use `/comment` to draft a commit message for the current changeset.
-- Use `/merge` for the controlled linear-history update workflow.
-- Use `/sanity-check` for an explicit read-only compliance and risk pass.
-- Load `.claude/rules/core.md` for all work.
-- Load `.claude/rules/apple-platforms.md` when the task touches Swift, Xcode, Apple-platform UI, Info.plist, entitlements, packages, or project configuration.
-- Load `.claude/rules/testing.md` before verification work.
+- Always read `docs/guides/general.md`, `workflows-and-tasks.md`, and `important-code.md` first.
+- `pattern-governance-reference` — substantial work, refactors, or competing implementations.
+- `feature-workflow` — non-trivial feature, fix, behavior change, or refactor; maintain `tasks/` for substantial work.
+- `implement-apple-change` — Swift, SwiftUI, AppKit, WidgetKit, Xcode, or Apple-platform refactors.
+- `build-verify` / `test-changes` — compile confidence / changed-behavior confidence.
+- `review-working-tree` — read-only correctness and drift review.
+- `claude-setup-maintenance` — Claude instructions, rules, skills, agents, hooks, commands, guides, or verification wrappers.
+- `release-and-delivery` — explicit release, TestFlight, App Store Connect, Xcode Cloud, or screenshot work.
 
-## gstack
+Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md` when their area is touched. Load the applicable rules before editing. Use `codebase-explorer` for broad discovery and `pattern-compliance-reviewer` for large read-only drift audits.
 
-- Use `/browse` from gstack for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
-- Available gstack skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/retro`, `/investigate`, `/document-release`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`
+## Canonical commands
 
-## Working style
+- Shared tests: `scripts/verify-core-tests.sh`
+- macOS build: `scripts/verify-mac-build.sh`
+- iOS build: `scripts/verify-ios-build.sh`
+- Widget build: `scripts/verify-widget-build.sh`
 
-- For substantial work, identify the affected targets, packages, tests, platforms, and the nearest approved pattern before editing.
-- Read the actual files involved before making design or implementation claims.
-- Use `codebase-explorer` for broad discovery and pattern lookup before large edits.
-- Use `pattern-compliance-reviewer` for read-only drift and duplication checks when the change surface is large or architectural.
-- Prefer CLI verification supported by the repo. If the repo has not standardized its build or test wrappers yet, verify the real entry points first and then use the smallest meaningful scope.
+Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use gstack `/browse` for web browsing; never use `mcp__claude-in-chrome__*`.

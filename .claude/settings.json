@@ -9,8 +9,7 @@
       "Grep",
       "WebFetch",
       "WebSearch",
-      "Task",
-      "Bash(*)"
+      "Task"
     ],
     "deny": [
       "Bash(git reset --hard *)",

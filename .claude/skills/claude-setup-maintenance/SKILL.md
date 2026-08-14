@@ -26,6 +26,7 @@ Keep the Claude Code setup useful for long-running work: concise root memory, ex
 5. Keep checked-in `.claude/settings.json` safe for shared use. Put personal speed or permission preferences in local-only guidance.
 6. Verify changed scripts or hooks with the smallest meaningful command.
 7. Update `docs/guides/important-code.md` whenever the control plane changes.
+8. For a policy change, record the approved decision in a task or guide; for a documentation-only correction, update the smallest accurate surface.
 
 ## Design rules
 
@@ -41,3 +42,4 @@ Keep the Claude Code setup useful for long-running work: concise root memory, ex
 - Do not add broad blocking hooks for normal development actions.
 - Do not vendor external Claude plugins into the repo without explicit approval.
 - Do not add bypass-permissions settings to shared project config.
+- Do not grant broad shared shell access merely to reduce prompts; put personal speed preferences in local configuration.
