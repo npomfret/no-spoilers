@@ -41,17 +41,24 @@ struct ContentView: View {
                 }
                 .refreshable { await refresh() }
             } else {
+                // No `.refreshable` on these pages, deliberately. Pull-to-refresh installs a
+                // gesture on the inner ScrollView that competes with the page view's horizontal
+                // pan, so any swipe with a downward component could be claimed by refresh instead
+                // of paging — worst at the top of the page, which is where a swipe usually starts.
+                // Refresh is automatic: `.task`, `scenePhase == .active`, and `setupRefreshTimer`.
+                // The skeleton and unavailable views keep theirs; they are outside the pager.
+                //
+                // No `.animation(_:value:)` either. Paging runs its own interactive transition;
+                // adding a second implicit animation over the whole subtree fights it.
                 TabView(selection: $selectedWeekendIndex) {
                     ForEach(sortedWeekends.indices, id: \.self) { index in
                         ScrollView {
                             weekendView(sortedWeekends[index]).padding(16)
                         }
-                        .refreshable { await refresh() }
                         .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .animation(.easeInOut, value: selectedWeekendIndex)
             }
         }
         .background(backgroundGradient)
@@ -73,11 +80,17 @@ struct ContentView: View {
                 }
             }
         }
+        // `now` is read by every session row on every page, so writing it invalidates the whole
+        // TabView — mid-swipe included. Nothing on this screen renders sub-minute granularity
+        // (`countdown` and `finishedAgo` both stop at minutes), so poll at 1 Hz but only publish
+        // when the minute rolls over: one invalidation a minute instead of sixty, and status
+        // transitions still land within a second of the boundary they belong to.
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
-            now = tick
+            if minuteIndex(of: tick) != minuteIndex(of: now) { now = tick }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
+            now = Date()
             Task { await refresh() }
             setupRefreshTimer()
         }
@@ -103,6 +116,12 @@ struct ContentView: View {
 
     private var sortedWeekends: [RaceWeekend] {
         store.weekends.sorted { $0.round < $1.round }
+    }
+
+    /// Wall-clock minute a date falls in. Used to decide whether republishing `now` could change
+    /// anything on screen.
+    private func minuteIndex(of date: Date) -> Int {
+        Int(date.timeIntervalSinceReferenceDate / 60)
     }
 
     private var isCurrentWeekendFinished: Bool {

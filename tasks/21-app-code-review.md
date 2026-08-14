@@ -251,5 +251,3 @@ resource, crash instead.
 - **Task 19** — §4 is the same staleness concern from the app side; §5's widget-fetch duplication is
   in the file that task touched.
 - **Task 20** — widget install prompt; §1's missing navigation affordance is adjacent.
-</content>
-</invoke>
