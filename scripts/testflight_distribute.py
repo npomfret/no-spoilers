@@ -71,6 +71,7 @@ Usage:
     scripts/testflight_distribute.py                          # what would happen
     scripts/testflight_distribute.py --apply
     scripts/testflight_distribute.py --group Friends --apply --submit
+    scripts/testflight_distribute.py --platform macos --apply
     scripts/testflight_distribute.py --selftest
 """
 
@@ -88,6 +89,18 @@ import appstore_status as asc
 # every one of these endpoints and is then refused the write with an empty 403,
 # which is the least helpful error in this API — see `_hint`.
 ADMIN_KEY_ID = "ASC6H3SL2D"
+
+# Which platform's builds to hand over. Xcode Cloud has archived macOS as well
+# as iOS since 2026-08-14 (task 17 option D), so "the newest build" stopped
+# being a single thing on that date — one commit now produces an iOS build and
+# a Mac build carrying the same number, and choosing between them is the
+# caller's business.
+#
+# The spelling differs by endpoint and only one is ever right in a given call:
+# `filter[preReleaseVersion.platform]` on /v1/builds wants MAC_OS, while the
+# Xcode Cloud action's CiPlatform calls the same platform MACOS.
+PLATFORMS = {"ios": "IOS", "macos": "MAC_OS"}
+DEFAULT_PLATFORM = "ios"
 
 # The app's only TestFlight locale. A build with no localization in it shows
 # testers nothing, which is why `write_note` can create one as well as set it.
@@ -362,7 +375,7 @@ def testers(session: Session, group_id: str) -> list[dict]:
     ]
 
 
-def gather(session: Session, only: str | None) -> dict:
+def gather(session: Session, only: str | None, platform: str) -> dict:
     app_id = asc.find_app(session.get)["id"]
 
     groups = session.get(f"/v1/apps/{app_id}/betaGroups?limit=50")["data"]
@@ -378,12 +391,10 @@ def gather(session: Session, only: str | None) -> dict:
     if not groups:
         raise SystemExit("this app has no tester groups, so there is nobody to deliver to")
 
-    builds = asc.platform_builds(session.get, app_id, asc.TESTFLIGHT_PLATFORM)
+    builds = asc.platform_builds(session.get, app_id, platform)
     target = asc.newest_build(builds)
     if target is None:
-        raise SystemExit(
-            f"no unexpired {asc.TESTFLIGHT_PLATFORM} builds on App Store Connect at all"
-        )
+        raise SystemExit(f"no unexpired {platform} builds on App Store Connect at all")
 
     detail = session.get(f"/v1/builds/{target['id']}/buildBetaDetail")["data"]["attributes"]
     holding = asc.groups_holding(session.get, target["id"])
@@ -460,15 +471,22 @@ def main() -> int:
         help="one group by name. Without it, only internal groups are touched — "
         "reaching the public link is always something you ask for by name.",
     )
+    parser.add_argument(
+        "--platform",
+        choices=sorted(PLATFORMS),
+        default=DEFAULT_PLATFORM,
+        help="which platform's newest build to hand over. One run does one "
+        "platform: every Xcode Cloud run now archives both, so the Mac build "
+        "is a second, separate delivery decision and not a side effect of the "
+        "iOS one.",
+    )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
 
+    platform = PLATFORMS[arguments.platform]
     session = Session()
-    state = gather(session, arguments.group)
+    state = gather(session, arguments.group, platform)
     build = state["build"]
-    print(
-        f"newest {asc.TESTFLIGHT_PLATFORM} build {build['version']}, "
-        f"uploaded {build['uploaded'][:16]}"
-    )
+    print(f"newest {platform} build {build['version']}, uploaded {build['uploaded'][:16]}")
 
     # Found by the app it builds, never by its name — a hijacked product wears
     # the other project's name, so the name is the one field that lies. See
@@ -606,9 +624,24 @@ def _selftest() -> int:
     if ADMIN_KEY_ID == asc.KEY_ID:
         failures.append("the admin key is the Developer key, which cannot write")
 
+    # Defaulting here and reporting there must mean the same platform. They are
+    # two constants in two files and the report is what tells you whether this
+    # script's work landed, so a silent divergence would have the report
+    # confirming a delivery on the platform nobody delivered to.
+    if PLATFORMS[DEFAULT_PLATFORM] != asc.TESTFLIGHT_PLATFORM:
+        failures.append(
+            f"this script defaults to {PLATFORMS[DEFAULT_PLATFORM]} "
+            f"but the report covers {asc.TESTFLIGHT_PLATFORM}"
+        )
+
+    # Apple spells this platform two ways and both appear in this repo. Guarding
+    # the pair is cheaper than guessing which endpoint a future caller means.
+    if PLATFORMS["macos"] != "MAC_OS":
+        failures.append("the builds filter wants MAC_OS, not the CiPlatform spelling MACOS")
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 25 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 27 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

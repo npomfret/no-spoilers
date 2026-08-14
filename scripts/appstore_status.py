@@ -142,9 +142,19 @@ CONTACT = (
 # to hold a password at all. Whether one is set is the only part worth knowing.
 REVIEW_FIELDS = tuple(key for key, _ in CONTACT) + ("demoAccountName", "demoAccountRequired", "notes")
 
-# TestFlight delivery is the iOS path Task 14 built. The Mac app ships Developer
-# ID and Homebrew through `release.sh` and has no TestFlight story at all, so
-# this one section is iOS however much of the rest covers both platforms.
+# The platform this report's TestFlight section covers.
+#
+# It said "the Mac app has no TestFlight story at all" until 2026-08-14, when
+# Xcode Cloud started archiving macOS too (task 17 option D). That is now the
+# opposite of true and is the reason to be careful here: **Mac builds upload,
+# process, go VALID, and this section cannot see them.** A stranded Mac build
+# looks exactly like no Mac build.
+#
+# `testflight_distribute.py --platform macos` can hand one over. Making the
+# report show both means threading the platform through `distribution`,
+# `attention`, `render` and the fixtures, and hoisting the tester-group fetch
+# out of `distribution` first — it is app-wide, so a naive loop would fetch and
+# print the same groups twice. See tasks/17-release-process-asymmetry.md.
 TESTFLIGHT_PLATFORM = "IOS"
 
 # How far back to walk looking for a build some tester group holds. Handing a
