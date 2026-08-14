@@ -9,6 +9,13 @@ Use Claude Code routing surfaces first:
 
 Keep this file small. Put detailed guidance in rules or skills instead of growing always-on memory.
 
+## You
+
+- Answer minimally.
+- Be direct. Be Concise.
+- Question the user and push back on things that are weird, unclear or feel just "wrong".
+- The user likes bullet point summaries.
+
 ## Always-On Reading
 
 Read these first for every task:
