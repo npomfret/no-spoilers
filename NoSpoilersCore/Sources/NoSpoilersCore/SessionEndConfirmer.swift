@@ -66,7 +66,9 @@ public final class SessionEndConfirmer {
             guard confirmedEndDates[session.id] == nil else { return nil }
             guard session.endsAt < now else { return nil }
             let next = i + 1 < sessions.count ? sessions[i + 1] : nil
-            guard SessionResolver.status(for: session, at: now, nextSession: next) == .inProgress
+            // `confirmedEndAt` is nil by construction: the guard above already excluded every
+            // session we have a confirmed end for. Those are the ones we no longer need to poll.
+            guard SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: nil) == .inProgress
             else { return nil }
             return session
         }

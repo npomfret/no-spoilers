@@ -15,11 +15,18 @@ public struct SessionResolver {
     ///   source (e.g. OpenF1). When provided, replaces the grace-window
     ///   estimate entirely — the session transitions to `.finished` exactly
     ///   when `now >= confirmedEndAt`.
+    ///
+    /// Neither parameter is defaulted, deliberately. Both were, and iOS quietly
+    /// omitted `confirmedEndAt` at every call site — so the confirmed end times
+    /// the app was polling for and storing were never actually used to decide
+    /// anything, and two views on the same screen disagreed about whether a
+    /// weekend was over. Passing `nil` is a fine answer; not noticing the
+    /// question is not.
     public static func status(
         for session: Session,
         at now: Date,
-        nextSession: Session? = nil,
-        confirmedEndAt: Date? = nil
+        nextSession: Session?,
+        confirmedEndAt: Date?
     ) -> SessionStatus {
         if now < session.startsAt { return .upcoming }
         // If the next session has started, this one must be over.

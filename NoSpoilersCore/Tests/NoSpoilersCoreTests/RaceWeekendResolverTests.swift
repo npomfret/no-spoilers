@@ -15,7 +15,7 @@ final class RaceWeekendResolverTests: XCTestCase {
             baseStart: now.addingTimeInterval(86_400)
         )
 
-        let resolved = RaceWeekendResolver.firstActiveWeekend(in: [futureWeekend, currentWeekend], at: now)
+        let resolved = RaceWeekendResolver.firstActiveWeekend(in: [futureWeekend, currentWeekend], at: now, confirmedEndDates: [:])
 
         XCTAssertEqual(resolved?.round, 1)
     }
@@ -28,7 +28,7 @@ final class RaceWeekendResolverTests: XCTestCase {
             baseStart: now.addingTimeInterval(10 * 86_400)
         )
 
-        let resolved = RaceWeekendResolver.currentWeekend(in: [distantWeekend], at: now)
+        let resolved = RaceWeekendResolver.currentWeekend(in: [distantWeekend], at: now, confirmedEndDates: [:])
 
         XCTAssertNil(resolved)
     }
@@ -47,7 +47,7 @@ final class RaceWeekendResolverTests: XCTestCase {
             ]
         )
 
-        let resolved = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now)
+        let resolved = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: [:])
 
         XCTAssertEqual(resolved?.kind, .qualifying)
     }

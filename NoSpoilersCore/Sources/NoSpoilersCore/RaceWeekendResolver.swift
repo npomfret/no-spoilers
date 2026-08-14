@@ -4,7 +4,7 @@ public enum RaceWeekendResolver {
     public static func firstActiveWeekend(
         in weekends: [RaceWeekend],
         at now: Date,
-        confirmedEndDates: [String: Date] = [:]
+        confirmedEndDates: [String: Date]
     ) -> RaceWeekend? {
         sorted(weekends).first { weekend in
             firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil
@@ -15,7 +15,7 @@ public enum RaceWeekendResolver {
         in weekends: [RaceWeekend],
         at now: Date,
         imminentWindow: TimeInterval = 5 * 86_400,
-        confirmedEndDates: [String: Date] = [:]
+        confirmedEndDates: [String: Date]
     ) -> RaceWeekend? {
         sorted(weekends).first { weekend in
             guard firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil else {
@@ -35,7 +35,7 @@ public enum RaceWeekendResolver {
     public static func firstNonFinishedSession(
         in weekend: RaceWeekend,
         at now: Date,
-        confirmedEndDates: [String: Date] = [:]
+        confirmedEndDates: [String: Date]
     ) -> Session? {
         let sessions = weekend.allSessions
         guard let index = sessions.indices.first(where: { index in

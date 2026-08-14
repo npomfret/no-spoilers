@@ -135,19 +135,25 @@ struct ContentView: View {
     private func weekendView(_ weekend: RaceWeekend) -> some View {
         let sessions = weekend.allSessions
         let nextWeekend = RaceWeekendResolver.nextWeekend(after: weekend, in: store.weekends)
-        let isFinished = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: store.confirmedEndDates) == nil
+        // Resolved once and handed down. The header used to resolve it again for itself, and did
+        // so without the confirmed end dates, so during an overrun the header could call the
+        // weekend complete while the body below it still showed a live session.
+        let nextSession = RaceWeekendResolver.firstNonFinishedSession(
+            in: weekend,
+            at: now,
+            confirmedEndDates: store.confirmedEndDates
+        )
 
         return VStack(spacing: 16) {
-            headerCard(weekend: weekend, sessions: sessions)
+            headerCard(weekend: weekend, sessions: sessions, nextSession: nextSession)
             sessionCard(sessions: sessions)
-            if !isFinished, let nextWeekend {
+            if nextSession != nil, let nextWeekend {
                 nextWeekendCard(nextWeekend)
             }
         }
     }
 
-    private func headerCard(weekend: RaceWeekend, sessions: [Session]) -> some View {
-        let nextSession = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now)
+    private func headerCard(weekend: RaceWeekend, sessions: [Session], nextSession: Session?) -> some View {
         let statusLine = nextSession.map { nextSessionStatus(for: $0, in: sessions) } ?? Strings.Sessions.weekendCompleteStatus()
         let isFinished = nextSession == nil
 
@@ -194,7 +200,12 @@ struct ContentView: View {
 
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
-                    let status = SessionResolver.status(for: session, at: now, nextSession: nextSession)
+                    let status = SessionResolver.status(
+                        for: session,
+                        at: now,
+                        nextSession: nextSession,
+                        confirmedEndAt: store.confirmedEndDates[session.id]
+                    )
 
                     HStack(spacing: 10) {
                         RoundedRectangle(cornerRadius: 2)
@@ -352,7 +363,7 @@ struct ContentView: View {
 
     private func nextSessionStatus(for session: Session, in sessions: [Session]) -> String {
         let nextSession = nextChronologicalSession(after: session, in: sessions)
-        switch SessionResolver.status(for: session, at: now, nextSession: nextSession) {
+        switch SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id]) {
         case .finished:
             return Strings.Sessions.sessionFinished(name: session.kind.displayName, ago: finishedAgo(since: session.endsAt))
         case .inProgress:
@@ -440,8 +451,10 @@ struct ContentView: View {
         var nextWake = Self.idleRefreshInterval
 
         for weekend in sortedWeekends {
-            for session in weekend.allSessions {
-                if SessionResolver.status(for: session, at: now, nextSession: nil, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
+            let sessions = weekend.allSessions
+            for (i, session) in sessions.enumerated() {
+                let next = i + 1 < sessions.count ? sessions[i + 1] : nil
+                if SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
                     return Self.activeRefreshInterval
                 }
                 let untilStart = session.startsAt.timeIntervalSince(now)
@@ -462,8 +475,10 @@ struct ContentView: View {
 
         // 1. Weekend with a current/in-progress session takes priority
         for (index, weekend) in weekends.enumerated() {
-            for session in weekend.allSessions {
-                if SessionResolver.status(for: session, at: now, nextSession: nil) == .inProgress {
+            let sessions = weekend.allSessions
+            for (i, session) in sessions.enumerated() {
+                let next = i + 1 < sessions.count ? sessions[i + 1] : nil
+                if SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
                     return index
                 }
             }
