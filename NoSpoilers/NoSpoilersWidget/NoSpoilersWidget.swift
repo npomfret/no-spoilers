@@ -731,7 +731,7 @@ struct NoSpoilersWidgetEntryView: View {
 // MARK: - Widget
 
 struct NoSpoilersWidget: Widget {
-    let kind: String = "NoSpoilersWidget"
+    let kind: String = NoSpoilersConfig.widgetKind
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NoSpoilersTimelineProvider()) { entry in

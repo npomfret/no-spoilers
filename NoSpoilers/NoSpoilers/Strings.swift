@@ -36,6 +36,17 @@ enum Strings {
         static let currentWeekend: LocalizedStringKey     = "Current"
         static let jumpToCurrentWeekend: LocalizedStringKey = "Jump to the current race weekend"
     }
+    enum Widget {
+        static let installTitle: LocalizedStringKey  = "Put it on your Home Screen"
+        static let installBody: LocalizedStringKey   = "The widget shows the next session without opening anything. It is where No Spoilers is meant to live."
+        /// Numbered on screen by position, so the numbers are never in the translated text.
+        static let installSteps: [LocalizedStringKey] = [
+            "Touch and hold an empty part of your Home Screen",
+            "Tap the + button in the top corner",
+            "Search for No Spoilers, pick a size, and tap Add Widget"
+        ]
+        static let installFooter: LocalizedStringKey = "Today View and Lock Screen are different places — make sure you are on the Home Screen."
+    }
     enum Error {
         static let unavailableTitle: LocalizedStringKey   = "Schedule unavailable"
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."

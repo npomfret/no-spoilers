@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
     @State private var showAbout = false
+    @State private var widgetInstall: WidgetInstallStatus = .unknown
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,6 +91,7 @@ struct ContentView: View {
             setupRefreshTimer()
         }
         .task { await refresh() }
+        .task { widgetInstall = await WidgetInstallStatus.current() }
         .onChange(of: store.weekends) { _, _ in
             homeSelectionIfNeeded()
         }
@@ -105,6 +107,11 @@ struct ContentView: View {
             guard newPhase == .active else { return }
             now = Date()
             Task { await refresh() }
+            // Re-asked on every activation because the answer is a snapshot, and the single most
+            // likely thing to have happened while we were backgrounded is the user following the
+            // instructions on this very card. Coming back to it still telling them to do what they
+            // just did would be worse than never showing it.
+            Task { widgetInstall = await WidgetInstallStatus.current() }
             setupRefreshTimer()
         }
         .onDisappear {
@@ -176,6 +183,12 @@ struct ContentView: View {
         )
 
         return VStack(spacing: 16) {
+            // First, because a user without the widget has not finished setting the app up and
+            // that is the most useful thing on the screen for them. It scrolls away like any other
+            // card, and it is gone for good the moment they act.
+            if widgetInstall.shouldPromptToInstall {
+                WidgetInstallCard()
+            }
             headerCard(weekend: weekend, sessions: sessions, nextSession: nextSession)
             sessionCard(sessions: sessions)
             if nextSession != nil, let nextWeekend {
