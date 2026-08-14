@@ -225,17 +225,40 @@ private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntr
     return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, nextWeekend: nextWeekend, isOffSeason: false)
 }
 
-private func timelineBoundaryDates(after now: Date, data: WidgetDataSnapshot) -> [Date] {
+/// How far ahead a timeline is built.
+///
+/// The widget only ever displays the current or next weekend, so an entry for a boundary in
+/// October is an archived SwiftUI view nobody will ever look at. Building the whole season cost
+/// ~130 entries and 3-6 seconds, which is longer than SpringBoard waits before giving up and
+/// leaving the redacted placeholder — grey bars — on screen.
+///
+/// A duration rather than an entry count, deliberately: the horizon is also the reload interval,
+/// so bounding it in time bounds staleness directly and predictably. A count would leave the
+/// reload date dependent on how densely the feed happens to be packed at that moment — dense
+/// during a race weekend, empty for the five days between — and in the off-season it would leave
+/// no reload date at all.
+private let timelineHorizon: TimeInterval = 48 * 3600
+
+/// Backstop on the entry count, not the working limit. Inside 48 hours the real feed produces at
+/// most ~13 boundaries (a sprint weekend's six sessions, each with a start and an end, plus the
+/// recently-finished expiry). Anything approaching this cap means the feed is not what we think
+/// it is, and truncating is better than handing WidgetKit an unbounded archive.
+private let maxTimelineEntries = 24
+
+private func timelineBoundaryDates(after now: Date, upTo horizon: Date, data: WidgetDataSnapshot) -> [Date] {
     var candidates: [Date] = [now]
+
+    func appendIfWithinHorizon(_ date: Date) {
+        if date > now && date <= horizon {
+            candidates.append(date)
+        }
+    }
 
     for weekend in data.weekends {
         // Schedule the boundary where the 24h "recently finished" window expires.
         if let lastSession = weekend.allSessions.last {
             let endTime = effectiveSessionEndDate(for: lastSession, nextSession: nil, confirmedEndDates: data.confirmedEndDates)
-            let expiryTime = endTime.addingTimeInterval(24 * 3600)
-            if expiryTime > now {
-                candidates.append(expiryTime)
-            }
+            appendIfWithinHorizon(endTime.addingTimeInterval(24 * 3600))
         }
     }
 
@@ -243,18 +266,13 @@ private func timelineBoundaryDates(after now: Date, data: WidgetDataSnapshot) ->
         let session = data.allSessions[index]
         let nextSession = index + 1 < data.allSessions.count ? data.allSessions[index + 1] : nil
 
-        if session.startsAt > now {
-            candidates.append(session.startsAt)
-        }
+        appendIfWithinHorizon(session.startsAt)
 
-        let finishedAt = effectiveSessionEndDate(
+        appendIfWithinHorizon(effectiveSessionEndDate(
             for: session,
             nextSession: nextSession,
             confirmedEndDates: data.confirmedEndDates
-        )
-        if finishedAt > now {
-            candidates.append(finishedAt)
-        }
+        ))
     }
 
     let unique = Set(candidates.map { $0.timeIntervalSinceReferenceDate })
@@ -282,10 +300,24 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NoSpoilersEntry>) -> Void) {
         let now = Date()
+        let horizon = now.addingTimeInterval(timelineHorizon)
         let data = resolveWidgetData()
-        let entries = timelineBoundaryDates(after: now, data: data).map { makeEntry(at: $0, data: data) }
-        let policy: TimelineReloadPolicy = entries.isEmpty ? .after(now.addingTimeInterval(900)) : .atEnd
-        completion(Timeline(entries: entries, policy: policy))
+
+        let boundaries = timelineBoundaryDates(after: now, upTo: horizon, data: data)
+        let kept = Array(boundaries.prefix(maxTimelineEntries))
+        // `timelineBoundaryDates` always seeds the current moment, so an empty timeline here would
+        // mean the widget renders nothing at all. That is a programming error, not a data state.
+        precondition(!kept.isEmpty, "timelineBoundaryDates must always emit at least the current moment")
+
+        // The reload is what keeps a sparse timeline honest. `.atEnd` used to mean December, so a
+        // widget on a device where the app was never reopened computed its timeline once and never
+        // looked at the cache again. Coming back at the horizon bounds that to `timelineHorizon`
+        // whatever the feed contains — including the off-season, where the only entry is `now`.
+        // If the cap truncated the list, come back at the last boundary kept instead, so the widget
+        // is never left showing state it has already outlived.
+        let reloadAt = kept.count < boundaries.count ? kept.last! : horizon
+
+        completion(Timeline(entries: kept.map { makeEntry(at: $0, data: data) }, policy: .after(reloadAt)))
     }
 }
 

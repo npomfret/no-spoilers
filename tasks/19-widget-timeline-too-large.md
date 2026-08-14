@@ -1,6 +1,8 @@
 # Task 19: the widget builds a timeline for the whole season, and shows grey bars while it does
 
-**Status: OPEN, found 2026-08-13 while capturing App Store screenshots. Not yet fixed.**
+**Status: FIXED 2026-08-14. Measured before and after on the same machine: 133 entries and 3.400s
+became 4 entries and 0.354s. One item is left open and is marked below — the 48-hour reload has not
+been observed firing, only reasoned from the policy.**
 
 The widget takes **3–6 seconds** to produce its first timeline. SpringBoard gives up waiting well
 before that and keeps showing the redacted placeholder — the app's own layout drawn as grey bars.
@@ -102,15 +104,73 @@ the worst case directly. Pick one and write down why.
 
 ---
 
+## What was done, 2026-08-14
+
+**Decided: a duration, with a count as a backstop.** The horizon is also the reload date, so
+bounding it in time bounds staleness directly and predictably. A count would leave the reload date
+dependent on how densely the feed happens to be packed at that moment — dense during a race
+weekend, empty for the five days between — and in the off-season it would leave no reload date at
+all. `maxTimelineEntries = 24` is a backstop against a feed that is not what we think it is, not
+the working limit: inside 48 hours the real feed produces at most ~13 boundaries.
+
+`NoSpoilers/NoSpoilersWidget/NoSpoilersWidget.swift`:
+
+- `timelineHorizon = 48 * 3600` and `maxTimelineEntries = 24`, both private to the widget. They are
+  WidgetKit timeline policy with one consumer, so they do not belong in `NoSpoilersConfig`.
+- `timelineBoundaryDates(after:upTo:data:)` takes a horizon and drops every candidate beyond it.
+  The three `> now` checks became one `appendIfWithinHorizon` — the bound has to hold for all three
+  kinds of boundary, so having it in one place is what stops the next one being added without it.
+- `getTimeline` reloads with `.after(horizon)` instead of `.atEnd`, and at the last kept boundary
+  instead if the cap truncated the list.
+
+**Two things found while fixing it, both in the code that was replaced.**
+
+`timelineBoundaryDates` seeds `candidates` with `now`, so it can never return an empty array — the
+`entries.isEmpty ? .after(now + 900) : .atEnd` ternary could only ever take the `.atEnd` branch.
+**The documented 900-second off-season fallback was unreachable.** What the off-season actually got
+was `.atEnd` on a single entry dated `now`, i.e. a reload date already in the past. The verification
+box below has been rewritten accordingly; the old one asked for behaviour that never existed.
+
+The `precondition` in `getTimeline` is that invariant made explicit, per the repo's fail-fast rule:
+an empty timeline would render nothing at all, and that is a programming error rather than a state
+to handle.
+
+### Measured
+
+Same machine, same device (`iPhone 17`, `E92811F0`), same 23-weekend cache seeded from the live
+feed, ten minutes apart, `systemLarge`. `cache hit` to `Request ended` is the same interval the
+numbers at the top of this file measure.
+
+| | entries | cache hit → request ended | timeline spans to |
+|---|---|---|---|
+| before | 133 | **3.400s** | 2026-12-07 |
+| after | 4 | **0.354s** | 2026-08-15 |
+| after, off-season | 1 | **0.122s** | — |
+
+The before run was taken by stashing the change and rebuilding, not from the 2026-08-13 figures at
+the top — those were a different day and a different Xcode, and would not have been a comparison.
+
+`scripts/screenshots.py` seeds a 3-weekend fixture, which is correct for a screenshot and useless
+here: the cost scales with remaining sessions, so that fixture is fast before and after and proves
+nothing. The measurement seeds the live feed instead.
+
+---
+
 ## Verification
 
-- [ ] Timeline request completes in well under a second with a full-season cache, measured the same
-      way as above (`log show --predicate 'process == "NoSpoilersWidgetExtension"'`)
-- [ ] No `content confirmation action error: timeout` from SpringBoard after a boot
-- [ ] The widget renders real content, not grey bars, within `SETTLE_SECONDS` of a cold boot
-- [ ] The widget still updates across a session boundary without the app being launched
-- [ ] Off-season behaviour unchanged — still reloads on the 900s fallback
-- [ ] `scripts/verify-widget-build.sh` passes
+- [x] Timeline request completes in well under a second with a full-season cache, measured the same
+      way as above (`log show --predicate 'process == "NoSpoilersWidgetExtension"'`) — 0.354s
+- [x] No `content confirmation action error: timeout` from SpringBoard after a boot
+- [x] The widget renders real content, not grey bars, within `SETTLE_SECONDS` of a cold boot —
+      captured at 12s on a 23-weekend cache: Dutch GP R12, five live countdowns, next-up Italian GP
+- [ ] **Still open.** The widget updates across a session boundary without the app being launched.
+      Entries inside the horizon cover the boundaries, and `.after(horizon)` is what brings the
+      widget back for the ones beyond it — but that reload has been reasoned from the policy, not
+      watched firing. Proving it needs a 48-hour soak or a clock shift, neither of which was run.
+- [x] Off-season: one entry, 0.122s, and no reload storm over 60 seconds. **Not "unchanged"** — the
+      900s fallback this box used to ask for was dead code, and the real previous behaviour was a
+      reload date in the past. It is now `.after(horizon)` like every other case.
+- [x] `scripts/verify-widget-build.sh` passes
 
 ---
 
