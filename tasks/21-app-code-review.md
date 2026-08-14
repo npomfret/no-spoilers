@@ -1,6 +1,8 @@
 # Task 21: app code review — swipe navigation, season rollover, and shared-logic drift
 
-**Status:** TODO
+**Status:** FIXED 2026-08-14. All seven sections addressed across six commits, `1bd8d1f`..`a4f58cc`.
+Two items remain open and are marked below: the swipe fix has not been confirmed by hand, and the
+2026 feed carries a Grand Prix name this app cannot map to a country.
 **Raised:** 2026-08-14, read-only review of the iOS app, the macOS popover, and `NoSpoilersCore`
 **Trigger:** the user reported that left/right swipe between weekends in the iOS app "doesn't always work"
 
@@ -65,6 +67,23 @@ Gesture reliability cannot be proven by a build. Needs a hands-on pass on device
 swipe left and right from the top of the page, from mid-scroll, and diagonally, across at least ten
 attempts each, before and after. `scripts/verify-ios-build.sh` covers compile only.
 
+### What was done — `1bd8d1f`
+
+All three, as written. The `.refreshable` and the `.animation` came off the pager; the skeleton and
+unavailable views keep pull-to-refresh, because they sit outside it and are the case where a manual
+retry actually matters.
+
+The 1 Hz tick was scoped by frequency rather than by view. Nothing on this screen renders sub-minute
+granularity, so the timer still polls every second but only writes `now` when the minute rolls over
+— one invalidation a minute instead of sixty, with status transitions still landing within a second
+of the boundary they belong to. Scoping it to leaf views instead would have meant a `TimelineView`
+per countdown, which is a pattern this codebase does not otherwise use; the frequency change gets
+the same 60x reduction without introducing one.
+
+**Still open.** Gesture reliability has not been confirmed by hand. `scripts/verify-ios-build.sh`
+passes, which is compile confidence only. The verification this needs is the one described above:
+ten swipes each from the top, from mid-scroll, and diagonally.
+
 ---
 
 ## 2. The apps stop working on 1 January 2027
@@ -92,6 +111,21 @@ also re-implements the fetch.
 Worth deciding explicitly rather than assuming: whether to derive the year from the clock, follow the
 feed's own index, or roll over on a date. Deriving from the clock alone moves to the new season on
 1 January, which may be before the new calendar file exists.
+
+### What was done — `8614934`
+
+**Decided: follow the feed's own index.** `_db/f1/config.json` publishes `calendarOutputYear`, which
+is 2026 today. `ScheduleFetcher` reads it and then fetches `{year}.json`.
+
+That beats the alternatives on the point that matters — who updates it. Deriving the year from the
+clock rolls over on 1 January whether or not the new calendar file exists; a hardcoded rollover date
+is a second thing to maintain and be wrong about. `calendarOutputYear` is maintained by the people
+who publish the calendar files, so it changes when the data does.
+
+If the config cannot be read the fetch throws, and `ScheduleStore.refresh()` falls back to cache as
+it already does for any network failure — no guessing at a year.
+
+The URL now exists in exactly one place, because the widget's duplicate fetch went with it (§5).
 
 ---
 
@@ -122,6 +156,16 @@ Two consequences:
 
 A defaulted parameter is the wrong shape for a value that every correct call site must supply.
 Consider removing the defaults so omission is a compile error.
+
+### What was done — `f324f58`
+
+Every iOS call site now passes the confirmed end dates, and the defaults are gone from both
+`RaceWeekendResolver` and `SessionResolver.status` — including the `nextSession` default — so
+omission is a compile error rather than a silent shrug. `SessionEndConfirmer` passes `nil`
+explicitly and says why: it has already filtered out every session it has a confirmed end for.
+
+`headerCard` no longer resolves "is this weekend over" for itself. `weekendView` resolves it once
+and passes it down, which removes the disagreement rather than just aligning the two inputs.
 
 ---
 
@@ -157,6 +201,19 @@ before there is anything to show.
 works, but the comment "reschedule in case the interval changed" overstates it: in the hourly branch
 the interval is only re-evaluated once an hour, so a session starting 59 minutes after a check is
 noticed late.
+
+### What was done — `eab2856`
+
+`weekends != self.weekends`, one line, plus tests covering a reschedule, a cancellation, and the
+no-change case — including one that demonstrates what the round-number comparison missed, so nobody
+reintroduces it as a cheaper equivalent.
+
+Concurrent `refresh()` callers now join the fetch in flight instead of starting their own, which
+fixes the overlapping-launch-refresh problem at its source rather than by guarding the flag.
+
+`refreshInterval()` no longer returns a flat hour when idle: it wakes early enough to catch the next
+session entering the imminent window. The thresholds are named constants, and the misleading comment
+is corrected.
 
 ---
 
@@ -196,6 +253,27 @@ all duplicating `ScheduleFetcher`. `getTimeline` takes a completion handler, so 
 `NoSpoilersMac/ContentView.swift:107-110`. See [§6](#6-fail-fast-violations) — both copies are also
 wrong in the same way.
 
+### What was done — `80d6de8`, plus the widget fetch in `8614934`
+
+`SessionResolver.effectiveEndDate` in `NoSpoilersCore`, called by all three surfaces. Both apps were
+counting "finished N ago" from `session.endsAt`, so a finished race read "finished 1h 40m ago" the
+moment it flipped.
+
+`endTime(of:)` is now `RaceWeekendResolver.effectiveEndDate(of:confirmedEndDates:)` — once, with the
+sentinel replaced (§6).
+
+Countdown formatting was consolidated **as arithmetic, not as output**. `DurationBreakdown` holds
+the decomposition that was written out five times; which tiers each surface shows stays at the call
+sites, because that part is a genuine per-surface product decision — the menu bar has one line, the
+macOS popover is open in front of you and ticks in seconds, iOS is glanced at and stops at minutes.
+Those differences are now commented where they are made instead of being implied by five copies of
+the same modulo expressions. `totalHours` is deliberately separate from `hours` so "finished 48h
+ago" still reads 48h.
+
+The widget's duplicated fetch is gone entirely — its `WidgetFeedResponse`, its URL, and its
+`DispatchSemaphore`. `getTimeline` takes a completion handler, so it awaits instead of blocking. The
+8-second bound the widget used to impose moved into `ScheduleFetcher` rather than being lost.
+
 ---
 
 ## 6. Fail-fast violations
@@ -218,6 +296,29 @@ resource, crash instead.
   empty array back over the cache. A corrupt-cache-plus-failed-network path overwrites the file with
   a known-bad value.
 
+### What was done — `8614934`, `80d6de8`
+
+The `.distantPast` sentinel is a `preconditionFailure` naming the filter the caller skipped, and it
+exists once instead of twice. The widget's `?? []` is gone with the duplicate fetch, and only a
+successful fetch is written back to the cache now.
+
+**The country-code finding turned out to be live, not hypothetical.** Round 16 of the 2026 feed is
+`"Bahrain Grand Prix (Malaysia)"`, at Sepang. It matches nothing in `countryCode`'s switch, so it
+returned `""` — and `ScheduleStore` preconditioned on the code being non-empty. That combination was
+a scheduled crash: the macOS menu bar app would have died from around 27 September, when that round
+became the next session.
+
+The fix went the opposite way to what this file suggested. A Grand Prix the app cannot identify is
+*possible* data — the feed is not ours and its naming changes — so it is modelled rather than
+asserted away. `countryCode` is now `String?`, the preconditions are gone, and `FlagImage` takes the
+optional and renders the chequered flag for nil. `countryFlag`, the other `"🏁"` sentinel, was dead
+code and was deleted.
+
+**Still open, and a product call rather than a code one.** No guess is made about which country the
+feed means by that name. Location Sepang and the parenthetical both point at Malaysia, but the entry
+looks provisional and the round currently renders with a chequered flag instead of one. Either the
+feed corrects itself before 2 October, or someone decides to map it.
+
 ---
 
 ## 7. Smaller items
@@ -234,6 +335,16 @@ resource, crash instead.
   affordance, so when the gesture in §1 fails the user has no alternative route. Worth considering
   alongside the §1 fix rather than after it.
 
+### What was done — `8614934`, `a4f58cc`
+
+The two `.onAppear` blocks are one. Selection is homed and clamped in a single place, so a schedule
+that shrinks can no longer leave the pager on a page no `.tag` matches. Routine widget logging moved
+from `log.error` to `log.info`.
+
+The missing navigation affordance was built: a "Current" button in the top bar, shown only once you
+have navigated away from the current weekend. It is the mitigation for §1's failure mode — with
+swipe as the sole route between 23 pages, a gesture that does not take left no way back.
+
 ---
 
 ## Suggested order
@@ -244,6 +355,26 @@ resource, crash instead.
 4. §2 season rollover — needs a decision on rollover policy before it needs code.
 5. §5 / §6 — convergence work; best done as one pass, since §5's end-time consolidation and §6's
    sentinel removal touch the same two duplicated helpers.
+
+## Verification
+
+Run at the end of the last commit:
+
+| command | result |
+|---|---|
+| `scripts/verify-core-tests.sh` | 28 tests, 0 failures (11 new) |
+| `scripts/verify-ios-build.sh` | BUILD SUCCEEDED |
+| `scripts/verify-widget-build.sh` | BUILD SUCCEEDED |
+| `scripts/verify-mac-build.sh` | BUILD SUCCEEDED |
+
+The new fetch path was also run against the live feed rather than only compiled: 23 weekends, rounds
+1-23, all 2026, and round 16 — the unmapped one — resolves an end date instead of crashing.
+
+Not covered by any of that, and listed again because a green build is not evidence for either:
+
+- the §1 swipe fix, which needs a hands-on gesture pass
+- widget timeline latency after the fetch change. The cache-hit path is untouched, so task 19's
+  0.354s should hold, but the cache-miss path now makes two requests where it made one.
 
 ## Related
 
