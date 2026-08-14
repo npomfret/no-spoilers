@@ -1,9 +1,10 @@
 # Task 17: Homebrew is being treated as the core macOS product
 
-**Status: OPEN, and everything left needs a real run (updated 2026-08-14). All four decisions are
-made; A, B, C, option D's CI half and four of the five defects are done. What remains cannot be
-proven from a laptop: the first Xcode Cloud run that archives macOS, and the TestFlight half of
-option D, which is deliberately left until a macOS build exists to test it against.**
+**Status: OPEN on two deliberately-deferred pieces (updated 2026-08-14). Every decision is made.
+A, B, C, four of the five defects and option D's CI half are done and proven — run 15 archived and
+delivered both platforms. What is left is deferred on purpose, not stuck: the TestFlight half of
+option D (macOS builds upload but reach nobody), and a `--dry-run` for `release.sh`. Both are in
+the macOS release path, which is explicitly the less important one.**
 
 Raised 2026-08-13: the macOS release process feels very different from the iOS one, and Homebrew
 looks like it is being treated as the main product rather than an add-on.
@@ -69,7 +70,7 @@ As it stood 2026-08-13. The CI and test-gate rows were closed on 2026-08-14; the
 | CI build | ~~**none**~~ → Xcode Cloud, same workflow | Xcode Cloud, every push to `main` |
 | Automated test gate before shipping | ~~**none**~~ → the same `ci_pre_xcodebuild.sh` | `ci_pre_xcodebuild.sh` runs `verify-core-tests.sh` |
 | Routes to the store | local `release.sh` **and** Xcode Cloud | local `release.sh` **and** Xcode Cloud |
-| Beta channel | **still none** — builds upload, nothing distributes them | TestFlight |
+| Beta channel | **still none** — builds upload VALID and reach nobody | TestFlight |
 | Build-number bands in use | 10001+ *and* 1…n | 10000+ *and* 1…n |
 
 Verified 2026-08-13 — the product holds exactly one workflow and one action:
@@ -233,22 +234,52 @@ Verified: the workflow's before/after diff is the new action and `lastModifiedDa
 name, branch condition, `containerFilePath`, `isEnabled` and `clean` are untouched. `ci_health.py`
 PASS afterwards, with `super-funmax-music` still pointing at its own repository.
 
-**Not verified, and cannot be without a push:** that the macOS action actually builds, signs and
-uploads. Signing is the real unknown — Xcode Cloud provisions macOS App Store distribution itself,
-and this project has only ever signed macOS locally. The first run is the test.
+**Proven by run 15, 2026-08-14**, on commit `0660ca0` — the first Xcode Cloud run to archive macOS:
+
+```
+Archive - iOS     COMPLETE / SUCCEEDED     started 20:43:41.432Z
+Archive - macOS   COMPLETE / SUCCEEDED     started 20:43:41.755Z
+RUN               COMPLETE / SUCCEEDED
+
+IOS     1.1.1 build 15  VALID   uploaded 13:47:40
+MAC_OS  1.1.1 build 15  VALID   uploaded 13:46:14
+```
+
+Both actions dispatched from one commit 300ms apart, and **both platforms carry build 15** — the
+one-workflow choice doing the job it was made for. Signing, the one thing that could not be
+predicted from here, needed nothing: Xcode Cloud provisioned macOS App Store distribution itself,
+on a project that had only ever signed macOS on a laptop.
+
+Note what "SUCCEEDED" did *not* have to mean. `building.md` warns that a green run is not a
+delivered build, so the archive being green was checked against App Store Connect separately; both
+builds are `VALID` there.
 
 ### Open: option D, the TestFlight half
 
 The action uploads. Nothing distributes it, and *"forgetting it looks exactly like success"* is
-this repo's own phrasing for that failure.
+this repo's own phrasing for that failure. **Measured, not assumed** — macOS build 15 immediately
+after run 15:
+
+```
+GET /v1/builds/1cbcb39d-8aef-4d9d-b445-30832b48ab54?include=betaGroups
+    processingState VALID, expired false, included: []
+```
+
+`VALID` and in no group at all. Every other signal reads as success.
+
+**DECIDED 2026-08-14: not now.** The macOS release path is explicitly the less important one, and
+this is a refactor rather than a flag flip, so it is written down instead of half-built:
 
 - `scripts/testflight_distribute.py` is iOS-only: `asc.TESTFLIGHT_PLATFORM = "IOS"`, whose comment
-  reads "The Mac app ... has no TestFlight story at all". That comment is now wrong, and the
-  constant needs to become a parameter.
-- `scripts/appstore_status.py` reports one TESTFLIGHT section, also iOS-only.
-- Left until a real macOS build exists to run it against. Generalising the platform against no
-  macOS build would be untested code guarding the step whose whole purpose is catching a silent
-  gap.
+  reads "The Mac app ... has no TestFlight story at all". **That comment is now false** — the Mac
+  app has TestFlight builds and no way to hand them over. The constant needs to become a parameter
+  threaded through `gather`, `distribution`, `attention`, `render` and both selftest fixtures.
+- `scripts/appstore_status.py` reports one TESTFLIGHT section, also iOS-only, so the report cannot
+  currently show that a Mac build is stranded.
+- Note when picking this up: `distribution()` fetches the tester groups itself, so a naive loop over
+  platforms would fetch them twice and print them twice. The groups are app-wide, not per platform
+  — hoist them out before adding the loop.
+- Until then, handing a Mac build to a tester means doing it in the App Store Connect UI.
 
 Also open, and 30 seconds of UI: the workflow is still called **"NoSpoilers iOS"** and now archives
 both platforms. Two attempts to rename it over the API were refused by the local permission
