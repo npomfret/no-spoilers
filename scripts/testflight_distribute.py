@@ -22,8 +22,7 @@ upload paths feed this one app record and their numbers are deliberately kept
 apart: `scripts/release.sh` starts at 10000 and counts up, Xcode Cloud uses its
 run number. So a fresh CI build is `5` while last month's manual upload is
 `10001`, and picking the larger number would hand testers the older build for as
-long as both paths stay in use. See tasks/14-xcode-cloud-testflight.md, Phase 0
-Decision 1.
+long as both paths stay in use. See docs/guides/building.md.
 
 **One App Store record covers macOS and iOS**, so an unfiltered build list mixes
 the two and the newest upload is as likely to be a Mac build. Every query here
@@ -91,7 +90,7 @@ import appstore_status as asc
 ADMIN_KEY_ID = "ASC6H3SL2D"
 
 # Which platform's builds to hand over. Xcode Cloud has archived macOS as well
-# as iOS since 2026-08-14 (task 17 option D), so "the newest build" stopped
+# as iOS since 2026-08-14, so "the newest build" stopped
 # being a single thing on that date — one commit now produces an iOS build and
 # a Mac build carrying the same number, and choosing between them is the
 # caller's business.
@@ -264,7 +263,8 @@ def note_state(existing: dict | None) -> str:
     null, so `is empty` means there is a record to `PATCH` and `has no en-GB
     localization` means one has to be `POST`ed. Both used to print `is missing`,
     and that one message was read as evidence that the create branch had run
-    when it never has — see the tester-note risk in task 14.
+    when it never has. A diagnostic that collapses two states produces a
+    confident wrong answer rather than an obviously missing one.
     """
     if existing is None:
         return "has no en-GB localization"
@@ -280,7 +280,7 @@ def source_commit(session: Session, product_id: str, version: str) -> dict | Non
 
     A build's version *is* its run number: Xcode Cloud rewrites CFBundleVersion
     to CI_BUILD_NUMBER when it exports the IPA, so the two cannot disagree. See
-    tasks/14-xcode-cloud-testflight.md, Phase 0 Decision 1.
+    docs/guides/building.md.
 
     None is a valid answer, not a swallowed error. `release.sh` uploads from
     10000 up and no run produced them, and a run started from Xcode by hand can

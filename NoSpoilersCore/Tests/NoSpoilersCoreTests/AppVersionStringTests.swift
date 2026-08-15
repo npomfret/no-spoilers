@@ -19,8 +19,9 @@ final class AppVersionStringTests: XCTestCase {
         )
     }
 
-    /// The two upload paths occupy separate build-number bands (task 14
-    /// Decision 1), so a five-digit build is normal and must render intact.
+    /// The two upload paths occupy separate build-number bands (see
+    /// `docs/guides/building.md`), so a five-digit build is normal and must
+    /// render intact.
     func testRendersAReleaseBandBuildNumber() {
         XCTAssertEqual(Strings.AppInfo.version("1.0.22", build: "10001"), "v1.0.22 (10001)")
     }

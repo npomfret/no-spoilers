@@ -12,8 +12,8 @@ REJECTED for three months.** This prints both.
 
 It also reports TestFlight, where the thing worth knowing is not what exists but
 **which build the testers can actually install**. Handing a build over is a
-command somebody runs — see tasks/14-xcode-cloud-testflight.md, Phase 1 step 6 —
-so the newest build reaching nobody is the ordinary state after every push, and
+command somebody runs — see docs/guides/building.md — so the newest build
+reaching nobody is the ordinary state after every push, and
 warning about it would leave this permanently red. Being *behind* is reported
 and never chased; only being able to install nothing at all is a problem.
 
@@ -145,7 +145,7 @@ REVIEW_FIELDS = tuple(key for key, _ in CONTACT) + ("demoAccountName", "demoAcco
 # The platform this report's TestFlight section covers.
 #
 # It said "the Mac app has no TestFlight story at all" until 2026-08-14, when
-# Xcode Cloud started archiving macOS too (task 17 option D). That is now the
+# Xcode Cloud started archiving macOS too. That is now the
 # opposite of true and is the reason to be careful here: **Mac builds upload,
 # process, go VALID, and this section cannot see them.** A stranded Mac build
 # looks exactly like no Mac build.
@@ -154,12 +154,12 @@ REVIEW_FIELDS = tuple(key for key, _ in CONTACT) + ("demoAccountName", "demoAcco
 # report show both means threading the platform through `distribution`,
 # `attention`, `render` and the fixtures, and hoisting the tester-group fetch
 # out of `distribution` first — it is app-wide, so a naive loop would fetch and
-# print the same groups twice. See tasks/17-release-process-asymmetry.md.
+# print the same groups twice. See tasks/23-status-report-is-ios-only.md.
 TESTFLIGHT_PLATFORM = "IOS"
 
 # How far back to walk looking for a build some tester group holds. Handing a
 # build over is a command somebody runs rather than a post-action —
-# tasks/14-xcode-cloud-testflight.md, Phase 1 step 6 — so the newest builds sit
+# docs/guides/building.md — so the newest builds sit
 # in no group as a matter of course, and this walk is the ordinary path rather
 # than a fallback. Ten covers a busy day of pushes. Past that the honest answer
 # is that nothing has been delivered in a long time, and paging further only
@@ -454,8 +454,7 @@ def live_builds(builds: list[dict]) -> list[dict]:
     By upload date, never by build number. Two upload paths feed this one app
     record and their number bands are kept apart deliberately — `release.sh`
     counts from 10000, Xcode Cloud uses its run number — so the larger number is
-    routinely the *older* build. See tasks/14-xcode-cloud-testflight.md, Phase 0
-    Decision 1.
+    routinely the *older* build. See docs/guides/building.md.
 
     Expired builds are dropped rather than ranked last. A TestFlight build stops
     launching 90 days after upload, so an expired one is not a worse answer to

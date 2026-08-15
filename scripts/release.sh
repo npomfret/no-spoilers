@@ -240,7 +240,7 @@ fi
 # before the store upload was ever attempted. In that order the add-on channel
 # takes the core product down with it after the expensive work has succeeded.
 # This way round, a Homebrew failure still fails the run loudly; it just cannot
-# cost you the upload. See tasks/17-release-process-asymmetry.md.
+# cost you the upload. See docs/guides/building.md.
 
 if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
   PACKAGE_PATH="${EXPORT_PATH_APPSTORE}/${APPSTORE_PACKAGE_NAME}"

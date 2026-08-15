@@ -204,7 +204,7 @@ For a versioned App Store submission rather than a test build, use `scripts/ship
 paths keep separate build-number bands — Xcode Cloud counts from 1, `release.sh` from 10000 — so
 they cannot collide, and the build number in the app's About screen says which one shipped it.
 
-Full detail, including why delivery is manual: `tasks/14-xcode-cloud-testflight.md`.
+Full detail, including why delivery is manual: the TestFlight section of `docs/guides/building.md`.
 
 ### Checking Xcode Cloud is wired to the right project
 

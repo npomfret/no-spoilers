@@ -15,7 +15,7 @@ public enum AppVersion {
 
     /// `CFBundleVersion` — the build number, and the only thing that tells two
     /// builds of the same marketing version apart. Xcode Cloud writes its run
-    /// number here; `release.sh` writes 10000 and up. See task 14 Decision 1
+    /// number here; `release.sh` writes 10000 and up. See `docs/guides/building.md`
     /// for why the two paths occupy deliberately separate bands.
     public static var build: String { value(for: "CFBundleVersion") }
 

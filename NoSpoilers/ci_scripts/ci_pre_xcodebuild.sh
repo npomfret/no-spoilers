@@ -18,7 +18,7 @@ set -euo pipefail
 # action. Run 3 proved it — the xcarchive read 1003, the uploaded IPA read 3.
 # The two upload paths are kept apart on release.sh's side instead, which is the
 # one nothing overrides: its committed CURRENT_PROJECT_VERSION starts at 10000.
-# See tasks/14-xcode-cloud-testflight.md, Phase 0 Decision 1.
+# See docs/guides/building.md.
 
 echo "ci_pre_xcodebuild: run ${CI_BUILD_NUMBER:-<unset>}, commit ${CI_COMMIT:-<unset>}"
 
