@@ -99,8 +99,23 @@ keywords    F1,Formula 1,schedule,spoiler free,menu bar,calendar,widget
 description "...keeps you on top of the F1 race weekend..."
 ```
 
-The pending rename lives in a second appInfo (`859a5495`, `REJECTED`) and cannot take effect while
-the version is rejected. A reviewer examining "the metadata" for this app can see the macOS side.
+The pending rename lives in a second appInfo (`859a5495`). A reviewer examining "the metadata" for
+this app can see the macOS side.
+
+**Re-measured 2026-08-16, and two things have moved:**
+
+- That second appInfo now reads `READY_FOR_REVIEW`, not `REJECTED`, and the iOS version record is
+  `1.1.1 READY_FOR_REVIEW` with build 9 attached. The rename is **staged and will go live with the
+  next approval on either platform** — it is no longer blocked on anything but an approval.
+- **There is no editable macOS version at all.** Only two macOS version records have ever existed,
+  1.0.13 and 1.0.21, and both are `READY_FOR_SALE`. So the Mac keywords and description cannot be
+  edited, only replaced by creating a macOS 1.1.1 — which decision 3 below is about. Nothing here
+  can create one: `appstore_status.py` only reads versions, and `appstoreconnect-bot` maps
+  `set-metadata`, `set-build` and `submit` but not create-version. Today that is a browser step.
+
+One more falsehood on the live Mac listing, not previously recorded: its what's-new says
+"Universal app — now also available on iPhone and iPad". The iOS app has never been approved, so
+the store is advertising a release that does not exist — on the record under review, for metadata.
 
 ### And the website — FIXED 2026-08-13
 
@@ -466,8 +481,11 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
       read from OpenF1 (one timestamp, no results).
 - [x] The Wikimedia Commons credit for the Formula One logo went with the image in `525a6e0`;
       nothing stale left in Acknowledgements (2026-08-13)
-- [ ] Resolution Center answered, including the correction
-- [ ] `appstore_status.py` shows the iOS version out of `REJECTED`
+- [x] Resolution Center answered, including the correction — sent 2026-08-13T17:11:51Z, confirmed
+      2026-08-16 as the last message on thread `74533c00`; it opens "A CORRECTION" and retracts the
+      5 and 11 May denials by name. The submission stays `UNRESOLVED_ISSUES` until Apple acts
+- [ ] `appstore_status.py` shows the iOS version out of `REJECTED` — as of 2026-08-16 the version
+      record reads `READY_FOR_REVIEW`, which is the state before a decision, not a decision
 
 ---
 
@@ -479,7 +497,11 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
 2. **How far to go on 4.2.2.** Screenshots alone may be enough, or it may need a Live Activity /
    notifications. Cheapest first: retake screenshots, resubmit, and see whether 4.2.2 survives.
 3. **Whether to fix the macOS listing now.** It is on sale and uncomplained-about, but it shares the
-   app record with the thing under review.
+   app record with the thing under review. Concretely (2026-08-16): fixing it means creating and
+   submitting a macOS 1.1.1, which opens a second platform in review while the iOS submission is
+   still unanswered. No build work blocks it — macOS 1.1.1 already has installable builds 15, 16, 17
+   and `10001`. If iOS is approved first the staged rename lands anyway, leaving `No Spoilers - Grand
+   Prix` over a Mac description about the F1 race weekend: better, and still inconsistent.
 
 ## Note on the name
 

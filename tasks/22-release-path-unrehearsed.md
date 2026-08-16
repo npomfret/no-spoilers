@@ -4,9 +4,14 @@
 else in both is done and proven, and this is the one thing neither could close from a keyboard.**
 
 `scripts/release.sh` was substantially rewritten on 2026-08-13 and 2026-08-14 and **has not shipped
-anything since**. It has also not run at all since `CURRENT_PROJECT_VERSION` was moved to the
-`10000` band, which means the central claim of the two-band design has never been tested against the
-thing it is meant to avoid.
+anything since**. Its last real run was 2026-08-12, before both rewrites.
+
+**Corrected 2026-08-16.** This file originally said the script had not run at all since
+`CURRENT_PROJECT_VERSION` was moved to the `10000` band, and that the two-band design had therefore
+never been tested. Checking the app record showed otherwise: the 2026-08-12 run uploaded macOS
+`10001` and iOS `10002`, so the bands **have** met, in both trains, without colliding. That claim is
+struck from the list below. What is left is genuinely untested — the current script, and the
+one-build-number fix that landed after that run.
 
 Everything in this file is unproven-by-running, not suspected-broken. Each piece was verified as far
 as it can be without an actual release: `bash -n` clean, argument validation exercised, the
@@ -14,17 +19,22 @@ failed-archive path proven on a throwaway repo, `--build` proven to pin and to b
 
 ## What has never been exercised
 
-- **The two build-number bands, against each other.** `release.sh` counts from 10000; Xcode Cloud
-  uses its run number. Nothing enforces the separation but the committed
-  `CURRENT_PROJECT_VERSION` — and no `release.sh` upload has happened since the bump, so a run of
-  both paths against one app record has never been observed. This was the last unchecked box in
-  task 14.
 - **`scripts/ship.sh` shipping all three channels from one version.** Mac App Store, macOS
   Developer ID and iOS App Store in one run, version-locked, one build number. This was the last
   unchecked box in task 17, and the one-build-number fix that made the claim true is itself part of
-  what has not run.
+  what has not run. The 2026-08-12 run is the counter-example that made the fix necessary rather
+  than evidence for it: two auto-bumps three minutes apart (`ba44cad`, `4461978`) put **10001 on
+  macOS and 10002 on iOS** for one release, which is exactly what `--build` now pins.
 - **`scripts/ship-ios.sh` after the rewrite**, and specifically that its upload does not collide
   with a CI build number.
+
+Discharged by observation on 2026-08-16, not by running anything:
+
+- ~~**The two build-number bands, against each other.**~~ Measured on the live app record: macOS
+  1.1.1 holds `10001` alongside Xcode Cloud 15, 16 and 17; iOS 1.1.1 holds `10002` alongside 1
+  through 17. No collision, and no upload was refused. This was the last unchecked box in task 14
+  and it is now answered. The band separation still rests on nothing but the committed
+  `CURRENT_PROJECT_VERSION`, so the "do not lower it" warning in `docs/guides/building.md` stands.
 
 ## Hazards to expect on the first real run
 
@@ -61,8 +71,8 @@ last chance to find out what a rehearsal would have needed to cover.
 ## Verification
 
 - [ ] One `ship.sh` run puts the same version **and the same build number** on all three channels
-- [ ] The uploaded `release.sh` build number lands in the 10000 band and collides with nothing
-      Xcode Cloud has uploaded
+- [x] The uploaded `release.sh` build number lands in the 10000 band and collides with nothing
+      Xcode Cloud has uploaded — observed 2026-08-16 on the 2026-08-12 uploads, see above
 - [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
 - [ ] `docs/guides/building.md` updated with whatever the first real run turns out to have been
       wrong about — it is the canonical description and currently describes an untested design
