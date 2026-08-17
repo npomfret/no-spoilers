@@ -63,6 +63,19 @@ public enum Theme {
         /// surface two answers.
         public static let surfaceRaised = Color.white.opacity(0.65)
 
+        /// The page behind a weekend that is over.
+        ///
+        /// **The only place this product changes its background from state**,
+        /// and until the sweep it was an unnamed `Color(red:green:blue:)` typed
+        /// into `NoSpoilers/ContentView.swift` — the one colour decision in the
+        /// app that lived nowhere near the others.
+        ///
+        /// It is not in `BrandPalette` and not in `docs/brand.md`: it is a
+        /// desaturated warm grey a shade off `surface`, which is the whole
+        /// point of it. Naming it here changes no pixel and makes it findable;
+        /// whether it should become a spec entry is phase 8's question.
+        public static let surfaceFinished = Color(red: 0.96, green: 0.95, blue: 0.94)
+
         /// The three session states, resolved once so that the accent bar and
         /// the badge cannot disagree — which they did, three different ways
         /// across three targets, including a macOS row that drew a blue bar

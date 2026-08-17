@@ -68,32 +68,35 @@ enum WidgetInstallStatus {
 struct WidgetInstallCard: View {
     var body: some View {
         NoSpoilersCard(canvas: .iosApp) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: "square.grid.2x2.fill")
+            VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                HStack(spacing: Theme.Space.lg) {
+                    Image(systemName: Theme.Icon.widget)
                         .font(.title3)
                         .foregroundStyle(BrandPalette.signalRed)
                     Text(Strings.Widget.installTitle)
                         .font(.headline)
-                        .foregroundStyle(BrandPalette.smoke)
+                        .foregroundStyle(Theme.Palette.textPrimary)
                 }
 
                 Text(Strings.Widget.installBody)
                     .font(.subheadline)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.md) {
                     ForEach(Array(Strings.Widget.installSteps.enumerated()), id: \.offset) { index, step in
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: Theme.Space.lg) {
                             Text(String(index + 1))
                                 .font(.caption.weight(.bold))
                                 .foregroundStyle(.white)
+                                // A glyph diameter, not a gap — `Theme.Space` is
+                                // the spacing rhythm and does not apply to it,
+                                // same as the flag heights.
                                 .frame(width: 20, height: 20)
                                 .background(Circle().fill(BrandPalette.signalRed))
                             Text(step)
                                 .font(.subheadline)
-                                .foregroundStyle(BrandPalette.smoke)
+                                .foregroundStyle(Theme.Palette.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -101,7 +104,7 @@ struct WidgetInstallCard: View {
 
                 Text(Strings.Widget.installFooter)
                     .font(.caption)
-                    .foregroundStyle(BrandPalette.tertiaryText)
+                    .foregroundStyle(Theme.Palette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

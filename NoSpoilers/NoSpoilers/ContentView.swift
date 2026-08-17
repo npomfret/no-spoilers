@@ -23,13 +23,13 @@ struct ContentView: View {
                     Button {
                         selectedWeekendIndex = currentIndex
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
+                        HStack(spacing: Theme.Space.xs) {
+                            Image(systemName: Theme.Icon.currentWeekend)
                                 .font(.caption2)
                             Text(Strings.Navigation.currentWeekend)
                                 .font(.caption.weight(.semibold))
                         }
-                        .foregroundStyle(BrandPalette.secondaryText)
+                        .foregroundStyle(Theme.Palette.textSecondary)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -39,26 +39,26 @@ struct ContentView: View {
                 Button {
                     showAbout = true
                 } label: {
-                    Image(systemName: "info.circle")
+                    Image(systemName: Theme.Icon.about)
                         .font(.title3)
-                        .foregroundStyle(BrandPalette.secondaryText)
+                        .foregroundStyle(Theme.Palette.textSecondary)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(NoSpoilersCore.Strings.About.acknowledgements)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.horizontal, Theme.Space.xxl)
+            .padding(.top, Theme.Space.md)
+            .padding(.bottom, Theme.Space.xs)
 
             if store.isRefreshing && !weekendsLoaded {
                 ScrollView {
-                    skeletonView.padding(16)
+                    skeletonView.padding(Theme.Space.xxl)
                 }
                 .refreshable { await refresh() }
             } else if sortedWeekends.isEmpty {
                 ScrollView {
-                    unavailableView.padding(16)
+                    unavailableView.padding(Theme.Space.xxl)
                 }
                 .refreshable { await refresh() }
             } else {
@@ -74,7 +74,7 @@ struct ContentView: View {
                 TabView(selection: $selectedWeekendIndex) {
                     ForEach(sortedWeekends.indices, id: \.self) { index in
                         ScrollView {
-                            weekendView(sortedWeekends[index]).padding(16)
+                            weekendView(sortedWeekends[index]).padding(Theme.Space.xxl)
                         }
                         .tag(index)
                     }
@@ -137,7 +137,7 @@ struct ContentView: View {
     private var backgroundGradient: some View {
         Group {
             if isCurrentWeekendFinished {
-                Color(red: 0.96, green: 0.95, blue: 0.94)
+                Theme.Palette.surfaceFinished
                     .ignoresSafeArea()
             } else {
                 NoSpoilersBackground()
@@ -182,7 +182,7 @@ struct ContentView: View {
             confirmedEndDates: store.confirmedEndDates
         )
 
-        return VStack(spacing: 16) {
+        return VStack(spacing: Theme.Space.xxl) {
             // First, because a user without the widget has not finished setting the app up and
             // that is the most useful thing on the screen for them. It scrolls away like any other
             // card, and it is gone for good the moment they act.
@@ -202,16 +202,16 @@ struct ContentView: View {
         let isFinished = nextSession == nil
 
         return NoSpoilersCard(canvas: .iosApp) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.iosApp)) {
                     NoSpoilersWordmark(size: .large)
                     Spacer()
-                    FlagImage(countryCode: weekend.countryCode, height: 28)
+                    FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.iosApp))
                 }
 
                 Text(weekend.grandPrixName)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(BrandPalette.smoke)
+                    .font(Theme.Typography.weekendTitle(.iosApp))
+                    .foregroundStyle(Theme.Palette.textPrimary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
@@ -225,7 +225,7 @@ struct ContentView: View {
 
                 Text(statusLine)
                     .font(.subheadline)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                    .foregroundStyle(Theme.Palette.textSecondary)
             }
         }
     }
@@ -238,10 +238,10 @@ struct ContentView: View {
 
     private func sessionCard(sessions: [Session]) -> some View {
         NoSpoilersCard(canvas: .iosApp) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 Text(Strings.Sessions.header)
                     .font(.headline)
-                    .foregroundStyle(BrandPalette.smoke)
+                    .foregroundStyle(Theme.Palette.textPrimary)
 
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
@@ -284,53 +284,54 @@ struct ContentView: View {
         }
     }
 
+    /// What the screen looks like before the first schedule arrives.
+    ///
+    /// **It draws the real components, not lookalikes of them.** This used to
+    /// hand-build a session row — its own 3pt accent rule, its own label stack,
+    /// its own 10pt-radius white-65% panel — which made it the *fifth*
+    /// implementation of the row `NoSpoilersSessionRow` replaced, and the last
+    /// one still carrying the 10pt corner that convergence retired. A skeleton
+    /// that drifts from the thing it stands in for is a skeleton of a screen
+    /// this app no longer has.
+    ///
+    /// **The strings are `verbatim` on purpose.** They are shapes rather than
+    /// copy — `.redacted(.placeholder)` paints every one of them as a grey bar,
+    /// and none is ever read. Putting them through `Strings.swift` would hand a
+    /// translator "Sat 00:00" to localise.
     private var skeletonView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Theme.Space.xxl) {
             NoSpoilersCard(canvas: .iosApp) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: Theme.Space.xl) {
                     HStack {
                         NoSpoilersWordmark(size: .large)
                         Spacer()
                     }
                     HStack {
                         Spacer(minLength: 0)
-                        Text("Loading Grand Prix")
-                            .font(.title2.weight(.bold))
+                        Text(verbatim: "Loading Grand Prix")
+                            .font(Theme.Typography.weekendTitle(.iosApp))
                         Spacer(minLength: 0)
                     }
-                    HStack(spacing: 8) {
-                        NoSpoilersRoundPill("R0")
-                        Text("Location")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("1 Jan – 3 Jan")
-                            .font(.caption)
-                    }
-                    Text("Next session in —")
+                    NoSpoilersWeekendMeta(
+                        canvas: .iosApp,
+                        round: 0,
+                        location: "Location",
+                        dateRange: "1 Jan – 3 Jan"
+                    )
+                    Text(verbatim: "Next session in —")
                         .font(.subheadline)
                 }
             }
             NoSpoilersCard(canvas: .iosApp) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Sessions")
+                VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                    Text(verbatim: "Sessions")
                         .font(.headline)
                     ForEach(0..<5, id: \.self) { _ in
-                        HStack(spacing: 10) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .frame(width: 3, height: 32)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Free Practice 1")
-                                    .font(.body.weight(.semibold))
-                                Text("Sat 00:00")
-                                    .font(.caption)
-                            }
-                            Spacer()
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.65))
+                        NoSpoilersSessionRow(
+                            canvas: .iosApp,
+                            status: .upcoming,
+                            name: Text(verbatim: "Free Practice 1"),
+                            detail: Text(verbatim: "Sat 00:00")
                         )
                     }
                 }
