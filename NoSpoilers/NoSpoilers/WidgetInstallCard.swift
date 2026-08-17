@@ -67,7 +67,7 @@ enum WidgetInstallStatus {
 /// gallery. A button here would be a lie, so this instructs rather than acts.
 struct WidgetInstallCard: View {
     var body: some View {
-        NoSpoilersCard {
+        NoSpoilersCard(canvas: .iosApp) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 10) {
                     Image(systemName: "square.grid.2x2.fill")

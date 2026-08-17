@@ -1,77 +1,5 @@
 import SwiftUI
 
-public enum NoSpoilersCardDensity {
-    case regular
-    case compact
-    case widget
-
-    var cornerRadius: CGFloat {
-        switch self {
-        case .regular:
-            return 24
-        case .compact:
-            return 18
-        case .widget:
-            return 14
-        }
-    }
-
-    var horizontalPadding: CGFloat {
-        switch self {
-        case .regular:
-            return 20
-        case .compact:
-            return 16
-        case .widget:
-            return 12
-        }
-    }
-
-    var verticalPadding: CGFloat {
-        switch self {
-        case .regular:
-            return 20
-        case .compact:
-            return 14
-        case .widget:
-            return 10
-        }
-    }
-
-    var shadowRadius: CGFloat {
-        switch self {
-        case .regular:
-            return 20
-        case .compact:
-            return 14
-        case .widget:
-            return 10
-        }
-    }
-
-    var shadowYOffset: CGFloat {
-        switch self {
-        case .regular:
-            return 12
-        case .compact:
-            return 8
-        case .widget:
-            return 6
-        }
-    }
-
-    var fillOpacity: Double {
-        switch self {
-        case .regular:
-            return 0.82
-        case .compact:
-            return 0.78
-        case .widget:
-            return 0.74
-        }
-    }
-}
-
 public enum NoSpoilersBadgeStyle {
     case finished
     case live
@@ -119,36 +47,44 @@ public struct NoSpoilersBackground: View {
     }
 }
 
+/// The panel almost every other component sits inside.
+///
+/// **`canvas` is required and has no default.** It used to be a
+/// `NoSpoilersCardDensity` defaulting to `.regular`, which meant a macOS or
+/// widget caller that forgot it silently got iOS geometry — a 24pt radius and
+/// 20pt padding inside a 300pt popover. There is no sensible default for "which
+/// surface am I on"; the caller always knows.
 public struct NoSpoilersCard<Content: View>: View {
-    private let density: NoSpoilersCardDensity
+    private let canvas: Theme.Canvas
     private let content: Content
 
     public init(
-        density: NoSpoilersCardDensity = .regular,
+        canvas: Theme.Canvas,
         @ViewBuilder content: () -> Content
     ) {
-        self.density = density
+        self.canvas = canvas
         self.content = content()
     }
 
     public var body: some View {
-        content
-            .padding(.horizontal, density.horizontalPadding)
-            .padding(.vertical, density.verticalPadding)
+        let card = Theme.Card.geometry(canvas)
+        return content
+            .padding(.horizontal, card.horizontalPadding)
+            .padding(.vertical, card.verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(density.fillOpacity))
+                RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(card.fillOpacity))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: density.cornerRadius, style: .continuous)
-                    .stroke(BrandPalette.mistGrey.opacity(0.55), lineWidth: 1)
+                RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
+                    .stroke(Theme.Palette.separator.opacity(0.55), lineWidth: 1)
             )
             .shadow(
-                color: BrandPalette.deepMaroon.opacity(density == .widget ? 0.06 : 0.08),
-                radius: density.shadowRadius,
+                color: BrandPalette.deepMaroon.opacity(card.shadowOpacity),
+                radius: card.shadowRadius,
                 x: 0,
-                y: density.shadowYOffset
+                y: card.shadowYOffset
             )
     }
 }
@@ -591,42 +527,47 @@ extension NoSpoilersSessionRow where Trailing == EmptyView {
     }
 }
 
+/// An empty or error state: a symbol, a title, and a line explaining it.
+///
+/// **`bodyText` went back to being required when the density axis folded into
+/// `Canvas`.** It had to be optional while the axis was regular/compact/widget,
+/// because `.widget` could not tell `systemSmall` — which has no room for the
+/// line — from the two families that do, so the caller was left computing the
+/// absence and passing `nil`. `Theme.MessageCard.showsBody` answers it from the
+/// canvas instead, which is where a question about how much room a surface has
+/// belongs.
 public struct NoSpoilersMessageCard: View {
     private let iconName: String
     private let title: Text
-    private let bodyText: Text?
-    private let density: NoSpoilersCardDensity
+    private let bodyText: Text
+    private let canvas: Theme.Canvas
 
-    /// **`bodyText` is optional because the small widget has no room for it.**
-    /// Measured, not assumed: on `systemSmall` the icon, the title and two
-    /// lines of `.caption` fill the card, and the third line truncates
-    /// mid-word. The title carries the state on its own there.
     public init(
         iconName: String = Theme.Icon.offSeason,
         title: Text,
-        bodyText: Text?,
-        density: NoSpoilersCardDensity = .regular
+        bodyText: Text,
+        canvas: Theme.Canvas
     ) {
         self.iconName = iconName
         self.title = title
         self.bodyText = bodyText
-        self.density = density
+        self.canvas = canvas
     }
 
     public var body: some View {
-        NoSpoilersCard(density: density) {
-            VStack(spacing: density == .widget ? 8 : 12) {
+        NoSpoilersCard(canvas: canvas) {
+            VStack(spacing: Theme.MessageCard.contentSpacing(canvas)) {
                 Image(systemName: iconName)
-                    .font(.system(size: density == .widget ? 28 : 34))
+                    .font(.system(size: Theme.MessageCard.iconSize(canvas)))
                     .foregroundStyle(BrandPalette.signalRed)
                 title
                     .font(.headline)
-                    .foregroundStyle(BrandPalette.smoke)
-                if let bodyText {
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                if Theme.MessageCard.showsBody(canvas) {
                     bodyText
-                        .font(density == .widget ? .caption : .subheadline)
+                        .font(Theme.MessageCard.bodyFont(canvas))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(BrandPalette.secondaryText)
+                        .foregroundStyle(Theme.Palette.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity)

@@ -201,7 +201,7 @@ struct ContentView: View {
         let statusLine = nextSession.map { nextSessionStatus(for: $0, in: sessions) } ?? Strings.Sessions.weekendCompleteStatus()
         let isFinished = nextSession == nil
 
-        return NoSpoilersCard {
+        return NoSpoilersCard(canvas: .iosApp) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 12) {
                     NoSpoilersWordmark(size: .large)
@@ -237,7 +237,7 @@ struct ContentView: View {
     }
 
     private func sessionCard(sessions: [Session]) -> some View {
-        NoSpoilersCard {
+        NoSpoilersCard(canvas: .iosApp) {
             VStack(alignment: .leading, spacing: 12) {
                 Text(Strings.Sessions.header)
                     .font(.headline)
@@ -272,7 +272,7 @@ struct ContentView: View {
         // line at all.
         let countdownText = weekend.allSessions.first.map { Text(countdown(to: $0.startsAt)) }
 
-        return NoSpoilersCard {
+        return NoSpoilersCard(canvas: .iosApp) {
             NoSpoilersNextUpFooter(
                 canvas: .iosApp,
                 countryCode: weekend.countryCode,
@@ -286,7 +286,7 @@ struct ContentView: View {
 
     private var skeletonView: some View {
         VStack(spacing: 16) {
-            NoSpoilersCard {
+            NoSpoilersCard(canvas: .iosApp) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         NoSpoilersWordmark(size: .large)
@@ -310,7 +310,7 @@ struct ContentView: View {
                         .font(.subheadline)
                 }
             }
-            NoSpoilersCard {
+            NoSpoilersCard(canvas: .iosApp) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Sessions")
                         .font(.headline)
@@ -343,7 +343,7 @@ struct ContentView: View {
         NoSpoilersMessageCard(
             title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
             bodyText: Text(Strings.Error.unavailableBody),
-            density: .regular
+            canvas: .iosApp
         )
     }
 

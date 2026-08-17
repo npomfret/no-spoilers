@@ -284,7 +284,7 @@ struct WeekendPopoverView: View {
         NoSpoilersMessageCard(
             title: Text(Strings.Popover.offSeason),
             bodyText: Text(Strings.Popover.noSessions),
-            density: .compact
+            canvas: .macPopover
         )
         .padding(16)
     }

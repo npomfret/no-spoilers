@@ -308,6 +308,23 @@ struct NoSpoilersWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     var entry: NoSpoilersEntry
 
+    /// Which `Theme.Canvas` this family draws on.
+    ///
+    /// **`systemExtraLarge` shares `widgetLarge`'s scale** — that is what the
+    /// canvas axis says and what `extraLargeView` already did by passing
+    /// `.widgetLarge` to every component in its left-hand column.
+    ///
+    /// The `default` branch mirrors `body`'s: `systemMedium` is the fallback
+    /// family, so anything WidgetKit adds later renders at medium until someone
+    /// designs for it.
+    private var canvas: Theme.Canvas {
+        switch family {
+        case .systemSmall:                     return .widgetSmall
+        case .systemLarge, .systemExtraLarge:  return .widgetLarge
+        default:                               return .widgetMedium
+        }
+    }
+
     var body: some View {
         if let weekend = entry.weekend {
             switch family {
@@ -501,8 +518,8 @@ struct NoSpoilersWidgetEntryView: View {
         NoSpoilersMessageCard(
             iconName: Theme.Icon.offSeason,
             title: Text(Strings.OffSeason.badge),
-            bodyText: emptyStateBody(Strings.OffSeason.body),
-            density: .widget
+            bodyText: Text(Strings.OffSeason.body),
+            canvas: canvas
         )
     }
 
@@ -511,20 +528,9 @@ struct NoSpoilersWidgetEntryView: View {
         NoSpoilersMessageCard(
             iconName: Theme.Icon.scheduleUnavailable,
             title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
-            bodyText: emptyStateBody(Strings.Error.unavailableBody),
-            density: .widget
+            bodyText: Text(Strings.Error.unavailableBody),
+            canvas: canvas
         )
-    }
-
-    /// The explanatory line under an empty state's title, or nil on the small
-    /// family.
-    ///
-    /// **Measured, not assumed.** On `systemSmall` the card fits its icon, its
-    /// title and two lines of `.caption`; the off-season body ran to a third
-    /// and truncated mid-word ("The next race weekend will ap…"). The title
-    /// carries the state on its own at that size.
-    private func emptyStateBody(_ key: LocalizedStringKey) -> Text? {
-        family == .systemSmall ? nil : Text(key)
     }
 
     // MARK: - Shared view helpers

@@ -57,10 +57,10 @@ public enum Theme {
         /// A row or panel lifted off `surface` — the session-row fill, at four
         /// sites across three targets.
         ///
-        /// **The card fill is not this.** `NoSpoilersCardDensity` resolves it to
-        /// 0.82/0.78/0.74 from its density axis, so a card sits slightly more
-        /// opaque than a row and does so on purpose. Restating either here would
-        /// give one surface two answers.
+        /// **The card fill is not this.** `Theme.Card` resolves it to
+        /// 0.82/0.78/0.74 per canvas, so a card sits slightly more opaque than a
+        /// row and does so on purpose. Restating either here would give one
+        /// surface two answers.
         public static let surfaceRaised = Color.white.opacity(0.65)
 
         /// The three session states, resolved once so that the accent bar and
@@ -108,9 +108,9 @@ public enum Theme {
     /// Where a piece of UI is being drawn — the axis every other token varies
     /// along.
     ///
-    /// **Why five cases rather than the three `NoSpoilersCardDensity` has.**
-    /// That enum resolves card geometry from regular/compact/widget, and it is
-    /// the seed this whole file grew from. But it cannot carry type as well,
+    /// **Why five cases rather than the three `NoSpoilersCardDensity` had.**
+    /// That enum resolved card geometry from regular/compact/widget, and it is
+    /// the seed this whole file grew from. But it could not carry type as well,
     /// because the widget's medium and large families share one card geometry
     /// and deliberately do *not* share a type size: `widgetSessionRow` draws its
     /// label at `.caption` in medium and `.subheadline` in large, threaded
@@ -119,25 +119,23 @@ public enum Theme {
     ///
     /// A case per surface holds both without duplicating either — `widgetMedium`
     /// and `widgetLarge` return the same radius and different fonts, and nothing
-    /// has to be said twice. It also gives `widgetSmall` a name; today it is a
-    /// family with its own private row implementation and no way to refer to it.
+    /// has to be said twice. It also gives `widgetSmall` a name; before this axis
+    /// it was a family with its own private row implementation and no way to
+    /// refer to it.
     ///
-    /// **The conflict is latent, not theoretical.** `NoSpoilersCardDensity.widget`
-    /// is unreachable right now — the widget target uses neither `NoSpoilersCard`
-    /// nor `NoSpoilersMessageCard`, so those five values are dead. It goes live
-    /// the moment the widget's two empty states move onto `NoSpoilersMessageCard`,
-    /// and that is when one 3-case axis would have had to answer for both widget
-    /// families at once.
+    /// **The conflict was latent, then it went live, and now it is gone.**
+    /// `NoSpoilersCardDensity.widget` was unreachable until the widget's empty
+    /// states moved onto `NoSpoilersMessageCard` — at which point one 3-case axis
+    /// had to answer for all three widget families at once, and could not: it
+    /// cost the small family its explanatory line, because `.widget` had no way
+    /// to say which widget. `Theme.Card` and `Theme.MessageCard` below are that
+    /// enum folded in here, and the density axis no longer exists.
     ///
     /// **Named `Canvas`, not `Surface`,** because `Theme.Palette.surface` is
     /// already a colour. One word meaning both "a place UI is drawn" and "the
     /// background behind it" inside one namespace is a trip hazard, and the
     /// colour spelling is the one worth keeping — it is what CSS and the wider
     /// design-system vocabulary use.
-    ///
-    /// `NoSpoilersCardDensity` still owns card geometry and is not folded in
-    /// here yet; that fold is a change to a live component rather than an
-    /// addition, so it travels with the components it changes.
     public enum Canvas: CaseIterable {
         /// The iOS app's paged weekend cards.
         case iosApp
@@ -344,12 +342,11 @@ public enum Theme {
     /// All four values are already on the same 2pt grid as `Space`, so unlike
     /// the spacing above there is nothing here that has to round.
     ///
-    /// **The card radii are not here.** `NoSpoilersCardDensity` resolves 24/18/14
-    /// from its regular/compact/widget axis and is the one piece of this whole
-    /// system that already works. Restating those numbers here would make two
-    /// answers to one question, which is the problem this file exists to remove;
-    /// the density axis gets folded into `Theme` as a whole, later, rather than
-    /// copied into it now.
+    /// **The card radii are not here.** `Theme.Card` resolves 24/18/14 per
+    /// canvas, alongside the padding, fill and shadow that go with each of them.
+    /// Restating those numbers here would make two answers to one question,
+    /// which is the problem this file exists to remove — a card's radius is not
+    /// independently choosable from its padding, so it lives with it.
     public enum Radius {
         /// The session accent bar — a 3pt-wide vertical rule. Four sites across
         /// three targets, all agreeing.
@@ -366,6 +363,130 @@ public enum Theme {
         /// corners are 2pt sharper as a result. The 10pt value had no other
         /// site and is gone.
         public static let medium: CGFloat = 8
+    }
+
+    /// The panel almost everything else sits inside: rounded, inset, filled
+    /// white over the gradient, with a soft shadow under it.
+    ///
+    /// **This is `NoSpoilersCardDensity` folded in, and the fold is the whole
+    /// point.** That enum was regular/compact/widget — the same idea as `Canvas`
+    /// written a second way, in a second vocabulary, resolved by a second
+    /// parameter. Every component that needed to vary by surface therefore took
+    /// *either* a density or a `compact: Bool` or a canvas, and no call site
+    /// could tell you which without reading it. One axis, one spelling.
+    ///
+    /// **Nothing here changes what is on screen.** regular's numbers are
+    /// `iosApp`, compact's are `macPopover`, and widget's are all three widget
+    /// families — which is exactly what `.widget` already resolved to, since
+    /// `NoSpoilersCard` had no way to distinguish them either. The gain is not
+    /// in this type; it is in `MessageCard` below, where the three families do
+    /// differ and the old axis could not say so.
+    ///
+    /// **The seven values are one decision, not seven.** A card's radius is not
+    /// independently choosable from its padding or its shadow — pick a size and
+    /// they move together — so they resolve in one switch rather than in seven
+    /// that could drift apart.
+    public enum Card {
+        public struct Geometry {
+            public let cornerRadius: CGFloat
+            public let horizontalPadding: CGFloat
+            public let verticalPadding: CGFloat
+            /// Shadow blur. **Not on the `Space` grid**, deliberately: this is a
+            /// softness, not a gap, and it does not move when the rhythm does.
+            public let shadowRadius: CGFloat
+            public let shadowYOffset: CGFloat
+            /// How opaque the white fill is over the gradient behind it.
+            public let fillOpacity: Double
+            /// **The widget's shadow is lighter than the apps'** — 0.06 against
+            /// 0.08. A widget sits on the Home Screen wallpaper rather than on
+            /// this product's own gradient, so its card has less to lift off.
+            public let shadowOpacity: Double
+        }
+
+        public static func geometry(_ canvas: Canvas) -> Geometry {
+            switch canvas {
+            case .iosApp:
+                return Geometry(
+                    cornerRadius: 24,
+                    horizontalPadding: Space.xxxl,
+                    verticalPadding: Space.xxxl,
+                    shadowRadius: 20,
+                    shadowYOffset: Space.xl,
+                    fillOpacity: 0.82,
+                    shadowOpacity: 0.08
+                )
+            case .macPopover:
+                return Geometry(
+                    cornerRadius: 18,
+                    horizontalPadding: Space.xxl,
+                    verticalPadding: 14,
+                    shadowRadius: 14,
+                    shadowYOffset: Space.md,
+                    fillOpacity: 0.78,
+                    shadowOpacity: 0.08
+                )
+            case .widgetSmall, .widgetMedium, .widgetLarge:
+                return Geometry(
+                    cornerRadius: 14,
+                    horizontalPadding: Space.xl,
+                    verticalPadding: Space.lg,
+                    shadowRadius: 10,
+                    shadowYOffset: Space.sm,
+                    fillOpacity: 0.74,
+                    shadowOpacity: 0.06
+                )
+            }
+        }
+    }
+
+    /// An empty or error state drawn inside a card: a symbol, a title, and a
+    /// line explaining it.
+    ///
+    /// **This family exists because `NoSpoilersCardDensity` could not express
+    /// it.** Its three values were resolved from `density == .widget`, which
+    /// answered for all three widget families at once — and the small family is
+    /// not like the other two. Measured against a hand-seeded off-season cache,
+    /// `systemSmall` fits the symbol, the title and two lines of `.caption`; the
+    /// third line truncated mid-word. With only a density to go on, the caller
+    /// had to make that decision itself and pass `nil`, which is how a layout
+    /// question ended up in the widget's view code as an optional.
+    public enum MessageCard {
+        /// Between the symbol, the title and the body.
+        public static func contentSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp, .macPopover:                        return Space.xl
+            case .widgetSmall, .widgetMedium, .widgetLarge:   return Space.md
+            }
+        }
+
+        /// The symbol above the title. **Not on the `Space` grid** — a glyph
+        /// size, like `NextUp.flagHeight`.
+        public static func iconSize(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp, .macPopover:                        return 34
+            case .widgetSmall, .widgetMedium, .widgetLarge:   return 28
+            }
+        }
+
+        public static func bodyFont(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp, .macPopover:                        return .subheadline
+            case .widgetSmall, .widgetMedium, .widgetLarge:   return .caption
+            }
+        }
+
+        /// Whether the explanatory line under the title is drawn at all.
+        ///
+        /// **`widgetSmall` is the one canvas that says no**, and it says so
+        /// here rather than at the call site: the caller knows what the state
+        /// means, and this file knows how much room the canvas has. The title
+        /// carries the state on its own at that size.
+        public static func showsBody(_ canvas: Canvas) -> Bool {
+            switch canvas {
+            case .widgetSmall:                                       return false
+            case .iosApp, .macPopover, .widgetMedium, .widgetLarge:  return true
+            }
+        }
     }
 
     /// The geometry of a session row — the one component every canvas draws,
