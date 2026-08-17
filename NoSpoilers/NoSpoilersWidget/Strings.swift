@@ -15,13 +15,10 @@ enum Strings {
         static func roundLabel(_ round: Int) -> String    { "R\(round)" }
     }
     enum Widget {
-        static let weekendCard: LocalizedStringKey        = "Weekend"
         static let comingUp: LocalizedStringKey           = "Next up"
         static let displayName: LocalizedStringKey        = "No Spoilers"
         static let widgetDescription: LocalizedStringKey  = "Grand Prix weekend sessions — never the result."
         static func moreSessions(_ count: Int) -> String  { "+\(count) more session\(count == 1 ? "" : "s")" }
-        static func locationAndCountry(_ location: String, _ country: String) -> String      { "\(location), \(country)" }
-        static func locationAndCountrySmall(_ location: String, _ country: String) -> String { "\(location) - \(country)" }
         static func dateRange(start: String, end: String) -> String { "\(start) → \(end)" }
     }
     enum OffSeason {

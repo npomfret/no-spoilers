@@ -9,17 +9,12 @@ import SwiftUI
 // functions below. Swap to String(localized:) with interpolation when a Localizable.strings file is added.
 
 enum Strings {
-    enum App {
-        static let name: LocalizedStringKey               = "No Spoilers"
-    }
     enum Sessions {
         static let header: LocalizedStringKey             = "Sessions"
         static let comingUp: LocalizedStringKey           = "Next up"
-        static let weekendComplete: LocalizedStringKey    = "Weekend complete"
         static let inProgress: LocalizedStringKey         = "In Progress"
         static func weekendCompleteStatus() -> String     { "Weekend complete" }
         static func roundLabel(_ round: Int) -> String    { "R\(round)" }
-        static func roundLong(_ round: Int) -> String     { "Round \(round)" }
         static let countdownNow: String                   = "now"
         static func countdownDaysHours(_ d: Int, _ h: Int) -> String    { "in \(d)d \(h)h" }
         static func countdownHoursMinutes(_ h: Int, _ m: Int) -> String { "in \(h)h \(m)m" }
