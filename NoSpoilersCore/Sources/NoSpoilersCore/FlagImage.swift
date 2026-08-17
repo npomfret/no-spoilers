@@ -16,12 +16,12 @@ public struct FlagImage: View {
 
     public var body: some View {
         if let countryCode {
-            Image("flag-\(countryCode.lowercased())", bundle: .module)
+            Image(Theme.Icon.flag(for: countryCode), bundle: noSpoilersCoreBundle)
                 .resizable()
                 .scaledToFit()
                 .frame(width: height * 4 / 3, height: height)
         } else {
-            Text(verbatim: "🏁").frame(width: height * 4 / 3, height: height)
+            Text(verbatim: Theme.Icon.flagFallback).frame(width: height * 4 / 3, height: height)
         }
     }
 }

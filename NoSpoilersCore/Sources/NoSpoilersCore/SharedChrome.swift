@@ -306,6 +306,47 @@ public struct NoSpoilersWeekendMeta: View {
     }
 }
 
+/// The banner at the top of a full-screen surface: the app's icon, its name,
+/// and one line under it, on a blush field.
+///
+/// **This replaced two implementations** — the shared `AboutView`'s header and
+/// the macOS settings screen's — which were identical down to every number.
+/// Only the line under the name differed: a version string on About, a tagline
+/// on settings. That is content, so it stays with the callers, and there is no
+/// `canvas` parameter here because there was nothing for it to select.
+///
+/// **Both loaded the same asset through a different bundle spelling.** That is
+/// settled here on `noSpoilersCoreBundle`, which is `.module` by definition and
+/// so is the one spelling correct from either side of the package boundary.
+public struct NoSpoilersScreenHeader: View {
+    private let subtitle: Text
+
+    public init(subtitle: Text) {
+        self.subtitle = subtitle
+    }
+
+    public var body: some View {
+        VStack(spacing: Theme.ScreenHeader.spacing) {
+            Image(Theme.Icon.appIcon, bundle: noSpoilersCoreBundle)
+                .resizable()
+                .scaledToFit()
+                .frame(width: Theme.ScreenHeader.iconSize, height: Theme.ScreenHeader.iconSize)
+
+            Text(Strings.AppInfo.name)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundStyle(Theme.Palette.textPrimary)
+
+            subtitle
+                .font(.caption)
+                .foregroundStyle(Theme.Palette.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.ScreenHeader.verticalPadding)
+        .background(BrandPalette.blush.opacity(0.5))
+    }
+}
+
 /// The weekend after this one: an eyebrow, a flag, the weekend's name over an
 /// optional detail line, and whatever the surface wants trailing.
 ///

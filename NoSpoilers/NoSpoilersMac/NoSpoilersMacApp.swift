@@ -29,7 +29,7 @@ private struct MenuBarLabelView: View {
             // The status item's only always-present element: the countdown
             // label is optional and the flag is off by default, so this is what
             // stops the menu bar item collapsing to nothing.
-            Image("nospoilers-icon", bundle: noSpoilersCoreBundle)
+            Image(Theme.Icon.appIcon, bundle: noSpoilersCoreBundle)
                 .resizable()
                 .frame(width: 16, height: 16)
             if showFlagItem {

@@ -581,6 +581,19 @@ public enum Theme {
         }
     }
 
+    /// The banner at the top of a full-screen surface — the app's icon, its
+    /// name, and one line under it, on a blush field.
+    ///
+    /// **The one component that needed no canvas axis.** The shared About
+    /// screen and the macOS settings screen drew this identically, down to
+    /// every number; only the line under the name differed, and that is
+    /// content rather than geometry.
+    public enum ScreenHeader {
+        public static let iconSize: CGFloat = 56
+        public static let spacing = Space.md
+        public static let verticalPadding = Space.xxxl
+    }
+
     /// The weekend header — the block naming which Grand Prix a surface is
     /// showing.
     ///
@@ -649,14 +662,28 @@ public enum Theme {
     /// **Swift-only.** SF Symbols have no CSS equivalent, so this family is one
     /// of the tokens that cannot cross to the website.
     ///
-    /// **Asset names are not here yet**, though `"nospoilers-icon"` is written
-    /// out at three sites and `"flag-\(code)"` at one. Those three sites reach
-    /// the same asset through two different bundle spellings — `.module` from
-    /// inside this package, `noSpoilersCoreBundle` from the macOS target — and
-    /// naming the string without settling the bundle would hide half the
-    /// duplication rather than remove it. It goes with the screen-header
-    /// convergence, which is where both spellings meet.
+    /// **Asset names are here now**, and the bundle is settled with them. The
+    /// three `"nospoilers-icon"` sites reached the same asset through two
+    /// spellings — `.module` from inside this package, `noSpoilersCoreBundle`
+    /// from the macOS target — which is why naming the string had to wait for
+    /// the screen-header convergence rather than hide half the duplication.
+    /// `noSpoilersCoreBundle` won: it is `.module` by definition, so it is the
+    /// one spelling that is correct from both sides of the package boundary,
+    /// and it is now the only one in the product.
     public enum Icon {
+        /// The app's own icon, drawn at 56pt on the screen header and 16pt in
+        /// the macOS menu bar. Always loaded from `noSpoilersCoreBundle`.
+        public static let appIcon = "nospoilers-icon"
+
+        /// The flag asset for a country, by ISO code. Lowercased here so no
+        /// call site has to remember that the asset names are.
+        ///
+        /// The country code arrives from the feed in whatever case it was
+        /// written; the assets are all lowercase.
+        public static func flag(for countryCode: String) -> String {
+            "flag-\(countryCode.lowercased())"
+        }
+
         /// Marks the gap between seasons. Three sites: the widget's off-season
         /// view, the macOS message card, and the default for
         /// `NoSpoilersMessageCard`.

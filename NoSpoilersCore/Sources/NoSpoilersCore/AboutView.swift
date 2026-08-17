@@ -14,19 +14,9 @@ public struct AboutView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // ── Header ──────────────────────────────────────────
-            VStack(spacing: 8) {
-                Image("nospoilers-icon", bundle: .module)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 56, height: 56)
-                Text(Strings.AppInfo.name)
-                    .font(.title3).fontWeight(.bold)
-                Text(Strings.AppInfo.version(AppVersion.marketing, build: AppVersion.build))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .background(BrandPalette.blush.opacity(0.5))
+            NoSpoilersScreenHeader(
+                subtitle: Text(Strings.AppInfo.version(AppVersion.marketing, build: AppVersion.build))
+            )
 
             Divider()
 
