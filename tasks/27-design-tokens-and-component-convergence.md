@@ -1,9 +1,51 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN. Review complete 2026-08-17, nothing implemented. The four questions that used to
-block phase 1 were answered the same day — see "Decisions" at the end, which is now the section to
-read first if you are picking this up cold. The `Theme` namespace is still a new pattern family and
-the shape of it below is a proposal, but its four biggest unknowns are settled.**
+**Status: OPEN, phase 1 landed 2026-08-17. `Theme` exists in
+`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and nothing consumes it yet, which is what
+phase 1 is. Read "Progress" immediately below, then "Decisions" at the end. Everything from
+section A onwards is the original review and still describes the code as it stands, except where
+Progress says otherwise.**
+
+## Progress
+
+**Phase 1 — tokens, unused. Landed in four commits, `761a3c9`, `0183fbc`, `ba54c08`, `120a7e6`.**
+
+`Theme.Space` (8 steps), `Theme.Radius` (4), `Theme.Motion` (4), `Theme.Icon` (10),
+`Theme.Palette` (9 roles), `Theme.Canvas` (5 cases), `Theme.Typography` (2 roles so far).
+Verified each time with `scripts/verify-core-tests.sh` — 62 tests, 0 failures.
+
+What the implementation changed about the plan, and why:
+
+1. **The density axis could not be three cases** (contradicts item 2). The widget's medium and
+   large families share one card geometry and deliberately do not share a type size —
+   `widgetSessionRow` draws `.caption` in medium and `.subheadline` in large, threaded as a
+   separate `compact: Bool`. So `Theme.Canvas` has a case per surface: `iosApp`, `macPopover`,
+   `widgetSmall`, `widgetMedium`, `widgetLarge`. Approved 2026-08-17.
+2. **`NoSpoilersCardDensity.widget` is unreachable today.** The widget target uses neither
+   `NoSpoilersCard` nor `NoSpoilersMessageCard`, so those five values are dead code. This is why
+   the axis conflict has stayed hidden — it goes live exactly when phase 4 moves the widget's
+   empty states onto `NoSpoilersMessageCard`.
+3. **`Theme.Type` is `Theme.Typography`.** `Theme.Type` is ambiguous with Swift's metatype syntax.
+4. **`Theme.Surface` is `Theme.Canvas`,** so the axis does not collide with `Theme.Palette.surface`.
+   The colour keeps the word, since that is the CSS and design-system usage.
+5. **The semantic colour roles are not a pure transcription** (refines D4). iOS and the shared
+   components already draw `smoke`/`secondaryText`/`tertiaryText`, so for them the sweep is a
+   rename. macOS and `AboutView` use the system's `.primary`/`.secondary`/`.tertiary` at **22**
+   sites, not 18, and a system label is neutral where `smoke` is warm. Adopting the roles will
+   visibly change macOS text colour. That belongs to the sweep, with screenshots.
+6. **`NoSpoilersWidget.swift:574` is not a row detail** (corrects the reading behind B). It is a
+   secondary *name*, rendered only when compact, so `widgetLarge` has no row detail line at all and
+   "row detail" is not a complete ladder across the five canvases.
+7. **Deliberately not tokenised yet**, each with its reason in the source: card radii and card fill
+   opacities (`NoSpoilersCardDensity` already owns them — restating would make two answers), and
+   asset names (`"nospoilers-icon"` ×3, `"flag-\(code)"`, which come entangled with the
+   two-bundle-spelling problem that the screen-header convergence resolves).
+
+A `Theme.Typography` role is only added once every one of the five canvases has a real call site to
+transcribe. `weekendTitle` and `rowLabel` qualify; the rest do not yet. Roles that genuinely do not
+exist on a canvas should fail loudly there rather than return an invented value or an optional.
+
+**Still to do: phases 2-8 as listed under "Suggested ordering".**
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
@@ -361,6 +403,11 @@ Theme.Type      → named roles (screenTitle, cardTitle, rowLabel, rowDetail, ba
 Theme.Motion    → hover, press, confirm, plus the confirmation-hold duration
 Theme.Icon      → every SF Symbol name, including FlagImage's fallback
 ```
+
+**As built, this block differs in four ways — see Progress items 1-4.** `Theme.Type` is
+`Theme.Typography` and resolves per `Theme.Canvas`, a five-case axis rather than a density;
+`Theme.Palette` names roles pointing at `BrandPalette` rather than absorbing it, so there is still
+one place a hex lives; and the card radii stay in `NoSpoilersCardDensity` until it is folded in.
 
 **Static constants, settled.** The reskin is rebuild-time, so there is no state to carry and nothing
 to inject: a theme change is an edit to these constants and a new build. That also sidesteps what
