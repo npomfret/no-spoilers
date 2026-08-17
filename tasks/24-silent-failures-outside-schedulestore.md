@@ -1,7 +1,65 @@
 # Task 24: three silent failures the logging pass did not reach
 
-**Status: OPEN. Found on 2026-08-17 while wiring `LogChannel` through the app, by grepping `try?`
-across product code once every log line had somewhere to go.**
+**Status: 1 and 2 FIXED 2026-08-17. 3 is a product decision and is still open — see the bottom.**
+
+**What looking for the silent failures actually found.** Item 1 was filed as a diagnosability
+problem: the client could not say *why* a lookup came back empty. Making it say so exposed that for
+four of the seven session kinds the lookup had never once succeeded. `URL(string:)` re-encodes an
+already-encoded string when the rest of the string is not a valid URL, and the bare `>` in OpenF1's
+filter syntax made it not valid — so `session_name=Practice%201` went out as `Practice%25201`, which
+OpenF1 answers with "no results", which this client reported as "not published yet". Practice 1,
+Practice 2, Practice 3 and Sprint Qualifying could never be confirmed. Race, Sprint and Qualifying
+worked, and only because their names contain no space.
+
+Confirmed against the live API rather than reasoned about:
+
+```
+session_name=Practice%201    → session_key 9686, and its SESSION FINISHED record
+session_name=Practice%25201  → HTTP 404 {"detail":"No results found."}
+```
+
+The second one is what the app has been sending. The bug was invisible for precisely the reason this
+task exists: **OpenF1 answers a malformed query exactly as it answers an empty one**, and the poller
+answers both by trying again in two minutes.
+
+A second thing the live check settled, which would have made the fix worse than the bug: OpenF1
+returns **404** for an empty result set, not `200 []`. A blanket status check would have logged the
+most routine answer in the feature — "not published yet", which is every poll for the first thirty
+minutes — at `.error`. `OpenF1Client.get` treats 404 as emptiness deliberately and says so.
+
+**What was done**
+
+- `URLResponse.requireSuccess()` in `HTTPStatus.swift`, called at all four decode sites (both
+  OpenF1 queries, both `ScheduleFetcher` fetches). Nothing in the app checked an HTTP status before
+  this. Pure, so it is unit-tested without a stubbed `URLProtocol`.
+- `OpenF1Client` throws for a failed lookup and returns `nil` only for a genuinely empty answer.
+  URLs are built already percent-encoded and `url(_:)` **refuses anything Foundation would rewrite**,
+  which is what stops the double-encoding class of bug returning. `?? ""` on the session name is
+  gone with it.
+- `SessionEndConfirmer.fetchAndStore` catches and logs at `.error`. It still retries either way — a
+  transient outage should not abandon a session about to be confirmed — but the two reasons for
+  retrying are now different lines.
+- `UpdateChecker` logs both outcomes on a new `AppLog.update` channel. No UI for "could not check";
+  that remains a product decision and is not assumed here.
+- `docs/guides/swift-patterns.md` gained a Networking section, so the next fetch site inherits this
+  rather than rediscovering it.
+
+**Evidence.** `scripts/verify-core-tests.sh` 58 tests / 0 failures, up from 47. All three build
+wrappers `BUILD SUCCEEDED`. The new tests were mutation-checked: restoring the bare `>` kills 3,
+widening the success range to `200..<600` kills 3, dropping the pass-through guard kills 1. The
+first version of that last one killed nothing, which is how the guard came to have a test of its own.
+
+**Not done, deliberately.** `OpenF1Client` still uses `URLSession.shared` with default timeouts,
+while `ScheduleFetcher` uses an ephemeral session with an 8-second request timeout and a written
+reason. That is real drift between two clients in one package, but it is a different question from
+this one and nothing here depends on it.
+
+---
+
+**What follows is the case as it was filed, before any of the above.**
+
+**Found on 2026-08-17 while wiring `LogChannel` through the app, by grepping `try?` across product
+code once every log line had somewhere to go.**
 
 The auditing pass fixed the two silent failures in `ScheduleStore` — the cache save in `refresh()`
 and the cache load in `init()`, both of which discarded an error with `try?`. Three more survive

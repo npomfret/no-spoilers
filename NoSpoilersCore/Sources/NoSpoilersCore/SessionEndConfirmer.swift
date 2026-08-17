@@ -91,27 +91,37 @@ public final class SessionEndConfirmer {
     }
 
     private func fetchAndStore(session: Session) async {
-        if sessionKeyCache[session.id] == nil {
-            sessionKeyCache[session.id] = await client.findSessionKey(for: session)
+        do {
+            if sessionKeyCache[session.id] == nil {
+                sessionKeyCache[session.id] = try await client.findSessionKey(for: session)
+            }
+            // Both `return`s below are ordinary — OpenF1 has nothing yet for a session that has
+            // only just stopped running — and the loop simply comes back in two minutes.
+            // `.debug`, because during an overrun this runs every 120 seconds per pending
+            // session. What used to arrive here as the same `nil` and now does not is a lookup
+            // that failed outright; that lands in the `catch`.
+            guard let key = sessionKeyCache[session.id] else {
+                AppLog.sessionEnd.debug("no session key yet", ["session": session])
+                return
+            }
+            guard let endDate = try await client.confirmedEndDate(forSessionKey: key) else {
+                AppLog.sessionEnd.debug("no confirmed end yet", ["session": session, "key": key])
+                return
+            }
+            confirmedEndDates[session.id] = endDate
+            persist()
+            // `.notice`: this is the moment a session stops being "in progress" ahead of its
+            // grace window, which changes what every view and the widget timeline show.
+            AppLog.sessionEnd.notice("end confirmed", ["session": session, "endedAt": endDate])
+            onChange?()
+        } catch {
+            // The line this feature never had. The poller retries either way — a transient
+            // OpenF1 outage should not abandon a session that is about to be confirmed — but
+            // "retrying because there is nothing to find yet" and "retrying because every call
+            // is failing" are now different lines, and only one of them is at `.error`.
+            AppLog.sessionEnd.error("lookup failed",
+                                    ["session": session, "error": LogValue.error(error)])
         }
-        // Both `return`s below are ordinary — OpenF1 has nothing yet for a session still
-        // running — but they are also indistinguishable from a broken lookup, and the polling
-        // loop simply comes back in two minutes either way. `.debug`, because during an
-        // overrun this runs every 120 seconds per pending session.
-        guard let key = sessionKeyCache[session.id] else {
-            AppLog.sessionEnd.debug("no session key", ["session": session])
-            return
-        }
-        guard let endDate = await client.confirmedEndDate(forSessionKey: key) else {
-            AppLog.sessionEnd.debug("no confirmed end yet", ["session": session, "key": key])
-            return
-        }
-        confirmedEndDates[session.id] = endDate
-        persist()
-        // `.notice`: this is the moment a session stops being "in progress" ahead of its grace
-        // window, which changes what every view and the widget timeline show.
-        AppLog.sessionEnd.notice("end confirmed", ["session": session, "endedAt": endDate])
-        onChange?()
     }
 
     private func persist() {

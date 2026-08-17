@@ -83,6 +83,17 @@ public enum AppLog {
     /// Confirmed session end times from OpenF1 — asked for, stored, or refused.
     public static let sessionEnd = LogChannel(subsystem: subsystem, category: "session-end")
 
+    /// The menu-bar app asking GitHub whether there is a newer release.
+    ///
+    /// Written only by the macOS target, and still declared here with the others: a second
+    /// `LogChannel` built inside an app target is the drift this type exists to prevent, and one
+    /// predicate has to reach everything the product writes.
+    ///
+    /// It needs a channel at all because the outcome is otherwise invisible. "You are up to date"
+    /// and "this app has not successfully checked in three months" both render as nothing in the
+    /// menu bar, and the second is how a Homebrew user stays on an old build indefinitely.
+    public static let update = LogChannel(subsystem: subsystem, category: "update")
+
     /// One line, at the top of a process, naming the build that wrote everything after it.
     ///
     /// Called from all three entry points rather than from a shared initialiser, because there

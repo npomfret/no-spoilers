@@ -38,6 +38,25 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
 - Hardcoding a user-visible string outside `Strings.swift` is a correctness violation, not a style issue.
 - Infrastructure strings (API query parameters, storage keys, window IDs, log subsystems, plist keys, enum raw values) are not user-visible and do not belong in `Strings.swift`.
 
+## Networking
+
+- **Call `try response.requireSuccess()` between every request and its decode.** Without it a 503's
+  error page reaches a `JSONDecoder` and is reported as a schema change, which sends the next reader
+  of the trace to entirely the wrong place. All three fetch sites do this; a fourth that does not is
+  a correctness bug, not an omission.
+- **A failure throws; `nil` means the query worked and the answer was empty.** Never collapse the
+  two. `OpenF1Client` returned the same `nil` for "OpenF1 is down" and "the record is not published
+  yet", and its poller answered both by retrying every 120 seconds forever, silently.
+- `throws` is the error style for this package — `ScheduleFetcher`, `ScheduleCache`, `OpenF1Client`.
+  Do not introduce `Result` or a per-client error protocol beside it.
+- **Build query URLs already percent-encoded, and reject any string `URL(string:)` rewrites.**
+  Foundation runs an encoding fixup over a string that is not already a valid URL, which
+  double-encodes anything you encoded yourself. See `OpenF1Client.url(_:)` and the comment above it
+  for the year of silently-failed lookups this cost.
+- Check what an API actually returns for "nothing" before treating a status as a failure. OpenF1
+  answers an empty result set with **404**, so a blanket status check would log its most routine
+  answer as an error.
+
 ## Logging
 
 - **Every log line is one JSON object, written through `LogChannel`.** No string concatenation,

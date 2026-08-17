@@ -34,9 +34,13 @@ public actor ScheduleFetcher {
 
     public func fetch() async throws -> [RaceWeekend] {
         let year = try await currentSeasonYear()
-        let (data, _) = try await session.data(from: Self.feedRoot.appending(path: "\(year).json"))
-        let response = try decoder().decode(FeedResponse.self, from: data)
-        return response.races.sorted { $0.round < $1.round }
+        let (data, response) = try await session.data(from: Self.feedRoot.appending(path: "\(year).json"))
+        // The feed is served by GitHub's raw host, which answers an outage or a rate limit with a
+        // status and an HTML body. Decoding that body reports a schema change, which sends the
+        // next person reading the trace to the wrong place entirely. See `requireSuccess`.
+        try response.requireSuccess()
+        let feed = try decoder().decode(FeedResponse.self, from: data)
+        return feed.races.sorted { $0.round < $1.round }
     }
 
     /// The season the feed is currently publishing.
@@ -45,7 +49,8 @@ public actor ScheduleFetcher {
     /// back to its cache on a throw, which is the right answer for a transient network failure and
     /// far better than silently fetching a season that may not be the current one.
     private func currentSeasonYear() async throws -> Int {
-        let (data, _) = try await session.data(from: Self.feedRoot.appending(path: "config.json"))
+        let (data, response) = try await session.data(from: Self.feedRoot.appending(path: "config.json"))
+        try response.requireSuccess()
         return try decoder().decode(FeedConfig.self, from: data).calendarOutputYear
     }
 

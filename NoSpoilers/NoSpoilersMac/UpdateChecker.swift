@@ -18,17 +18,36 @@ final class UpdateChecker: ObservableObject {
         return FileManager.default.fileExists(atPath: receipt.path)
     }
 
+    private static let latestReleaseURL = URL(
+        string: "https://api.github.com/repos/npomfret/no-spoilers/releases/latest")!
+
+    /// Asks GitHub for the newest published release and records whether it is ahead of us.
+    ///
+    /// Every step used to be a `try?` that returned on failure, which left `isUpdateAvailable`
+    /// at `false` — **the same state as a successful check that found nothing new**, and the same
+    /// empty menu bar. There is no UI for "could not check" and this does not add one; what it
+    /// adds is a line saying which of the two happened, because without Sparkle the check being
+    /// silently broken is indistinguishable from the app being current.
     func check() async {
         // App Store handles updates; the brew-upgrade banner is irrelevant there.
         guard !Self.isAppStoreBuild else { return }
-        guard let url = URL(string: "https://api.github.com/repos/npomfret/no-spoilers/releases/latest") else { return }
-        guard let (data, _) = try? await URLSession.shared.data(from: url) else { return }
-        guard let release = try? JSONDecoder().decode(GitHubRelease.self, from: data) else { return }
-        let remote  = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
-        let current = AppVersion.marketing
-        latestVersion = remote
-        currentVersion = current
-        isUpdateAvailable = isNewer(remote, than: current)
+        do {
+            let (data, response) = try await URLSession.shared.data(from: Self.latestReleaseURL)
+            // GitHub answers an unauthenticated rate limit with 403 and a JSON body of its own,
+            // which decodes to nothing we recognise and used to read as "no new release".
+            try response.requireSuccess()
+            let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            let remote  = release.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "v"))
+            let current = AppVersion.marketing
+            latestVersion = remote
+            currentVersion = current
+            isUpdateAvailable = isNewer(remote, than: current)
+            AppLog.update.notice("update check complete", ["latest": remote,
+                                                           "current": current,
+                                                           "available": isUpdateAvailable])
+        } catch {
+            AppLog.update.error("update check failed", ["error": LogValue.error(error)])
+        }
     }
 
     private func isNewer(_ remote: String, than current: String) -> Bool {
