@@ -84,6 +84,102 @@ public enum Theme {
         public static let stateUpcoming = BrandPalette.upcomingBlue
     }
 
+    /// Where a piece of UI is being drawn — the axis every other token varies
+    /// along.
+    ///
+    /// **Why five cases rather than the three `NoSpoilersCardDensity` has.**
+    /// That enum resolves card geometry from regular/compact/widget, and it is
+    /// the seed this whole file grew from. But it cannot carry type as well,
+    /// because the widget's medium and large families share one card geometry
+    /// and deliberately do *not* share a type size: `widgetSessionRow` draws its
+    /// label at `.caption` in medium and `.subheadline` in large, threaded
+    /// through as a separate `compact: Bool`. Two axes, one of them a `Bool`,
+    /// for one idea.
+    ///
+    /// A case per surface holds both without duplicating either — `widgetMedium`
+    /// and `widgetLarge` return the same radius and different fonts, and nothing
+    /// has to be said twice. It also gives `widgetSmall` a name; today it is a
+    /// family with its own private row implementation and no way to refer to it.
+    ///
+    /// **The conflict is latent, not theoretical.** `NoSpoilersCardDensity.widget`
+    /// is unreachable right now — the widget target uses neither `NoSpoilersCard`
+    /// nor `NoSpoilersMessageCard`, so those five values are dead. It goes live
+    /// the moment the widget's two empty states move onto `NoSpoilersMessageCard`,
+    /// and that is when one 3-case axis would have had to answer for both widget
+    /// families at once.
+    ///
+    /// **Named `Canvas`, not `Surface`,** because `Theme.Palette.surface` is
+    /// already a colour. One word meaning both "a place UI is drawn" and "the
+    /// background behind it" inside one namespace is a trip hazard, and the
+    /// colour spelling is the one worth keeping — it is what CSS and the wider
+    /// design-system vocabulary use.
+    ///
+    /// `NoSpoilersCardDensity` still owns card geometry and is not folded in
+    /// here yet; that fold is a change to a live component rather than an
+    /// addition, so it travels with the components it changes.
+    public enum Canvas: CaseIterable {
+        /// The iOS app's paged weekend cards.
+        case iosApp
+        /// The macOS menu bar popover.
+        case macPopover
+        /// `systemSmall` — one hero name and a single flat session row.
+        case widgetSmall
+        /// `systemMedium` — header plus two rows.
+        case widgetMedium
+        /// `systemLarge` and `systemExtraLarge`, which share a scale.
+        case widgetLarge
+    }
+
+    /// The type scale, resolved per `Canvas`.
+    ///
+    /// **Named `Typography` rather than `Type`** because `Theme.Type` already
+    /// means something in Swift — the metatype of `Theme` — and a nested enum by
+    /// that name would need backticks at every use.
+    ///
+    /// Every value below is transcribed from a real call site; none is
+    /// interpolated to fill a gap. Roles are added here as each one is confirmed
+    /// to exist on all five canvases, which is why there are two so far and not
+    /// the eight the `.font(…)` count might suggest.
+    public enum Typography {
+        /// The Grand Prix name in a header.
+        ///
+        /// **`widgetSmall` is larger than `widgetLarge`, and that is correct.**
+        /// In the small family the name is the hero and fills the widget; in the
+        /// large family it is a heading above a session list. Read as a ladder
+        /// it looks like a mistake, which is exactly why it is written down.
+        public static func weekendTitle(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .title2.weight(.bold)
+            case .macPopover:   return .headline.weight(.semibold)
+            case .widgetSmall:  return .title3.weight(.bold)
+            case .widgetMedium: return .caption.weight(.bold)
+            case .widgetLarge:  return .subheadline.weight(.semibold)
+            }
+        }
+
+        /// A session's name in a session row.
+        ///
+        /// **`macPopover` is an absolute 13pt and the only value here that does
+        /// not scale with Dynamic Type.** Transcribing it keeps the popover
+        /// rendering exactly as it does today; moving it to a semantic font is a
+        /// visible change and an accessibility one, so it is the sweep's
+        /// decision to make with a screenshot, not this file's.
+        ///
+        /// **`widgetSmall` and `widgetMedium` differ only in weight** — semibold
+        /// against medium at the same `.caption` size. No reason for that has
+        /// been found; it reads as drift, and naming both is what makes it
+        /// visible enough to settle.
+        public static func rowLabel(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .body.weight(.semibold)
+            case .macPopover:   return .system(size: 13, weight: .medium)
+            case .widgetSmall:  return .caption.weight(.semibold)
+            case .widgetMedium: return .caption.weight(.medium)
+            case .widgetLarge:  return .subheadline.weight(.medium)
+            }
+        }
+    }
+
     /// The spacing rhythm: gaps between things, and the space around them.
     ///
     /// **These are the values already on screen, not a scale anyone designed.**
