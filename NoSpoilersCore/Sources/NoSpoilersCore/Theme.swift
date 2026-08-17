@@ -809,6 +809,40 @@ public enum Theme {
     /// metadata. Only the metadata line itself repeated, and that is what
     /// `NoSpoilersWeekendMeta` and the tokens here cover.
     public enum Header {
+        /// The country's flag, beside the weekend's name.
+        ///
+        /// **The one measurement every canvas has**, which is what makes it a
+        /// token rather than five literals: five headers, five heights, one
+        /// ladder from the iOS card down to the medium widget. It is an image
+        /// height rather than a gap, so `Space` does not apply — same as
+        /// `NextUp.flagHeight`, which is a different and smaller ladder for the
+        /// footer.
+        ///
+        /// **Two flags are not on this ladder.** The extra-large widget's
+        /// sidebar draws one at 24pt, and it is not a header; the macOS menu
+        /// bar draws one at 14pt, and it is not on any canvas — it is an
+        /// `NSHostingView` sharing one line with the app icon.
+        public static func flagHeight(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return 28
+            case .macPopover:   return 20
+            case .widgetSmall:  return 16
+            case .widgetMedium: return 14
+            case .widgetLarge:  return 20
+            }
+        }
+
+        /// Between the flag and what sits beside it on the header's first line.
+        public static func contentSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.xl
+            case .macPopover:   return Space.lg
+            case .widgetSmall:  return Space.sm
+            case .widgetMedium: return Space.sm
+            case .widgetLarge:  return Space.lg
+            }
+        }
+
         /// Between the round pill, the location and the date range.
         ///
         /// **iOS is a step wider than the other two** — 8pt against 6pt — which

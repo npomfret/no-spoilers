@@ -2,9 +2,6 @@ import WidgetKit
 import SwiftUI
 import NoSpoilersCore
 
-private let widgetRed = BrandPalette.signalRed
-
-
 // MARK: - Entry
 
 struct NoSpoilersEntry: TimelineEntry {
@@ -351,22 +348,22 @@ struct NoSpoilersWidgetEntryView: View {
     private func smallView(_ weekend: RaceWeekend) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // Top row: flag + round pill
-            HStack(alignment: .center, spacing: 6) {
-                FlagImage(countryCode: weekend.countryCode, height: 16)
+            HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.widgetSmall)) {
+                FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.widgetSmall))
                 Spacer(minLength: 0)
                 NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Space.md)
 
             // Hero: GP name fills available vertical space
             Text(weekend.grandPrixName)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(BrandPalette.smoke)
+                .font(Theme.Typography.weekendTitle(.widgetSmall))
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: Theme.Space.md)
 
             // Bottom: flat session row, no nested card
             if let primary = primarySession() {
@@ -400,7 +397,7 @@ struct NoSpoilersWidgetEntryView: View {
             return Text(endedAt, style: .relative)
         case .live:
             return Text(NoSpoilersCore.Strings.Schedule.inProgress)
-                .foregroundStyle(widgetRed)
+                .foregroundStyle(Theme.Palette.stateLive)
         case .upcoming(let startsAt):
             return Text(startsAt, style: .relative)
         }
@@ -410,9 +407,9 @@ struct NoSpoilersWidgetEntryView: View {
     @ViewBuilder
     private func mediumView(_ weekend: RaceWeekend) -> some View {
         let sessions = prioritizedSessions(limit: 2)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
             widgetHeader(weekend, canvas: .widgetMedium)
-            VStack(spacing: 4) {
+            VStack(spacing: Theme.Space.xs) {
                 ForEach(sessions) { session in
                     widgetSessionRow(session, canvas: .widgetMedium)
                 }
@@ -431,18 +428,18 @@ struct NoSpoilersWidgetEntryView: View {
     private func largeView(_ weekend: RaceWeekend) -> some View {
         let visibleSessions = Array(entry.sessions.prefix(5))
         let hiddenCount = max(0, entry.sessions.count - visibleSessions.count)
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
             widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
-            VStack(spacing: 4) {
+            VStack(spacing: Theme.Space.xs) {
                 ForEach(visibleSessions) { session in
                     widgetSessionRow(session, canvas: .widgetLarge)
                 }
                 if hiddenCount > 0 {
                     Text(Strings.Widget.moreSessions(hiddenCount))
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(BrandPalette.secondaryText)
-                        .padding(.horizontal, 8)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .padding(.horizontal, Theme.Space.md)
                 }
             }
             Spacer(minLength: 0)
@@ -457,11 +454,11 @@ struct NoSpoilersWidgetEntryView: View {
     /// systemExtraLarge — two-zone: left = full current weekend, right = next weekend.
     @ViewBuilder
     private func extraLargeView(_ weekend: RaceWeekend) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .top, spacing: Theme.Space.xxl) {
+            VStack(alignment: .leading, spacing: Theme.Space.md) {
                 widgetHeader(weekend, canvas: .widgetLarge)
                 Divider()
-                VStack(spacing: 4) {
+                VStack(spacing: Theme.Space.xs) {
                     ForEach(entry.sessions) { session in
                         widgetSessionRow(session, canvas: .widgetLarge)
                     }
@@ -473,7 +470,7 @@ struct NoSpoilersWidgetEntryView: View {
             Divider()
 
             if let upcoming = entry.nextWeekend {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Space.md) {
                     // This column is not `NoSpoilersNextUpFooter` — it is a
                     // 140pt sidebar, not a footer — but its eyebrow is the same
                     // eyebrow, so it moves off `signalRed` with the others
@@ -482,22 +479,28 @@ struct NoSpoilersWidgetEntryView: View {
                         .font(Theme.Typography.eyebrow)
                         .foregroundStyle(Theme.Palette.textTertiary)
                         .textCase(.uppercase)
+                    // **Not `Theme.Header.flagHeight`.** This flag is on its own
+                    // line rather than beside a name, and at 24pt it is larger
+                    // than any header's — the sidebar has the width for it and
+                    // nothing else to share the row with. One site, no ladder,
+                    // so it stays a number here rather than becoming a token
+                    // with four canvases that would have to trap.
                     FlagImage(countryCode: upcoming.countryCode, height: 24)
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
                         Text(upcoming.name)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BrandPalette.smoke)
+                            .foregroundStyle(Theme.Palette.textPrimary)
                             .lineLimit(2)
-                        HStack(spacing: 4) {
+                        HStack(spacing: Theme.Space.xs) {
                             NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(upcoming.round))
                             Text(upcoming.location)
                                 .font(.caption2)
-                                .foregroundStyle(BrandPalette.secondaryText)
+                                .foregroundStyle(Theme.Palette.textSecondary)
                                 .lineLimit(1)
                         }
                         Text(upcoming.startsAt, style: .relative)
                             .font(.caption)
-                            .foregroundStyle(BrandPalette.secondaryText)
+                            .foregroundStyle(Theme.Palette.textSecondary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -545,8 +548,8 @@ struct NoSpoilersWidgetEntryView: View {
     @ViewBuilder
     private func widgetHeader(_ weekend: RaceWeekend, canvas: Theme.Canvas) -> some View {
         if canvas == .widgetMedium {
-            HStack(alignment: .center, spacing: 6) {
-                FlagImage(countryCode: weekend.countryCode, height: 14)
+            HStack(alignment: .center, spacing: Theme.Header.contentSpacing(canvas)) {
+                FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(canvas))
                 Text(weekend.grandPrixName)
                     .font(Theme.Typography.weekendTitle(canvas))
                     .foregroundStyle(Theme.Palette.textPrimary)
@@ -555,9 +558,9 @@ struct NoSpoilersWidgetEntryView: View {
                 NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
         } else {
-            HStack(alignment: .center, spacing: 10) {
-                FlagImage(countryCode: weekend.countryCode, height: 20)
-                VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .center, spacing: Theme.Header.contentSpacing(canvas)) {
+                FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(canvas))
+                VStack(alignment: .leading, spacing: Theme.Space.xxs) {
                     Text(weekend.grandPrixName)
                         .font(Theme.Typography.weekendTitle(canvas))
                         .foregroundStyle(Theme.Palette.textPrimary)
