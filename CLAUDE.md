@@ -4,6 +4,7 @@ Spoiler-free Formula 1 weekend timelines for iOS, macOS, and WidgetKit. Keep thi
 
 ## Non-negotiables
 
+- This is a Formula 1 app. But we must never use that word of F1 or any "owned" or copyrights terms or images.
 - The spoiler-free guarantee is architectural: results, standings, driver news, and result-shaped fields must never enter models, storage, fixtures, UI, logs, or tests. Load `.claude/rules/spoiler-safety.md` for product-code work.
 - Read the actual repository before making claims. Do not invent commands, targets, schemes, paths, bundle IDs, entitlement keys, or defaults.
 - For non-trivial work: audit upstream, downstream, lateral precedent, and tests; refactor for the current requirement; then implement and verify.
