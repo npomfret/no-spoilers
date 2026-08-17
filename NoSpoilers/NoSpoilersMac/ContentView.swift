@@ -216,14 +216,14 @@ struct WeekendPopoverView: View {
     }
 
     /// Goes all the way down to seconds, unlike iOS. The popover is open in front of you while you
-    /// read it, so a static minutes reading looks frozen.
+    /// read it, so a static minutes reading looks frozen. Shows no "in" prefix — the popover has
+    /// the session name beside it doing that work.
+    private static let countdownUnits = CountdownFormatter(units: 3, floor: .seconds)
+
     private func countdown(to date: Date, from now: Date) -> String {
         let remaining = DurationBreakdown(until: date, from: now)
         guard !remaining.isElapsed else { return Strings.Popover.countdownZero }
-        if remaining.days >= 1 { return Strings.Popover.countdownDaysHoursMinutes(remaining.days, remaining.hours, remaining.minutes) }
-        if remaining.hours >= 1 { return Strings.Popover.countdownHoursMinutesSeconds(remaining.hours, remaining.minutes, remaining.seconds) }
-        if remaining.minutes >= 1 { return Strings.Popover.countdownMinutesSeconds(remaining.minutes, remaining.seconds) }
-        return Strings.Popover.countdownSeconds(remaining.seconds)
+        return Self.countdownUnits.string(for: remaining)
     }
 
     private func nextRoundFooter(_ weekend: RaceWeekend, now: Date) -> some View {

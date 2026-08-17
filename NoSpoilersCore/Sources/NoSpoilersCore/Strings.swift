@@ -60,9 +60,17 @@ public enum Strings {
         /// Heading over the next weekend. Was in all three targets.
         public static let comingUp: LocalizedStringKey = "Next up"
 
-        /// Elapsed or remaining time, e.g. `2h` / `45m`. Were in iOS and macOS.
+        /// One unit of elapsed or remaining time, e.g. `2h` / `45m`.
+        ///
+        /// `durationHours` and `durationMinutes` came from iOS and macOS, which
+        /// had a copy each; days and seconds are new here because
+        /// `CountdownFormatter` needs the same four suffixes the countdown
+        /// ladders were spelling out inline. It is one vocabulary either way —
+        /// "finished 2h ago" and "in 2h 15m" are the same `2h`.
+        public static func durationDays(_ days: Int) -> String { "\(days)d" }
         public static func durationHours(_ hours: Int) -> String { "\(hours)h" }
         public static func durationMinutes(_ minutes: Int) -> String { "\(minutes)m" }
+        public static func durationSeconds(_ seconds: Int) -> String { "\(seconds)s" }
 
         /// The schedule could not be loaded. Was in iOS and the widget.
         ///

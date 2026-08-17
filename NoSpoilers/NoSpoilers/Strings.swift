@@ -13,9 +13,10 @@ enum Strings {
         static let header: LocalizedStringKey             = "Sessions"
         static func weekendCompleteStatus() -> String     { "Weekend complete" }
         static let countdownNow: String                   = "now"
-        static func countdownDaysHours(_ d: Int, _ h: Int) -> String    { "in \(d)d \(h)h" }
-        static func countdownHoursMinutes(_ h: Int, _ m: Int) -> String { "in \(h)h \(m)m" }
-        static func countdownMinutes(_ m: Int) -> String  { "in \(m)m" }
+        /// Wraps the units CountdownFormatter renders, e.g. "in 3d 4h". The
+        /// phrasing is here rather than in the formatter because it is the part
+        /// a translator has to reorder.
+        static func countdownIn(_ units: String) -> String { "in \(units)" }
         static func finishedAgo(_ time: String) -> String    { "Finished \(time)" }
         static func sessionFinished(name: String, ago: String) -> String    { "\(name) finished \(ago) ago" }
         static func sessionInProgress(_ name: String) -> String             { "\(name) is in progress" }

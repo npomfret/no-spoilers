@@ -22,10 +22,6 @@ enum Strings {
         static let quit: LocalizedStringKey         = "Quit"
         static func finishedAgo(_ time: String) -> String    { "Finished \(time) ago" }
         static let countdownZero: String                  = "0s"
-        static func countdownDaysHoursMinutes(_ d: Int, _ h: Int, _ m: Int) -> String      { "\(d)d \(h)h \(m)m" }
-        static func countdownHoursMinutesSeconds(_ h: Int, _ m: Int, _ s: Int) -> String   { "\(h)h \(m)m \(s)s" }
-        static func countdownMinutesSeconds(_ m: Int, _ s: Int) -> String                  { "\(m)m \(s)s" }
-        static func countdownSeconds(_ s: Int) -> String  { "\(s)s" }
         static func countdownWithBullet(_ time: String) -> String   { "· \(time)" }
     }
     enum Settings {

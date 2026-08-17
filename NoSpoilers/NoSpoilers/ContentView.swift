@@ -433,14 +433,13 @@ struct ContentView: View {
 
     /// Tiers stop at minutes: this screen is glanced at, and a ticking seconds field would mean
     /// invalidating every page once a second. The macOS popover, which is open in front of you,
-    /// deliberately goes finer.
+    /// deliberately goes finer — same formatter, different numbers.
+    private static let countdownUnits = CountdownFormatter(units: 2, floor: .minutes)
+
     private func countdown(to date: Date) -> String {
         let remaining = DurationBreakdown(until: date, from: now)
         guard !remaining.isElapsed else { return Strings.Sessions.countdownNow }
-
-        if remaining.days >= 1 { return Strings.Sessions.countdownDaysHours(remaining.days, remaining.hours) }
-        if remaining.hours >= 1 { return Strings.Sessions.countdownHoursMinutes(remaining.hours, remaining.minutes) }
-        return Strings.Sessions.countdownMinutes(remaining.minutes)
+        return Strings.Sessions.countdownIn(Self.countdownUnits.string(for: remaining))
     }
 
     /// Hours here are `totalHours`, not hours-within-a-day: a session finished two days ago reads
