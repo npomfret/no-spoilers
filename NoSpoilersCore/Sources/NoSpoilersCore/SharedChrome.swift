@@ -306,6 +306,37 @@ public struct NoSpoilersWeekendMeta: View {
     }
 }
 
+/// A labelled row with one control or link trailing.
+///
+/// **This replaced two implementations** — `AboutView`'s `acknowledgementRow`
+/// and the macOS settings screen's `settingRow` — which were byte-for-byte the
+/// same `HStack`, the same 16/9 padding, and differed only in what they put in
+/// the trailing slot: a `Link` on one, a `Toggle` on the other. That is content,
+/// so it stays with the callers.
+public struct NoSpoilersDetailRow<Trailing: View>: View {
+    private let label: LocalizedStringKey
+    private let trailing: Trailing
+
+    public init(_ label: LocalizedStringKey, @ViewBuilder trailing: () -> Trailing) {
+        self.label = label
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        HStack {
+            Text(label)
+                .font(.body)
+                .foregroundStyle(Theme.Palette.textPrimary)
+
+            Spacer()
+
+            trailing
+        }
+        .padding(.horizontal, Theme.DetailRow.horizontalPadding)
+        .padding(.vertical, Theme.DetailRow.verticalPadding)
+    }
+}
+
 /// The small uppercase label introducing a group of rows.
 ///
 /// **This replaced two implementations** — `AboutView`'s `sectionHeader` and the

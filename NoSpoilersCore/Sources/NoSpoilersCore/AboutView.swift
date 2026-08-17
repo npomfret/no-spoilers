@@ -82,17 +82,13 @@ public struct AboutView: View {
 
 
     private func acknowledgementRow(title: LocalizedStringKey, detail: String, url: URL) -> some View {
-        HStack {
-            Text(title).font(.body)
-            Spacer()
+        NoSpoilersDetailRow(title) {
             Link(destination: url) {
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .underline()
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
     }
 }

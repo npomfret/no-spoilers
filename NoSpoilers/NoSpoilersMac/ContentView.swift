@@ -342,7 +342,7 @@ struct SettingsView: View {
             Divider()
 
             // ── Rows ─────────────────────────────────────────────
-            settingRow(Strings.Settings.launchAtLogin) {
+            NoSpoilersDetailRow(Strings.Settings.launchAtLogin) {
                 Toggle("", isOn: Binding(
                     get: { SMAppService.mainApp.status == .enabled },
                     set: { on in
@@ -355,9 +355,9 @@ struct SettingsView: View {
                 .controlSize(.small)
             }
             NoSpoilersSectionLabel(Strings.Settings.menuBar)
-            settingRow(Strings.Settings.showFlag)      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
-            settingRow(Strings.Settings.showSession)   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
-            settingRow(Strings.Settings.showCountdown) { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            NoSpoilersDetailRow(Strings.Settings.showFlag)      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            NoSpoilersDetailRow(Strings.Settings.showSession)   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
+            NoSpoilersDetailRow(Strings.Settings.showCountdown) { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
 
             Divider()
 
@@ -374,14 +374,5 @@ struct SettingsView: View {
         .background(NoSpoilersBackground())
     }
 
-    private func settingRow<C: View>(_ label: LocalizedStringKey, @ViewBuilder control: () -> C) -> some View {
-        HStack {
-            Text(label).font(.body)
-            Spacer()
-            control()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-    }
 
 }
