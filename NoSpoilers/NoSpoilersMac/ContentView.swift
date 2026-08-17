@@ -138,10 +138,7 @@ struct WeekendPopoverView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 if let first = weekend.allSessions.first, let last = weekend.allSessions.last {
-                    let fmt = Date.FormatStyle().day().month(.abbreviated)
-                    let start = first.startsAt.formatted(fmt)
-                    let end   = last.startsAt.formatted(fmt)
-                    Text(start == end ? start : Strings.Popover.dateRange(start: start, end: end))
+                    Text(NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }

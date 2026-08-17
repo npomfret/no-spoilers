@@ -91,6 +91,34 @@ public enum Strings {
             style.timeZone = timeZone
             return date.formatted(style)
         }
+
+        /// The span a weekend covers, e.g. `6 Jun → 8 Jun`, collapsing to a
+        /// single date when both ends land on the same day.
+        ///
+        /// This was written out three times — iOS, macOS (inline in the header,
+        /// not even extracted) and the widget — each building the same
+        /// `.day().month(.abbreviated)` style, formatting both ends, and
+        /// collapsing when equal. A formatting rule is a design token; that one
+        /// was a copy-paste.
+        ///
+        /// **The separator was not the same in all three.** iOS said "to" while
+        /// macOS and the widget said "→", so unifying them is a visible change
+        /// on iOS rather than a pure move. The arrow wins on the majority and
+        /// because it stays legible at `.caption2` in a widget, where the word
+        /// competes with the dates either side of it.
+        public static func dateRange(
+            from start: Date,
+            to end: Date,
+            locale: Locale = .current,
+            timeZone: TimeZone = .current
+        ) -> String {
+            var style = Date.FormatStyle().day().month(.abbreviated)
+            style.locale = locale
+            style.timeZone = timeZone
+            let startText = start.formatted(style)
+            let endText = end.formatted(style)
+            return startText == endText ? startText : "\(startText) → \(endText)"
+        }
     }
 
     public enum MenuBar {

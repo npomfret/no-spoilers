@@ -20,7 +20,6 @@ enum Strings {
         static func sessionFinished(name: String, ago: String) -> String    { "\(name) finished \(ago) ago" }
         static func sessionInProgress(_ name: String) -> String             { "\(name) is in progress" }
         static func sessionUpcoming(name: String, countdown: String) -> String { "\(name) \(countdown)" }
-        static func dateRange(start: String, end: String) -> String         { "\(start) to \(end)" }
     }
     enum Navigation {
         static let currentWeekend: LocalizedStringKey     = "Current"

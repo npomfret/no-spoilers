@@ -26,7 +26,6 @@ enum Strings {
         static func countdownHoursMinutesSeconds(_ h: Int, _ m: Int, _ s: Int) -> String   { "\(h)h \(m)m \(s)s" }
         static func countdownMinutesSeconds(_ m: Int, _ s: Int) -> String                  { "\(m)m \(s)s" }
         static func countdownSeconds(_ s: Int) -> String  { "\(s)s" }
-        static func dateRange(start: String, end: String) -> String { "\(start) → \(end)" }
         static func countdownWithBullet(_ time: String) -> String   { "· \(time)" }
     }
     enum Settings {

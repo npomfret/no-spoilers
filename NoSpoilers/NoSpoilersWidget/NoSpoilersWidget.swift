@@ -628,10 +628,7 @@ struct NoSpoilersWidgetEntryView: View {
         guard let first = weekend.allSessions.first, let last = weekend.allSessions.last else {
             return weekend.location
         }
-        let format = Date.FormatStyle().day().month(.abbreviated)
-        let start = first.startsAt.formatted(format)
-        let end = last.startsAt.formatted(format)
-        return start == end ? start : Strings.Widget.dateRange(start: start, end: end)
+        return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
     }
 
     private func accentColor(for state: SessionState) -> Color {

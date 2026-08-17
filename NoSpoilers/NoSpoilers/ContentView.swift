@@ -222,7 +222,7 @@ struct ContentView: View {
                         .foregroundStyle(BrandPalette.secondaryText)
                     Spacer()
                     if let first = sessions.first, let last = sessions.last {
-                        Text(dateRange(from: first.startsAt, to: last.startsAt))
+                        Text(NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt))
                             .font(.caption)
                             .foregroundStyle(BrandPalette.tertiaryText)
                     }
@@ -449,13 +449,6 @@ struct ContentView: View {
         let elapsed = DurationBreakdown(since: date, to: now)
         if elapsed.totalHours >= 1 { return NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours) }
         return NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
-    }
-
-    private func dateRange(from start: Date, to end: Date) -> String {
-        let formatter = Date.FormatStyle().day().month(.abbreviated)
-        let startText = start.formatted(formatter)
-        let endText = end.formatted(formatter)
-        return startText == endText ? startText : Strings.Sessions.dateRange(start: startText, end: endText)
     }
 
     private func statusColor(_ status: SessionStatus) -> Color {
