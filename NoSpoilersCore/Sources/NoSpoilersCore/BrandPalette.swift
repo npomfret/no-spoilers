@@ -6,6 +6,12 @@ import SwiftUI
 
 public enum BrandPalette {
     // Primary
+    /// **This one value exists in four places, and three of them are JSON.**
+    /// It is also the system tint, which has to be an `AccentColor.colorset` in
+    /// each target's asset catalog — Apple gives no way to point that at Swift —
+    /// so `NoSpoilers/`, `NoSpoilersMac/` and `NoSpoilersWidget/` each carry the
+    /// same three components. Change this and change those; nothing will fail
+    /// to compile if you forget, the app will just tint itself with the old red.
     public static let signalRed   = Color(red: 0.9373, green: 0.1686, blue: 0.1765) // #EF2B2D
     public static let deepMaroon  = Color(red: 0.4784, green: 0.0471, blue: 0.0588) // #7A0C0F
 
