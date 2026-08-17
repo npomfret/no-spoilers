@@ -29,13 +29,13 @@ public struct AboutView: View {
                     detail: "sportstimes/f1",
                     url: URL(string: "https://github.com/sportstimes/f1")!
                 )
-                Divider().padding(.leading, 16)
+                Divider().padding(.leading, Theme.Space.xxl)
                 acknowledgementRow(
                     title: Strings.About.sessionData,
                     detail: "OpenF1",
                     url: URL(string: "https://openf1.org")!
                 )
-                Divider().padding(.leading, 16)
+                Divider().padding(.leading, Theme.Space.xxl)
                 acknowledgementRow(
                     title: Strings.About.flagIcons,
                     detail: "flag-icons by Lipis",
@@ -46,14 +46,14 @@ public struct AboutView: View {
             Divider()
 
             // ── Trademark disclaimer ──────────────────────────
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
                 NoSpoilersSectionLabel(Strings.About.trademarks)
                 Text(Strings.About.trademarkDisclaimer)
                     .font(.caption)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, Theme.Space.xxl)
+                    .padding(.bottom, Theme.Space.xl)
             }
 
             Divider()
@@ -67,8 +67,8 @@ public struct AboutView: View {
                     .controlSize(.small)
                 #endif
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, Theme.Space.xxl)
+            .padding(.vertical, Theme.Space.lg)
         }
         .background(NoSpoilersBackground())
         // NoSpoilersBackground is a hardcoded light gradient. Force the

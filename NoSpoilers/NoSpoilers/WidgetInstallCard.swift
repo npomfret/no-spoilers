@@ -113,6 +113,6 @@ struct WidgetInstallCard: View {
 
 #Preview {
     WidgetInstallCard()
-        .padding(16)
+        .padding(Theme.Space.xxl)
         .background(NoSpoilersBackground().ignoresSafeArea())
 }

@@ -129,8 +129,10 @@ public struct NoSpoilersRoundPill: View {
         text
             .font(.caption2.weight(.semibold))
             .foregroundStyle(isFinished ? Theme.Palette.stateFinished : BrandPalette.signalRed)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
+            // 7 and 3 were two of the eleven off-grid literals `Theme.Space`
+            // recorded. They round down, like every stray before them.
+            .padding(.horizontal, Theme.Space.sm)
+            .padding(.vertical, Theme.Space.xxs)
             .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : BrandPalette.blush.opacity(0.7))
             .clipShape(Capsule())
     }
