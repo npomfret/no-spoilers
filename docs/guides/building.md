@@ -192,9 +192,11 @@ nothing.
   `confirm_widget_size()` checks the layout entry survived; neither can tell you the widget rendered
   real content. Both failures were seen on 2026-08-13 and both look like a successful run. **Look at
   the picture before uploading it** — that is the check, and there is not a scripted substitute.
-- **Do not widen `SETTLE_SECONDS` to make a grey capture come good.** The widget's first timeline is
-  genuinely slow to build; see `tasks/19-widget-timeline-too-large.md`. Widening the delay hides that
-  on the one machine that takes screenshots and leaves it in front of every user.
+- **Do not widen `SETTLE_SECONDS` to make a grey capture come good.** Grey bars are the redacted
+  placeholder, still on screen because the timeline is not built yet. Building a whole season's
+  worth took 3–6 seconds — longer than SpringBoard waits — until the horizon capped it at ~0.35s,
+  so a grey capture now means something has regressed. Widening the delay hides that on the one
+  machine that takes screenshots and leaves it in front of every user.
 - Two runs with no code change are **not** byte-identical and cannot be — the countdowns advance and
   the status-bar clock moves. Expect them to differ only in those.
 - **Keep `INFOPLIST_KEY_CFBundleDisplayName` set on the iOS target.** Without it the Home Screen name

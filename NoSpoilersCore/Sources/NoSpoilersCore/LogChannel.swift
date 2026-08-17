@@ -50,8 +50,7 @@ import os
 /// widget's `cache hit` line used to be `log.info`. On 2026-08-17 two experiments were scored
 /// as "the widget never reloaded" because that line had already evaporated by the time
 /// `log show` asked for it — with or without `--info` — while the widget was visibly doing
-/// the right thing on screen. See `tasks/19-widget-timeline-too-large.md`. If a state change
-/// is worth writing down, it is worth `.notice`.
+/// the right thing on screen. If a state change is worth writing down, it is worth `.notice`.
 ///
 /// ## The spoiler rule
 ///

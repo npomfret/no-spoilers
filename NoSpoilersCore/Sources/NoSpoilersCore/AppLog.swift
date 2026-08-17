@@ -77,7 +77,7 @@ public enum AppLog {
     /// hardest thing in this product to diagnose — nothing is attached, the app is not
     /// running, and the failure looks identical to "nothing happened". The entry count, the
     /// horizon, whether the cap truncated, and the reload date it settled on are the four
-    /// facts that make that diagnosable, and they are the ones the fix in task 19 turned on.
+    /// facts that make that diagnosable, and carrying all four is what this channel is for.
     public static let widget = LogChannel(subsystem: subsystem, category: "widget")
 
     /// Confirmed session end times from OpenF1 — asked for, stored, or refused.

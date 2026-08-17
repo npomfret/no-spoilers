@@ -75,8 +75,7 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
 - **Levels decide whether a line still exists tomorrow.** `.notice` is written to the log store and
   is the default for a state change; `.debug` is discarded unless something is streaming; `.error`
   is a failure and only a failure. **`.info` is not offered** — it does not persist, and two
-  experiments were once scored wrongly because the line they depended on had evaporated. See
-  `tasks/19-widget-timeline-too-large.md`.
+  experiments were once scored wrongly because the line they depended on had evaporated.
 - Log a domain type by conforming it to `LogRepresentable`, not by picking its fields apart at the
   call site. `LogValue` is a closed enum with no `case any(Any)` so that everything reaching a trace
   went through a conformance somebody wrote deliberately.

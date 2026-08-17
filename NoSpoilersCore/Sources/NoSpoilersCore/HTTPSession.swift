@@ -24,7 +24,7 @@ import Foundation
 ///
 /// Eight comes from the widget: a widget stuck waiting on a hung request shows the redacted
 /// placeholder — grey bars — for as long as it waits, so `ScheduleFetcher` has always bounded
-/// itself there. See `tasks/19-widget-timeline-too-large.md`.
+/// itself there.
 ///
 /// It is applied to the other two on evidence rather than by eye. Three requests to each of the
 /// three hosts on 2026-08-17 came back in **0.05–0.50s** end to end, the slowest being OpenF1 at

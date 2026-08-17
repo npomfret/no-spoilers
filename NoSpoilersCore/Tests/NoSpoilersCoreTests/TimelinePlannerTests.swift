@@ -4,9 +4,9 @@ import XCTest
 /// The widget's timeline plan, which used to be unassertable because it read `Date()` from inside
 /// itself.
 ///
-/// These are the cheap version of what `tasks/19-widget-timeline-too-large.md` needed a built
-/// fixture, a booted simulator and a nine-minute wait to watch once. The truncation branch below
-/// had never executed at all — in production or in testing — until that experiment forced it.
+/// These are the cheap version of what once took a built fixture, a booted simulator and a
+/// nine-minute wait to watch a single time. The truncation branch below had never executed at
+/// all — in production or in testing — until that experiment forced it.
 final class TimelinePlannerTests: XCTestCase {
 
     private let now = Date(timeIntervalSinceReferenceDate: 0)

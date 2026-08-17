@@ -37,7 +37,7 @@ public struct TimelinePlan: Equatable, Sendable {
 /// mistakes are invisible**. A wrong reload date shows stale content in silence — the app is not
 /// running, nothing is attached, and "showing last week" looks exactly like "nothing happened".
 /// Proving the reload fires at all took a purpose-built 40-session fixture, a booted simulator and a
-/// nine-minute wait (`tasks/19-widget-timeline-too-large.md`); the arithmetic those minutes were
+/// nine-minute wait (the method is in `docs/guides/testing.md`); the arithmetic those minutes were
 /// spent on is now a millisecond away in `TimelinePlannerTests`.
 ///
 /// The truncation branch is the concrete case. Before 2026-08-17 it had **never executed** — the

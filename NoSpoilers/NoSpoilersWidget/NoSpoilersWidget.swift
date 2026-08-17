@@ -215,6 +215,12 @@ private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntr
 /// reload date dependent on how densely the feed happens to be packed at that moment — dense
 /// during a race weekend, empty for the five days between — and in the off-season it would leave
 /// no reload date at all.
+///
+/// **Forty-eight hours has been reasoned, not soaked.** The reload mechanism itself was watched
+/// firing on 2026-08-17 by forcing the truncation branch down to a nine-minute reload date (the
+/// method is in `docs/guides/testing.md`), and nothing about `.after(_:)` distinguishes nine
+/// minutes from two days. What has never been observed is a device left alone for the full
+/// interval, so if a widget is ever found showing content two days stale, start here.
 private let timelineHorizon: TimeInterval = 48 * 3600
 
 /// Backstop on the entry count, not the working limit. Inside 48 hours the real feed produces at
