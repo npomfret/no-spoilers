@@ -66,4 +66,72 @@ public enum Theme {
         /// implementations is what settles which of the two survives.
         public static let large: CGFloat = 10
     }
+
+    /// How fast the product feels.
+    ///
+    /// **Every one of these is a macOS site today** — the hover and press
+    /// transitions on the menu row button style, and the "Copied!" flash on the
+    /// update banner. Nothing on iOS or in the widget animates at all, and the
+    /// iOS pager deliberately runs its own interactive transition rather than an
+    /// `.animation(_:value:)` (see `NoSpoilers/ContentView.swift`).
+    ///
+    /// So this is a vocabulary of four with three speakers, which is worth
+    /// naming precisely because the next thing that wants to animate should be
+    /// choosing from a list rather than typing a number.
+    public enum Motion {
+        /// Pointer entering or leaving a menu row.
+        public static let hover: Animation = .easeInOut(duration: 0.12)
+        /// Press-down feedback — faster than `hover`, because a press should
+        /// feel like it has already happened.
+        public static let press: Animation = .easeInOut(duration: 0.08)
+        /// A control confirming it did the thing: the copy button turning green.
+        public static let confirm: Animation = .easeInOut(duration: 0.15)
+        /// How long a confirmation stays up before reverting. Distinct from
+        /// `confirm`, which is how long the change itself takes to draw — the
+        /// two were 0.15 and 2 seconds sitting 270 lines apart with nothing
+        /// saying they were related.
+        public static let confirmationHold: TimeInterval = 2
+    }
+
+    /// Every symbol the product draws, named for what it means rather than what
+    /// it looks like.
+    ///
+    /// Swapping symbol sets is otherwise a grep for string literals across four
+    /// files — and `flagFallback` is exactly the entry that grep misses, because
+    /// it is not a symbol name at all. It is the one below that would have been
+    /// left behind.
+    ///
+    /// **Swift-only.** SF Symbols have no CSS equivalent, so this family is one
+    /// of the tokens that cannot cross to the website.
+    ///
+    /// **Asset names are not here yet**, though `"nospoilers-icon"` is written
+    /// out at three sites and `"flag-\(code)"` at one. Those three sites reach
+    /// the same asset through two different bundle spellings — `.module` from
+    /// inside this package, `noSpoilersCoreBundle` from the macOS target — and
+    /// naming the string without settling the bundle would hide half the
+    /// duplication rather than remove it. It goes with the screen-header
+    /// convergence, which is where both spellings meet.
+    public enum Icon {
+        /// Marks the gap between seasons. Three sites: the widget's off-season
+        /// view, the macOS message card, and the default for
+        /// `NoSpoilersMessageCard`.
+        public static let offSeason = "flag.checkered.2.crossed"
+        /// The schedule could not be loaded — a failure, not an empty calendar.
+        public static let scheduleUnavailable = "calendar.badge.exclamationmark"
+        /// The Home Screen widget itself, on the iOS install prompt.
+        public static let widget = "square.grid.2x2.fill"
+        /// Jump the pager back to the weekend happening now.
+        public static let currentWeekend = "location.fill"
+        public static let about = "info.circle"
+        public static let website = "globe"
+        public static let settings = "gear"
+        public static let quit = "power"
+        /// A newer build is available on the Homebrew tap.
+        public static let updateAvailable = "arrow.up.circle.fill"
+
+        /// Drawn when a country has no flag asset — **an emoji, not a symbol**,
+        /// which is why it belongs here rather than being left where a symbol
+        /// sweep would never find it.
+        public static let flagFallback = "🏁"
+    }
 }
