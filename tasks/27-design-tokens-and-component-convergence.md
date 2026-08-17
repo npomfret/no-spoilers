@@ -1,7 +1,13 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN. Review complete 2026-08-17, nothing implemented. The proposal in "Recommended
-shape" introduces a new pattern family and needs approval before any of it is written.**
+**Status: OPEN. Review complete 2026-08-17, nothing implemented. The four questions that used to
+block phase 1 were answered the same day — see "Decisions" at the end, which is now the section to
+read first if you are picking this up cold. The `Theme` namespace is still a new pattern family and
+the shape of it below is a proposal, but its four biggest unknowns are settled.**
+
+**Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
+green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
+targets.**
 
 ## The test this is measured against
 
@@ -134,7 +140,10 @@ symbol where the app's has a symbol and a title.
 
 ## C. Semantics that already disagree — correctness, not style
 
-This is the part that is a bug today, independent of any reskin.
+This is the part that is a bug today, independent of any reskin. **Decided: green/blue wins** — the
+`brand.md` spec and the macOS/widget behaviour are correct, and the iOS app is the outlier that
+moves. What that actually costs is spelled out in C4, because it is not the one-file change it
+looks like.
 
 ### C1. "What colour is a finished session?" has three answers
 
@@ -165,6 +174,37 @@ app, and four palette entries plus both text greys exist outside the spec entire
 
 Also: `CLAUDE.md`'s routing line lists `brand.md` alongside three files that live in `docs/guides/`;
 the actual file is `docs/brand.md`. `docs/guides/brand.md` does not exist.
+
+### C4. What "green/blue wins" actually costs
+
+Not an iOS-only edit. The shared badge is where most of it lands:
+
+- **`NoSpoilersStatusBadge`** (`SharedChrome.swift:231, 243, 246`) uses `finishedGrey` and
+  `upcomingAmber` — so the badge is currently amber-for-upcoming on **all three targets**. Moving it
+  to blue changes macOS and the widget too, and in doing so **fixes C2 for free**: the macOS row's
+  blue accent bar and its badge finally agree.
+- **`NoSpoilersRoundPill(isFinished:)`** (`SharedChrome.swift:195, 198`) uses `finishedGrey` for
+  both foreground and tint. Same decision applies, same three targets affected.
+- **iOS session row** (`ContentView.swift:262, 265, 276`) tints finished rows' label, detail, and
+  background with `finishedGrey`. Finished text becomes green, which is what macOS already does
+  (`NoSpoilersMac/ContentView.swift:176, 179`).
+- **iOS `statusColor`** (`ContentView.swift:461-470`) and the macOS inline ternary
+  (`NoSpoilersMac/ContentView.swift:171`) both get deleted in favour of the one mapping.
+- **`BrandPalette.finishedGrey` and `.upcomingAmber` become unreferenced** and should go with them.
+  They are two of the four entries the file itself annotates as *"not in brand.md"*, so deleting
+  them closes half of C3 by subtraction rather than by amending the spec.
+- The opacity divergence (`0.6` on macOS, `0.75` in the widget, none on the accent bar) is not a
+  decision anyone made and collapses to one value in the shared mapping.
+
+**Contrast risk, and the one thing here that may need a new colour.** `successGreen` is `#2E9B63`;
+against white its contrast ratio computes to roughly **3.5:1** (sRGB relative luminance ≈ 0.250).
+That clears the 3:1 bar for large text and UI components but is **below the 4.5:1 WCAG AA bar for
+body text** — and this change puts finished-session labels at `.body`/`.caption`/11pt onto it in all
+three targets. The macOS popover already does this today, so the exposure exists before the change;
+green/blue widens it. Confirm the figure with a contrast checker, and if it holds, the honest fix is
+a darker `stateFinishedText` beside `successGreen` for type, keeping `successGreen` for the 3pt
+accent bar and tints. That is a **new palette entry and needs approval** — it is not implied by
+"green/blue wins".
 
 ## D. Colour that escapes the palette
 
@@ -200,13 +240,23 @@ the default-action "Done" button in `AboutView`, and the sheet furniture on iOS.
 
 There is a brand-relevant colour on screen today that lives in no palette and is set nowhere.
 
-### D4. Dark mode is not a variant, it is disabled
+### D4. Dark mode is not a variant, it is disabled — and stays that way for now
 
-Both hosted surfaces force `.preferredColorScheme(.light)` and the widget's
-`containerBackground` is a hardcoded light gradient. Any reskin that is not also warm-light needs a
-semantic colour layer (`surface`, `surfaceRaised`, `textPrimary`, `textSecondary`, `separator`)
-that does not exist. Whether that is in scope is an open question below — but every hour spent on
-tokens without it will need redoing if the answer is yes.
+Both hosted surfaces force `.preferredColorScheme(.light)` (`NoSpoilersMac/ContentView.swift:349`,
+`AboutView.swift:90`) and the widget's `containerBackground` is a hardcoded light gradient.
+
+**Decided: no dark mode yet.** The forcing stays, and no dark values get written.
+
+That does **not** retire D1. Replacing `.primary`/`.secondary`/`.tertiary` with named palette roles
+is a reskin blocker on its own merits — a system colour does not move when the palette moves, which
+is the whole problem, and it is why those two `.preferredColorScheme(.light)` calls exist in the
+first place. So phase 1 still defines `textPrimary`, `textSecondary`, `textTertiary`, `separator`,
+`surface`, and `surfaceRaised` as **single-value roles**, mapped to what is on screen today
+(`smoke`, `secondaryText`, `tertiaryText`, `mistGrey`, `ivory`, white-65%).
+
+The point of naming them now, with one value each, is that adding dark mode later becomes "give each
+role a second value" rather than "find every colour decision again". Do not build a variant
+mechanism to hold values nobody has chosen — one value per role, and the roles are the seam.
 
 ## E. Strings and formatting
 
@@ -252,6 +302,45 @@ Unused anywhere in product code, verified by grep: `Strings.App.name` (iOS),
 `weekendCompleteStatus()`), `Strings.Widget.weekendCard`, `Strings.Widget.locationAndCountry`,
 `Strings.Widget.locationAndCountrySmall`. Delete on the way past.
 
+## F. The website — in scope, and it has the same disease in CSS
+
+**Decided: `docs/` is in scope.** It is not a bystander; it is where the fourth and fifth copies of
+the palette live.
+
+`docs/index.html` (505 lines) and `docs/privacy.html` (148 lines) each carry their **own `:root`
+block**, hand-copied:
+
+```
+--signal-red --deep-maroon --ivory --smoke --mist-grey --blush
+--mid --light --bg --card --border --radius        (both files)
+--success-green --mono                              (index.html only)
+```
+
+Findings:
+
+- **The token block is duplicated across two files** with no shared stylesheet. `privacy.html` is
+  already missing `--success-green`, which is how this kind of drift starts.
+- **`--mid` (`#5F5754`) and `--light` (`#827876`) are the web spellings of `secondaryText` and
+  `tertiaryText`** — same role, different name, different value. Nine uses across `index.html`.
+  Neither pair appears in `docs/brand.md`.
+- **Five hardcoded hexes escape `:root`** in `index.html`: `#fdf8f6` (line 99), `#f3dedd` (114),
+  `#fff` twice and `#9df3c7` (123-124). The last is a lightened `--success-green` for a hover state,
+  invented inline.
+- **`--radius: 16px` is the web's card radius**; the app's is 24/18/14 by density. Nobody has
+  decided whether those are meant to be the same number.
+- The web has `--card`, `--border`, and `--bg` as named surfaces — roles the Swift side does not
+  have at all (see A3). **The CSS is ahead of the Swift here** and its naming is worth copying
+  rather than inventing a second vocabulary.
+
+With the website in scope, `docs/brand.md` stops being a colour reference and becomes **the
+cross-platform token spec**: one table of names, one set of values, two bindings (a `Theme` enum in
+Swift, a `:root` block in CSS). Anything that cannot be expressed in both — SF Symbol names, WidgetKit
+densities — is explicitly Swift-only in that document rather than silently absent.
+
+Minimum web work: extract the shared `:root` into one `docs/styles.css` included by both pages, fold
+the five stray hexes into named properties, rename `--mid`/`--light` to match whatever the Swift
+text roles are called, and add the missing `--success-green` to `privacy.html`.
+
 ## Recommended shape — needs approval before implementation
 
 This introduces a new abstraction family, which `.claude/rules/core.md` says to propose rather than
@@ -261,9 +350,10 @@ spread. The proposal:
 static constants on nested enums, no environment plumbing:
 
 ```
-Theme.Palette   → re-export or absorb BrandPalette, plus semantic roles
-                  (surface, surfaceRaised, separator, textPrimary/Secondary/Tertiary,
-                   stateFinished/Live/Upcoming)
+Theme.Palette   → absorbs BrandPalette, plus single-value semantic roles
+                  (surface, surfaceRaised, separator,
+                   textPrimary/Secondary/Tertiary,
+                   stateFinished/Live/Upcoming — green / red / blue)
 Theme.Space     → xs … xxl, one scale, replacing all 59 padding + 69 spacing literals
 Theme.Radius    → hairline(2) … card(density-driven)
 Theme.Type      → named roles (screenTitle, cardTitle, rowLabel, rowDetail, badge, caption)
@@ -272,11 +362,21 @@ Theme.Motion    → hover, press, confirm, plus the confirmation-hold duration
 Theme.Icon      → every SF Symbol name, including FlagImage's fallback
 ```
 
-Static constants rather than `@Environment`, deliberately: the menu bar label is an `NSHostingView`
-built by an `AppDelegate`, and the widget renders in an extension process with no app environment to
-inherit — an environment-keyed theme would have to be re-injected at three roots and would silently
-fall back to a default at any root someone forgets. If a *runtime* theme switch is ever wanted, that
-is a different design and should be decided before this is written, not after (see open questions).
+**Static constants, settled.** The reskin is rebuild-time, so there is no state to carry and nothing
+to inject: a theme change is an edit to these constants and a new build. That also sidesteps what
+would otherwise have been the hard part — the menu bar label is an `NSHostingView` built by an
+`AppDelegate`, and the widget renders in an extension process with no app environment to inherit, so
+an environment-keyed theme would need re-injecting at three roots and would fall back silently at any
+root someone forgot.
+
+**If a runtime theme switch is ever wanted, this decision is what gets revisited**, and it is a real
+rewrite of the plumbing rather than an extension of it. Naming the roles now (see D4) is what keeps
+that from also being a rediscovery of every colour decision.
+
+**Every token that has a web equivalent must be expressible as a CSS custom property**, because
+`docs/` is in scope (F). Prefer the CSS side's existing surface names — `card`, `border`, `bg` — over
+inventing a second vocabulary in Swift. Swift-only tokens (SF Symbols, WidgetKit densities) are
+allowed but must be marked as such in `brand.md`.
 
 **2. Fold `NoSpoilersCardDensity` into `Theme` as the single density axis** and delete every
 `compact: Bool` parameter (`NoSpoilersStatusBadge`, `widgetHeader`, `widgetSessionRow`,
@@ -287,33 +387,51 @@ is a different design and should be decided before this is written, not after (s
 `NoSpoilersScreenHeader` (2 → 1), `NoSpoilersSectionLabel` (2 → 1), `NoSpoilersDetailRow` (2 → 1),
 and make the widget's two empty states use `NoSpoilersMessageCard`.
 
-**4. One `SessionStatus → colour` mapping**, in Core, next to the palette. Deleting two of the three
-answers is a visible behaviour change on at least one platform and needs a decision on which
-survives — see open questions.
+**4. One `SessionStatus → colour` mapping**, in Core, next to the palette, resolving to **green /
+red / blue**. Delete `iOS statusColor`, the macOS inline ternary, and the widget's `accentColor`, and
+retire `finishedGrey` and `upcomingAmber` from `BrandPalette` once nothing references them. Full
+blast radius in C4 — it reaches all three targets through `NoSpoilersStatusBadge` and
+`NoSpoilersRoundPill`, not just iOS.
 
 **5. Move the shared strings to Core**, delete the dead ones, and extract
 `Strings.Schedule.dateRange` and `CountdownFormatter` beside the existing
 `Strings.Schedule.sessionDateTime`, which is already the shared-formatting precedent.
 
-**6. Set the accent colour** in all three asset catalogs to `signalRed`, and extend `docs/brand.md`
-past colour to cover the whole token set — or move it to `docs/guides/brand.md` where `CLAUDE.md`
-already points.
+**6. Set the accent colour** in all three asset catalogs to `signalRed`.
+
+**7. One `docs/styles.css`** carrying the `:root` block for both HTML pages, with the stray hexes
+folded in and the text-role names matching Swift (F).
+
+**8. `docs/brand.md` becomes the cross-platform token spec** — every token, both bindings, and an
+explicit note for the Swift-only ones. Move it to `docs/guides/brand.md`, which is where `CLAUDE.md`
+already points and where the other guides live. That move touches the control plane, so it goes
+through `claude-setup-maintenance` and updates `docs/guides/important-code.md`.
 
 ## Suggested ordering
 
 Each phase is independently shippable and independently verifiable. Phases 1-2 are pure additions
 with no behaviour change; the risk starts at phase 3.
 
-1. **Tokens, unused.** Add `Theme` with values transcribed from what is on screen today. Nothing
-   consumes it. Zero risk, and it makes the rest reviewable as "call site now names its constant".
+1. **Tokens, unused.** Add `Theme` with values transcribed from what is on screen today, including
+   the single-value semantic roles from D4. Nothing consumes it. Zero risk, and it makes the rest
+   reviewable as "call site now names its constant".
 2. **Strings + formatters.** Move the shared strings to Core, delete the dead ones, extract the
    date-range and countdown formatters. Behaviour-preserving and covered by the existing tests.
-3. **Resolve the state-colour disagreement** (C1/C2/C3) as an explicit product decision, then
-   implement it once in Core. This is a visible change and should land alone.
+3. **State colours → green/red/blue**, implemented once in Core per C4, with `finishedGrey` and
+   `upcomingAmber` deleted. This is the first visible change and should land alone, on its own
+   commit, with before/after screenshots. Settle the `successGreen` contrast question (C4) before
+   starting, since the answer may add a palette entry this phase depends on.
 4. **Converge the components**, one per commit, biggest first. Each replaces N implementations with
    one and deletes the others in the same commit — no migration period, per `core.md`.
 5. **Sweep the call sites onto the tokens**, target by target.
-6. **Accent colour, `brand.md`, and the routing pointer.**
+6. **Accent colour** in the three asset catalogs.
+7. **Website**: shared `docs/styles.css`, stray hexes named, text roles renamed to match Swift.
+8. **`brand.md` rewritten as the token spec and moved to `docs/guides/`**, with
+   `docs/guides/important-code.md` updated. Last, so it documents what was built rather than what
+   was planned.
+
+Phases 1-2 are pure additions with no behaviour change. Phase 7 is independent of 3-6 and can run in
+parallel with them if convenient — it shares no files with the app targets.
 
 ## Verification
 
@@ -323,29 +441,56 @@ with no behaviour change; the risk starts at phase 3.
 **They do not cover any of what this task changes.** There are no UI tests and no snapshot tests in
 this repo; a component convergence that renders the wrong thing compiles and passes everything.
 `scripts/screenshots.py` renders the widget families into `tmp/screenshots/` from a fixture and is
-the closest thing to a visual check that exists — it should be run before and after each phase-4
-commit and the pairs compared by eye. **That gap is the largest risk in this task and should be
-weighed before starting phase 4**; a snapshot-test harness may be the honest prerequisite, and if so
-it is its own task, not a footnote in this one.
+the closest thing to a visual check that exists — it should be run before and after each phase-3 and
+phase-4 commit and the pairs compared by eye. **That gap is the largest risk in this task and should
+be weighed before starting phase 3**; a snapshot-test harness may be the honest prerequisite, and if
+so it is its own task, not a footnote in this one. Note that it covers the widget only: the iOS
+pager and the macOS popover — where most of C4's visible change lands — have no capture path at all.
 
-## Open questions — answer before phase 1
+Two checks are not builds and are easy to skip:
 
-1. **Is "reskin" a rebuild-time change or a runtime one?** Swapping the palette in source and
-   shipping a new build is what the recommendation above assumes. A user-selectable theme is a
-   materially different design (environment-injected, three roots to plumb, widget entry needs the
-   choice carried through the timeline) and is much cheaper to design in now than to retrofit.
-2. **Does dark mode come with the reskin?** If yes, the semantic colour roles in D4 are part of
-   phase 1 rather than a later addition, and `.preferredColorScheme(.light)` comes out.
-3. **Which state palette wins** — iOS's grey/amber or the macOS+widget green/blue? `brand.md`
-   currently says green/blue; two of three implementations agree with it; the app most users see
-   does not.
-4. **Is `docs/index.html` in scope?** It already has a working token layer with the same colour
-   names. Keeping the two in sync by hand is what `brand.md` currently asks for, and a reskin is
-   exactly when that breaks.
+- **Contrast.** Verify `successGreen` against `surface` and `surfaceRaised` with a real contrast
+  tool before phase 3, per C4. A wrong answer here ships an accessibility regression that compiles.
+- **The website.** No build step and no test. Phase 7 is verified by opening `docs/index.html` and
+  `docs/privacy.html` and confirming nothing moved — and by grepping that no hex literal survives
+  outside the shared `:root`.
+
+## Decisions — 2026-08-17
+
+The four questions that blocked phase 1, and what each one closes.
+
+1. **Rebuild-time reskin, not runtime.** No user-selectable theme. `Theme` is public static
+   constants; a reskin is an edit plus a build. Removes the environment plumbing at three roots and
+   the widget-timeline question entirely. Revisiting this later is a rewrite of the plumbing, not an
+   extension of it — which is why the roles get named now.
+2. **No dark mode yet.** `.preferredColorScheme(.light)` stays and no dark values get written. The
+   semantic colour roles are still part of phase 1 as **single-value** roles, because D1 is a reskin
+   blocker independently of dark mode. One value per role; the roles are the seam a dark variant
+   would later hang from. Do not build variant machinery for values nobody has chosen.
+3. **Green/blue wins.** `brand.md` and the macOS/widget behaviour are right; the iOS app moves.
+   Retires `finishedGrey` and `upcomingAmber`. Reaches all three targets through
+   `NoSpoilersStatusBadge` and `NoSpoilersRoundPill`, and incidentally fixes C2. **One thing this
+   decision does not settle:** whether `successGreen` is legible enough for body text at 3.5:1 — if
+   not, a darker `stateFinishedText` is a new palette entry needing separate approval (C4).
+4. **The website is in scope.** `docs/index.html` and `docs/privacy.html` each carry a hand-copied
+   `:root` block, so they are the fourth and fifth copies of the palette (F). `brand.md` becomes the
+   cross-platform token spec with two bindings, Swift and CSS.
+
+## Still open
+
+- **The `successGreen` contrast figure** (C4) — computed here, not measured. Blocks phase 3.
+- **Whether a snapshot-test harness is a prerequisite** to phases 3-4, given that nothing in the
+  repo can catch a visual regression and two of the three surfaces have no capture path. See
+  Verification.
+- **Whether the web `--radius: 16px` and the app's 24/18/14 densities are meant to relate.** Nobody
+  has decided; the token spec will have to say something.
 
 ## Related
 
 - `docs/brand.md` — the colour spec. Colour-only, and drifting from `BrandPalette` (see C3).
+  Becomes the cross-platform token spec and moves to `docs/guides/brand.md` in phase 8.
+- `docs/index.html`, `docs/privacy.html` — in scope; two hand-copied `:root` blocks and five stray
+  hexes (F).
 - `docs/guides/swift-patterns.md` — "Strings and localisation" already contains the rule that
   decides E1; "Core rules" and "Refactoring bias" decide section B.
 - `.claude/rules/core.md` — *"If a shared abstraction almost fits, refactor it instead of creating a
