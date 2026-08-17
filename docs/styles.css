@@ -1,0 +1,100 @@
+/* Shared tokens and page furniture for index.html and privacy.html.
+ *
+ * Both pages carried their own hand-copied `:root` block before this file
+ * existed, and they had already drifted: privacy.html was missing
+ * `--success-green`. Six further rules — the reset, `body`, the footer, and
+ * the decorative face — were byte-identical in both.
+ *
+ * This is one of the two bindings of the product's design tokens; the other is
+ * `Theme` in NoSpoilersCore. Where a token exists on both sides it is named the
+ * same thing on both sides. Anything with no web equivalent — SF Symbol names,
+ * WidgetKit densities — lives only in Swift.
+ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* ── Brand palette ───────────────────────────────────────
+   * The same hexes as BrandPalette.swift, which is the spec in docs/brand.md.
+   * Kept complete even where the web draws none of it — `--blush` and
+   * `--mist-grey` have no site on either page today. A palette that is the
+   * palette on one binding and a subset on the other is how the two drift.
+   */
+  --signal-red: #ef2b2d;
+  --deep-maroon: #7a0c0f;
+  --ivory: #fff7f2;
+  --smoke: #1f1a1a;
+  --mist-grey: #d9d2cf;
+  --blush: #f6d7d4;
+  --success-green: #2e9b63;
+
+  /* ── Semantic text roles ─────────────────────────────────
+   * What each colour is for, as opposed to what it is — the same three roles
+   * as `Theme.Palette.textPrimary/Secondary/Tertiary`, pointing at the palette
+   * above exactly as the Swift side points at `BrandPalette`.
+   *
+   * These were `--mid` and `--light`, which named how dark they are rather
+   * than what they say, and matched nothing on the Swift side.
+   */
+  --text-primary: var(--smoke);
+  --text-secondary: #5f5754;
+  --text-tertiary: #827876;
+
+  /* ── Foregrounds on the dark install block ───────────────
+   * Four literals that used to be typed inline. They are a ramp on one dark
+   * surface rather than palette entries, which is why they are named for the
+   * surface they sit on. Close to `--ivory` and `--blush` but not equal to
+   * them, and left at their own values rather than snapped onto the palette —
+   * that would move pixels, and this pass is meant not to.
+   */
+  --on-dark: #fdf8f6;
+  --on-dark-quiet: #f3dedd;
+  --on-dark-strong: #fff;
+  /* The copy button for the two seconds after it has copied. A lightened
+   * `--success-green`, invented inline for that one state. */
+  --success-bright: #9df3c7;
+
+  /* ── Surfaces and structure ──────────────────────────────
+   * `--card`, `--border` and `--bg` are roles the Swift side does not have
+   * names for yet. The vocabulary is worth keeping; see phase 8 of task 27.
+   */
+  --bg: linear-gradient(180deg, rgba(255,247,242,0.82) 0%, rgba(251,232,229,0.75) 54%, rgba(255,241,238,0.82) 100%);
+  --card: rgba(255, 255, 255, 0.88);
+  --border: rgba(122, 12, 15, 0.12);
+  --radius: 16px;
+
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg), url('background.webp') center / cover no-repeat;
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+footer {
+  border-top: 1px solid var(--border);
+  text-align: center;
+  padding: 32px 24px;
+  font-size: 0.82rem;
+  color: var(--text-tertiary);
+  position: relative;
+  z-index: 1;
+}
+
+footer a { color: var(--text-secondary); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+.face-deco {
+  position: fixed;
+  top: -20px;
+  right: 0;
+  width: 560px;
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
