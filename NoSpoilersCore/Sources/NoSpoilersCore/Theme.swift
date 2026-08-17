@@ -63,25 +63,46 @@ public enum Theme {
         /// give one surface two answers.
         public static let surfaceRaised = Color.white.opacity(0.65)
 
-        /// The three session states, resolved once so that the accent bar, the
-        /// badge, the row tint and the label cannot disagree — which today they
-        /// do, three different ways across three targets.
+        /// The three session states, resolved once so that the accent bar and
+        /// the badge cannot disagree — which they did, three different ways
+        /// across three targets, including a macOS row that drew a blue bar
+        /// beside an amber pill for the same session.
         ///
         /// Green and blue are what `docs/brand.md` specifies and what macOS and
-        /// the widget already draw; iOS is the outlier that moves, and
-        /// `finishedGrey` and `upcomingAmber` retire when nothing references
-        /// them. Nothing consumes these yet, so nothing has moved.
+        /// the widget already drew; iOS was the outlier. `finishedGrey` and
+        /// `upcomingAmber` are gone.
         ///
-        /// **One measurement is still owed on `stateFinished`.** `successGreen`
-        /// is `#2E9B63`, computed at roughly 3.5:1 against white — fine for the
-        /// 3pt accent bar, below the 4.5:1 AA bar for body text. Adopting these
-        /// puts finished-session labels on it in all three targets, so the
-        /// figure needs checking with a real contrast tool first. If it holds, a
-        /// darker text-weight companion is a new palette entry and its own
-        /// decision, not something implied by choosing green.
+        /// **These colour the bar and the badge, and nothing else.** Session
+        /// names stay on `textPrimary` in every state, which is a contrast
+        /// decision rather than an aesthetic one — measured with the WCAG sRGB
+        /// formula, `successGreen` is 3.31:1 on ivory and 3.43:1 on
+        /// `surfaceRaised`. That clears the 3:1 bar for UI components and large
+        /// text, which is what a 3pt bar and a badge are, and misses the 4.5:1
+        /// bar for body text, which is what a session name is. Painting names
+        /// green would have taken the widget from 16.25:1 down to 3.31:1 — the
+        /// one real regression the change offered, now declined.
+        ///
+        /// The alternative was a darker `#278253` for text; it was not needed
+        /// once names stayed put, so no new palette entry exists. **Do not draw
+        /// `stateFinished` on `blush`** — 2.60:1 there fails even the 3:1 bar.
         public static let stateFinished = BrandPalette.successGreen
         public static let stateLive = BrandPalette.signalRed
         public static let stateUpcoming = BrandPalette.upcomingBlue
+
+        /// The one place a session's status becomes a colour.
+        ///
+        /// It replaced three: an iOS `statusColor`, a macOS inline ternary, and
+        /// the widget's `accentColor`, which disagreed on both hue and opacity —
+        /// finished was `finishedGrey` on iOS, `successGreen.opacity(0.6)` on
+        /// macOS and `successGreen.opacity(0.75)` in the widget. Nobody chose
+        /// those opacities; they collapse to one value here.
+        public static func state(_ status: SessionStatus) -> Color {
+            switch status {
+            case .finished:   return stateFinished
+            case .inProgress: return stateLive
+            case .upcoming:   return stateUpcoming
+            }
+        }
     }
 
     /// Where a piece of UI is being drawn — the axis every other token varies

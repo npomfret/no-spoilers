@@ -192,10 +192,10 @@ public struct NoSpoilersRoundPill: View {
     public var body: some View {
         text
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(isFinished ? BrandPalette.finishedGrey : BrandPalette.signalRed)
+            .foregroundStyle(isFinished ? Theme.Palette.stateFinished : BrandPalette.signalRed)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(isFinished ? BrandPalette.finishedGrey.opacity(0.12) : BrandPalette.blush.opacity(0.7))
+            .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : BrandPalette.blush.opacity(0.7))
             .clipShape(Capsule())
     }
 }
@@ -228,7 +228,7 @@ public struct NoSpoilersStatusBadge: View {
         case .finished:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.medium))
-                .foregroundStyle(BrandPalette.finishedGrey)
+                .foregroundStyle(Theme.Palette.stateFinished)
         case .live:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.bold))
@@ -240,10 +240,10 @@ public struct NoSpoilersStatusBadge: View {
         case .upcoming:
             text
                 .font((compact ? Font.caption2 : .caption).weight(.medium))
-                .foregroundStyle(BrandPalette.upcomingAmber)
+                .foregroundStyle(Theme.Palette.stateUpcoming)
                 .padding(.horizontal, compact ? 8 : 10)
                 .padding(.vertical, compact ? 4 : 6)
-                .background(BrandPalette.upcomingAmber.opacity(0.12))
+                .background(Theme.Palette.stateUpcoming.opacity(0.12))
                 .clipShape(Capsule())
         }
     }

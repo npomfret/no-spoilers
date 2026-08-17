@@ -165,15 +165,15 @@ struct WeekendPopoverView: View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return HStack(spacing: 8) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(status == .finished ? BrandPalette.successGreen.opacity(0.6) : status == .inProgress ? BrandPalette.signalRed : BrandPalette.upcomingBlue)
+                .fill(Theme.Palette.state(status))
                 .frame(width: 3, height: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.kind.displayName)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(status == .finished ? BrandPalette.successGreen : .primary)
+                    .foregroundStyle(.primary)
                 Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
                     .font(.system(size: 11))
-                    .foregroundStyle(status == .finished ? BrandPalette.successGreen.opacity(0.75) : .secondary)
+                    .foregroundStyle(.secondary)
             }
             .frame(minWidth: 100, alignment: .leading)
             Spacer()

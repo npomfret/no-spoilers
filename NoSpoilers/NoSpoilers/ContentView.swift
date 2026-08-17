@@ -253,16 +253,16 @@ struct ContentView: View {
 
                     HStack(spacing: 10) {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(statusColor(status))
+                            .fill(Theme.Palette.state(status))
                             .frame(width: 3, height: 32)
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(session.kind.displayName)
                                 .font(.body.weight(.semibold))
-                                .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.smoke)
+                                .foregroundStyle(Theme.Palette.textPrimary)
                             Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
                                 .font(.caption)
-                                .foregroundStyle(status == .finished ? BrandPalette.finishedGrey : BrandPalette.secondaryText)
+                                .foregroundStyle(Theme.Palette.textSecondary)
                         }
 
                         Spacer()
@@ -273,7 +273,7 @@ struct ContentView: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(status == .finished ? BrandPalette.finishedGrey.opacity(0.15) : Color.white.opacity(0.65))
+                            .fill(Theme.Palette.surfaceRaised)
                     )
                 }
             }
@@ -448,17 +448,6 @@ struct ContentView: View {
         let elapsed = DurationBreakdown(since: date, to: now)
         if elapsed.totalHours >= 1 { return NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours) }
         return NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
-    }
-
-    private func statusColor(_ status: SessionStatus) -> Color {
-        switch status {
-        case .finished:
-            return BrandPalette.finishedGrey
-        case .inProgress:
-            return BrandPalette.signalRed
-        case .upcoming:
-            return BrandPalette.upcomingAmber
-        }
     }
 
     private func refresh() async {

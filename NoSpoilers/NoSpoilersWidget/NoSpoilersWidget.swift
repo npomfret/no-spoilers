@@ -37,6 +37,17 @@ enum SessionState {
     case finished(at: Date)
     case live
     case upcoming(startsAt: Date)
+
+    /// The same three states the rest of the product calls `SessionStatus`,
+    /// minus the dates the widget carries for its relative-time labels. The
+    /// bridge exists so colour is decided in one place rather than four.
+    var status: SessionStatus {
+        switch self {
+        case .finished: return .finished
+        case .live:     return .inProgress
+        case .upcoming: return .upcoming
+        }
+    }
 }
 
 // MARK: - Helpers
@@ -632,14 +643,7 @@ struct NoSpoilersWidgetEntryView: View {
     }
 
     private func accentColor(for state: SessionState) -> Color {
-        switch state {
-        case .finished:
-            return BrandPalette.successGreen.opacity(0.75)
-        case .live:
-            return widgetRed
-        case .upcoming:
-            return BrandPalette.upcomingBlue
-        }
+        Theme.Palette.state(state.status)
     }
 
     private func primarySession() -> SessionViewModel? {
