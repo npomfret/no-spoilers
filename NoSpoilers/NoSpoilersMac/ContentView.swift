@@ -10,17 +10,17 @@ private struct MenuRowButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .padding(.horizontal, 12)
+            .padding(.horizontal, Theme.Space.xl)
             .padding(.vertical, 7)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                     .fill(isHovered
                           ? Color.secondary.opacity(0.10)
                           : Color.clear)
             )
             .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: isHovered)
-            .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
+            .animation(Theme.Motion.hover, value: isHovered)
+            .animation(Theme.Motion.press, value: configuration.isPressed)
             .onHover { isHovered = $0 }
     }
 }
@@ -58,36 +58,36 @@ struct WeekendPopoverView: View {
             Divider()
             VStack(spacing: 0) {
                 Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
-                    Label(Strings.Popover.website, systemImage: "globe")
+                    Label(Strings.Popover.website, systemImage: Theme.Icon.website)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { openAbout() } label: {
-                    Label(Strings.Popover.about, systemImage: "info.circle")
+                    Label(Strings.Popover.about, systemImage: Theme.Icon.about)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { openSettings() } label: {
-                    Label(Strings.Popover.settings, systemImage: "gear")
+                    Label(Strings.Popover.settings, systemImage: Theme.Icon.settings)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { NSApplication.shared.terminate(nil) } label: {
-                    Label(Strings.Popover.quit, systemImage: "power")
+                    Label(Strings.Popover.quit, systemImage: Theme.Icon.quit)
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Theme.Space.xs)
+            .padding(.vertical, Theme.Space.xs)
         }
         .background(NoSpoilersBackground())
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
@@ -118,17 +118,16 @@ struct WeekendPopoverView: View {
     }
 
     private func header(_ weekend: RaceWeekend) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Theme.Space.sm) {
             // Row 1: logo · GP name (centered) · flag
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.macPopover)) {
                 NoSpoilersWordmark(size: .medium)
                 Spacer()
                 Text(weekend.grandPrixName)
-                    .font(.headline)
-                    .fontWeight(.semibold)
+                    .font(Theme.Typography.weekendTitle(.macPopover))
                     .multilineTextAlignment(.center)
                 Spacer()
-                FlagImage(countryCode: weekend.countryCode, height: 20)
+                FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.macPopover))
             }
             // Row 2: round pill · location · date range
             NoSpoilersWeekendMeta(
@@ -138,8 +137,8 @@ struct WeekendPopoverView: View {
                 dateRange: weekendDateRange(of: weekend)
             )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Theme.Space.xxl)
+        .padding(.vertical, Theme.Space.xl)
         .background(BrandPalette.blush.opacity(0.3))
     }
 
@@ -153,14 +152,14 @@ struct WeekendPopoverView: View {
 
     private func sessionList(_ weekend: RaceWeekend, now: Date) -> some View {
         let sessions = weekend.allSessions
-        return VStack(spacing: 4) {
+        return VStack(spacing: Theme.Space.xs) {
             ForEach(sessions.indices, id: \.self) { i in
                 let next = i + 1 < sessions.count ? sessions[i + 1] : nil
                 sessionRow(sessions[i], nextSession: next, at: now)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Theme.Space.lg)
+        .padding(.vertical, Theme.Space.lg)
     }
 
     private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
@@ -232,8 +231,8 @@ struct WeekendPopoverView: View {
         ) {
             NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Theme.Space.xxl)
+        .padding(.vertical, Theme.Space.md)
     }
 
     /// When the next weekend races and how long until it starts, or nil when the
@@ -255,8 +254,8 @@ struct WeekendPopoverView: View {
     }
 
     private var updateBanner: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrow.up.circle.fill")
+        HStack(spacing: Theme.Space.sm) {
+            Image(systemName: Theme.Icon.updateAvailable)
                 .foregroundStyle(.orange)
                 .font(.system(size: 12))
             VStack(alignment: .leading, spacing: 1) {
@@ -274,18 +273,18 @@ struct WeekendPopoverView: View {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(Strings.Popover.brewUpgradeCommand, forType: .string)
                 brewCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { brewCopied = false }
+                DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Motion.confirmationHold) { brewCopied = false }
             } label: {
                 Text(brewCopied ? Strings.Popover.copied : Strings.Popover.copyCommand)
                     .font(.caption2)
                     .foregroundStyle(brewCopied ? .green : .secondary)
-                    .animation(.easeInOut(duration: 0.15), value: brewCopied)
+                    .animation(Theme.Motion.confirm, value: brewCopied)
             }
             .buttonStyle(.plain)
             .help(Strings.Popover.brewUpgradeCommand)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Theme.Space.xxl)
+        .padding(.vertical, Theme.Space.md)
         .background(Color.orange.opacity(0.08))
     }
 
@@ -295,7 +294,7 @@ struct WeekendPopoverView: View {
             bodyText: Text(Strings.Popover.noSessions),
             canvas: .macPopover
         )
-        .padding(16)
+        .padding(Theme.Space.xxl)
     }
 }
 
@@ -376,8 +375,8 @@ struct SettingsView: View {
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.small)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, Theme.Space.xxl)
+            .padding(.vertical, Theme.Space.lg)
         }
         .background(NoSpoilersBackground())
     }

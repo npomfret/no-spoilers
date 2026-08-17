@@ -25,7 +25,7 @@ private struct MenuBarLabelView: View {
         let flagCode = pair?.weekend.countryCode ?? nil
         let showFlagItem = showFlag && flagCode != nil
         let label = store.menuBarLabel(showSession: showSession, showCountdown: showCountdown)
-        HStack(spacing: 4) {
+        HStack(spacing: Theme.Space.xs) {
             // The status item's only always-present element: the countdown
             // label is optional and the flag is off by default, so this is what
             // stops the menu bar item collapsing to nothing.
