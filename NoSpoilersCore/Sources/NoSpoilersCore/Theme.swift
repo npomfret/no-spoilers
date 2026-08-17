@@ -76,6 +76,33 @@ public enum Theme {
         /// whether it should become a spec entry is phase 8's question.
         public static let surfaceFinished = Color(red: 0.96, green: 0.95, blue: 0.94)
 
+        /// "There is something new here" — the update banner and the dot on
+        /// the menu bar that leads to it.
+        ///
+        /// **Orange, and not a brand colour.** It is deliberately outside this
+        /// product's red/green/blue vocabulary, because it means neither a
+        /// session state nor the brand: it is the app talking about itself.
+        /// Naming it changes nothing on screen and stops it being three
+        /// unrelated `Color.orange` literals in two files.
+        public static let attention = Color.orange
+
+        /// A control confirming it did the thing — the popover's copy button
+        /// for two seconds after it copies.
+        ///
+        /// **This is `Color.green`, not `successGreen`.** The two are
+        /// different colours and always have been; the system green is what
+        /// this button has always flashed, and swapping it for the brand's
+        /// finished-session green would both change what is on screen and
+        /// borrow a colour that means "this session is over".
+        public static let confirmation = Color.green
+
+        /// The fill under a menu row while the pointer is over it.
+        ///
+        /// The one system colour that survives the sweep inside the popover,
+        /// and on purpose: it is a neutral wash rather than a brand surface,
+        /// and it reads against whatever the row above it is doing.
+        public static let hoverFill = Color.secondary.opacity(0.10)
+
         /// The three session states, resolved once so that the accent bar and
         /// the badge cannot disagree — which they did, three different ways
         /// across three targets, including a macOS row that drew a blue bar

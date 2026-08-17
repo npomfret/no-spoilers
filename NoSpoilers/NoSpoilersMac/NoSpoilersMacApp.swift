@@ -43,7 +43,7 @@ private struct MenuBarLabelView: View {
             }
             if updateChecker.isUpdateAvailable {
                 Circle()
-                    .fill(Color.orange)
+                    .fill(Theme.Palette.attention)
                     .frame(width: 5, height: 5)
             }
         }

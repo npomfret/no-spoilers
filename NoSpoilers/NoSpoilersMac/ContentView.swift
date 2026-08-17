@@ -15,7 +15,7 @@ private struct MenuRowButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                     .fill(isHovered
-                          ? Color.secondary.opacity(0.10)
+                          ? Theme.Palette.hoverFill
                           : Color.clear)
             )
             .opacity(configuration.isPressed ? 0.7 : 1.0)
@@ -60,28 +60,28 @@ struct WeekendPopoverView: View {
                 Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
                     Label(Strings.Popover.website, systemImage: Theme.Icon.website)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { openAbout() } label: {
                     Label(Strings.Popover.about, systemImage: Theme.Icon.about)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { openSettings() } label: {
                     Label(Strings.Popover.settings, systemImage: Theme.Icon.settings)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
                 Button { NSApplication.shared.terminate(nil) } label: {
                     Label(Strings.Popover.quit, systemImage: Theme.Icon.quit)
                         .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(MenuRowButtonStyle())
@@ -256,7 +256,7 @@ struct WeekendPopoverView: View {
     private var updateBanner: some View {
         HStack(spacing: Theme.Space.sm) {
             Image(systemName: Theme.Icon.updateAvailable)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.Palette.attention)
                 .font(.system(size: 12))
             VStack(alignment: .leading, spacing: Theme.Space.xxs) {
                 Text(Strings.Popover.updateAvailable)
@@ -265,7 +265,7 @@ struct WeekendPopoverView: View {
                 if !updateChecker.latestVersion.isEmpty {
                     Text("v\(updateChecker.currentVersion) → v\(updateChecker.latestVersion)")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                 }
             }
             Spacer()
@@ -277,7 +277,7 @@ struct WeekendPopoverView: View {
             } label: {
                 Text(brewCopied ? Strings.Popover.copied : Strings.Popover.copyCommand)
                     .font(.caption2)
-                    .foregroundStyle(brewCopied ? .green : .secondary)
+                    .foregroundStyle(brewCopied ? Theme.Palette.confirmation : Theme.Palette.textTertiary)
                     .animation(Theme.Motion.confirm, value: brewCopied)
             }
             .buttonStyle(.plain)
@@ -285,7 +285,7 @@ struct WeekendPopoverView: View {
         }
         .padding(.horizontal, Theme.Space.xxl)
         .padding(.vertical, Theme.Space.md)
-        .background(Color.orange.opacity(0.08))
+        .background(Theme.Palette.attention.opacity(0.08))
     }
 
     private var noDataView: some View {
