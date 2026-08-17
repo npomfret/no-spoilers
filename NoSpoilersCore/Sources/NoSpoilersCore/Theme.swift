@@ -10,10 +10,80 @@ import SwiftUI
 /// separate process with no app environment to inherit) get the same answer as
 /// the app without anything being injected at three separate roots.
 ///
-/// `BrandPalette` remains the colour source of truth and is not folded in here;
-/// naming colour roles that point at it comes later, and rewriting every colour
-/// call site is a sweep rather than an addition.
+/// `BrandPalette` remains the colour source of truth and is not folded in here.
+/// `Theme.Palette` names roles that point at it — "what colour is a finished
+/// session", not "what is signal red" — so there is still one place a hex lives.
 public enum Theme {
+    /// What each colour is *for*, as opposed to what it is.
+    ///
+    /// `BrandPalette` answers "what is signal red"; this answers "what colour is
+    /// a finished session". Every role below resolves to a `BrandPalette` entry
+    /// or a literal already on screen — the palette stays the source of truth
+    /// and nothing here introduces a new colour.
+    ///
+    /// **One value per role, and no variant mechanism.** Dark mode is not being
+    /// built: both hosted surfaces force `.preferredColorScheme(.light)` and the
+    /// widget's container background is a hardcoded light gradient. The roles
+    /// exist anyway because they are a reskin blocker on their own — a system
+    /// colour does not move when the palette moves, which is the entire problem.
+    /// Naming them now is what makes adding dark mode later "give each role a
+    /// second value" instead of "find every colour decision again". Do not build
+    /// machinery here to hold values nobody has chosen.
+    ///
+    /// **These roles are not a pure transcription, and the difference is
+    /// macOS.** iOS and the shared components already draw text in `smoke`,
+    /// `secondaryText` and `tertiaryText`, so for them the sweep is a rename.
+    /// The macOS popover and `AboutView` instead use the system's `.primary`,
+    /// `.secondary` and `.tertiary` at 22 sites, and those are *not* the same
+    /// colours — a system label is neutral where `smoke` is warm. Moving them
+    /// onto these roles changes what is on screen, by a little, on macOS. That
+    /// is a sweep-with-screenshots change, not a phase-1 one.
+    ///
+    /// Those same 22 sites are why the two `.preferredColorScheme(.light)` calls
+    /// exist: the gradient behind them is hardcoded light, so the system colours
+    /// have to be pinned to match it. Naming the roles is what eventually lets
+    /// that pinning go.
+    public enum Palette {
+        public static let textPrimary = BrandPalette.smoke
+        public static let textSecondary = BrandPalette.secondaryText
+        public static let textTertiary = BrandPalette.tertiaryText
+
+        /// Dividers and hairline structure.
+        public static let separator = BrandPalette.mistGrey
+
+        /// The page behind everything. `brand.md` prefers ivory over pure white.
+        public static let surface = BrandPalette.ivory
+
+        /// A row or panel lifted off `surface` — the session-row fill, at four
+        /// sites across three targets.
+        ///
+        /// **The card fill is not this.** `NoSpoilersCardDensity` resolves it to
+        /// 0.82/0.78/0.74 from its density axis, so a card sits slightly more
+        /// opaque than a row and does so on purpose. Restating either here would
+        /// give one surface two answers.
+        public static let surfaceRaised = Color.white.opacity(0.65)
+
+        /// The three session states, resolved once so that the accent bar, the
+        /// badge, the row tint and the label cannot disagree — which today they
+        /// do, three different ways across three targets.
+        ///
+        /// Green and blue are what `docs/brand.md` specifies and what macOS and
+        /// the widget already draw; iOS is the outlier that moves, and
+        /// `finishedGrey` and `upcomingAmber` retire when nothing references
+        /// them. Nothing consumes these yet, so nothing has moved.
+        ///
+        /// **One measurement is still owed on `stateFinished`.** `successGreen`
+        /// is `#2E9B63`, computed at roughly 3.5:1 against white — fine for the
+        /// 3pt accent bar, below the 4.5:1 AA bar for body text. Adopting these
+        /// puts finished-session labels on it in all three targets, so the
+        /// figure needs checking with a real contrast tool first. If it holds, a
+        /// darker text-weight companion is a new palette entry and its own
+        /// decision, not something implied by choosing green.
+        public static let stateFinished = BrandPalette.successGreen
+        public static let stateLive = BrandPalette.signalRed
+        public static let stateUpcoming = BrandPalette.upcomingBlue
+    }
+
     /// The spacing rhythm: gaps between things, and the space around them.
     ///
     /// **These are the values already on screen, not a scale anyone designed.**
