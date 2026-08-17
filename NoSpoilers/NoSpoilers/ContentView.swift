@@ -215,24 +215,25 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                HStack(alignment: .center, spacing: 8) {
-                    NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), isFinished: isFinished)
-                    Text(weekend.location)
-                        .font(.subheadline)
-                        .foregroundStyle(BrandPalette.secondaryText)
-                    Spacer()
-                    if let first = sessions.first, let last = sessions.last {
-                        Text(NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt))
-                            .font(.caption)
-                            .foregroundStyle(BrandPalette.tertiaryText)
-                    }
-                }
+                NoSpoilersWeekendMeta(
+                    canvas: .iosApp,
+                    round: weekend.round,
+                    isFinished: isFinished,
+                    location: weekend.location,
+                    dateRange: weekendDateRange(of: sessions)
+                )
 
                 Text(statusLine)
                     .font(.subheadline)
                     .foregroundStyle(BrandPalette.secondaryText)
             }
         }
+    }
+
+    /// The span a weekend covers, or nil when it has no sessions to span.
+    private func weekendDateRange(of sessions: [Session]) -> String? {
+        guard let first = sessions.first, let last = sessions.last else { return nil }
+        return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
     }
 
     private func sessionCard(sessions: [Session]) -> some View {

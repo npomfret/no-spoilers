@@ -131,22 +131,24 @@ struct WeekendPopoverView: View {
                 FlagImage(countryCode: weekend.countryCode, height: 20)
             }
             // Row 2: round pill · location · date range
-            HStack(alignment: .center, spacing: 6) {
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
-                Text(weekend.location)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if let first = weekend.allSessions.first, let last = weekend.allSessions.last {
-                    Text(NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt))
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
+            NoSpoilersWeekendMeta(
+                canvas: .macPopover,
+                round: weekend.round,
+                location: weekend.location,
+                dateRange: weekendDateRange(of: weekend)
+            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(BrandPalette.blush.opacity(0.3))
+    }
+
+    /// The span a weekend covers, or nil when it has no sessions to span.
+    private func weekendDateRange(of weekend: RaceWeekend) -> String? {
+        guard let first = weekend.allSessions.first, let last = weekend.allSessions.last else {
+            return nil
+        }
+        return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
     }
 
     private func sessionList(_ weekend: RaceWeekend, now: Date) -> some View {

@@ -547,18 +547,12 @@ struct NoSpoilersWidgetEntryView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BrandPalette.smoke)
                         .lineLimit(1)
-                    HStack(spacing: 6) {
-                        NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
-                        Text(weekend.location)
-                            .font(.caption2)
-                            .foregroundStyle(BrandPalette.secondaryText)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        Text(sessionDateRange(for: weekend))
-                            .font(.caption2)
-                            .foregroundStyle(BrandPalette.tertiaryText)
-                            .lineLimit(1)
-                    }
+                    NoSpoilersWeekendMeta(
+                        canvas: .widgetLarge,
+                        round: weekend.round,
+                        location: weekend.location,
+                        dateRange: sessionDateRange(for: weekend)
+                    )
                 }
             }
         }
@@ -619,9 +613,16 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    private func sessionDateRange(for weekend: RaceWeekend) -> String {
+    /// The span a weekend covers, or nil when it has no sessions to span.
+    ///
+    /// **It used to return the location instead of nil**, which drew the place
+    /// name twice on the same line — once as the location and once where the
+    /// dates belong. `NoSpoilersWeekendMeta` takes the absence directly, so the
+    /// line simply ends after the location, which is what iOS and the popover
+    /// already did.
+    private func sessionDateRange(for weekend: RaceWeekend) -> String? {
         guard let first = weekend.allSessions.first, let last = weekend.allSessions.last else {
-            return weekend.location
+            return nil
         }
         return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
     }

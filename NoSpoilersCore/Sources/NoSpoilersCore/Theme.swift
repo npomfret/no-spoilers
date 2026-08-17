@@ -226,6 +226,41 @@ public enum Theme {
                 )
             }
         }
+
+        /// Where the weekend is, on the line under its name.
+        ///
+        /// **The two compact widget families trap**, because their header is one
+        /// line — flag, name, round pill — with no room for a location and no
+        /// call site to transcribe. `NoSpoilersWeekendMeta` is drawn only on the
+        /// three canvases that have the room.
+        public static func weekendLocation(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:      return .subheadline
+            case .macPopover:  return .caption
+            case .widgetLarge: return .caption2
+            case .widgetSmall, .widgetMedium:
+                preconditionFailure(
+                    "the compact widget header has no location line — do not draw NoSpoilersWeekendMeta on \(canvas)"
+                )
+            }
+        }
+
+        /// When the weekend runs, trailing the same line.
+        ///
+        /// A step quieter than `weekendLocation` on every canvas that has both,
+        /// which is the ladder that makes the location read as the heading and
+        /// the dates as the footnote.
+        public static func weekendDateRange(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:      return .caption
+            case .macPopover:  return .caption2
+            case .widgetLarge: return .caption2
+            case .widgetSmall, .widgetMedium:
+                preconditionFailure(
+                    "the compact widget header has no date range — do not draw NoSpoilersWeekendMeta on \(canvas)"
+                )
+            }
+        }
     }
 
     /// The spacing rhythm: gaps between things, and the space around them.
@@ -406,6 +441,37 @@ public enum Theme {
                     horizontalPadding: Space.md,
                     verticalPadding: Space.xs,
                     cornerRadius: Radius.medium
+                )
+            }
+        }
+    }
+
+    /// The weekend header — the block naming which Grand Prix a surface is
+    /// showing.
+    ///
+    /// **This is deliberately not a `Row`-sized family, because the header did
+    /// not converge the way the session row did.** Its four arrangements are
+    /// genuinely different designs rather than one design at four sizes: iOS
+    /// puts the wordmark and flag on one line and centres the name beneath,
+    /// macOS puts all three on a single line, the compact widget families draw
+    /// flag-name-pill in one row, and the large family stacks the name over its
+    /// metadata. Only the metadata line itself repeated, and that is what
+    /// `NoSpoilersWeekendMeta` and the tokens here cover.
+    public enum Header {
+        /// Between the round pill, the location and the date range.
+        ///
+        /// **iOS is a step wider than the other two** — 8pt against 6pt — which
+        /// is the one difference here that reads as deliberate rather than
+        /// accidental: it is the only canvas where this line is set in
+        /// `.subheadline` rather than a caption size.
+        public static func metaSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:      return Space.md
+            case .macPopover:  return Space.sm
+            case .widgetLarge: return Space.sm
+            case .widgetSmall, .widgetMedium:
+                preconditionFailure(
+                    "the compact widget header has no metadata line — do not draw NoSpoilersWeekendMeta on \(canvas)"
                 )
             }
         }

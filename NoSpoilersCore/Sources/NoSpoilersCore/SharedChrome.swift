@@ -249,6 +249,63 @@ public struct NoSpoilersStatusBadge: View {
     }
 }
 
+/// The line under a weekend's name: which round it is, where it is, and when.
+///
+/// **This is the part of the weekend header that actually repeated.** The three
+/// headers around it — `NoSpoilers/ContentView.swift`,
+/// `NoSpoilersMac/ContentView.swift` and the widget's — arrange their wordmark,
+/// name and flag three different ways on purpose, and folding those into one
+/// component would have produced a switch with four bodies rather than a shared
+/// design. This line was written out three times with the same structure and
+/// three sets of fonts, and that is a copy.
+///
+/// **Not drawn on the compact widget families.** Their header is one line with
+/// no room for a location, so the tokens this uses trap on `.widgetSmall` and
+/// `.widgetMedium` rather than inventing sizes for a line that does not exist.
+public struct NoSpoilersWeekendMeta: View {
+    private let canvas: Theme.Canvas
+    private let round: Int
+    private let isFinished: Bool
+    private let location: String
+    private let dateRange: String?
+
+    /// `dateRange` is `nil` when the weekend has no sessions to span — a real
+    /// schedule state, not a missing value, and the reason this line can be
+    /// drawn as a round pill and a place name alone.
+    public init(
+        canvas: Theme.Canvas,
+        round: Int,
+        isFinished: Bool = false,
+        location: String,
+        dateRange: String?
+    ) {
+        self.canvas = canvas
+        self.round = round
+        self.isFinished = isFinished
+        self.location = location
+        self.dateRange = dateRange
+    }
+
+    public var body: some View {
+        HStack(alignment: .center, spacing: Theme.Header.metaSpacing(canvas)) {
+            NoSpoilersRoundPill(Strings.Schedule.roundLabel(round), isFinished: isFinished)
+
+            Text(location)
+                .font(Theme.Typography.weekendLocation(canvas))
+                .foregroundStyle(Theme.Palette.textSecondary)
+
+            Spacer(minLength: 0)
+
+            if let dateRange {
+                Text(dateRange)
+                    .font(Theme.Typography.weekendDateRange(canvas))
+                    .foregroundStyle(Theme.Palette.textTertiary)
+            }
+        }
+        .lineLimit(Theme.Row.labelLineLimit(canvas))
+    }
+}
+
 /// One session in a list: an accent rule in the session's state colour, its
 /// name, an optional second line, and whatever the surface wants trailing.
 ///
