@@ -163,14 +163,48 @@ nothing. The measurement seeds the live feed instead.
 - [x] No `content confirmation action error: timeout` from SpringBoard after a boot
 - [x] The widget renders real content, not grey bars, within `SETTLE_SECONDS` of a cold boot —
       captured at 12s on a 23-weekend cache: Dutch GP R12, five live countdowns, next-up Italian GP
-- [ ] **Still open.** The widget updates across a session boundary without the app being launched.
-      Entries inside the horizon cover the boundaries, and `.after(horizon)` is what brings the
-      widget back for the ones beyond it — but that reload has been reasoned from the policy, not
-      watched firing. Proving it needs a 48-hour soak or a clock shift, neither of which was run.
+- [x] The widget updates across a session boundary without the app being launched — **watched
+      firing on 2026-08-17**, both halves. See "How the reload was finally observed" below. What is
+      still *not* proven is the 48-hour horizon **duration**; the mechanism was proven at ~9 minutes.
 - [x] Off-season: one entry, 0.122s, and no reload storm over 60 seconds. **Not "unchanged"** — the
       900s fallback this box used to ask for was dead code, and the real previous behaviour was a
       reload date in the past. It is now `.after(horizon)` like every other case.
 - [x] `scripts/verify-widget-build.sh` passes
+
+---
+
+## How the reload was finally observed, 2026-08-17
+
+Both halves were watched on `iPhone 17` (`E92811F0`, iOS 26.4), app never launched at any point.
+
+**A session boundary crosses from the archive.** Fixture with the race 90 minutes out, host clock
+moved +2h. The race row went from a `1 hr, 28 min` countdown to a red **In Progress** badge, and the
+extension never woke — no data read in the log across the whole window. The swap came entirely from
+the entry archived at the race-start boundary.
+
+**`.after(reloadAt)` fires, and the rebuild re-reads the cache.** A fixture of 40 sessions at 10s
+spacing produces ~89 boundaries against `maxTimelineEntries`, so `getTimeline` takes the truncated
+branch and the reload date becomes the 24th boundary — about nine minutes out instead of 48 hours.
+Seconds before it fell due, the App Group cache was swapped for a single round 20 Hungarian weekend,
+which appears in **no** archived entry. At the reload date the widget was showing round 20. The only
+way to draw it is a fresh `getTimeline` that re-read the cache.
+
+That run is also the first time `reloadAt = kept.last!` has ever executed — the real feed produces
+~4 entries against a cap of 24, so the truncated branch had never been reached in production or in
+testing.
+
+### Two things this cost a morning to learn — read them before re-testing
+
+- **A clock shift cannot test the reload.** chronod schedules on elapsed time and ignores wall-clock
+  jumps: moving the host clock an hour past a live reload date produced nothing, twice, while the
+  archived entries kept advancing correctly. Entry *selection* follows the wall clock; timeline
+  *regeneration* does not. Shifting the clock also breaks `sudo` mid-run, because sudo validates its
+  cached credential against the wall clock — authenticate a root helper **before** the first shift.
+- **`log.info` is not written to the log store.** `resolveWidgetData` logs `cache hit` at info level,
+  which lives briefly in the memory buffer and is gone by the time `log show` asks — with or without
+  `--info`. Two experiments were scored as "no reload" on absent log lines while the widget was
+  visibly doing the right thing on screen. Until those lines are `.notice`, **trust the screen over
+  the log**, and assert that a *build* happened before concluding anything about a *reload*.
 
 ---
 
