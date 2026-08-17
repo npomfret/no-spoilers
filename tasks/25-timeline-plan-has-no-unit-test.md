@@ -1,10 +1,30 @@
 # Task 25: the widget's timeline plan cannot be unit tested
 
-**Status: OPEN, authorised and then paused. The user said "do the hoist into core with an injected
-now" on 2026-08-17 and immediately followed it with "wait, does the return on investment here
-warrant the effort?", then "wait for the experiment". The experiment has since returned a positive
-result — see `tasks/19-widget-timeline-too-large.md` — which was the condition attached to the
-recommendation. It needs a yes before anyone starts.**
+**Status: DONE 2026-08-17.** `TimelinePlanner` and `TimelinePlan` are in `NoSpoilersCore` with `now`
+as a parameter, and `TimelinePlannerTests` covers the nine cases listed below. `buildTimeline` no
+longer decides any date: it fetches, maps planned moments to entries, logs, and hands the plan's
+`reloadAt` to `.after(_:)`.
+
+**Evidence.** `scripts/verify-core-tests.sh` 47 tests / 0 failures, up from 38. All three build
+wrappers `BUILD SUCCEEDED`. The tests were mutation-checked rather than trusted for passing first
+time — dropping the truncation case from the reload choice fails 2, making the horizon exclusive
+fails 1. End to end on `iPhone 17` (`E92811F0`, iOS 26.4), the `timeline built` line is unchanged
+against the same fixture, before and after:
+
+```
+1.1.1  {"now":"...09:29:48Z","weekends":3,"boundaries":4,"entries":4,"truncated":false,"reloadAt":"...09:29:48Z"}
+1.1.2  {"now":"...09:49:28Z","weekends":3,"boundaries":4,"entries":4,"truncated":false,"reloadAt":"...09:49:28Z"}
+```
+
+Two things fell out of the run that are worth keeping. `WidgetDataSnapshot.allSessions` existed only
+to feed the boundary computation, so it left with it and the type is now the two fields it always
+was. And an intermediate build made with `CODE_SIGNING_ALLOWED=NO` — which strips the App Group
+entitlement, exactly as `screenshots.py:ensure_installed` warns — produced
+`{"msg":"cache load failed","error":"containerUnavailable"}` and named its own cause in one line.
+Before this week that build would have silently served the network and looked fine.
+
+**What follows below is the case as it was argued before the work, kept because the reasoning is the
+part worth re-reading.**
 
 ## The defect
 

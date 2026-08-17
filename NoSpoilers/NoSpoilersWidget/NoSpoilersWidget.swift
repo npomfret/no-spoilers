@@ -69,18 +69,7 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
 
 private struct WidgetDataSnapshot {
     let weekends: [RaceWeekend]
-    let allSessions: [Session]
     let confirmedEndDates: [String: Date]
-}
-
-private extension WidgetDataSnapshot {
-    init(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) {
-        self.init(
-            weekends: weekends,
-            allSessions: weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt },
-            confirmedEndDates: confirmedEndDates
-        )
-    }
 }
 
 /// Reads weekends from the shared cache; if the cache is empty or inaccessible, fetches from the
@@ -234,41 +223,6 @@ private let timelineHorizon: TimeInterval = 48 * 3600
 /// it is, and truncating is better than handing WidgetKit an unbounded archive.
 private let maxTimelineEntries = 24
 
-private func timelineBoundaryDates(after now: Date, upTo horizon: Date, data: WidgetDataSnapshot) -> [Date] {
-    var candidates: [Date] = [now]
-
-    func appendIfWithinHorizon(_ date: Date) {
-        if date > now && date <= horizon {
-            candidates.append(date)
-        }
-    }
-
-    for weekend in data.weekends where !weekend.allSessions.isEmpty {
-        // Schedule the boundary where the 24h "recently finished" window expires.
-        let endTime = RaceWeekendResolver.effectiveEndDate(of: weekend, confirmedEndDates: data.confirmedEndDates)
-        appendIfWithinHorizon(endTime.addingTimeInterval(24 * 3600))
-    }
-
-    for index in data.allSessions.indices {
-        let session = data.allSessions[index]
-        let nextSession = index + 1 < data.allSessions.count ? data.allSessions[index + 1] : nil
-
-        appendIfWithinHorizon(session.startsAt)
-
-        appendIfWithinHorizon(effectiveSessionEndDate(
-            for: session,
-            nextSession: nextSession,
-            confirmedEndDates: data.confirmedEndDates
-        ))
-    }
-
-    let unique = Set(candidates.map { $0.timeIntervalSinceReferenceDate })
-        .map(Date.init(timeIntervalSinceReferenceDate:))
-        .sorted()
-
-    return unique
-}
-
 // MARK: - Provider
 
 struct NoSpoilersTimelineProvider: TimelineProvider {
@@ -293,47 +247,41 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
         }
     }
 
+    /// What is left of this once the plan is `TimelinePlanner`'s: fetch the data, turn each planned
+    /// moment into a rendered entry, and hand WidgetKit the result. Every date decision above is
+    /// unit-tested in `TimelinePlannerTests`; nothing here re-derives one.
     private func buildTimeline() async -> Timeline<NoSpoilersEntry> {
         let now = Date()
-        let horizon = now.addingTimeInterval(timelineHorizon)
         let data = await resolveWidgetData()
 
-        let boundaries = timelineBoundaryDates(after: now, upTo: horizon, data: data)
-        let kept = Array(boundaries.prefix(maxTimelineEntries))
-        // `timelineBoundaryDates` always seeds the current moment, so an empty timeline here would
-        // mean the widget renders nothing at all. That is a programming error, not a data state.
-        precondition(!kept.isEmpty, "timelineBoundaryDates must always emit at least the current moment")
+        let plan = TimelinePlanner.plan(
+            at: now,
+            weekends: data.weekends,
+            confirmedEndDates: data.confirmedEndDates,
+            horizon: timelineHorizon,
+            maxEntries: maxTimelineEntries
+        )
+        let entries = plan.entryDates.map { makeEntry(at: $0, data: data) }
 
-        // The reload is what keeps a sparse timeline honest. `.atEnd` used to mean December, so a
-        // widget on a device where the app was never reopened computed its timeline once and never
-        // looked at the cache again. Coming back at the horizon bounds that to `timelineHorizon`
-        // whatever the feed contains — including the off-season, where the only entry is `now`.
-        // If the cap truncated the list, come back at the last boundary kept instead, so the widget
-        // is never left showing state it has already outlived.
-        let truncated = kept.count < boundaries.count
-        let reloadAt = truncated ? kept.last! : horizon
-
-        // The four facts that make a stale widget diagnosable, on one line, at `.notice` so
-        // they are still there tomorrow. Nothing is attached when a widget goes wrong: the app
-        // is not running, and "showing last week" looks identical to "nothing happened". This
-        // line is the difference. `truncated` is here because the cap changes which of two
-        // reload dates was chosen, and the real feed has never once reached it.
-        let entries = kept.map { makeEntry(at: $0, data: data) }
-
+        // The facts that make a stale widget diagnosable, on one line, at `.notice` so they are
+        // still there tomorrow. Nothing is attached when a widget goes wrong: the app is not
+        // running, and "showing last week" looks identical to "nothing happened". This line is the
+        // difference. `truncated` is here because the cap changes which of two reload dates was
+        // chosen, and the real feed has never once reached it.
         AppLog.widget.notice("timeline built", [
             "now": now,
             "weekends": data.weekends.count,
-            "boundaries": boundaries.count,
+            "boundaries": plan.boundaryCount,
             "entries": entries.count,
-            "truncated": truncated,
-            "horizon": horizon,
-            "reloadAt": reloadAt,
+            "truncated": plan.truncated,
+            "horizon": plan.horizon,
+            "reloadAt": plan.reloadAt,
             // What the user is actually looking at, so a trace answers "showing last week"
             // without anyone having to re-derive it from the entry dates.
             "showing": entries.first?.weekend,
         ])
 
-        return Timeline(entries: entries, policy: .after(reloadAt))
+        return Timeline(entries: entries, policy: .after(plan.reloadAt))
     }
 }
 

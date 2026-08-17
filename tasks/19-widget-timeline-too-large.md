@@ -1,8 +1,10 @@
 # Task 19: the widget builds a timeline for the whole season, and shows grey bars while it does
 
 **Status: FIXED 2026-08-14. Measured before and after on the same machine: 133 entries and 3.400s
-became 4 entries and 0.354s. One item is left open and is marked below — the 48-hour reload has not
-been observed firing, only reasoned from the policy.**
+became 4 entries and 0.354s. The last open item — the reload had been reasoned from the policy and
+never watched firing — was closed on 2026-08-17; see "How the reload was finally observed" below.
+The only thing still unproven is the horizon's 48-hour **duration**, which needs a soak. The
+arithmetic it was reasoned from is now unit-tested in `TimelinePlannerTests` (task 25).**
 
 The widget takes **3–6 seconds** to produce its first timeline. SpringBoard gives up waiting well
 before that and keeps showing the redacted placeholder — the app's own layout drawn as grey bars.
