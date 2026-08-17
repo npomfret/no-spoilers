@@ -21,9 +21,26 @@ final class ScheduleCacheTests: XCTestCase {
         XCTAssertEqual(raceTime, 1_742_000_000.0, accuracy: 1)
     }
 
-    func testIsFresh() throws {
+    /// Replaces `testIsFresh`, which went with `isFresh` and `cacheTTL` on 2026-08-17 — nothing
+    /// enforced the TTL and nothing should, since the widget has to draw whatever it has rather
+    /// than nothing at all.
+    ///
+    /// `cachedAt` outlived them, and now has no reader anywhere in product code. This is the only
+    /// thing standing between it and the next person removing an unused field: it is the sole
+    /// record of when a cache was written, and any real freshness rule would start from it.
+    func testTheEnvelopeStampsWhenItWasWritten() throws {
         let cache = ScheduleCache()
+        let before = Date()
         try cache.save([], for: nil)
-        XCTAssertTrue(cache.isFresh(for: nil))
+
+        let raw = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: try cache.cacheFileURL(for: nil))) as? [String: Any]
+        let stamp = try XCTUnwrap(raw?["cachedAt"] as? String, "no cachedAt on disk: \(raw ?? [:])")
+        let cachedAt = try XCTUnwrap(ISO8601DateFormatter().date(from: stamp), "not ISO 8601: \(stamp)")
+
+        // Tolerant by a few seconds rather than strictly ordered: `.iso8601` encodes whole
+        // seconds, so a stamp taken microseconds after `before` can land just behind it.
+        XCTAssertEqual(cachedAt.timeIntervalSince1970,
+                       before.timeIntervalSince1970, accuracy: 5)
     }
 }

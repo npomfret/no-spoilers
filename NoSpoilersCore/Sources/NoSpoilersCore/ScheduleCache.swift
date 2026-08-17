@@ -1,8 +1,17 @@
 import Foundation
 
+/// The App Group copy of the schedule: written by the apps, read by the widget.
+///
+/// **There is no freshness contract here, on purpose.** This used to carry a 24-hour `cacheTTL` and
+/// an `isFresh(for:)` to compare against it, and nothing ever called either — `refresh()` saves
+/// unconditionally and the widget draws whatever it finds, at any age. That is the correct
+/// behaviour and not an oversight: a widget that will not render without the network shows grey
+/// bars, which is worse than showing yesterday's schedule. Both were removed on 2026-08-17 rather
+/// than left implying a rule the app does not follow.
+///
+/// `cachedAt` stays in the envelope. It costs a line, it is the only record of when a cache was
+/// written, and a TTL that ever did become real would need it.
 public struct ScheduleCache {
-    public static let cacheTTL: TimeInterval = 86_400  // 24 hours
-
     private struct Envelope: Codable {
         let cachedAt: Date
         let weekends: [RaceWeekend]
@@ -24,15 +33,10 @@ public struct ScheduleCache {
         return try decoder.decode(Envelope.self, from: data).weekends
     }
 
-    public func isFresh(for appGroupID: String?) -> Bool {
-        guard let data = try? Data(contentsOf: (try? cacheFileURL(for: appGroupID)) ?? URL(fileURLWithPath: "")) else { return false }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let envelope = try? decoder.decode(Envelope.self, from: data) else { return false }
-        return Date().timeIntervalSince(envelope.cachedAt) < Self.cacheTTL
-    }
-
-    private func cacheFileURL(for appGroupID: String?) throws -> URL {
+    /// Not `private`, so a test can assert what is actually on disk. `cachedAt` has no reader in
+    /// product code now that `isFresh` is gone, and an unread field with no assertion is one
+    /// tidy-up away from being deleted as dead weight.
+    func cacheFileURL(for appGroupID: String?) throws -> URL {
         let container: URL
         if let groupID = appGroupID {
             guard let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) else {

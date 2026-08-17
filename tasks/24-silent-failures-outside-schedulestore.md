@@ -1,6 +1,16 @@
 # Task 24: three silent failures the logging pass did not reach
 
-**Status: 1 and 2 FIXED 2026-08-17. 3 is a product decision and is still open — see the bottom.**
+**Status: DONE 2026-08-17. All three.**
+
+**3 was decided rather than patched: there is no freshness contract, so `isFresh`, `cacheTTL` and
+`testIsFresh` are gone.** The architecture had already answered it — `refresh()` saves
+unconditionally, the widget draws whatever it finds at any age, and it has to, because a widget that
+will not render without the network shows grey bars (task 19). Keeping a TTL nothing enforced was
+implying a rule the app does not follow, and the sentinel inside it was converting the one failure
+that breaks the widget completely into "the cache is stale". `cachedAt` stays in the envelope, and
+`testTheEnvelopeStampsWhenItWasWritten` replaces the old test — the field now has no reader in
+product code, and without an assertion it is one tidy-up away from being deleted as dead weight.
+`docs/guides/important-code.md` no longer describes the screenshot rule in terms of `isFresh`.
 
 **What looking for the silent failures actually found.** Item 1 was filed as a diagnosability
 problem: the client could not say *why* a lookup came back empty. Making it say so exposed that for
