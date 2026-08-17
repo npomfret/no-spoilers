@@ -199,6 +199,33 @@ public enum Theme {
             case .widgetLarge:  return .subheadline.weight(.medium)
             }
         }
+
+        /// The second line of a session row, under `rowLabel`.
+        ///
+        /// **`widgetLarge` has no second line, so asking for one traps.** The
+        /// large family draws the session's full name on the label line and
+        /// stops; there is no call site to transcribe, and inventing a value
+        /// here would put a font on a role the design does not have. A row on
+        /// that canvas passes no detail, so this is unreachable by construction
+        /// — and if a detail is ever added there, the size is a design decision
+        /// somebody has to make rather than one this file should guess.
+        ///
+        /// The four canvases that do have one disagree about what it *says* —
+        /// an absolute date on iOS and macOS, a secondary session name in the
+        /// medium widget, a relative time in the small one. That is the caller's
+        /// business; only the size is decided here.
+        public static func rowDetail(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .caption
+            case .macPopover:   return .system(size: 11)
+            case .widgetSmall:  return .caption2
+            case .widgetMedium: return .caption2
+            case .widgetLarge:
+                preconditionFailure(
+                    "the large widget's session row has no second line — pass no detail on .widgetLarge"
+                )
+            }
+        }
     }
 
     /// The spacing rhythm: gaps between things, and the space around them.
@@ -246,12 +273,142 @@ public enum Theme {
         public static let hairline: CGFloat = 2
         /// The macOS menu row hover highlight.
         public static let small: CGFloat = 6
-        /// The session row on macOS and in the widget.
+        /// The session row, on every canvas that draws one.
+        ///
+        /// **This was 8pt on macOS and in the widget and 10pt on iOS**, which
+        /// nobody decided — it is the same surface, drawn 2pt rounder in one
+        /// target. Converging the four session rows onto `NoSpoilersSessionRow`
+        /// forced a choice, and 8 won on the majority: two of the three targets
+        /// already drew it, so one surface moves rather than two. The iOS row's
+        /// corners are 2pt sharper as a result. The 10pt value had no other
+        /// site and is gone.
         public static let medium: CGFloat = 8
-        /// The session row on iOS — the same surface as `medium`, drawn 2pt
-        /// rounder. Nobody decided that; converging the four session-row
-        /// implementations is what settles which of the two survives.
-        public static let large: CGFloat = 10
+    }
+
+    /// The geometry of a session row — the one component every canvas draws,
+    /// and the one that existed four times over.
+    ///
+    /// These numbers are transcribed from those four implementations, which
+    /// agreed on the shape (a 3pt accent rule, a label stack, a trailing badge
+    /// on a lifted panel) and on almost nothing else. Where they disagreed for a
+    /// reason the reason is recorded below; where they disagreed for no reason
+    /// they were collapsed, and the collapse is recorded too.
+    public enum Row {
+        /// The accent rule down the leading edge. All four implementations drew
+        /// it 3pt wide at `Radius.hairline`; only its height varied.
+        public static let accentWidth: CGFloat = 3
+
+        /// **The rule is as tall as the label stack it sits beside**, which is
+        /// why this is not one number: the stack is two lines of `.body` on iOS
+        /// and one line of `.caption` in the medium widget.
+        ///
+        /// `widgetSmall` is taller than `widgetMedium` despite the smaller
+        /// family, because the small widget draws a single hero row where the
+        /// medium draws two of them.
+        public static func accentHeight(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return 32
+            case .macPopover:   return 28
+            case .widgetSmall:  return 28
+            case .widgetMedium: return 24
+            case .widgetLarge:  return 26
+            }
+        }
+
+        /// Between the accent rule, the label stack, and the trailing badge.
+        public static func contentSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.lg
+            case .macPopover:   return Space.md
+            case .widgetSmall:  return Space.md
+            case .widgetMedium: return Space.md
+            case .widgetLarge:  return Space.md
+            }
+        }
+
+        /// Between the label and the detail line under it.
+        ///
+        /// **`widgetLarge` was 3pt** — one of the eleven literals `Space` records
+        /// as off the 2pt grid. It rounds to `xxs` here rather than surviving as
+        /// a stray, which is a 1pt change on the one canvas that can actually be
+        /// screenshotted.
+        public static func labelSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.xs
+            case .macPopover:   return Space.xxs
+            case .widgetSmall:  return Space.xxs
+            case .widgetMedium: return Space.xxs
+            case .widgetLarge:  return Space.xxs
+            }
+        }
+
+        /// **`nil` means unlimited, which is what the app surfaces want.** A
+        /// widget cannot reflow, so its rows truncate; the iOS card and the
+        /// macOS popover grow instead.
+        public static func labelLineLimit(_ canvas: Canvas) -> Int? {
+            switch canvas {
+            case .iosApp:       return nil
+            case .macPopover:   return nil
+            case .widgetSmall:  return 1
+            case .widgetMedium: return 1
+            case .widgetLarge:  return 1
+            }
+        }
+
+        /// A floor under the label column's width.
+        ///
+        /// **Only the popover has one**, at 100pt. It is the narrowest canvas
+        /// with a trailing badge — 300pt total — so it is the only one where a
+        /// short session name would let the badge drift left of where it sits in
+        /// the row above. `nil` elsewhere means the column is as wide as its
+        /// content.
+        public static func labelMinWidth(_ canvas: Canvas) -> CGFloat? {
+            switch canvas {
+            case .iosApp:       return nil
+            case .macPopover:   return 100
+            case .widgetSmall:  return nil
+            case .widgetMedium: return nil
+            case .widgetLarge:  return nil
+            }
+        }
+
+        /// The panel a row sits on: `Palette.surfaceRaised`, inset and rounded.
+        public struct Surface {
+            public let horizontalPadding: CGFloat
+            public let verticalPadding: CGFloat
+            public let cornerRadius: CGFloat
+        }
+
+        /// **`widgetSmall` returns `nil`, and that is a design answer rather
+        /// than a missing one.** The small family draws exactly one session row
+        /// directly on the widget's own background — no padding, no fill, no
+        /// corners — because a card inside a card at that size reads as a
+        /// mistake. Every other canvas draws several rows and needs each one
+        /// bounded.
+        public static func surface(_ canvas: Canvas) -> Surface? {
+            switch canvas {
+            case .iosApp:
+                return Surface(
+                    horizontalPadding: Space.lg,
+                    verticalPadding: Space.md,
+                    cornerRadius: Radius.medium
+                )
+            case .macPopover:
+                return Surface(
+                    horizontalPadding: Space.lg,
+                    verticalPadding: Space.sm,
+                    cornerRadius: Radius.medium
+                )
+            case .widgetSmall:
+                return nil
+            case .widgetMedium, .widgetLarge:
+                return Surface(
+                    horizontalPadding: Space.md,
+                    verticalPadding: Space.xs,
+                    cornerRadius: Radius.medium
+                )
+            }
+        }
     }
 
     /// How fast the product feels.

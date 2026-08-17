@@ -361,36 +361,31 @@ struct NoSpoilersWidgetEntryView: View {
 
     /// Flat two-line session row for systemSmall — name above, time below, no nested card.
     private func smallSessionRow(_ session: SessionViewModel) -> some View {
-        HStack(alignment: .center, spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(accentColor(for: session.state))
-                .frame(width: 3, height: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.shortName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(BrandPalette.smoke)
-                    .lineLimit(1)
-                smallSessionTime(session.state)
-            }
-            Spacer(minLength: 0)
-        }
+        NoSpoilersSessionRow(
+            canvas: .widgetSmall,
+            status: session.state.status,
+            name: Text(session.shortName),
+            detail: smallSessionTime(session.state)
+        )
     }
 
-    @ViewBuilder
-    private func smallSessionTime(_ state: SessionState) -> some View {
+    /// The small family's second line, which carries the session's state
+    /// instead of the badge the larger families have room for.
+    ///
+    /// **The live case colours itself.** `NoSpoilersSessionRow` draws a detail
+    /// line in `Theme.Palette.textSecondary`; styling the `Text` here overrides
+    /// that, because a style applied to a `Text` wins over one applied to its
+    /// container. A live session is the one state this row says in red rather
+    /// than in words.
+    private func smallSessionTime(_ state: SessionState) -> Text {
         switch state {
         case .finished(let endedAt):
-            Text(endedAt, style: .relative)
-                .font(.caption2)
-                .foregroundStyle(BrandPalette.secondaryText)
+            return Text(endedAt, style: .relative)
         case .live:
-            Text(NoSpoilersCore.Strings.Schedule.inProgress)
-                .font(.caption2)
+            return Text(NoSpoilersCore.Strings.Schedule.inProgress)
                 .foregroundStyle(widgetRed)
         case .upcoming(let startsAt):
-            Text(startsAt, style: .relative)
-                .font(.caption2)
-                .foregroundStyle(BrandPalette.secondaryText)
+            return Text(startsAt, style: .relative)
         }
     }
 
@@ -402,7 +397,7 @@ struct NoSpoilersWidgetEntryView: View {
             widgetHeader(weekend, compact: true)
             VStack(spacing: 4) {
                 ForEach(sessions) { session in
-                    widgetSessionRow(session, compact: true)
+                    widgetSessionRow(session, canvas: .widgetMedium)
                 }
             }
             Spacer(minLength: 0)
@@ -424,7 +419,7 @@ struct NoSpoilersWidgetEntryView: View {
             Divider()
             VStack(spacing: 4) {
                 ForEach(visibleSessions) { session in
-                    widgetSessionRow(session, compact: false)
+                    widgetSessionRow(session, canvas: .widgetLarge)
                 }
                 if hiddenCount > 0 {
                     Text(Strings.Widget.moreSessions(hiddenCount))
@@ -451,7 +446,7 @@ struct NoSpoilersWidgetEntryView: View {
                 Divider()
                 VStack(spacing: 4) {
                     ForEach(entry.sessions) { session in
-                        widgetSessionRow(session, compact: false)
+                        widgetSessionRow(session, canvas: .widgetLarge)
                     }
                 }
                 Spacer(minLength: 0)
@@ -569,33 +564,22 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    private func widgetSessionRow(_ session: SessionViewModel, compact: Bool) -> some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(accentColor(for: session.state))
-                .frame(width: 3, height: compact ? 24 : 26)
-            VStack(alignment: .leading, spacing: compact ? 2 : 3) {
-                Text(compact ? session.shortName : session.name)
-                    .font((compact ? Font.caption : .subheadline).weight(.medium))
-                    .foregroundStyle(BrandPalette.smoke)
-                    .lineLimit(1)
-
-                if compact, shouldShowSecondaryName(for: session) {
-                    Text(session.name)
-                        .font(.caption2)
-                        .foregroundStyle(BrandPalette.secondaryText)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 8)
-            stateLabel(session.state, compact: compact)
+    /// The medium and large families' session row.
+    ///
+    /// **The two families differ in more than size**, which is why this takes a
+    /// canvas rather than the `compact: Bool` it used to: medium shows the short
+    /// session name with the full one underneath when they differ, and large
+    /// shows the full name with no second line at all.
+    private func widgetSessionRow(_ session: SessionViewModel, canvas: Theme.Canvas) -> some View {
+        let isMedium = canvas == .widgetMedium
+        return NoSpoilersSessionRow(
+            canvas: canvas,
+            status: session.state.status,
+            name: Text(isMedium ? session.shortName : session.name),
+            detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil
+        ) {
+            stateLabel(session.state, compact: isMedium)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.65))
-        )
     }
 
     @ViewBuilder
@@ -640,10 +624,6 @@ struct NoSpoilersWidgetEntryView: View {
             return weekend.location
         }
         return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
-    }
-
-    private func accentColor(for state: SessionState) -> Color {
-        Theme.Palette.state(state.status)
     }
 
     private func primarySession() -> SessionViewModel? {

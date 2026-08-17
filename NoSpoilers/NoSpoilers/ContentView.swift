@@ -251,30 +251,14 @@ struct ContentView: View {
                         confirmedEndAt: store.confirmedEndDates[session.id]
                     )
 
-                    HStack(spacing: 10) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Theme.Palette.state(status))
-                            .frame(width: 3, height: 32)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.kind.displayName)
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(Theme.Palette.textPrimary)
-                            Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
-                                .font(.caption)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                        }
-
-                        Spacer()
-
+                    NoSpoilersSessionRow(
+                        canvas: .iosApp,
+                        status: status,
+                        name: Text(session.kind.displayName),
+                        detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
+                    ) {
                         statusBadge(for: session, nextSession: nextSession, status: status)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Theme.Palette.surfaceRaised)
-                    )
                 }
             }
         }

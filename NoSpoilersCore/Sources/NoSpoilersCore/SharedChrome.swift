@@ -249,6 +249,106 @@ public struct NoSpoilersStatusBadge: View {
     }
 }
 
+/// One session in a list: an accent rule in the session's state colour, its
+/// name, an optional second line, and whatever the surface wants trailing.
+///
+/// **This replaced four implementations** — `NoSpoilers/ContentView.swift`,
+/// `NoSpoilersMac/ContentView.swift`, and both of the widget's, which drew the
+/// same row twice under `widgetSessionRow` and `smallSessionRow`. They agreed on
+/// the shape and disagreed on nearly every number in it, including a 10pt corner
+/// radius on iOS against 8pt in the other two for the same surface.
+///
+/// **What varies is `canvas`; what varies by caller is content.** The four rows
+/// put genuinely different things on the second line — an absolute date on iOS
+/// and macOS, a secondary session name in the medium widget, a relative time in
+/// the small one — and genuinely different things in the trailing slot, from a
+/// badge with a live countdown to nothing at all. Those stay with the callers,
+/// which is what makes one component possible: the parts that differ were never
+/// the geometry.
+///
+/// `detail` and `trailing` are both optional in effect — `.widgetLarge` has no
+/// second line at all, and `.widgetSmall` has no trailing badge.
+public struct NoSpoilersSessionRow<Trailing: View>: View {
+    private let canvas: Theme.Canvas
+    private let status: SessionStatus
+    private let name: Text
+    private let detail: Text?
+    private let trailing: Trailing
+
+    public init(
+        canvas: Theme.Canvas,
+        status: SessionStatus,
+        name: Text,
+        detail: Text? = nil,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.canvas = canvas
+        self.status = status
+        self.name = name
+        self.detail = detail
+        self.trailing = trailing()
+    }
+
+    @ViewBuilder
+    public var body: some View {
+        if let surface = Theme.Row.surface(canvas) {
+            content
+                .padding(.horizontal, surface.horizontalPadding)
+                .padding(.vertical, surface.verticalPadding)
+                .background(
+                    RoundedRectangle(cornerRadius: surface.cornerRadius, style: .continuous)
+                        .fill(Theme.Palette.surfaceRaised)
+                )
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
+        HStack(alignment: .center, spacing: Theme.Row.contentSpacing(canvas)) {
+            RoundedRectangle(cornerRadius: Theme.Radius.hairline)
+                .fill(Theme.Palette.state(status))
+                .frame(width: Theme.Row.accentWidth, height: Theme.Row.accentHeight(canvas))
+
+            VStack(alignment: .leading, spacing: Theme.Row.labelSpacing(canvas)) {
+                name
+                    .font(Theme.Typography.rowLabel(canvas))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+
+                // `Theme.Typography.rowDetail` traps on `.widgetLarge`, which is
+                // safe only because that canvas never passes a detail. Keep it
+                // inside the `if let`.
+                if let detail {
+                    detail
+                        .font(Theme.Typography.rowDetail(canvas))
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+            }
+            .lineLimit(Theme.Row.labelLineLimit(canvas))
+            .frame(minWidth: Theme.Row.labelMinWidth(canvas), alignment: .leading)
+
+            Spacer(minLength: Theme.Space.md)
+
+            trailing
+        }
+    }
+}
+
+extension NoSpoilersSessionRow where Trailing == EmptyView {
+    /// A row with nothing trailing — the small widget's single hero row, which
+    /// puts its state on the detail line instead of in a badge.
+    public init(
+        canvas: Theme.Canvas,
+        status: SessionStatus,
+        name: Text,
+        detail: Text? = nil
+    ) {
+        self.init(canvas: canvas, status: status, name: name, detail: detail) {
+            EmptyView()
+        }
+    }
+}
+
 public struct NoSpoilersMessageCard: View {
     private let iconName: String
     private let title: Text

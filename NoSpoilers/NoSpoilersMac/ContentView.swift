@@ -163,28 +163,14 @@ struct WeekendPopoverView: View {
 
     private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
-        return HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Theme.Palette.state(status))
-                .frame(width: 3, height: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.kind.displayName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
-                Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            .frame(minWidth: 100, alignment: .leading)
-            Spacer()
+        return NoSpoilersSessionRow(
+            canvas: .macPopover,
+            status: status,
+            name: Text(session.kind.displayName),
+            detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
+        ) {
             statusBadge(status: status, session: session, nextSession: nextSession, at: now)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.65))
-        )
     }
 
     @ViewBuilder
