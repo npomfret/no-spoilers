@@ -354,7 +354,7 @@ struct SettingsView: View {
                 .toggleStyle(.switch)
                 .controlSize(.small)
             }
-            sectionLabel(Strings.Settings.menuBar)
+            NoSpoilersSectionLabel(Strings.Settings.menuBar)
             settingRow(Strings.Settings.showFlag)      { Toggle("", isOn: $showFlag)      .labelsHidden().toggleStyle(.switch).controlSize(.small) }
             settingRow(Strings.Settings.showSession)   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
             settingRow(Strings.Settings.showCountdown) { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
@@ -384,14 +384,4 @@ struct SettingsView: View {
         .padding(.vertical, 9)
     }
 
-    private func sectionLabel(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .textCase(.uppercase)
-            .font(.caption2).fontWeight(.semibold)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 2)
-    }
 }

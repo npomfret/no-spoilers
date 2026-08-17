@@ -22,7 +22,7 @@ public struct AboutView: View {
 
             // ── Acknowledgements ──────────────────────────────
             VStack(alignment: .leading, spacing: 0) {
-                sectionHeader(Strings.About.acknowledgements)
+                NoSpoilersSectionLabel(Strings.About.acknowledgements)
 
                 acknowledgementRow(
                     title: Strings.About.scheduleData,
@@ -47,7 +47,7 @@ public struct AboutView: View {
 
             // ── Trademark disclaimer ──────────────────────────
             VStack(alignment: .leading, spacing: 6) {
-                sectionHeader(Strings.About.trademarks)
+                NoSpoilersSectionLabel(Strings.About.trademarks)
                 Text(Strings.About.trademarkDisclaimer)
                     .font(.caption)
                     .foregroundStyle(BrandPalette.secondaryText)
@@ -80,16 +80,6 @@ public struct AboutView: View {
         .preferredColorScheme(.light)
     }
 
-    private func sectionHeader(_ text: LocalizedStringKey) -> some View {
-        Text(text)
-            .textCase(.uppercase)
-            .font(.caption2).fontWeight(.semibold)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-    }
 
     private func acknowledgementRow(title: LocalizedStringKey, detail: String, url: URL) -> some View {
         HStack {

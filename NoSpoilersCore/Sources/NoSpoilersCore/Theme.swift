@@ -581,6 +581,31 @@ public enum Theme {
         }
     }
 
+    /// The small uppercase label introducing a group of rows.
+    ///
+    /// **The two implementations differed only in padding** — 12/4 on the
+    /// shared About screen against 10/2 on the macOS settings screen — and
+    /// that difference could not have been platform intent, because `AboutView`
+    /// is shared: on macOS both screens sit in the *same* popover, one under
+    /// the other. 12/4 won on call sites, two against one.
+    public enum SectionLabel {
+        public static let horizontalPadding = Space.xxl
+        public static let topPadding = Space.xl
+        public static let bottomPadding = Space.xs
+    }
+
+    /// A labelled row with one control or link trailing.
+    public enum DetailRow {
+        public static let horizontalPadding = Space.xxl
+
+        /// **Both implementations used 9pt**, which is two of the eleven
+        /// literals `Space` records as off the 2pt grid — and, as it turns out,
+        /// both of them. 9 is equidistant between `md` and `lg`; `md` wins
+        /// because it is what every other row's vertical padding already uses.
+        /// A 1pt tightening at two sites.
+        public static let verticalPadding = Space.md
+    }
+
     /// The banner at the top of a full-screen surface — the app's icon, its
     /// name, and one line under it, on a blush field.
     ///

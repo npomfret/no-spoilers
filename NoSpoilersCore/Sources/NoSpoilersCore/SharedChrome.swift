@@ -306,6 +306,37 @@ public struct NoSpoilersWeekendMeta: View {
     }
 }
 
+/// The small uppercase label introducing a group of rows.
+///
+/// **This replaced two implementations** — `AboutView`'s `sectionHeader` and the
+/// macOS settings screen's `sectionLabel` — which differed only in padding.
+/// That difference was not platform intent: `AboutView` is shared, so on macOS
+/// both screens render in the same popover, one under the other, at two
+/// different rhythms.
+///
+/// It sets `Typography.eyebrow`, the same role `NoSpoilersNextUpFooter` uses —
+/// a small uppercase semibold label introducing a block is one role, not two.
+/// The colour is not shared: this is `textSecondary` where the footer's eyebrow
+/// is `textTertiary`, which is what each of them already was.
+public struct NoSpoilersSectionLabel: View {
+    private let text: LocalizedStringKey
+
+    public init(_ text: LocalizedStringKey) {
+        self.text = text
+    }
+
+    public var body: some View {
+        Text(text)
+            .textCase(.uppercase)
+            .font(Theme.Typography.eyebrow)
+            .foregroundStyle(Theme.Palette.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.SectionLabel.horizontalPadding)
+            .padding(.top, Theme.SectionLabel.topPadding)
+            .padding(.bottom, Theme.SectionLabel.bottomPadding)
+    }
+}
+
 /// The banner at the top of a full-screen surface: the app's icon, its name,
 /// and one line under it, on a blush field.
 ///
