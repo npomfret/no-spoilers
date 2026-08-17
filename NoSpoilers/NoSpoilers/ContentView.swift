@@ -216,7 +216,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity)
 
                 HStack(alignment: .center, spacing: 8) {
-                    NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round), isFinished: isFinished)
+                    NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), isFinished: isFinished)
                     Text(weekend.location)
                         .font(.subheadline)
                         .foregroundStyle(BrandPalette.secondaryText)
@@ -285,7 +285,7 @@ struct ContentView: View {
 
         return NoSpoilersCard {
             VStack(alignment: .leading, spacing: 8) {
-                Text(Strings.Sessions.comingUp)
+                Text(NoSpoilersCore.Strings.Schedule.comingUp)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(BrandPalette.tertiaryText)
                     .textCase(.uppercase)
@@ -301,7 +301,7 @@ struct ContentView: View {
                             .foregroundStyle(BrandPalette.secondaryText)
                     }
                     Spacer()
-                    NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                    NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
                 }
             }
         }
@@ -364,7 +364,7 @@ struct ContentView: View {
 
     private var unavailableView: some View {
         NoSpoilersMessageCard(
-            title: Text(Strings.Error.unavailableTitle),
+            title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
             bodyText: Text(Strings.Error.unavailableBody),
             density: .regular
         )
@@ -395,7 +395,7 @@ struct ContentView: View {
                 style: .finished
             )
         case .inProgress:
-            NoSpoilersStatusBadge(textKey: Strings.Sessions.inProgress, style: .live)
+            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live)
         case .upcoming:
             NoSpoilersStatusBadge(text: countdown(to: session.startsAt), style: .upcoming)
         }
@@ -447,8 +447,8 @@ struct ContentView: View {
     /// "48h", which is what this has always shown.
     private func finishedAgo(since date: Date) -> String {
         let elapsed = DurationBreakdown(since: date, to: now)
-        if elapsed.totalHours >= 1 { return Strings.Sessions.durationHours(elapsed.totalHours) }
-        return Strings.Sessions.durationMinutes(elapsed.minutes)
+        if elapsed.totalHours >= 1 { return NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours) }
+        return NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
     }
 
     private func dateRange(from start: Date, to end: Date) -> String {

@@ -29,7 +29,36 @@ public enum Strings {
         public static let done: LocalizedStringKey               = "Done"
     }
 
+    /// The vocabulary for rendering a schedule, shared by every target that
+    /// draws one.
+    ///
+    /// Each of these was written out identically in two or three of the targets'
+    /// own `Strings.swift` files. `swift-patterns.md` already had the rule that
+    /// decides it — *"shared strings that cross target boundaries belong in
+    /// `NoSpoilersCore`"* — they had simply never moved, so a translator would
+    /// have been handed "In Progress" three times.
     public enum Schedule {
+        /// The round badge, e.g. `R7`. Was in all three targets.
+        public static func roundLabel(_ round: Int) -> String { "R\(round)" }
+
+        /// A session happening now. Was in all three targets.
+        public static let inProgress: LocalizedStringKey = "In Progress"
+
+        /// Heading over the next weekend. Was in all three targets.
+        public static let comingUp: LocalizedStringKey = "Next up"
+
+        /// Elapsed or remaining time, e.g. `2h` / `45m`. Were in iOS and macOS.
+        public static func durationHours(_ hours: Int) -> String { "\(hours)h" }
+        public static func durationMinutes(_ minutes: Int) -> String { "\(minutes)m" }
+
+        /// The schedule could not be loaded. Was in iOS and the widget.
+        ///
+        /// **Only the title is shared.** Each target's body tells the reader
+        /// something different and correct about how to fix it — iOS says to
+        /// pull to refresh, the widget says to open the app — so the bodies stay
+        /// where they are.
+        public static let unavailableTitle: LocalizedStringKey = "Schedule unavailable"
+
         /// Formats a session start in the user's locale and time zone, e.g.
         /// "Fri, 12 Jun, 20:00" (en_GB) or "Fri, Jun 12, 8:00 PM" (en_US).
         /// Defaults to `Locale.current` / `TimeZone.current` so a session stored as a

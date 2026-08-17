@@ -10,7 +10,6 @@ import SwiftUI
 
 enum Strings {
     enum Popover {
-        static let inProgress: LocalizedStringKey   = "In Progress"
         static let updateAvailable: LocalizedStringKey = "Update available"
         static let brewUpgradeCommand               = "brew update && brew upgrade --cask npomfret/tap/no-spoilers"
         static let copyCommand: LocalizedStringKey  = "Copy"
@@ -21,10 +20,6 @@ enum Strings {
         static let about: LocalizedStringKey        = "About"
         static let settings: LocalizedStringKey     = "Settings"
         static let quit: LocalizedStringKey         = "Quit"
-        static let comingUp: LocalizedStringKey     = "Next up"
-        static func roundLabel(_ round: Int) -> String    { "R\(round)" }
-        static func durationHours(_ h: Int) -> String        { "\(h)h" }
-        static func durationMinutes(_ m: Int) -> String      { "\(m)m" }
         static func finishedAgo(_ time: String) -> String    { "Finished \(time) ago" }
         static let countdownZero: String                  = "0s"
         static func countdownDaysHoursMinutes(_ d: Int, _ h: Int, _ m: Int) -> String      { "\(d)d \(h)h \(m)m" }

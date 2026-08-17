@@ -11,16 +11,11 @@ import SwiftUI
 enum Strings {
     enum Sessions {
         static let header: LocalizedStringKey             = "Sessions"
-        static let comingUp: LocalizedStringKey           = "Next up"
-        static let inProgress: LocalizedStringKey         = "In Progress"
         static func weekendCompleteStatus() -> String     { "Weekend complete" }
-        static func roundLabel(_ round: Int) -> String    { "R\(round)" }
         static let countdownNow: String                   = "now"
         static func countdownDaysHours(_ d: Int, _ h: Int) -> String    { "in \(d)d \(h)h" }
         static func countdownHoursMinutes(_ h: Int, _ m: Int) -> String { "in \(h)h \(m)m" }
         static func countdownMinutes(_ m: Int) -> String  { "in \(m)m" }
-        static func durationHours(_ h: Int) -> String        { "\(h)h" }
-        static func durationMinutes(_ m: Int) -> String      { "\(m)m" }
         static func finishedAgo(_ time: String) -> String    { "Finished \(time)" }
         static func sessionFinished(name: String, ago: String) -> String    { "\(name) finished \(ago) ago" }
         static func sessionInProgress(_ name: String) -> String             { "\(name) is in progress" }
@@ -43,7 +38,6 @@ enum Strings {
         static let installFooter: LocalizedStringKey = "Today View and Lock Screen are different places — make sure you are on the Home Screen."
     }
     enum Error {
-        static let unavailableTitle: LocalizedStringKey   = "Schedule unavailable"
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."
     }
 }

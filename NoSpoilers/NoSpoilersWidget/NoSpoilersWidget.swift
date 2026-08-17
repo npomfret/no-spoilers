@@ -326,7 +326,7 @@ struct NoSpoilersWidgetEntryView: View {
             HStack(alignment: .center, spacing: 6) {
                 FlagImage(countryCode: weekend.countryCode, height: 16)
                 Spacer(minLength: 0)
-                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
 
             Spacer(minLength: 8)
@@ -373,7 +373,7 @@ struct NoSpoilersWidgetEntryView: View {
                 .font(.caption2)
                 .foregroundStyle(BrandPalette.secondaryText)
         case .live:
-            Text(Strings.Sessions.inProgress)
+            Text(NoSpoilersCore.Strings.Schedule.inProgress)
                 .font(.caption2)
                 .foregroundStyle(widgetRed)
         case .upcoming(let startsAt):
@@ -451,7 +451,7 @@ struct NoSpoilersWidgetEntryView: View {
 
             if let upcoming = entry.nextWeekend {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(Strings.Widget.comingUp)
+                    Text(NoSpoilersCore.Strings.Schedule.comingUp)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(widgetRed)
                         .textCase(.uppercase)
@@ -462,7 +462,7 @@ struct NoSpoilersWidgetEntryView: View {
                             .foregroundStyle(BrandPalette.smoke)
                             .lineLimit(2)
                         HStack(spacing: 4) {
-                            NoSpoilersRoundPill(Strings.Sessions.roundLabel(upcoming.round))
+                            NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(upcoming.round))
                             Text(upcoming.location)
                                 .font(.caption2)
                                 .foregroundStyle(BrandPalette.secondaryText)
@@ -505,7 +505,7 @@ struct NoSpoilersWidgetEntryView: View {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.title2)
                 .foregroundStyle(BrandPalette.tertiaryText)
-            Text(Strings.Error.unavailableTitle)
+            Text(NoSpoilersCore.Strings.Schedule.unavailableTitle)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(BrandPalette.smoke)
             Text(Strings.Error.unavailableBody)
@@ -531,7 +531,7 @@ struct NoSpoilersWidgetEntryView: View {
                     .foregroundStyle(BrandPalette.smoke)
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
         } else {
             HStack(alignment: .center, spacing: 10) {
@@ -542,7 +542,7 @@ struct NoSpoilersWidgetEntryView: View {
                         .foregroundStyle(BrandPalette.smoke)
                         .lineLimit(1)
                     HStack(spacing: 6) {
-                        NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                        NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
                         Text(weekend.location)
                             .font(.caption2)
                             .foregroundStyle(BrandPalette.secondaryText)
@@ -606,7 +606,7 @@ struct NoSpoilersWidgetEntryView: View {
             HStack(spacing: 8) {
                 FlagImage(countryCode: weekend.countryCode, height: 18)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(Strings.Widget.comingUp)
+                    Text(NoSpoilersCore.Strings.Schedule.comingUp)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(widgetRed)
                         .textCase(.uppercase)
@@ -619,7 +619,7 @@ struct NoSpoilersWidgetEntryView: View {
                         .foregroundStyle(BrandPalette.secondaryText)
                 }
                 Spacer()
-                NoSpoilersRoundPill(Strings.Sessions.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
         }
     }
@@ -695,7 +695,7 @@ struct NoSpoilersWidgetEntryView: View {
                 )
             }
         case .live:
-            NoSpoilersStatusBadge(textKey: Strings.Sessions.inProgress, style: .live, compact: compact)
+            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live, compact: compact)
         case .upcoming(let startsAt):
             NoSpoilersStatusBadge(text: Text(startsAt, style: .relative), style: .upcoming, compact: compact)
         }

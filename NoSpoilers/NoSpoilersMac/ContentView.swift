@@ -132,7 +132,7 @@ struct WeekendPopoverView: View {
             }
             // Row 2: round pill · location · date range
             HStack(alignment: .center, spacing: 6) {
-                NoSpoilersRoundPill(Strings.Popover.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
                 Text(weekend.location)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -206,13 +206,13 @@ struct WeekendPopoverView: View {
             NoSpoilersStatusBadge(
                 text: Strings.Popover.finishedAgo(
                     elapsed.totalHours > 0
-                        ? Strings.Popover.durationHours(elapsed.totalHours)
-                        : Strings.Popover.durationMinutes(elapsed.minutes)
+                        ? NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours)
+                        : NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
                 ),
                 style: .finished
             )
         case .inProgress:
-            NoSpoilersStatusBadge(textKey: Strings.Popover.inProgress, style: .live, compact: true)
+            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live, compact: true)
         case .upcoming:
             NoSpoilersStatusBadge(text: countdown(to: session.startsAt, from: now), style: .upcoming, compact: true)
         }
@@ -233,7 +233,7 @@ struct WeekendPopoverView: View {
         let raceDate = weekend.sessions[.race] ?? weekend.sessions[.sprint]
         let firstSession = weekend.allSessions.first
         return VStack(alignment: .leading, spacing: 6) {
-            Text(Strings.Popover.comingUp)
+            Text(NoSpoilersCore.Strings.Schedule.comingUp)
                 .font(.caption2)
                 .fontWeight(.semibold)
                 .foregroundStyle(.tertiary)
@@ -260,7 +260,7 @@ struct WeekendPopoverView: View {
                     }
                 }
                 Spacer()
-                NoSpoilersRoundPill(Strings.Popover.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
