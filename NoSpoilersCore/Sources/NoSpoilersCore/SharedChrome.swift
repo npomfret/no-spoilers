@@ -594,13 +594,17 @@ extension NoSpoilersSessionRow where Trailing == EmptyView {
 public struct NoSpoilersMessageCard: View {
     private let iconName: String
     private let title: Text
-    private let bodyText: Text
+    private let bodyText: Text?
     private let density: NoSpoilersCardDensity
 
+    /// **`bodyText` is optional because the small widget has no room for it.**
+    /// Measured, not assumed: on `systemSmall` the icon, the title and two
+    /// lines of `.caption` fill the card, and the third line truncates
+    /// mid-word. The title carries the state on its own there.
     public init(
-        iconName: String = "flag.checkered.2.crossed",
+        iconName: String = Theme.Icon.offSeason,
         title: Text,
-        bodyText: Text,
+        bodyText: Text?,
         density: NoSpoilersCardDensity = .regular
     ) {
         self.iconName = iconName
@@ -618,10 +622,12 @@ public struct NoSpoilersMessageCard: View {
                 title
                     .font(.headline)
                     .foregroundStyle(BrandPalette.smoke)
-                bodyText
-                    .font(density == .widget ? .caption : .subheadline)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                if let bodyText {
+                    bodyText
+                        .font(density == .widget ? .caption : .subheadline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(BrandPalette.secondaryText)
+                }
             }
             .frame(maxWidth: .infinity)
         }

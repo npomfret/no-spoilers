@@ -282,7 +282,6 @@ struct WeekendPopoverView: View {
 
     private var noDataView: some View {
         NoSpoilersMessageCard(
-            iconName: "flag.checkered.2.crossed",
             title: Text(Strings.Popover.offSeason),
             bodyText: Text(Strings.Popover.noSessions),
             density: .compact

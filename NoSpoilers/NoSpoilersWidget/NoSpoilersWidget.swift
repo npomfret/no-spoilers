@@ -492,38 +492,39 @@ struct NoSpoilersWidgetEntryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// **The round pill goes with this, and that is the point rather than a
+    /// casualty.** The widget was the only surface whose off-season state was a
+    /// pill and a symbol where every other one is a symbol over a title over a
+    /// line of body. `Strings.OffSeason.badge` reads as that title unchanged.
     @ViewBuilder
     private var offSeasonView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                NoSpoilersRoundPill(Strings.OffSeason.badge)
-                Spacer()
-                Image(systemName: "flag.checkered.2.crossed")
-                    .foregroundStyle(widgetRed)
-            }
-            Text(Strings.OffSeason.body)
-                .font(.caption2)
-                .foregroundStyle(BrandPalette.secondaryText)
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        NoSpoilersMessageCard(
+            iconName: Theme.Icon.offSeason,
+            title: Text(Strings.OffSeason.badge),
+            bodyText: emptyStateBody(Strings.OffSeason.body),
+            density: .widget
+        )
     }
 
     @ViewBuilder
     private var noDataView: some View {
-        VStack(alignment: .center, spacing: 8) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .font(.title2)
-                .foregroundStyle(BrandPalette.tertiaryText)
-            Text(NoSpoilersCore.Strings.Schedule.unavailableTitle)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(BrandPalette.smoke)
-            Text(Strings.Error.unavailableBody)
-                .font(.caption2)
-                .foregroundStyle(BrandPalette.secondaryText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        NoSpoilersMessageCard(
+            iconName: Theme.Icon.scheduleUnavailable,
+            title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
+            bodyText: emptyStateBody(Strings.Error.unavailableBody),
+            density: .widget
+        )
+    }
+
+    /// The explanatory line under an empty state's title, or nil on the small
+    /// family.
+    ///
+    /// **Measured, not assumed.** On `systemSmall` the card fits its icon, its
+    /// title and two lines of `.caption`; the off-season body ran to a third
+    /// and truncated mid-word ("The next race weekend will ap…"). The title
+    /// carries the state on its own at that size.
+    private func emptyStateBody(_ key: LocalizedStringKey) -> Text? {
+        family == .systemSmall ? nil : Text(key)
     }
 
     // MARK: - Shared view helpers
