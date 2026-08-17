@@ -160,13 +160,22 @@ so it is safe to create early.
 long-form reference and is kept current; what follows is the policy around it.
 
 ```
-scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688 --widget-size large
+scripts/screenshots.py --device "NoSpoilers-iPhone-11-Pro-Max" --expect 1242x2688 --widget-size large
 ```
 
 `--device` takes a simulator name or a UDID and is repeatable. **A name matching more than one
 simulator is refused**, not guessed at — the script prints the candidate UDIDs and stops, which is
 the common case on a machine carrying several runtimes. `--dry-run` prints the plan and touches
 nothing.
+
+- **Always name a simulator this project owns, never a stock one.** Other projects run on this
+  machine and share the stock devices, and a capture is not read-only: it writes an App Group
+  fixture, reinstalls the app, rewrites SpringBoard's layout, and reboots. Doing that to a shared
+  `iPhone 11 Pro Max` corrupts whatever else was relying on it, and their runs corrupt ours. Own one
+  simulator per device size the work needs — `NoSpoilers-iPhone` for verification captures,
+  `NoSpoilers-iPhone-11-Pro-Max` for listing assets — and create them with
+  `xcrun simctl create "<name>" <device-type-id> <runtime-id>`. This is a `CLAUDE.md` non-negotiable,
+  not a preference.
 
 - **Screenshots are taken against a fixture, never the live calendar**, so the same command produces
   the same picture in March and in August. Out of season the widget correctly renders its off-season
@@ -186,9 +195,11 @@ nothing.
   `chronod`, and deleting `chrono.sql` were all tried and none of them work. The first capture after
   an install is blank because the extension is not registered yet, so the sequence for a device that
   has been captured before is `--install` once, then capture again.
-- **Pick the device by the pixel size the listing slot accepts, not by what is newest**, and pass
-  `--expect` so a wrong one fails in seconds rather than at upload. `iPhone 11 Pro Max` is natively
-  1242 × 2688 and accepted; `iPhone 17 Pro Max` at 1320 × 2868 is refused.
+- **Pick the device *type* by the pixel size the listing slot accepts, not by what is newest**, and
+  pass `--expect` so a wrong one fails in seconds rather than at upload. An `iPhone 11 Pro Max` is
+  natively 1242 × 2688 and accepted; an `iPhone 17 Pro Max` at 1320 × 2868 is refused. Create the
+  project-owned simulator from the accepted device type — the model is the constraint, the name is
+  ours to choose.
 - **A blank or stale widget still exits 0 with a valid PNG.** `--expect` checks pixel dimensions and
   `confirm_widget_size()` checks the layout entry survived; neither can tell you the widget rendered
   real content. Both failures were seen on 2026-08-13 and both look like a successful run. **Look at

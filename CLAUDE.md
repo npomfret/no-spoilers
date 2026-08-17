@@ -39,4 +39,15 @@ Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md`
 - iOS build: `scripts/verify-ios-build.sh`
 - Widget build: `scripts/verify-widget-build.sh`
 
+## Simulators
+
+- **Always target this project's own named simulator, `NoSpoilers-iPhone`.** Other projects run on
+  this machine and share the stock simulators; capturing screenshots seeds an App Group fixture,
+  reinstalls the app, and reboots the device, so using a stock simulator corrupts their state and
+  lets theirs corrupt ours.
+- Never pass a bare stock device name (`iPhone 17`) or a raw UDID to `xcodebuild -destination` or
+  `scripts/screenshots.py --device`.
+- Recreate it if missing:
+  `xcrun simctl create "NoSpoilers-iPhone" com.apple.CoreSimulator.SimDeviceType.iPhone-17 <runtime>`
+
 Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use gstack `/browse` for web browsing; never use `mcp__claude-in-chrome__*`.
