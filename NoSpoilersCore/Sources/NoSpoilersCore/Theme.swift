@@ -489,6 +489,63 @@ public enum Theme {
         }
     }
 
+    /// The pill or label trailing a session row, saying what state it is in.
+    ///
+    /// **This is the last of the three axes, and it was the worst of them.**
+    /// `NoSpoilersStatusBadge` took a `compact: Bool` — not a surface, not a
+    /// size, a boolean — which every call site had to answer for itself. Ten
+    /// sites across three targets did, and one of them got it wrong: the macOS
+    /// popover passed `compact: true` for its live and upcoming badges and
+    /// nothing at all for its finished one, so a single `stateLabel` function
+    /// drew two badge sizes in the same row depending on the state.
+    ///
+    /// **That outlier is settled here as `.caption2`,** with the two sites
+    /// against the one. The popover's finished badge is 1pt smaller than it
+    /// was; nothing else on any surface moves.
+    ///
+    /// **`widgetSmall` traps.** The small family has no badge — it says the
+    /// session's state on the row's second line instead, which is why
+    /// `NoSpoilersSessionRow` has an `EmptyView` trailing overload for it.
+    public enum Badge {
+        /// The base size. Weight is the *style*'s business, not the canvas's —
+        /// live is bold where finished and upcoming are medium, on every
+        /// surface.
+        public static func font(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .caption
+            case .macPopover:   return .caption2
+            case .widgetMedium: return .caption2
+            case .widgetLarge:  return .caption
+            case .widgetSmall:  preconditionFailure(badgeless)
+            }
+        }
+
+        /// **Only the two pill styles read this.** A finished badge is bare
+        /// text with no capsule behind it, so it has nothing to inset.
+        public static func horizontalPadding(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.lg
+            case .macPopover:   return Space.md
+            case .widgetMedium: return Space.md
+            case .widgetLarge:  return Space.lg
+            case .widgetSmall:  preconditionFailure(badgeless)
+            }
+        }
+
+        public static func verticalPadding(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.sm
+            case .macPopover:   return Space.xs
+            case .widgetMedium: return Space.xs
+            case .widgetLarge:  return Space.sm
+            case .widgetSmall:  preconditionFailure(badgeless)
+            }
+        }
+
+        private static let badgeless =
+            "the small widget has no status badge — it puts the state on the row's second line"
+    }
+
     /// The geometry of a session row — the one component every canvas draws,
     /// and the one that existed four times over.
     ///

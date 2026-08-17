@@ -411,7 +411,7 @@ struct NoSpoilersWidgetEntryView: View {
     private func mediumView(_ weekend: RaceWeekend) -> some View {
         let sessions = prioritizedSessions(limit: 2)
         VStack(alignment: .leading, spacing: 6) {
-            widgetHeader(weekend, compact: true)
+            widgetHeader(weekend, canvas: .widgetMedium)
             VStack(spacing: 4) {
                 ForEach(sessions) { session in
                     widgetSessionRow(session, canvas: .widgetMedium)
@@ -432,7 +432,7 @@ struct NoSpoilersWidgetEntryView: View {
         let visibleSessions = Array(entry.sessions.prefix(5))
         let hiddenCount = max(0, entry.sessions.count - visibleSessions.count)
         VStack(alignment: .leading, spacing: 8) {
-            widgetHeader(weekend, compact: false)
+            widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
             VStack(spacing: 4) {
                 ForEach(visibleSessions) { session in
@@ -459,7 +459,7 @@ struct NoSpoilersWidgetEntryView: View {
     private func extraLargeView(_ weekend: RaceWeekend) -> some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
-                widgetHeader(weekend, compact: false)
+                widgetHeader(weekend, canvas: .widgetLarge)
                 Divider()
                 VStack(spacing: 4) {
                     ForEach(entry.sessions) { session in
@@ -535,17 +535,21 @@ struct NoSpoilersWidgetEntryView: View {
 
     // MARK: - Shared view helpers
 
-    /// Header used by all families.
-    /// compact (small/medium): flag + GP name + round pill in a single row.
-    /// expanded (large/XL): flag + GP name + round/location/dates stacked.
+    /// The header the medium and large families draw.
+    ///
+    /// **Two arrangements, not one at two sizes** — which is why the weekend
+    /// header did not converge into `SharedChrome` and only its metadata line
+    /// did. Medium is flag + name + round pill on one line; large stacks the
+    /// name over `NoSpoilersWeekendMeta`. The small family draws neither and
+    /// does not call this.
     @ViewBuilder
-    private func widgetHeader(_ weekend: RaceWeekend, compact: Bool) -> some View {
-        if compact {
+    private func widgetHeader(_ weekend: RaceWeekend, canvas: Theme.Canvas) -> some View {
+        if canvas == .widgetMedium {
             HStack(alignment: .center, spacing: 6) {
                 FlagImage(countryCode: weekend.countryCode, height: 14)
                 Text(weekend.grandPrixName)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(BrandPalette.smoke)
+                    .font(Theme.Typography.weekendTitle(canvas))
+                    .foregroundStyle(Theme.Palette.textPrimary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
@@ -555,8 +559,8 @@ struct NoSpoilersWidgetEntryView: View {
                 FlagImage(countryCode: weekend.countryCode, height: 20)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(weekend.grandPrixName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BrandPalette.smoke)
+                        .font(Theme.Typography.weekendTitle(canvas))
+                        .foregroundStyle(Theme.Palette.textPrimary)
                         .lineLimit(1)
                     NoSpoilersWeekendMeta(
                         canvas: .widgetLarge,
@@ -583,7 +587,7 @@ struct NoSpoilersWidgetEntryView: View {
             name: Text(isMedium ? session.shortName : session.name),
             detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil
         ) {
-            stateLabel(session.state, compact: isMedium)
+            stateLabel(session.state, canvas: canvas)
         }
     }
 
@@ -667,23 +671,30 @@ struct NoSpoilersWidgetEntryView: View {
             .replacingOccurrences(of: "[^a-z0-9]+", with: "", options: .regularExpression)
     }
 
+    /// **The medium family says "Finished" and stops.** The large one has the
+    /// width to say how long ago as well, which is the one place the badge's
+    /// *text* varies by family rather than just its size.
     @ViewBuilder
-    private func stateLabel(_ state: SessionState, compact: Bool) -> some View {
+    private func stateLabel(_ state: SessionState, canvas: Theme.Canvas) -> some View {
         switch state {
         case .finished(let endedAt):
-            if compact {
-                NoSpoilersStatusBadge(textKey: Strings.Sessions.finished, style: .finished, compact: true)
+            if canvas == .widgetMedium {
+                NoSpoilersStatusBadge(textKey: Strings.Sessions.finished, style: .finished, canvas: canvas)
             } else {
                 NoSpoilersStatusBadge(
                     text: Text(Strings.Sessions.finished) + Text(verbatim: " · ") + Text(endedAt, style: .relative),
                     style: .finished,
-                    compact: false
+                    canvas: canvas
                 )
             }
         case .live:
-            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live, compact: compact)
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.inProgress,
+                style: .live,
+                canvas: canvas
+            )
         case .upcoming(let startsAt):
-            NoSpoilersStatusBadge(text: Text(startsAt, style: .relative), style: .upcoming, compact: compact)
+            NoSpoilersStatusBadge(text: Text(startsAt, style: .relative), style: .upcoming, canvas: canvas)
         }
     }
 }

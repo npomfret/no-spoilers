@@ -194,12 +194,21 @@ struct WeekendPopoverView: View {
                         ? NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours)
                         : NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
                 ),
-                style: .finished
+                style: .finished,
+                canvas: .macPopover
             )
         case .inProgress:
-            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live, compact: true)
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.inProgress,
+                style: .live,
+                canvas: .macPopover
+            )
         case .upcoming:
-            NoSpoilersStatusBadge(text: countdown(to: session.startsAt, from: now), style: .upcoming, compact: true)
+            NoSpoilersStatusBadge(
+                text: countdown(to: session.startsAt, from: now),
+                style: .upcoming,
+                canvas: .macPopover
+            )
         }
     }
 

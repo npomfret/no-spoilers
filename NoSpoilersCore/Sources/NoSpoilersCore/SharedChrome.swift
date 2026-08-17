@@ -136,52 +136,64 @@ public struct NoSpoilersRoundPill: View {
     }
 }
 
+/// What state a session is in, trailing its row: bare text when it is finished,
+/// a filled capsule when it is live, a tinted one when it is still to come.
+///
+/// **`canvas` replaced a `compact: Bool`.** A boolean is not a surface, and it
+/// made every one of the ten call sites answer a question the surface already
+/// knows the answer to — which is how the macOS popover ended up drawing its
+/// finished badge a size larger than its live one inside a single `switch`.
+/// See `Theme.Badge`.
 public struct NoSpoilersStatusBadge: View {
     private let text: Text
     private let style: NoSpoilersBadgeStyle
-    private let compact: Bool
+    private let canvas: Theme.Canvas
 
-    public init(text: Text, style: NoSpoilersBadgeStyle, compact: Bool = false) {
+    public init(text: Text, style: NoSpoilersBadgeStyle, canvas: Theme.Canvas) {
         self.text = text
         self.style = style
-        self.compact = compact
+        self.canvas = canvas
     }
 
-    public init(text: String, style: NoSpoilersBadgeStyle, compact: Bool = false) {
+    public init(text: String, style: NoSpoilersBadgeStyle, canvas: Theme.Canvas) {
         self.text = Text(verbatim: text)
         self.style = style
-        self.compact = compact
+        self.canvas = canvas
     }
 
-    public init(textKey: LocalizedStringKey, style: NoSpoilersBadgeStyle, compact: Bool = false) {
+    public init(textKey: LocalizedStringKey, style: NoSpoilersBadgeStyle, canvas: Theme.Canvas) {
         self.text = Text(textKey)
         self.style = style
-        self.compact = compact
+        self.canvas = canvas
     }
 
     public var body: some View {
         switch style {
         case .finished:
             text
-                .font((compact ? Font.caption2 : .caption).weight(.medium))
+                .font(Theme.Badge.font(canvas).weight(.medium))
                 .foregroundStyle(Theme.Palette.stateFinished)
         case .live:
-            text
-                .font((compact ? Font.caption2 : .caption).weight(.bold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, compact ? 8 : 10)
-                .padding(.vertical, compact ? 4 : 6)
-                .background(BrandPalette.signalRed)
-                .clipShape(Capsule())
+            capsule(weight: .bold, foreground: .white, background: BrandPalette.signalRed)
         case .upcoming:
-            text
-                .font((compact ? Font.caption2 : .caption).weight(.medium))
-                .foregroundStyle(Theme.Palette.stateUpcoming)
-                .padding(.horizontal, compact ? 8 : 10)
-                .padding(.vertical, compact ? 4 : 6)
-                .background(Theme.Palette.stateUpcoming.opacity(0.12))
-                .clipShape(Capsule())
+            capsule(
+                weight: .medium,
+                foreground: Theme.Palette.stateUpcoming,
+                background: Theme.Palette.stateUpcoming.opacity(0.12)
+            )
         }
+    }
+
+    /// The live and upcoming styles are the same pill in two colourways — they
+    /// were written out twice, identical down to the padding.
+    private func capsule(weight: Font.Weight, foreground: Color, background: Color) -> some View {
+        text
+            .font(Theme.Badge.font(canvas).weight(weight))
+            .foregroundStyle(foreground)
+            .padding(.horizontal, Theme.Badge.horizontalPadding(canvas))
+            .padding(.vertical, Theme.Badge.verticalPadding(canvas))
+            .background(background)
+            .clipShape(Capsule())
     }
 }
 

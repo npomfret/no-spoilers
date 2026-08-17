@@ -369,12 +369,21 @@ struct ContentView: View {
         case .finished:
             NoSpoilersStatusBadge(
                 text: Strings.Sessions.finishedAgo(finishedAgo(since: effectiveEnd(of: session, nextSession: nextSession))),
-                style: .finished
+                style: .finished,
+                canvas: .iosApp
             )
         case .inProgress:
-            NoSpoilersStatusBadge(textKey: NoSpoilersCore.Strings.Schedule.inProgress, style: .live)
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.inProgress,
+                style: .live,
+                canvas: .iosApp
+            )
         case .upcoming:
-            NoSpoilersStatusBadge(text: countdown(to: session.startsAt), style: .upcoming)
+            NoSpoilersStatusBadge(
+                text: countdown(to: session.startsAt),
+                style: .upcoming,
+                canvas: .iosApp
+            )
         }
     }
 
