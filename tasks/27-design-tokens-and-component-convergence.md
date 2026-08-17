@@ -1,6 +1,6 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN, phases 1-7 landed 2026-08-17; only phase 8 remains. `Theme` lives in
+**Status: DONE, all eight phases landed 2026-08-17. `Theme` lives in
 `NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and every family in it now has call sites,
 `Motion` included. Read "Progress" immediately below, then "Decisions" at the end. **Everything
 from section A onwards is the original review, and most of it no longer describes the code** — it
@@ -343,12 +343,46 @@ from the diff, each token resolved against `Theme.swift`, and the multisets comp
 identical. `1ca2735` and `7c5a7c5` do change the popover, and their evidence is `NSColor`
 measurements rather than screenshots.
 
-**Still to do: phase 8** — `brand.md` rewritten as the cross-platform token spec and moved to
-`docs/guides/`, with `docs/guides/important-code.md` updated. It goes last by design, so it
-documents what was built. Note it now has more to document than the plan anticipated: `Theme` grew
-`Card`, `MessageCard`, `Badge`, `Header`, `NextUp`, `SectionLabel`, `DetailRow` and `ScreenHeader`
-families, and the palette gained `surfaceFinished`, `attention`, `confirmation` and `hoverFill` —
-none of which are in `brand.md` today.
+**Phase 8 — the token spec. Landed in `495aa8d`.** `docs/brand.md` — eight hexes and some usage
+advice — becomes `docs/guides/brand.md`, where `CLAUDE.md` had been pointing all along, and covers
+every token with both bindings. `important-code.md` gains five entries: the spec, its two bindings,
+`BrandPalette` and `SharedChrome`.
+
+It records two things rather than resolving them, because both are somebody's decision:
+
+- **The two bindings disagree on the text roles.** Swift's secondary and tertiary are #6D6663 and
+  #918782; the web's are #5F5754 and #827876. Phase 7 aligned the *names* without reconciling the
+  values, deliberately — picking either set moves pixels on a live page or in a shipped app.
+- **Whether the web's `--radius: 16px` and the app's 24/18/14 relate.** Still open, as it was in the
+  original review.
+
+---
+
+## Done
+
+**All eight phases landed 2026-08-17, in 26 commits.** Against the test at the top of this file —
+change the accent colour, the type scale, the corner radii, the spacing rhythm, the motion and the
+icon set, one edit each, and have every surface follow — the answer is now yes for all six, across
+the three app targets and the website.
+
+**What the work found that the review had not**, each recorded where it happened:
+
+1. The weekend header was four designs, not one at three sizes. Only its metadata line converged.
+2. The next-up footer had five sites, not four.
+3. The iOS skeleton was a fifth session row, still carrying the 10pt radius convergence retired.
+4. There were **three** axes for "which surface am I on", not two.
+5. `NoSpoilersMessageCard` could not fit its body on `systemSmall` — found by capture, not by
+   reading.
+6. macOS's system `.secondary` is this palette's *tertiary* by value, which reversed D1's plan.
+7. Two hidden fallbacks drew a place name where a date or a time belongs.
+
+**The verification gap closed by two thirds.** The iOS pager turned out to be capturable in three
+commands, so the widget and the app can both be diffed; the macOS popover still cannot, and the two
+commits that change it are split from the ones that provably do not. If a snapshot harness is ever
+built, that split is the seam it should attach to.
+
+**Left open, deliberately:** the two text-role values above, the web/app radius question, and a
+reliable `--app` capture mode, which would need the fetch suppressed from inside the app.
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
