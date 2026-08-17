@@ -238,7 +238,57 @@ against the phase-4 shots — off-season at small and medium after the first com
 weekend at medium and large after the second — each one changed band, the status-bar clock. The
 macOS popover's badge change is compile-verified only.
 
-**Still to do: phases 5-8 as listed under "Suggested ordering".**
+**Phase 6 — the accent colour. Landed in `a998f80`.** All three
+`AccentColor.colorset`s held `{"idiom": "universal"}` and no colour, so the system tint was Apple
+default blue. `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME` was already wired at all six build
+configurations; only the value was missing. Visible on the four macOS settings toggles and the
+default-action "Done" button on both About screens — not the acknowledgement links, which set their
+own foreground. **This is the one value the token system cannot hold:** an asset catalog cannot
+reference Swift, so signalRed's components are transcribed into three JSON files, and
+`BrandPalette.signalRed` now says so. Verified with `assetutil --info` against the compiled
+`Assets.car` in all three products.
+
+**Phase 7 — one `docs/styles.css`. Landed in `f51d7db`.** Beyond the `:root` block the task
+predicted, **six further rules were byte-identical in both pages** — the reset, `body`, the three
+footer rules and `.face-deco`. `--mid`/`--light` became `--text-secondary`/`--text-tertiary` with
+`--text-primary` joining them, so the web now names `Theme.Palette`'s three roles the same way
+Swift does. The five stray hexes turned out to be one thing: a foreground ramp on the dark install
+block, named for the surface rather than snapped onto near neighbours in the palette, which would
+have moved pixels.
+
+**Verified without a browser, which is stronger than opening it.** Every rule on both pages was
+parsed before and after with `var()` resolved transitively, then compared declaration by
+declaration: 38 rules on index, 13 on privacy, zero differences. That is the check the Verification
+section asked for ("confirming nothing moved"), done numerically.
+
+### The iOS pager has a capture path now — found 2026-08-17, and it changes phase 5
+
+`screenshots.py` never launches the app, for a documented reason: `ScheduleStore.refresh()` writes
+the fetched schedule to the cache unconditionally, so launching replaces the fixture. But for
+*before/after diffing* — as opposed to App Store screenshots — that does not matter, and the app is
+capturable in three commands after `screenshots.py` has seeded and placed:
+
+```
+xcrun simctl install <udid> <NoSpoilersApp.app>      # signed sim build, not CODE_SIGNING_ALLOWED=NO
+xcrun simctl launch  <udid> pomocorp.NoSpoilers.NoSpoilersMac
+xcrun simctl io      <udid> screenshot out.png       # after ~8s
+```
+
+**Measured, not assumed:** two consecutive captures differ in three bands only — the status-bar
+clock and the two countdowns that tick. Everything else is pixel-stable. On this machine the
+fixture also survived the launch, because the fetch failed; that is luck rather than design, and
+the diff is valid either way as long as both captures are taken minutes apart.
+
+**Not turned into a wrapper yet, deliberately.** A reliable `--app` mode would have to suppress the
+fetch, and there is no way to do that from outside the app — it would mean a test-only branch in
+product code, which is a new pattern needing approval. Left as three commands with this note.
+
+**So phase 5 has capture for two of three surfaces.** The widget and the iOS pager can both be
+diffed; the macOS popover still cannot, and it holds all eleven `.system(size:)` literals — the
+highest-risk, least verifiable part of the sweep. Suggested order within phase 5: widget, then iOS,
+then macOS last with its risk stated.
+
+**Still to do: phase 5, then phase 8.**
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
