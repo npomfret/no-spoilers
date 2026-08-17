@@ -1,14 +1,6 @@
 import SwiftUI
 import WidgetKit
-import OSLog
 import NoSpoilersCore
-
-/// Matches the widget target's logger shape (`NoSpoilersWidget.swift`), one category down.
-///
-/// Worth having because `.unknown` and `.installed` look identical on screen — both show nothing —
-/// so without a line in the log there is no way to tell a user who has the widget from a device
-/// where WidgetKit declined to answer.
-private let log = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersMac", category: "widget-install")
 
 /// Whether this device has one of our widgets placed.
 ///
@@ -38,12 +30,19 @@ enum WidgetInstallStatus {
         await withCheckedContinuation { continuation in
             WidgetCenter.shared.getCurrentConfigurations { result in
                 switch result {
+                // Both lines below are worth having because `.unknown` and `.installed` look
+                // identical on screen — both show nothing — so without them there is no way to
+                // tell a user who has the widget from a device where WidgetKit declined to answer.
                 case .success(let widgets):
                     let placed = widgets.contains { $0.kind == NoSpoilersConfig.widgetKind }
-                    log.info("WidgetCenter reported \(widgets.count) widget(s); ours placed: \(placed)")
+                    AppLog.widget.notice("install check", ["configured": widgets.count,
+                                                           "placed": placed])
                     continuation.resume(returning: placed ? .installed : .notInstalled)
                 case .failure(let error):
-                    log.info("WidgetCenter could not say what is installed: \(error.localizedDescription)")
+                    // Not `.error`: WidgetCenter refusing to answer is a normal outcome here and
+                    // resolves to `.unknown`, which deliberately shows nothing. See below.
+                    AppLog.widget.notice("install check unavailable",
+                                         ["error": LogValue.error(error)])
                     continuation.resume(returning: .unknown)
                 }
             }

@@ -252,6 +252,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
 struct NoSpoilersMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() { AppLog.launched(process: "mac") }
+
     var body: some Scene {
         Settings {
             EmptyView()

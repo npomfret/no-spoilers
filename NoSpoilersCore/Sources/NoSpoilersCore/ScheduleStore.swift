@@ -24,8 +24,19 @@ public class ScheduleStore: ObservableObject {
         self.appGroupID = appGroupID
         self.confirmer = SessionEndConfirmer(appGroupID: appGroupID)
         // Eagerly load from cache so UI has data before refresh() completes.
-        if let cached = try? cache.load(for: appGroupID) {
+        //
+        // Logged rather than `try?`-discarded, for the same reason as the save in `refresh()`:
+        // this is the first state change of every launch, and "opened with an empty screen" and
+        // "the App Group cache is unreadable" look identical from outside. A missing file is the
+        // ordinary first-launch case and is not a failure; anything else is.
+        do {
+            let cached = try cache.load(for: appGroupID)
             self.weekends = cached
+            AppLog.cache.notice("cache restored at launch", ["weekends": cached.count])
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            AppLog.cache.notice("no cache at launch")
+        } catch {
+            AppLog.cache.error("cache load failed at launch", ["error": LogValue.error(error)])
         }
         // Forward confirmer updates to our own objectWillChange so views re-render.
         confirmer.onChange = { [weak self] in self?.objectWillChange.send() }
@@ -103,18 +114,41 @@ public class ScheduleStore: ObservableObject {
         defer { isRefreshing = false }
         do {
             let weekends = try await ScheduleFetcher().fetch()
-            try? cache.save(weekends, for: appGroupID)
+            AppLog.schedule.notice("fetched", ["weekends": weekends.count])
+            // Was `try? cache.save(...)`, which discarded the error. The widget reads this
+            // container and nothing else, so a failing write is the exact shape of "the app
+            // looks fine and the widget is a week out of date" — and it was unobservable.
+            // Behaviour is unchanged: the refresh still continues.
+            do {
+                try cache.save(weekends, for: appGroupID)
+                AppLog.cache.notice("cache written", ["weekends": weekends.count])
+            } catch {
+                AppLog.cache.error("cache save failed", ["error": LogValue.error(error)])
+            }
             // Compare the weekends themselves, not just their round numbers. A session moved by an
             // hour, a weekend rescheduled, or a race cancelled in place all leave the round list
             // identical, and the widget would never be told.
             let changed = weekends != self.weekends
             self.weekends = weekends
-            if changed { WidgetCenter.shared.reloadAllTimelines() }
+            // `changed` is the whole reason the widget ever hears about a rescheduled session,
+            // so a trace has to say which way it went. "The widget did not update" and "the
+            // schedule did not change" are the same picture and different bugs.
+            AppLog.store.notice("refresh complete", ["weekends": weekends.count,
+                                                     "changed": changed])
+            if changed {
+                WidgetCenter.shared.reloadAllTimelines()
+                AppLog.store.notice("widget reload requested")
+            }
         } catch {
             if self.weekends.isEmpty, let cached = try? cache.load(for: appGroupID) {
                 self.weekends = cached
+                AppLog.store.error("refresh failed, serving cache",
+                                   ["error": LogValue.error(error), "weekends": cached.count])
+            } else {
+                // Keep whatever is already published — a stale cache from init, or nothing.
+                AppLog.store.error("refresh failed, keeping published state",
+                                   ["error": LogValue.error(error), "weekends": self.weekends.count])
             }
-            // else: keep whatever is already published (may be stale cache from init, or stay empty)
         }
         confirmer.update(weekends: self.weekends)
     }

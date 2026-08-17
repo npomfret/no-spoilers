@@ -1,9 +1,6 @@
 import WidgetKit
 import SwiftUI
-import OSLog
 import NoSpoilersCore
-
-private let log = Logger(subsystem: "pomocorp.NoSpoilers.NoSpoilersMac.NoSpoilersWidget", category: "data")
 
 private let widgetRed = BrandPalette.signalRed
 
@@ -100,33 +97,35 @@ private func resolveWidgetData() async -> WidgetDataSnapshot {
     let cacheResult = Result { try cache.load(for: NoSpoilersConfig.appGroupID) }
     switch cacheResult {
     case .success(let weekends) where !weekends.isEmpty:
-        log.info("cache hit: \(weekends.count) weekends")
+        AppLog.cache.notice("cache hit", ["weekends": weekends.count,
+                                          "confirmedEnds": confirmedEndDates.count])
         return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
     case .success:
-        log.info("cache empty — falling back to network fetch")
+        AppLog.cache.notice("cache empty, falling back to network")
     case .failure(let error):
-        log.error("cache load failed: \(error) — falling back to network fetch")
+        AppLog.cache.error("cache load failed, falling back to network",
+                           ["error": LogValue.error(error)])
     }
 
     // Cache miss or App Group unavailable — fetch directly so the widget does not need the app to
     // have run first.
     do {
         let weekends = try await ScheduleFetcher().fetch()
-        log.info("network fetch: \(weekends.count) weekends")
+        AppLog.schedule.notice("network fetch", ["weekends": weekends.count])
         // Only persist a successful fetch. Writing an empty array back would overwrite a cache
         // that may be corrupt-but-recoverable with a known-bad value, and would do it precisely
         // when the network is the thing that is broken.
         do {
             try cache.save(weekends, for: NoSpoilersConfig.appGroupID)
-            log.info("wrote \(weekends.count) weekends back to cache")
+            AppLog.cache.notice("cache written", ["weekends": weekends.count])
         } catch {
-            log.error("cache save failed: \(error)")
+            AppLog.cache.error("cache save failed", ["error": LogValue.error(error)])
         }
         return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
     } catch {
         // No cache and no network. `noDataView` is the modelled state for this; there is nothing
         // to invent and nothing to save.
-        log.error("network fetch failed: \(error)")
+        AppLog.schedule.error("network fetch failed", ["error": LogValue.error(error)])
         return WidgetDataSnapshot(weekends: [], confirmedEndDates: confirmedEndDates)
     }
 }
@@ -311,9 +310,30 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
         // whatever the feed contains — including the off-season, where the only entry is `now`.
         // If the cap truncated the list, come back at the last boundary kept instead, so the widget
         // is never left showing state it has already outlived.
-        let reloadAt = kept.count < boundaries.count ? kept.last! : horizon
+        let truncated = kept.count < boundaries.count
+        let reloadAt = truncated ? kept.last! : horizon
 
-        return Timeline(entries: kept.map { makeEntry(at: $0, data: data) }, policy: .after(reloadAt))
+        // The four facts that make a stale widget diagnosable, on one line, at `.notice` so
+        // they are still there tomorrow. Nothing is attached when a widget goes wrong: the app
+        // is not running, and "showing last week" looks identical to "nothing happened". This
+        // line is the difference. `truncated` is here because the cap changes which of two
+        // reload dates was chosen, and the real feed has never once reached it.
+        let entries = kept.map { makeEntry(at: $0, data: data) }
+
+        AppLog.widget.notice("timeline built", [
+            "now": now,
+            "weekends": data.weekends.count,
+            "boundaries": boundaries.count,
+            "entries": entries.count,
+            "truncated": truncated,
+            "horizon": horizon,
+            "reloadAt": reloadAt,
+            // What the user is actually looking at, so a trace answers "showing last week"
+            // without anyone having to re-derive it from the entry dates.
+            "showing": entries.first?.weekend,
+        ])
+
+        return Timeline(entries: entries, policy: .after(reloadAt))
     }
 }
 

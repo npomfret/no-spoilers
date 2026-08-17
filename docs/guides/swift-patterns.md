@@ -38,6 +38,29 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
 - Hardcoding a user-visible string outside `Strings.swift` is a correctness violation, not a style issue.
 - Infrastructure strings (API query parameters, storage keys, window IDs, log subsystems, plist keys, enum raw values) are not user-visible and do not belong in `Strings.swift`.
 
+## Logging
+
+- **Every log line is one JSON object, written through `LogChannel`.** No string concatenation,
+  no interpolated prose, no `print`. We log data, not sentences.
+- Use the channels on `AppLog` (`launch`, `schedule`, `cache`, `store`, `widget`, `session-end`).
+  Do not construct a `Logger` directly — `LogChannel` holds the only one, which is what makes the
+  rule enforceable rather than advisory.
+- `msg` is a `StaticString` on purpose, so `notice("weekends → \(count)")` does not compile. Put the
+  value in a field.
+- **Levels decide whether a line still exists tomorrow.** `.notice` is written to the log store and
+  is the default for a state change; `.debug` is discarded unless something is streaming; `.error`
+  is a failure and only a failure. **`.info` is not offered** — it does not persist, and two
+  experiments were once scored wrongly because the line they depended on had evaporated. See
+  `tasks/19-widget-timeline-too-large.md`.
+- Log a domain type by conforming it to `LogRepresentable`, not by picking its fields apart at the
+  call site. `LogValue` is a closed enum with no `case any(Any)` so that everything reaching a trace
+  went through a conformance somebody wrote deliberately.
+- **Names and kinds go out in the feed's vocabulary, not the user's language** — `name`, not
+  `grandPrixName`; `kind.rawValue`, not `displayName`. A trace has to match the fixture that
+  produced it and be readable beside one captured on a device in another language.
+- The spoiler rule applies to logs exactly as it applies to storage: a line carries schedule
+  identity and timing, and nothing else.
+
 ## Naming
 
 - Name types and modules after their real scope today, not a speculative future abstraction.

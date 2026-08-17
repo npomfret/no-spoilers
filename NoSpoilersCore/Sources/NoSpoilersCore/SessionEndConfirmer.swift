@@ -94,10 +94,23 @@ public final class SessionEndConfirmer {
         if sessionKeyCache[session.id] == nil {
             sessionKeyCache[session.id] = await client.findSessionKey(for: session)
         }
-        guard let key = sessionKeyCache[session.id] else { return }
-        guard let endDate = await client.confirmedEndDate(forSessionKey: key) else { return }
+        // Both `return`s below are ordinary — OpenF1 has nothing yet for a session still
+        // running — but they are also indistinguishable from a broken lookup, and the polling
+        // loop simply comes back in two minutes either way. `.debug`, because during an
+        // overrun this runs every 120 seconds per pending session.
+        guard let key = sessionKeyCache[session.id] else {
+            AppLog.sessionEnd.debug("no session key", ["session": session])
+            return
+        }
+        guard let endDate = await client.confirmedEndDate(forSessionKey: key) else {
+            AppLog.sessionEnd.debug("no confirmed end yet", ["session": session, "key": key])
+            return
+        }
         confirmedEndDates[session.id] = endDate
         persist()
+        // `.notice`: this is the moment a session stops being "in progress" ahead of its grace
+        // window, which changes what every view and the widget timeline show.
+        AppLog.sessionEnd.notice("end confirmed", ["session": session, "endedAt": endDate])
         onChange?()
     }
 
