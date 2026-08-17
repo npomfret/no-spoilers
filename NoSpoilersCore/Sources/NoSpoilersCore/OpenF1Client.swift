@@ -129,7 +129,7 @@ struct OpenF1Client {
     // MARK: - Private
 
     private func get<T: Decodable>(_ url: URL) async throws -> [T] {
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await HTTPSession.shared.data(from: url)
         // **OpenF1 answers an empty result set with 404 and `{"detail":"No results found."}`**,
         // not with 200 and `[]`. Verified against the live API on 2026-08-17. That is the ordinary
         // answer for a session whose record is not published yet — it is what every poll gets for

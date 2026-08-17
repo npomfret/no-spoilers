@@ -16,25 +16,15 @@ import Foundation
 public actor ScheduleFetcher {
     private static let feedRoot = URL(string: "https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/")!
 
-    /// Ephemeral rather than `URLSession.shared`: this runs inside the widget extension as well as
-    /// the apps, and Apple advises against `.shared` in extension contexts. Losing the URL cache
-    /// costs nothing — `ScheduleCache` is the caching layer.
-    ///
-    /// Timeouts are short and explicit. The widget's own fetch used to bound itself at 8 seconds
-    /// and that bound has to survive here, because a widget stuck waiting on a hung request shows
-    /// the redacted placeholder — grey bars — for as long as it waits. See task 19.
-    private let session: URLSession = {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 8
-        configuration.timeoutIntervalForResource = 20
-        return URLSession(configuration: configuration)
-    }()
-
+    /// The session this type used to configure privately now belongs to every fetch site — see
+    /// `HTTPSession`, which carries the ephemeral-not-`.shared` reasoning and the widget's
+    /// eight-second bound. It is a `static let` there, so a fresh `ScheduleFetcher` per refresh no
+    /// longer means a fresh `URLSession` per refresh.
     public init() {}
 
     public func fetch() async throws -> [RaceWeekend] {
         let year = try await currentSeasonYear()
-        let (data, response) = try await session.data(from: Self.feedRoot.appending(path: "\(year).json"))
+        let (data, response) = try await HTTPSession.shared.data(from: Self.feedRoot.appending(path: "\(year).json"))
         // The feed is served by GitHub's raw host, which answers an outage or a rate limit with a
         // status and an HTML body. Decoding that body reports a schema change, which sends the
         // next person reading the trace to the wrong place entirely. See `requireSuccess`.
@@ -49,7 +39,7 @@ public actor ScheduleFetcher {
     /// back to its cache on a throw, which is the right answer for a transient network failure and
     /// far better than silently fetching a season that may not be the current one.
     private func currentSeasonYear() async throws -> Int {
-        let (data, response) = try await session.data(from: Self.feedRoot.appending(path: "config.json"))
+        let (data, response) = try await HTTPSession.shared.data(from: Self.feedRoot.appending(path: "config.json"))
         try response.requireSuccess()
         return try decoder().decode(FeedConfig.self, from: data).calendarOutputYear
     }

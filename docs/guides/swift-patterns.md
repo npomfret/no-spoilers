@@ -40,6 +40,12 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
 
 ## Networking
 
+- **Every request goes through `HTTPSession.shared`, and `URLSession.shared` is not used.** It is
+  ephemeral (`ScheduleFetcher` runs in the widget extension, where Apple advises against `.shared`)
+  and bounded at 8s idle / 20s total. Two of the three fetch sites used to inherit Apple's 60s / 7d
+  by saying nothing at all, which reads as a decision nobody made. A site that needs different
+  numbers builds its own session and writes down why; inheriting defaults by omission is not an
+  option. `HTTPSessionTests` is what makes this executable rather than advisory.
 - **Call `try response.requireSuccess()` between every request and its decode.** Without it a 503's
   error page reaches a `JSONDecoder` and is reported as a schema change, which sends the next reader
   of the trace to entirely the wrong place. All three fetch sites do this; a fourth that does not is

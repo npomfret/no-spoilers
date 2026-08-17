@@ -32,7 +32,7 @@ final class UpdateChecker: ObservableObject {
         // App Store handles updates; the brew-upgrade banner is irrelevant there.
         guard !Self.isAppStoreBuild else { return }
         do {
-            let (data, response) = try await URLSession.shared.data(from: Self.latestReleaseURL)
+            let (data, response) = try await HTTPSession.shared.data(from: Self.latestReleaseURL)
             // GitHub answers an unauthenticated rate limit with 403 and a JSON body of its own,
             // which decodes to nothing we recognise and used to read as "no new release".
             try response.requireSuccess()
