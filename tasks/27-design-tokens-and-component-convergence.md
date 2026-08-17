@@ -1,12 +1,10 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN, phases 1-4 landed 2026-08-17. `Theme` exists in
-`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift`. `Palette` is consumed by phase 3; `Canvas`,
-`Space`, `Radius`, `Icon` and most of `Typography` by phase 4 and the shared components it built.
-`Motion` is still unused, and so is every call site outside those components — that is the sweep in
-phase 5. Read "Progress" immediately below, then "Decisions" at the end. Everything from section A
-onwards is the original review and still describes the code as it stands, except where Progress
-says otherwise.**
+**Status: OPEN, phases 1-7 landed 2026-08-17; only phase 8 remains. `Theme` lives in
+`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and every family in it now has call sites,
+`Motion` included. Read "Progress" immediately below, then "Decisions" at the end. **Everything
+from section A onwards is the original review, and most of it no longer describes the code** — it
+is kept as the record of what was found, with Progress saying what happened to each item.**
 
 ## Progress
 
@@ -288,7 +286,69 @@ diffed; the macOS popover still cannot, and it holds all eleven `.system(size:)`
 highest-risk, least verifiable part of the sweep. Suggested order within phase 5: widget, then iOS,
 then macOS last with its risk stated.
 
-**Still to do: phase 5, then phase 8.**
+**Phase 5 — the sweep. Landed in six commits: `27789d2` (widget), `0225c6f` (iOS), `e1f35dc` and
+`1ca2735` and `7c5a7c5` (macOS), `353d7f7` (shared Core views).** Target by target as the phase
+asked, widget first because it is the surface that can be diffed.
+
+Against the counts this task opened with:
+
+| | was | now |
+| --- | --- | --- |
+| `.font(…)` not from a shared scale | 88 | 35, every one a `Theme` definition or a documented literal |
+| `.padding(…)` with a numeric literal | 57 | 9 |
+| `spacing: <int>` literals | 69 | 2 |
+| `.system(size:)` absolutes | 11 | 10, of which 3 are inside `Theme` |
+| all eleven off-grid strays | 11 | 0 — every one rounded **down**: 9→8, 7→6, 3→2, 14→12, 1→2 |
+
+`Theme.Motion` finally has call sites (all four, all macOS). So does `Theme.Icon`, including
+`flagFallback`, which had been referenced nowhere.
+
+**What the sweep found that the review had not:**
+
+1. **The iOS skeleton was a fifth session row.** `skeletonView` hand-built one — its own accent
+   rule, label stack and panel — at the 10pt corner radius the phase-4 convergence retired. It now
+   draws `NoSpoilersSessionRow` and `NoSpoilersWeekendMeta`, so it cannot drift from what it stands
+   in for. Its placeholder strings became `Text(verbatim:)`: they are shapes, not copy.
+2. **Two tokens earned their fifth call site**, which is this file's bar for adding a role:
+   `Theme.Header.flagHeight` (28/20/16/14/20) and `contentSpacing` (12/10/6/6/10).
+3. **Three one-off colours are named rather than moved** — `surfaceFinished` (D2's unnamed
+   finished-weekend background), `attention` (three `Color.orange` literals across two files), and
+   `confirmation` (`Color.green`, which is *not* `successGreen` and never was).
+4. **The menu bar's separator dot was the only thing this product draws outside a forced-light
+   surface.** It had to keep a system colour, because the menu bar is light or dark depending on
+   appearance and wallpaper. It has since been removed at the user's request (`ff21af3`).
+
+### D1 was decided by measurement, and against the plan
+
+The task planned to map macOS's system `.secondary` onto `Theme.Palette.textSecondary` by name.
+Resolving the colours says that is wrong: `NSColor.secondaryLabelColor` in the aqua appearance is
+black at 49.8% alpha, which over ivory renders **#807B79** — three units from this palette's
+*tertiary* #827876, and thirty-three from its secondary #5F5754.
+
+**Apple has four label levels where this product has three**, so Apple's `.secondary` lands on this
+palette's tertiary. All seven sites are quiet supporting labels, which is what `textTertiary`
+already carries elsewhere. **Decided 2026-08-17: map by value.** Mapping by name would have visibly
+darkened the popover's menu rows on the one surface nobody can screenshot.
+
+**On verification.** The widget and the iOS pager were both diffed at every commit that touched
+them, and the method got sharper: rather than reporting that pixels changed, each change was
+matched against the offset it predicts. The iOS header card's four children move up by exactly 0,
+2, 4 and 6 points — the accumulated 14→12 — with the wordmark row byte-identical; everything below
+matches at a uniform 6pt offset with max channel delta 23, which is the fixed background gradient
+seen through translucent cards, not a re-layout.
+
+**macOS remains uncapturable, and the two commits that touch it are split along that line.**
+`e1f35dc` is provably neutral — every literal it replaced and every token it added was extracted
+from the diff, each token resolved against `Theme.swift`, and the multisets compared: 25 values,
+identical. `1ca2735` and `7c5a7c5` do change the popover, and their evidence is `NSColor`
+measurements rather than screenshots.
+
+**Still to do: phase 8** — `brand.md` rewritten as the cross-platform token spec and moved to
+`docs/guides/`, with `docs/guides/important-code.md` updated. It goes last by design, so it
+documents what was built. Note it now has more to document than the plan anticipated: `Theme` grew
+`Card`, `MessageCard`, `Badge`, `Header`, `NextUp`, `SectionLabel`, `DetailRow` and `ScreenHeader`
+families, and the palette gained `surfaceFinished`, `attention`, `confirmation` and `hoverFill` —
+none of which are in `brand.md` today.
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
