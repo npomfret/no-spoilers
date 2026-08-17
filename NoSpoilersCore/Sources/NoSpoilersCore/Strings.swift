@@ -7,7 +7,21 @@ import SwiftUI
 // Swap format functions to String(localized:) with interpolation when a Localizable.strings file is added.
 
 public enum Strings {
+    /// Labels on controls that do the same thing wherever they appear.
+    public enum Actions {
+        /// Dismisses a sheet. Used by the shared About screen and by macOS
+        /// Settings, which had its own copy.
+        public static let done: LocalizedStringKey = "Done"
+    }
+
     public enum AppInfo {
+        /// The product name, and the only place it is written down.
+        ///
+        /// It was written out four times — here, the iOS app's `App.name` (dead,
+        /// deleted), the macOS `Settings.appName`, and the widget's
+        /// `Widget.displayName`. The widget's copy is the one that mattered: it
+        /// is what the Home Screen gallery shows, so a rename that missed it
+        /// would have left the old name in the place users pick the widget from.
         public static let name: LocalizedStringKey = "No Spoilers"
 
         /// The version line under the app name, e.g. `v1.0.22 (13)`.
@@ -26,7 +40,6 @@ public enum Strings {
         public static let flagIcons: LocalizedStringKey          = "Flag icons"
         public static let trademarks: LocalizedStringKey         = "Trademarks"
         public static let trademarkDisclaimer: LocalizedStringKey = "Formula 1, F1, and related marks are trademarks of Formula One Licensing BV. This app is not affiliated with, endorsed by, or sponsored by Formula One Licensing BV, Liberty Media, or the FIA."
-        public static let done: LocalizedStringKey               = "Done"
     }
 
     /// The vocabulary for rendering a schedule, shared by every target that

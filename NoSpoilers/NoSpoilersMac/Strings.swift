@@ -30,13 +30,11 @@ enum Strings {
         static func countdownWithBullet(_ time: String) -> String   { "· \(time)" }
     }
     enum Settings {
-        static let appName: LocalizedStringKey      = "No Spoilers"
         static let tagline: LocalizedStringKey      = "Grand Prix schedule · spoiler free"
         static let launchAtLogin: LocalizedStringKey = "Launch at Login"
         static let menuBar: LocalizedStringKey      = "Menu Bar"
         static let showFlag: LocalizedStringKey     = "Flag"
         static let showSession: LocalizedStringKey  = "Session"
         static let showCountdown: LocalizedStringKey = "Countdown"
-        static let done: LocalizedStringKey         = "Done"
     }
 }

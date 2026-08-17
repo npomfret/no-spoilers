@@ -364,7 +364,7 @@ struct SettingsView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 56, height: 56)
-                Text(Strings.Settings.appName)
+                Text(NoSpoilersCore.Strings.AppInfo.name)
                     .font(.title3).fontWeight(.bold)
                 Text(Strings.Settings.tagline)
                     .font(.caption).foregroundStyle(.secondary)
@@ -398,7 +398,7 @@ struct SettingsView: View {
             // ── Footer ────────────────────────────────────────────
             HStack {
                 Spacer()
-                Button(Strings.Settings.done) { onDone() }
+                Button(NoSpoilersCore.Strings.Actions.done) { onDone() }
                     .keyboardShortcut(.defaultAction)
                     .controlSize(.small)
             }

@@ -71,7 +71,7 @@ public struct AboutView: View {
             // ── Footer ────────────────────────────────────────────
             HStack {
                 Spacer()
-                Button(Strings.About.done) { onDone() }
+                Button(Strings.Actions.done) { onDone() }
                     .keyboardShortcut(.defaultAction)
                 #if os(macOS)
                     .controlSize(.small)

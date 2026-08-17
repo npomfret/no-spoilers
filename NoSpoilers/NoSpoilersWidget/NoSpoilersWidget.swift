@@ -714,7 +714,7 @@ struct NoSpoilersWidget: Widget {
                     NoSpoilersBackground()
                 }
         }
-        .configurationDisplayName(Strings.Widget.displayName)
+        .configurationDisplayName(NoSpoilersCore.Strings.AppInfo.name)
         .description(Strings.Widget.widgetDescription)
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
