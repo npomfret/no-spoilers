@@ -1,11 +1,12 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN, phases 1-3 landed 2026-08-17. `Theme` exists in
-`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift`. Its colour roles are consumed by phase 3;
-`Space`, `Radius`, `Motion`, `Icon`, `Canvas` and `Typography` are still unused, awaiting the
-sweep in phase 5. Read "Progress" immediately below, then "Decisions" at the end. Everything from
-section A onwards is the original review and still describes the code as it stands, except where
-Progress says otherwise.**
+**Status: OPEN, phases 1-4 landed 2026-08-17. `Theme` exists in
+`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift`. `Palette` is consumed by phase 3; `Canvas`,
+`Space`, `Radius`, `Icon` and most of `Typography` by phase 4 and the shared components it built.
+`Motion` is still unused, and so is every call site outside those components — that is the sweep in
+phase 5. Read "Progress" immediately below, then "Decisions" at the end. Everything from section A
+onwards is the original review and still describes the code as it stands, except where Progress
+says otherwise.**
 
 ## Progress
 
@@ -200,12 +201,42 @@ with a valid PNG. Every capture has to be looked at. The off-season state additi
 produced by `screenshots.py`'s fixture at all — it needs an all-past cache seeded *after* the
 install and *after* the widget is placed.
 
-**Next: `NoSpoilersCardDensity` and `Theme.Canvas` are two axes for one concern.** Density
-(regular/compact/widget) predates the canvas axis (iosApp/macPopover/widgetSmall/Medium/Large) and
-maps onto it almost exactly, except that `.widget` cannot tell the three widget families apart —
-which is precisely what forced the optional `bodyText` above rather than a smaller body font on
-small. Merging them is the obvious next convergence and was left out of phase 4 because it is not
-one component.
+**Phase 4b — one axis, not three. Landed in two commits, `27bd96b` and `e53986f`.** This is
+recommendation 2 ("fold `NoSpoilersCardDensity` into `Theme` and delete every `compact: Bool`"),
+which phase 4 left out because it is not one component. It belongs before phase 5: the sweep reads
+these parameters at almost every call site it touches, and doing it after would mean editing them
+twice.
+
+There were **three** spellings of "which surface am I on", not the two the plan named:
+
+| Axis | Cases | Read by |
+| --- | --- | --- |
+| `NoSpoilersCardDensity` | regular / compact / widget | `NoSpoilersCard`, `NoSpoilersMessageCard` |
+| `compact: Bool` | 2 | `NoSpoilersStatusBadge` + two widget-private helpers |
+| `Theme.Canvas` | 5 | everything phases 1-4 added |
+
+Density became `Theme.Card.geometry(_:)` — one switch returning the seven correlated values, since
+a card's radius is not independently choosable from its padding — plus `Theme.MessageCard`. The
+boolean became `Theme.Badge`.
+
+**Nothing on screen moved except one badge.** regular's numbers are `iosApp`, compact's are
+`macPopover`, and widget's are all three widget families, which is exactly what `.widget` already
+resolved to. The exception is the drift the boolean was hiding: macOS `stateLabel` passed
+`compact: true` for its live and upcoming badges and nothing at all for its finished one, so one
+switch drew two badge sizes in the same row. Settled as `.caption2`, two sites against one; the
+popover's finished badge is 1pt smaller.
+
+**What the merge actually bought**, beyond one vocabulary: `NoSpoilersMessageCard.bodyText` is
+required again. It had to be optional under the three-case axis because `.widget` could not tell
+`systemSmall` — which has no room for the explanatory line — from the two families that do, so the
+widget's *view code* computed the absence and passed `nil`. `Theme.MessageCard.showsBody` answers
+it from the canvas. `NoSpoilersCard` also lost its `.regular` default, which had meant a macOS or
+widget caller that forgot the parameter silently got a 24pt radius inside a 300pt popover.
+
+Verified: core tests 72/0 and all three builds at both commits. Four widget captures band-diffed
+against the phase-4 shots — off-season at small and medium after the first commit, the active
+weekend at medium and large after the second — each one changed band, the status-bar clock. The
+macOS popover's badge change is compile-verified only.
 
 **Still to do: phases 5-8 as listed under "Suggested ordering".**
 
