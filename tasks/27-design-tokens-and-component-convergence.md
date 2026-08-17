@@ -1,6 +1,6 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN, phases 1 and 2 landed 2026-08-17. `Theme` exists in
+**Status: OPEN, phases 1-3 landed 2026-08-17. `Theme` exists in
 `NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and nothing consumes it yet, which is what
 phase 1 is. Read "Progress" immediately below, then "Decisions" at the end. Everything from
 section A onwards is the original review and still describes the code as it stands, except where
@@ -100,9 +100,41 @@ needs no new colour is to keep finished *names* on `smoke` everywhere and let gr
 accent bar, badge and tint, all of which clear the 3:1 UI bar. Blush is the one background green
 should not be drawn on at all.
 
-**Still to do: phases 3-8 as listed under "Suggested ordering".** Phase 3 is the first visible
-change; it needs the decision above, and the "is a snapshot harness a prerequisite" question under
-Verification is still open and still the largest risk in the task.
+**Phase 3 — state colours. Landed in `7a2faeb`, on its own commit as the task asked.**
+
+**Decided 2026-08-17: green carries the bar and the badge only; session names stay on
+`textPrimary` in every state.** That follows from the contrast measurement above rather than from
+taste — 3.31:1 clears the 3:1 bar for UI components and large text, and misses 4.5:1 for body
+text. So no `#278253` entry was needed and **no new palette colour exists**.
+
+`Theme.Palette.state(_:)` is the single mapping. It replaced iOS's `statusColor`, the macOS inline
+ternary and the widget's `accentColor`. **C2 is fixed as a side effect and the screenshot proves
+it**: the widget's Race row drew a blue accent bar beside an amber badge, because the bar was a
+local ternary and the badge was `NoSpoilersStatusBadge`.
+
+Visible changes, all intended: iOS finished rows lose their grey tint entirely (label →
+`textPrimary`, detail → `textSecondary`, fill → `surfaceRaised`, which is what the other two
+targets already drew); macOS finished names and times stop being green; the widget's finished bar
+goes from 75% green to full. `finishedGrey` and `upcomingAmber` are deleted, closing half of C3 by
+subtraction.
+
+**On the verification gap.** The screenshot path worked and was worth running, with two things
+learned that are not in Verification above:
+
+1. **The capture needs a *signed* simulator build.** Building with `CODE_SIGNING_ALLOWED=NO`, which
+   is what `verify-ios-build.sh` does, strips the entitlement that creates the App Group container,
+   so `screenshots.py` fails at `get_app_container` with exit 117 and the fixture can never be
+   seeded. Build for the simulator destination without that flag.
+2. **Diff the pair, do not eyeball it.** A pixel diff bounded the change to the widget card and the
+   clock: the wallpaper and dock band came back with a max channel delta of 1. Comparing "by eye"
+   would not have established that nothing else moved.
+
+That covers the widget only. **The macOS popover and the iOS pager still have no capture path**,
+and most of phase 3's visible change landed in exactly those two. The "is a snapshot harness a
+prerequisite" question is therefore still open and still the largest risk in the task — phase 4
+converges the components those two surfaces draw.
+
+**Still to do: phases 4-8 as listed under "Suggested ordering".**
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
@@ -571,7 +603,7 @@ The four questions that blocked phase 1, and what each one closes.
    semantic colour roles are still part of phase 1 as **single-value** roles, because D1 is a reskin
    blocker independently of dark mode. One value per role; the roles are the seam a dark variant
    would later hang from. Do not build variant machinery for values nobody has chosen.
-3. **Green/blue wins.** `brand.md` and the macOS/widget behaviour are right; the iOS app moves.
+3. **Green/blue wins.** (Refined 2026-08-17: green carries the bar and badge only — see Progress.) `brand.md` and the macOS/widget behaviour are right; the iOS app moves.
    Retires `finishedGrey` and `upcomingAmber`. Reaches all three targets through
    `NoSpoilersStatusBadge` and `NoSpoilersRoundPill`, and incidentally fixes C2. **One thing this
    decision does not settle:** whether `successGreen` is legible enough for body text at 3.5:1 — if
