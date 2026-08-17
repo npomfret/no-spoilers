@@ -56,6 +56,12 @@ private struct MenuBarLabelView: View {
         .onReceive(tickTimer) { t in tick = t }
     }
 
+    /// **The one system colour that must stay a system colour.** Everything
+    /// else in this target draws inside the popover, which forces
+    /// `.preferredColorScheme(.light)` over a hardcoded light gradient. This
+    /// dot is drawn on the system menu bar, which is light or dark depending
+    /// on the user's appearance and their wallpaper, so a fixed warm grey from
+    /// `Theme.Palette` would be unreadable half the time.
     private var separatorDot: some View {
         Text("·")
             .font(.system(size: 12))

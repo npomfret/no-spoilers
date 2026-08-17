@@ -11,7 +11,7 @@ private struct MenuRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(.horizontal, Theme.Space.xl)
-            .padding(.vertical, 7)
+            .padding(.vertical, Theme.Space.sm)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                     .fill(isHovered
@@ -258,10 +258,10 @@ struct WeekendPopoverView: View {
             Image(systemName: Theme.Icon.updateAvailable)
                 .foregroundStyle(.orange)
                 .font(.system(size: 12))
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: Theme.Space.xxs) {
                 Text(Strings.Popover.updateAvailable)
                     .font(.caption)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.Palette.textPrimary)
                 if !updateChecker.latestVersion.isEmpty {
                     Text("v\(updateChecker.currentVersion) → v\(updateChecker.latestVersion)")
                         .font(.caption2)
