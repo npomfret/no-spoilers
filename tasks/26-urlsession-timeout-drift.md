@@ -89,8 +89,9 @@ against both hosts or a deliberate statement that the numbers are a policy rathe
 
 ## Related
 
-- `tasks/24-silent-failures-outside-schedulestore.md` — the pass this was found during, and the
-  reason `OpenF1Client` now says anything at all when a request fails
+- Commits `a98c7da` and `5798697` — task 24, the pass this was found during, and the reason
+  `OpenF1Client` now says anything at all when a request fails. The task file was deleted on
+  completion; the commit messages carry what it concluded.
 - `tasks/19-widget-timeline-too-large.md` — where the 8-second bound comes from, and what a widget
   waiting on the network looks like to a user
 - `docs/guides/swift-patterns.md`, "Networking" — the rules the fetch sites already share
