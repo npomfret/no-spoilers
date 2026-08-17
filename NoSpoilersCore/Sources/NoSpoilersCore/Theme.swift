@@ -261,6 +261,54 @@ public enum Theme {
                 )
             }
         }
+
+        /// The small uppercase eyebrow over a subordinate block — "Next up".
+        ///
+        /// **The one role with no canvas axis, because all four implementations
+        /// already agreed**: `.caption2.weight(.semibold)`, uppercased, on iOS,
+        /// macOS and both widget branches that draw it. Nothing to reconcile, so
+        /// naming it is the whole change.
+        public static let eyebrow: Font = .caption2.weight(.semibold)
+
+        /// The name of the *next* weekend, under the eyebrow.
+        ///
+        /// **A step quieter than `rowLabel` on every canvas**, which is the
+        /// ladder that keeps the weekend being shown louder than the one after
+        /// it. `widgetSmall` traps: the small family draws one hero session and
+        /// has no room for a footer at all.
+        public static func nextUpName(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .subheadline.weight(.semibold)
+            case .macPopover:   return .caption
+            case .widgetMedium: return .caption2.weight(.medium)
+            case .widgetLarge:  return .caption.weight(.semibold)
+            case .widgetSmall:
+                preconditionFailure(
+                    "the small widget has no next-up footer — do not draw NoSpoilersNextUpFooter on \(canvas)"
+                )
+            }
+        }
+
+        /// When the next weekend starts.
+        ///
+        /// **This is the role, not the slot.** Three canvases draw it under
+        /// `nextUpName`; the medium widget draws the same text trailing on the
+        /// same line, because it only has one. The font is the same question
+        /// either way, so `widgetMedium` returns a value rather than trapping —
+        /// its footer passes no `detail` but still needs this to set the
+        /// countdown it puts in the trailing slot.
+        public static func nextUpDetail(_ canvas: Canvas) -> Font {
+            switch canvas {
+            case .iosApp:       return .caption
+            case .macPopover:   return .caption2
+            case .widgetMedium: return .caption2
+            case .widgetLarge:  return .caption2
+            case .widgetSmall:
+                preconditionFailure(
+                    "the small widget has no next-up footer — do not draw NoSpoilersNextUpFooter on \(canvas)"
+                )
+            }
+        }
     }
 
     /// The spacing rhythm: gaps between things, and the space around them.
@@ -328,6 +376,12 @@ public enum Theme {
     /// on a lifted panel) and on almost nothing else. Where they disagreed for a
     /// reason the reason is recorded below; where they disagreed for no reason
     /// they were collapsed, and the collapse is recorded too.
+    ///
+    /// **`labelSpacing` and `labelLineLimit` are not session-row-only.** Both
+    /// describe the label-over-detail stack that the next-up footer draws too,
+    /// so `NoSpoilersNextUpFooter` reads them from here rather than growing a
+    /// near-identical pair beside them. The rest of this family is the accent
+    /// rule and the panel, which only the session row has.
     public enum Row {
         /// The accent rule down the leading edge. All four implementations drew
         /// it 3pt wide at `Radius.hairline`; only its height varied.
@@ -441,6 +495,87 @@ public enum Theme {
                     horizontalPadding: Space.md,
                     verticalPadding: Space.xs,
                     cornerRadius: Radius.medium
+                )
+            }
+        }
+    }
+
+    /// The "Next up" footer — the block naming the weekend *after* the one a
+    /// surface is showing.
+    ///
+    /// **Four of the five implementations were one design at four sizes**:
+    /// a flag, the weekend's name over an optional detail line, a spacer, and
+    /// one trailing element. What varied was which trailing element (a round
+    /// pill on iOS, macOS and the large widget; the countdown itself on the
+    /// medium widget, which has no room for a second line) and whether the
+    /// eyebrow is drawn at all.
+    ///
+    /// The fifth — the extra-large widget's right-hand column — is not in this
+    /// family and did not converge. It is a 140pt-wide vertical stack with the
+    /// flag on its own line and the round pill inline beside the location: a
+    /// sidebar rather than a footer, and a genuinely different design.
+    public enum NextUp {
+        /// **The flag scales with the canvas, not with the session row's
+        /// accent rule.** 17pt on macOS is the one value off the 2pt grid, and
+        /// it stays: this is an image height, not a gap, so the spacing rhythm
+        /// does not apply to it.
+        public static func flagHeight(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return 20
+            case .macPopover:   return 17
+            case .widgetMedium: return 12
+            case .widgetLarge:  return 18
+            case .widgetSmall:
+                preconditionFailure(
+                    "the small widget has no next-up footer — do not draw NoSpoilersNextUpFooter on \(canvas)"
+                )
+            }
+        }
+
+        /// Between the flag, the name stack, and the trailing element.
+        public static func contentSpacing(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:       return Space.lg
+            case .macPopover:   return Space.md
+            case .widgetMedium: return Space.sm
+            case .widgetLarge:  return Space.md
+            case .widgetSmall:
+                preconditionFailure(
+                    "the small widget has no next-up footer — do not draw NoSpoilersNextUpFooter on \(canvas)"
+                )
+            }
+        }
+
+        /// Whether the "Next up" eyebrow is drawn above the row.
+        ///
+        /// **`widgetMedium` is the only surface that omits it**, because its
+        /// footer is a single dense line under a divider and the divider
+        /// already says "something else starts here". Every other canvas has
+        /// the vertical room and draws it.
+        public static func showsLabel(_ canvas: Canvas) -> Bool {
+            switch canvas {
+            case .iosApp:       return true
+            case .macPopover:   return true
+            case .widgetMedium: return false
+            case .widgetLarge:  return true
+            case .widgetSmall:
+                preconditionFailure(
+                    "the small widget has no next-up footer — do not draw NoSpoilersNextUpFooter on \(canvas)"
+                )
+            }
+        }
+
+        /// Between the eyebrow and the row under it. Unreachable wherever
+        /// `showsLabel` is false, which is why it traps there rather than
+        /// returning a gap nothing uses.
+        public static func labelGap(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp:      return Space.md
+            case .macPopover:  return Space.sm
+            case .widgetLarge: return Space.xxs
+            case .widgetSmall, .widgetMedium:
+                preconditionFailure(
+                    "no next-up eyebrow is drawn on \(canvas) — check Theme.NextUp.showsLabel first"
                 )
             }
         }

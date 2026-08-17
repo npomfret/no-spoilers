@@ -403,7 +403,7 @@ struct NoSpoilersWidgetEntryView: View {
             Spacer(minLength: 0)
             if let upcoming = entry.nextWeekend {
                 Divider()
-                widgetComingUp(upcoming, compact: true)
+                widgetComingUp(upcoming, canvas: .widgetMedium)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -431,7 +431,7 @@ struct NoSpoilersWidgetEntryView: View {
             Spacer(minLength: 0)
             if let upcoming = entry.nextWeekend {
                 Divider()
-                widgetComingUp(upcoming, compact: false)
+                widgetComingUp(upcoming, canvas: .widgetLarge)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -457,9 +457,13 @@ struct NoSpoilersWidgetEntryView: View {
 
             if let upcoming = entry.nextWeekend {
                 VStack(alignment: .leading, spacing: 8) {
+                    // This column is not `NoSpoilersNextUpFooter` — it is a
+                    // 140pt sidebar, not a footer — but its eyebrow is the same
+                    // eyebrow, so it moves off `signalRed` with the others
+                    // rather than leaving the widget disagreeing with itself.
                     Text(NoSpoilersCore.Strings.Schedule.comingUp)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(widgetRed)
+                        .font(Theme.Typography.eyebrow)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                         .textCase(.uppercase)
                     FlagImage(countryCode: upcoming.countryCode, height: 24)
                     VStack(alignment: .leading, spacing: 4) {
@@ -576,38 +580,31 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
+    /// **The two families differ in where the countdown goes**, which is why
+    /// this takes a canvas rather than the `compact: Bool` it used to. The
+    /// medium family has one line and puts the countdown trailing; the large
+    /// family has three and puts it under the name, with a round pill trailing
+    /// instead.
     @ViewBuilder
-    private func widgetComingUp(_ weekend: UpcomingWeekendViewModel, compact: Bool) -> some View {
-        if compact {
-            HStack(spacing: 6) {
-                FlagImage(countryCode: weekend.countryCode, height: 12)
-                Text(weekend.name)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(BrandPalette.smoke)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+    private func widgetComingUp(_ weekend: UpcomingWeekendViewModel, canvas: Theme.Canvas) -> some View {
+        if canvas == .widgetMedium {
+            NoSpoilersNextUpFooter(
+                canvas: canvas,
+                countryCode: weekend.countryCode,
+                name: Text(weekend.name)
+            ) {
                 Text(weekend.startsAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(BrandPalette.secondaryText)
+                    .font(Theme.Typography.nextUpDetail(canvas))
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .lineLimit(1)
             }
         } else {
-            HStack(spacing: 8) {
-                FlagImage(countryCode: weekend.countryCode, height: 18)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(NoSpoilersCore.Strings.Schedule.comingUp)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(widgetRed)
-                        .textCase(.uppercase)
-                    Text(weekend.name)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(BrandPalette.smoke)
-                        .lineLimit(1)
-                    Text(weekend.startsAt, style: .relative)
-                        .font(.caption2)
-                        .foregroundStyle(BrandPalette.secondaryText)
-                }
-                Spacer()
+            NoSpoilersNextUpFooter(
+                canvas: canvas,
+                countryCode: weekend.countryCode,
+                name: Text(weekend.name),
+                detail: Text(weekend.startsAt, style: .relative)
+            ) {
                 NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
         }

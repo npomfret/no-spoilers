@@ -266,28 +266,20 @@ struct ContentView: View {
     }
 
     private func nextWeekendCard(_ weekend: RaceWeekend) -> some View {
-        let firstSession = weekend.allSessions.first
+        // **The countdown used to fall back to the location** when a weekend had
+        // no sessions to count down to, putting a place name where a time
+        // belongs. The footer takes the absence directly and draws no second
+        // line at all.
+        let countdownText = weekend.allSessions.first.map { Text(countdown(to: $0.startsAt)) }
 
         return NoSpoilersCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(NoSpoilersCore.Strings.Schedule.comingUp)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(BrandPalette.tertiaryText)
-                    .textCase(.uppercase)
-
-                HStack(spacing: 10) {
-                    FlagImage(countryCode: weekend.countryCode, height: 20)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(weekend.grandPrixName)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BrandPalette.smoke)
-                        Text(firstSession.map { countdown(to: $0.startsAt) } ?? weekend.location)
-                            .font(.caption)
-                            .foregroundStyle(BrandPalette.secondaryText)
-                    }
-                    Spacer()
-                    NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
-                }
+            NoSpoilersNextUpFooter(
+                canvas: .iosApp,
+                countryCode: weekend.countryCode,
+                name: Text(weekend.grandPrixName),
+                detail: countdownText
+            ) {
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
             }
         }
     }

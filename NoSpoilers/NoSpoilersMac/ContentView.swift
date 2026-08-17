@@ -215,41 +215,34 @@ struct WeekendPopoverView: View {
     }
 
     private func nextRoundFooter(_ weekend: RaceWeekend, now: Date) -> some View {
-        let raceDate = weekend.sessions[.race] ?? weekend.sessions[.sprint]
-        let firstSession = weekend.allSessions.first
-        return VStack(alignment: .leading, spacing: 6) {
-            Text(NoSpoilersCore.Strings.Schedule.comingUp)
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.tertiary)
-                .textCase(.uppercase)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            HStack(spacing: 8) {
-                FlagImage(countryCode: weekend.countryCode, height: 17)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(weekend.grandPrixName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    HStack(spacing: 4) {
-                        if let date = raceDate {
-                            Text(date.formatted(.dateTime.day().month(.abbreviated)))
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                        if let session = firstSession {
-                            Text(Strings.Popover.countdownWithBullet(countdown(to: session.startsAt, from: now)))
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                }
-                Spacer()
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+        NoSpoilersNextUpFooter(
+            canvas: .macPopover,
+            countryCode: weekend.countryCode,
+            name: Text(weekend.grandPrixName),
+            detail: nextRoundDetail(weekend, now: now)
+        ) {
+            NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    /// When the next weekend races and how long until it starts, or nil when the
+    /// feed gave us neither.
+    ///
+    /// **These were two `Text`s in their own `HStack`** before the footer
+    /// converged — same font, same colour, 4pt apart. One string with the
+    /// bullet already in it renders the same line without a nested stack.
+    private func nextRoundDetail(_ weekend: RaceWeekend, now: Date) -> Text? {
+        let raceDate = weekend.sessions[.race] ?? weekend.sessions[.sprint]
+        let parts = [
+            raceDate.map { $0.formatted(.dateTime.day().month(.abbreviated)) },
+            weekend.allSessions.first.map {
+                Strings.Popover.countdownWithBullet(countdown(to: $0.startsAt, from: now))
+            },
+        ].compactMap(\.self)
+        guard !parts.isEmpty else { return nil }
+        return Text(parts.joined(separator: " "))
     }
 
     private var updateBanner: some View {

@@ -306,6 +306,88 @@ public struct NoSpoilersWeekendMeta: View {
     }
 }
 
+/// The weekend after this one: an eyebrow, a flag, the weekend's name over an
+/// optional detail line, and whatever the surface wants trailing.
+///
+/// **This replaced four implementations** — `NoSpoilers/ContentView.swift`'s
+/// `nextWeekendCard`, `NoSpoilersMac/ContentView.swift`'s `nextRoundFooter`, and
+/// both branches of the widget's `widgetComingUp`. All four drew the same row:
+/// flag, name stack, spacer, one trailing element.
+///
+/// **The extra-large widget's version was not one of them and stays where it
+/// is.** That one is a 140pt sidebar column — eyebrow, then the flag on its own
+/// line, then the name over a pill-and-location row over the countdown. Sharing
+/// a component with it would mean a second body inside this one, which is the
+/// thing the convergence is trying to remove.
+///
+/// **Two disagreements had to be settled to get here.** The large widget drew
+/// its eyebrow *inside* the name stack, to the right of the flag, where iOS and
+/// macOS drew it above the whole row; above won, on two sites against one. And
+/// the widget painted the eyebrow `signalRed` where the apps painted it
+/// tertiary; tertiary won, because red is this app's live-session signal —
+/// `Palette.state` and the small widget's in-progress line both use it — and a
+/// weekend that has not started yet is the precise opposite of live.
+public struct NoSpoilersNextUpFooter<Trailing: View>: View {
+    private let canvas: Theme.Canvas
+    private let countryCode: String?
+    private let name: Text
+    private let detail: Text?
+    private let trailing: Trailing
+
+    public init(
+        canvas: Theme.Canvas,
+        countryCode: String?,
+        name: Text,
+        detail: Text? = nil,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.canvas = canvas
+        self.countryCode = countryCode
+        self.name = name
+        self.detail = detail
+        self.trailing = trailing()
+    }
+
+    @ViewBuilder
+    public var body: some View {
+        if Theme.NextUp.showsLabel(canvas) {
+            VStack(alignment: .leading, spacing: Theme.NextUp.labelGap(canvas)) {
+                Text(Strings.Schedule.comingUp)
+                    .font(Theme.Typography.eyebrow)
+                    .foregroundStyle(Theme.Palette.textTertiary)
+                    .textCase(.uppercase)
+
+                row
+            }
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
+        HStack(spacing: Theme.NextUp.contentSpacing(canvas)) {
+            FlagImage(countryCode: countryCode, height: Theme.NextUp.flagHeight(canvas))
+
+            VStack(alignment: .leading, spacing: Theme.Row.labelSpacing(canvas)) {
+                name
+                    .font(Theme.Typography.nextUpName(canvas))
+                    .foregroundStyle(Theme.Palette.textPrimary)
+
+                if let detail {
+                    detail
+                        .font(Theme.Typography.nextUpDetail(canvas))
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                }
+            }
+            .lineLimit(Theme.Row.labelLineLimit(canvas))
+
+            Spacer(minLength: 0)
+
+            trailing
+        }
+    }
+}
+
 /// One session in a list: an accent rule in the session's state colour, its
 /// name, an optional second line, and whatever the surface wants trailing.
 ///
