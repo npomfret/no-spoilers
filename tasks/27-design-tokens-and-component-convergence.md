@@ -135,7 +135,79 @@ and most of phase 3's visible change landed in exactly those two. The "is a snap
 prerequisite" question is therefore still open and still the largest risk in the task — phase 4
 converges the components those two surfaces draw.
 
-**Still to do: phases 4-8 as listed under "Suggested ordering".**
+**Phase 4 — component convergence. Landed in seven commits, one per component as the phase asked:
+`072f9b0`, `57c65b2`, `e36a818`, `0d7de71`, `82d4f8a`, `4badfff`, `fcccf33`.** Core tests 72/0 and
+all three target builds pass at every one.
+
+| Component | Planned | Actual | Landed as |
+| --- | --- | --- | --- |
+| Session row | 4 → 1 | 4 → 1 | `NoSpoilersSessionRow` |
+| Weekend header | 3 → 1 | **1 line only** | `NoSpoilersWeekendMeta` |
+| "Next up" footer | 4 → 1 | 4 → 1 (of 5 sites) | `NoSpoilersNextUpFooter` |
+| Screen header | 2 → 1 | 2 → 1 | `NoSpoilersScreenHeader` |
+| Section label | 2 → 1 | 2 → 1 | `NoSpoilersSectionLabel` |
+| Detail row | 2 → 1 | 2 → 1 | `NoSpoilersDetailRow` |
+| Widget empty states | onto `MessageCard` | done | `NoSpoilersCardDensity.widget` is now reachable |
+
+What the implementation changed about the plan, and why:
+
+1. **The weekend header is not 3 → 1** (corrects section B). Reading all three found four
+   genuinely different *designs*, not one design at three sizes: iOS puts the wordmark and flag on
+   one line and centres the name beneath, macOS puts all three on a single line, the compact widget
+   families draw flag-name-pill in one row, and the large family stacks the name over its metadata.
+   One component would have been a switch with four bodies. Only the metadata line repeated, and
+   that is what converged.
+2. **The next-up footer had five sites, not four.** `extraLargeView`'s is a 140pt sidebar column —
+   eyebrow, flag on its own line, name over a pill-and-location row over the countdown — and did
+   not converge for the same reason as the header.
+3. **`NoSpoilersMessageCard.bodyText` had to become optional.** Captured against a hand-seeded
+   all-past cache, `systemSmall` fits the icon, the title and two lines of `.caption`; the
+   off-season body ran to a third and truncated mid-word. The plan assumed the card would simply
+   fit.
+
+Decisions the convergence forced, each recorded in the source and the commit that made it:
+
+- **Session-row radius 8, not 10.** iOS was 10 against 8 in the other two for the same surface.
+  8 won on majority; `Radius.large` had no other site and is deleted.
+- **The "Next up" eyebrow is tertiary, not `signalRed`.** The widget painted it red, the apps grey.
+  Red is this product's live-session signal — `Palette.state` and the small widget's in-progress
+  line both use it — and a weekend that has not started is the opposite of live.
+- **Section-label padding 12/4, not 10/2.** Not platform intent: `AboutView` is shared, so on macOS
+  both screens render in the *same* popover at two different rhythms.
+- **Detail-row vertical padding 8, not 9.** Both sites used 9 — two of the eleven off-grid literals
+  `Space` records, and as it turns out both of them.
+- **The bundle spelling is `noSpoilersCoreBundle` everywhere.** It is `.module` by definition, so
+  it is the one spelling correct from both sides of the package boundary. `bundle: .module` no
+  longer appears in the product, which is what let `Theme.Icon` finally name the asset strings.
+
+Two hidden fallbacks were removed as side effects, both the same bug: the widget's `sessionDateRange`
+returned the *location* when a weekend had no sessions, and iOS's next-up countdown was
+`... ?? weekend.location`. Both drew a place name where a date or a time belongs. The converged
+components take `String?`/`Text?`, so the line is simply absent.
+
+**On verification.** The medium widget diffs pixel-identical before and after the session-row and
+next-up-footer commits, bar the status-bar clock and one countdown glyph — a component that replaced
+four implementations renders the fourth byte-for-byte. The large family and both off-season families
+were captured and inspected. **The macOS popover and the iOS pager still have no capture path**, and
+they took visible colour changes in five of the seven commits (system `.primary`/`.secondary`/
+`.tertiary` → warm `Palette` roles, arriving ahead of phase 5's sweep). Those are verified by
+compilation only, so the snapshot-harness question is still open and still the largest risk.
+
+**Capture is flaky and the retry is not reliable.** `--install` rewrites SpringBoard's
+`IconState.plist`, so the pass that installs is never the usable one; the documented "install once,
+then capture again" fixed it about half the time this session, and a widget-less Home Screen exits 0
+with a valid PNG. Every capture has to be looked at. The off-season state additionally cannot be
+produced by `screenshots.py`'s fixture at all — it needs an all-past cache seeded *after* the
+install and *after* the widget is placed.
+
+**Next: `NoSpoilersCardDensity` and `Theme.Canvas` are two axes for one concern.** Density
+(regular/compact/widget) predates the canvas axis (iosApp/macPopover/widgetSmall/Medium/Large) and
+maps onto it almost exactly, except that `.widget` cannot tell the three widget families apart —
+which is precisely what forced the optional `bodyText` above rather than a smaller body font on
+small. Merging them is the obvious next convergence and was left out of phase 4 because it is not
+one component.
+
+**Still to do: phases 5-8 as listed under "Suggested ordering".**
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
