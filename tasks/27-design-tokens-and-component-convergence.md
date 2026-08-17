@@ -1,6 +1,6 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: OPEN, phase 1 landed 2026-08-17. `Theme` exists in
+**Status: OPEN, phases 1 and 2 landed 2026-08-17. `Theme` exists in
 `NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and nothing consumes it yet, which is what
 phase 1 is. Read "Progress" immediately below, then "Decisions" at the end. Everything from
 section A onwards is the original review and still describes the code as it stands, except where
@@ -45,7 +45,64 @@ A `Theme.Typography` role is only added once every one of the five canvases has 
 transcribe. `weekendTitle` and `rowLabel` qualify; the rest do not yet. Roles that genuinely do not
 exist on a canvas should fail loudly there rather than return an invented value or an optional.
 
-**Still to do: phases 2-8 as listed under "Suggested ordering".**
+**Phase 2 — strings and formatters. Landed in five commits, `fa1d124`, `f1d702f`, `dc34f36`,
+`1922cd9`, `cf44065`.** Core tests went 62 → 72; all three target builds pass at each commit.
+
+- **2a** deleted E4's six dead strings, each re-checked by grep first.
+- **2b** moved `roundLabel`, `inProgress`, `comingUp`, `durationHours`, `durationMinutes` and
+  `unavailableTitle` into `Strings.Schedule`, repointing 23 call sites. Only the *title* of the
+  unavailable state is shared; each target's body correctly says something different.
+- **2c** collapsed "No Spoilers" from four definitions to one and "Done" from two to
+  `Strings.Actions.done`. The widget's copy was `configurationDisplayName` — the name the Home
+  Screen gallery shows, so a rename that missed it would have been visible in the place users pick
+  the widget from.
+- **2d** replaced three date-range implementations with `Strings.Schedule.dateRange(from:to:)`.
+  **Not a pure move:** iOS said "to" where macOS and the widget said "→", so iOS changed. Four
+  tests, one of which caught a bad fixture of my own — 23:30 UTC is already the next day in London
+  under BST.
+- **2e** replaced two of the three countdown ladders with `CountdownFormatter(units:floor:)`.
+
+**E3 was filed without noticing that `DurationBreakdown` already decided it** (its doc comment:
+tier selection is a per-surface product decision, only the arithmetic is shared). That decision
+stands. What was extracted is narrower: iOS and the popover turned out to share one rule — show N
+units counting from the largest non-zero one, down to a floor — as (2, minutes) and (3, seconds).
+**The menu bar does not fit any N.** It shows `in 3d`, `2h 15m`, `15m`: one unit, two, then one,
+with the prefix on the days rung only. Folding it in would change the label in the surface that
+shares one line with the app icon and a flag, so it keeps its ladder and now says why. Decided
+2026-08-17. Equivalence is tested by keeping both original ladders and diffing ~10,800 intervals.
+
+### The `successGreen` contrast figure — measured, and it changes the framing
+
+Computed exactly from the WCAG sRGB formula rather than estimated. `successGreen` `#2E9B63`:
+
+| Against | Ratio | AA body 4.5:1 | AA large / UI 3:1 |
+| --- | --- | --- | --- |
+| white | 3.51 | fail | pass |
+| ivory (`Palette.surface`) | 3.31 | fail | pass |
+| `surfaceRaised` (white 65% over ivory) | 3.43 | fail | pass |
+| blush | 2.60 | fail | **fail** |
+
+C4's estimate of ~3.5:1 was right for white. **But the comparison numbers reframe it**, because
+almost nothing in this palette clears 4.5:1 on ivory: `signalRed` is 3.93, `upcomingBlue` 3.89,
+`finishedGrey` **2.75**, and only `smoke` (16.25) really passes.
+
+So per surface, adopting green for finished-session *text*:
+
+- **iOS improves** — the finished label goes from `finishedGrey` 2.75 to 3.31.
+- **macOS is unchanged** — the popover already paints finished names green.
+- **The widget regresses** — its session names are `smoke` (16.25) today, and would drop to 3.31 if
+  the converged session row paints finished names green. **This is the only real regression in the
+  change, and it is a phase-4 consequence rather than a phase-3 one.**
+
+If a text-weight companion is wanted, **`#278253`** clears 4.5:1 on ivory at the same hue and
+saturation — 16% darker. That is still a new palette entry needing approval. The alternative that
+needs no new colour is to keep finished *names* on `smoke` everywhere and let green carry only the
+accent bar, badge and tint, all of which clear the 3:1 UI bar. Blush is the one background green
+should not be drawn on at all.
+
+**Still to do: phases 3-8 as listed under "Suggested ordering".** Phase 3 is the first visible
+change; it needs the decision above, and the "is a snapshot harness a prerequisite" question under
+Verification is still open and still the largest risk in the task.
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
@@ -525,7 +582,10 @@ The four questions that blocked phase 1, and what each one closes.
 
 ## Still open
 
-- **The `successGreen` contrast figure** (C4) — computed here, not measured. Blocks phase 3.
+- ~~**The `successGreen` contrast figure** (C4)~~ — **measured 2026-08-17, see Progress.** 3.31:1 on
+  ivory, and the finding is that iOS *improves* while only the widget would regress. What is still
+  open is the decision it feeds: a new `#278253` palette entry for text, or keep finished names on
+  `smoke` and let green carry only the bar, badge and tint.
 - **Whether a snapshot-test harness is a prerequisite** to phases 3-4, given that nothing in the
   repo can catch a visual regression and two of the three surfaces have no capture path. See
   Verification.
