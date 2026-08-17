@@ -10,6 +10,7 @@ Spoiler-free Formula 1 weekend timelines for iOS, macOS, and WidgetKit. Keep thi
 - Reuse the approved pattern or stop and ask before adding a dependency, abstraction, file layout, naming convention, or second implementation style.
 - Fail loudly for impossible missing data. Never hide it with defaults, sentinels, or optionality.
 - Do not overwrite unrelated changes or take destructive actions without approval. Never claim completion without command evidence.
+- No branches. Work on main only unless told otherwise.
 
 ## Product map
 
