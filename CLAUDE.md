@@ -30,7 +30,7 @@ Spoiler-free Formula 1 weekend timelines for iOS, macOS, and WidgetKit. Keep thi
 - `claude-setup-maintenance` — Claude instructions, rules, skills, agents, hooks, commands, guides, or verification wrappers.
 - `release-and-delivery` — explicit release, TestFlight, App Store Connect, Xcode Cloud, or screenshot work.
 
-Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md` when their area is touched. Load the applicable rules before editing. Use `codebase-explorer` for broad discovery and `pattern-compliance-reviewer` for large read-only drift audits.
+Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md` (the cross-platform token spec) when their area is touched. Load the applicable rules before editing. Use `codebase-explorer` for broad discovery and `pattern-compliance-reviewer` for large read-only drift audits.
 
 ## Canonical commands
 

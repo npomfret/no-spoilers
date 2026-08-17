@@ -293,7 +293,7 @@ Full design rationale, architecture decisions, and implementation notes:
 `~/.gstack/projects/no-spoilers/nickpomfret-main-design-20260328-093516.md`
 
 Brand palette for the GitHub Pages docs and marketing surface:
-`docs/brand.md`
+`docs/guides/brand.md`
 
 ## Tasks
 

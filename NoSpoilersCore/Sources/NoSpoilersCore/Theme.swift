@@ -51,7 +51,7 @@ public enum Theme {
         /// Dividers and hairline structure.
         public static let separator = BrandPalette.mistGrey
 
-        /// The page behind everything. `brand.md` prefers ivory over pure white.
+        /// The page behind everything. `docs/guides/brand.md` prefers ivory over pure white.
         public static let surface = BrandPalette.ivory
 
         /// A row or panel lifted off `surface` — the session-row fill, at four
@@ -70,10 +70,9 @@ public enum Theme {
         /// into `NoSpoilers/ContentView.swift` — the one colour decision in the
         /// app that lived nowhere near the others.
         ///
-        /// It is not in `BrandPalette` and not in `docs/brand.md`: it is a
-        /// desaturated warm grey a shade off `surface`, which is the whole
-        /// point of it. Naming it here changes no pixel and makes it findable;
-        /// whether it should become a spec entry is phase 8's question.
+        /// It is not in `BrandPalette` — it is a desaturated warm grey a shade
+        /// off `surface`, which is the whole point of it — but it is in the
+        /// token spec, as a role with no palette entry behind it.
         public static let surfaceFinished = Color(red: 0.96, green: 0.95, blue: 0.94)
 
         /// "There is something new here" — the update banner and the dot on
@@ -108,7 +107,7 @@ public enum Theme {
         /// across three targets, including a macOS row that drew a blue bar
         /// beside an amber pill for the same session.
         ///
-        /// Green and blue are what `docs/brand.md` specifies and what macOS and
+        /// Green and blue are what `docs/guides/brand.md` specifies and what macOS and
         /// the widget already drew; iOS was the outlier. `finishedGrey` and
         /// `upcomingAmber` are gone.
         ///

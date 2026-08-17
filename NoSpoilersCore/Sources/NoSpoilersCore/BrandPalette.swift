@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - BrandPalette
 // Single source of truth for all brand colours across macOS app, iOS app, and widget.
-// Hex values are the canonical spec from docs/brand.md.
+// Hex values are the canonical spec from docs/guides/brand.md.
 
 public enum BrandPalette {
     // Primary
@@ -27,7 +27,7 @@ public enum BrandPalette {
     public static let successGreen  = Color(red: 0.1804, green: 0.6078, blue: 0.3882) // #2E9B63
     public static let upcomingBlue  = Color(red: 0.2392, green: 0.4980, blue: 0.8000) // #3D7FCC
 
-    // Warm neutrals for text on ivory surfaces (supplementary — not in brand.md)
+    // Warm neutrals for text on ivory surfaces (supplementary — see the text roles in docs/guides/brand.md)
     public static let secondaryText = Color(red: 0.43, green: 0.40, blue: 0.39)
     public static let tertiaryText  = Color(red: 0.57, green: 0.53, blue: 0.51)
 }
