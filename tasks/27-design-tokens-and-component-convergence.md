@@ -1,8 +1,9 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
 **Status: OPEN, phases 1-3 landed 2026-08-17. `Theme` exists in
-`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and nothing consumes it yet, which is what
-phase 1 is. Read "Progress" immediately below, then "Decisions" at the end. Everything from
+`NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift`. Its colour roles are consumed by phase 3;
+`Space`, `Radius`, `Motion`, `Icon`, `Canvas` and `Typography` are still unused, awaiting the
+sweep in phase 5. Read "Progress" immediately below, then "Decisions" at the end. Everything from
 section A onwards is the original review and still describes the code as it stands, except where
 Progress says otherwise.**
 
