@@ -196,9 +196,10 @@ To see who can install what:
 scripts/appstore_status.py                   # the TESTFLIGHT section
 ```
 
-`testers can install build 12, 1 build behind build 13` is the ordinary state after a push, not a
-warning — the newest build sits undistributed until you run the command above. Only "testers can
-install nothing" is reported as a problem.
+It reports both platforms, because every Xcode Cloud run archives both and a Mac build has to be
+handed over separately. `testers can install build 12, 1 build behind build 13` is the ordinary
+state after a push, not a warning — the newest build sits undistributed until you run the command
+above. Only "testers can install nothing" is reported as a problem.
 
 For a versioned App Store submission rather than a test build, use `scripts/ship-ios.sh`. The two
 paths keep separate build-number bands — Xcode Cloud counts from 1, `release.sh` from 10000 — so

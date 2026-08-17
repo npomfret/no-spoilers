@@ -26,7 +26,8 @@ long as both paths stay in use. See docs/guides/building.md.
 
 **One App Store record covers macOS and iOS**, so an unfiltered build list mixes
 the two and the newest upload is as likely to be a Mac build. Every query here
-is filtered to `asc.TESTFLIGHT_PLATFORM`.
+is filtered to the one platform `--platform` names, and the choices come from
+`asc.PLATFORM_FLAGS` so that the report covers whatever this can deliver to.
 
 Choosing which build that is — filtered, unexpired, newest by upload date — is
 `appstore_status`'s job, not a second copy here. The report walks the same list
@@ -95,10 +96,13 @@ ADMIN_KEY_ID = "ASC6H3SL2D"
 # a Mac build carrying the same number, and choosing between them is the
 # caller's business.
 #
-# The spelling differs by endpoint and only one is ever right in a given call:
-# `filter[preReleaseVersion.platform]` on /v1/builds wants MAC_OS, while the
-# Xcode Cloud action's CiPlatform calls the same platform MACOS.
-PLATFORMS = {"ios": "IOS", "macos": "MAC_OS"}
+# Shared with the report rather than spelled again here. It was a second copy
+# until 2026-08-17, pinned to the report's single platform by a selftest guard;
+# the two are now one dict, so a platform this command can deliver to is a
+# platform the report covers by construction. That matters because the report is
+# how you find out whether the delivery landed — a platform it cannot see is one
+# where "nobody got it" and "all fine" are the same output.
+PLATFORMS = asc.PLATFORM_FLAGS
 DEFAULT_PLATFORM = "ios"
 
 # The app's only TestFlight locale. A build with no localization in it shows
@@ -624,15 +628,22 @@ def _selftest() -> int:
     if ADMIN_KEY_ID == asc.KEY_ID:
         failures.append("the admin key is the Developer key, which cannot write")
 
-    # Defaulting here and reporting there must mean the same platform. They are
-    # two constants in two files and the report is what tells you whether this
-    # script's work landed, so a silent divergence would have the report
-    # confirming a delivery on the platform nobody delivered to.
-    if PLATFORMS[DEFAULT_PLATFORM] != asc.TESTFLIGHT_PLATFORM:
+    # Every platform this script can deliver to must be one the report covers.
+    # The report is what tells you whether this script's work landed, so a
+    # platform missing from it is one where "nobody got the build" and "all fine"
+    # are the same output — which is exactly what happened to macOS between
+    # 2026-08-14 and 2026-08-17.
+    #
+    # This used to pin one default against one reported platform. Sharing the
+    # dict makes that true by construction rather than by agreement, so what is
+    # left to check is that nothing has been added on one side alone.
+    uncovered = set(PLATFORMS.values()) - set(asc.TESTFLIGHT_PLATFORMS)
+    if uncovered:
         failures.append(
-            f"this script defaults to {PLATFORMS[DEFAULT_PLATFORM]} "
-            f"but the report covers {asc.TESTFLIGHT_PLATFORM}"
+            f"this script can deliver to {sorted(uncovered)}, which the report does not cover"
         )
+    if DEFAULT_PLATFORM not in PLATFORMS:
+        failures.append(f"the default platform {DEFAULT_PLATFORM!r} is not one this script accepts")
 
     # Apple spells this platform two ways and both appear in this repo. Guarding
     # the pair is cheaper than guessing which endpoint a future caller means.
@@ -641,7 +652,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 27 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 28 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
