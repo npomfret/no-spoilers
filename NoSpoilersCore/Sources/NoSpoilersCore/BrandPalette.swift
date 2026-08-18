@@ -28,6 +28,11 @@ public enum BrandPalette {
     public static let upcomingBlue  = Color(red: 0.2392, green: 0.4980, blue: 0.8000) // #3D7FCC
 
     // Warm neutrals for text on ivory surfaces (supplementary — see the text roles in docs/guides/brand.md)
-    public static let secondaryText = Color(red: 0.43, green: 0.40, blue: 0.39)
-    public static let tertiaryText  = Color(red: 0.57, green: 0.53, blue: 0.51)
+    //
+    // **These two values came from the web binding on 2026-08-18**, which had held a
+    // darker pair under different names. They were the same two roles with two answers,
+    // and contrast on ivory decided it rather than seniority: secondary went 5.32:1 →
+    // 6.66:1, tertiary 3.31:1 → 4.05:1. Nothing in this file gets lighter.
+    public static let secondaryText = Color(red: 0.3725, green: 0.3412, blue: 0.3294) // #5F5754
+    public static let tertiaryText  = Color(red: 0.5098, green: 0.4706, blue: 0.4627) // #827876
 }

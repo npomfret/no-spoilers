@@ -44,15 +44,18 @@ The raw colours. Derived from the app icon in `docs/icon.png`.
 | Mist Grey | `#D9D2CF` | `BrandPalette.mistGrey` | `--mist-grey` | Borders and dividers that should recede |
 | Success Green | `#2E9B63` | `BrandPalette.successGreen` | `--success-green` | Finished state only, never general branding |
 | Upcoming Blue | `#3D7FCC` | `BrandPalette.upcomingBlue` | — | Upcoming state only |
-| Secondary text | `#6D6663` ³ | `BrandPalette.secondaryText` | `--text-secondary` | Supporting copy on ivory |
-| Tertiary text | `#918782` ³ | `BrandPalette.tertiaryText` | `--text-tertiary` | Quiet copy on ivory |
+| Secondary text | `#5F5754` | `BrandPalette.secondaryText` | `--text-secondary` | Supporting copy on ivory |
+| Tertiary text | `#827876` ³ | `BrandPalette.tertiaryText` | `--text-tertiary` | Quiet copy on ivory |
 
-³ **The two bindings disagree on these two values, and this is the largest open item in this
-document.** Swift is `#6D6663`/`#918782`; the web is `#5F5754`/`#827876`. They were `--mid` and
-`--light` on the web — names describing how dark a colour is rather than what it says — and the
-rename to the shared role names happened without reconciling the values, deliberately: picking
-either set moves pixels on a live page or in a shipped app, and that is a design decision rather
-than a tidy-up. Same role, two values, until somebody chooses.
+³ **Tertiary text is 4.05:1 on ivory, which is short of the 4.5:1 that normal-size text wants.**
+Holding the hue, `#79706E` is the value that clears it at 4.55:1. That is recorded rather than
+adopted: it is a third value neither binding has ever drawn, and this role is deliberately quiet.
+
+The two bindings disagreed on both of these until 2026-08-18 — Swift held `#6D6663`/`#918782`
+against the web's `#5F5754`/`#827876`, because the web's had been renamed from `--mid` and
+`--light` without anyone reconciling what they were. Contrast on ivory settled it rather than
+seniority: the web pair is darker on both roles, so Swift adopted it. Supporting copy went 5.32:1
+→ 6.66:1 and quiet copy 3.31:1 → 4.05:1, and one role now has one value again.
 
 Use Signal Red sparingly — it should feel deliberate, not flood a layout. Prefer Ivory over pure
 white for grounds. Success Green marks a completed session and never replaces the brand accent.
@@ -70,7 +73,7 @@ What a colour is *for*. One value each; the roles are the seam a dark variant wo
 | Role | Swift | CSS | Resolves to |
 | --- | --- | --- | --- |
 | Primary text | `Theme.Palette.textPrimary` | `--text-primary` | smoke |
-| Supporting text | `Theme.Palette.textSecondary` | `--text-secondary` | secondary text ³ |
+| Supporting text | `Theme.Palette.textSecondary` | `--text-secondary` | secondary text |
 | Quiet text | `Theme.Palette.textTertiary` | `--text-tertiary` | tertiary text ³ |
 | Dividers | `Theme.Palette.separator` | `--border` ¹ | mist grey |
 | The ground | `Theme.Palette.surface` | `--bg` ¹ | ivory |

@@ -15,7 +15,7 @@
 
 :root {
   /* ── Brand palette ───────────────────────────────────────
-   * The same hexes as BrandPalette.swift, which is the spec in docs/brand.md.
+   * The same hexes as BrandPalette.swift; docs/guides/brand.md is the spec.
    * Kept complete even where the web draws none of it — `--blush` and
    * `--mist-grey` have no site on either page today. A palette that is the
    * palette on one binding and a subset on the other is how the two drift.
@@ -34,7 +34,10 @@
    * above exactly as the Swift side points at `BrandPalette`.
    *
    * These were `--mid` and `--light`, which named how dark they are rather
-   * than what they say, and matched nothing on the Swift side.
+   * than what they say, and matched nothing on the Swift side. They are now
+   * the values on both sides: Swift held a lighter pair and adopted these on
+   * 2026-08-18, because these clear more contrast on ivory. Same role, one
+   * value — change one binding and change the other.
    */
   --text-primary: var(--smoke);
   --text-secondary: #5f5754;
