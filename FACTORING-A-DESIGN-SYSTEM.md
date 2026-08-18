@@ -1,607 +1,761 @@
-# Factoring an app onto a design system
+# Factoring an app onto a design system: the mistakes, and how to catch them
 
-*Notes from retrofitting a token layer and a shared component boundary onto a small
-multi-target Apple app — 49 commits, 47 files, ~4,000 lines added and ~1,400 deleted,
-zero UI tests in the repo when it started.*
+*A failure catalogue from retrofitting a token layer and a shared component boundary onto a
+small multi-target Apple app that had no UI tests. The app ships a phone app, a menu-bar
+utility, four widget families and a marketing website from one codebase. Yours will differ in
+the details; the failure modes won't.*
 
-The app in question ships four surfaces from one codebase: a phone app, a menu-bar
-utility on the desktop, four widget families, and a marketing website. Yours will differ
-in the details. The failure modes won't.
+Most write-ups of this kind of work describe the destination. This one describes the wrong
+turns, because those are the transferable part. Every entry below has the same shape:
+
+> **The reasoning that leads there** — which is always plausible, or nobody would do it.
+> **The tell** — how you notice, ideally before shipping.
+> **The fix** — and where the fix has a cost, what it is.
+
+Several entries are marked ***mine*** — mistakes made and undone during this work, or claims
+published and later corrected. They are the ones I'd read first; the avoided mistakes are
+cheap to write about, and the committed ones are not.
 
 ---
 
-## 0. The premise: pick a falsifiable test before you write anything
+## The catalogue at a glance
 
-The work started from one sentence:
+| # | Mistake | The tell |
+| --- | --- | --- |
+| 1 | "Introduce a design system" as the goal | You can't say which parts are done |
+| 2 | Planning from reading instead of counting | No number in the plan, and none at the end |
+| 3 | Assuming the app is your most advanced binding | You invent a vocabulary the CSS already had |
+| 4 | Sweeping call sites before converging components | You edit the same lines twice |
+| 5 | A migration period | "Old and new coexist for now" |
+| 6 | Writing the spec first | Lines in the spec with no call site |
+| 7 | "Behaviour-preserving" claimed, not tested ***mine*** | A refactor commit that quietly changes copy |
+| 8 | Environment-injected theme for a rebuild-time reskin | Three roots to inject, each failing silently |
+| 9 | "No dark mode yet, so don't name the roles yet" | System colours sitting beside your palette |
+| 10 | A boolean where the axis has more than two cases | `false` and unspecified look identical |
+| 11 | Optionality papering over a too-coarse axis | View code computing what the theme should answer |
+| 12 | N parallel lookups for correlated values | Radius and padding choosable independently |
+| 13 | Speculative tokens | Constants with one call site, or none |
+| 14 | "Trap where the value doesn't exist" as the whole rule ***mine*** | A runtime hole treated as a design |
+| 15 | Dead tokens | Nothing fails to compile when the last site goes |
+| 16 | Converging things that merely look alike | The shared body is a switch with N bodies |
+| 17 | Trusting your own inventory | The count is wrong in both directions |
+| 18 | The component owning its content | It needs the domain model *and* the surface enum |
+| 19 | Hidden fallbacks (`?? somethingElse`) | A `??` between two different kinds of thing |
+| 20 | Majority as design authority | Accessibility decided by a vote |
+| 21 | A representative audit | Skeletons and empty states aren't in the count |
+| 22 | "Builds" becoming "verified" | One word for two kinds of confidence |
+| 23 | Shipping provable and visible changes together | You can't revert half |
+| 24 | Asserting neutrality | "This is a pure rename, trust me" |
+| 25 | "I opened it and nothing moved" | One viewport, one page, one state |
+| 26 | Diffing without a prediction | "The bottom 60% changed" |
+| 27 | Not knowing your capture's noise floor | Three unexplained bands in every diff |
+| 28 | Trusting exit codes from capture tooling | A screenshot of nothing exits 0 |
+| 29 | Asking which binding is authoritative | Seniority arguments |
+| 30 | Mapping platform semantic colours by name | Two vocabularies, one word, different hexes |
+| 31 | Comparing numbers instead of elements | Unanswerable "are these meant to be the same?" |
+| 32 | Inventing a third value to settle a two-value split | A value nothing has ever drawn |
+| 33 | Treating a measurement as a verdict ***mine*** | Only the two original options considered |
+| 34 | Triumphant summaries ***mine*** | The uncovered surface quietly drops out |
+| 35 | Reasoning that lives only in the task file | The record dies with the plan |
+| 36 | Cross-format duplication nobody checks | Two files, one value, no compiler |
+| 37 | Not recording what you decided *not* to build | "We looked at that once" |
 
-> Change the accent colour, the type scale, the corner radii, the spacing rhythm, the
-> motion, and the icon set — one edit each — and have every surface follow.
+---
 
-That sentence is the whole point of the exercise, and it is worth more than any amount of
-"improve consistency" framing, for three reasons:
+## 1. Scoping
 
-1. **It is falsifiable.** At any moment you can say which of the six pass and which don't.
-2. **It scopes by outcome, not by file.** It does not say "clean up `ContentView`". It says
-   what must become true, which lets the work go wherever it needs to.
+### Mistake 1: "Let's introduce a design system"
+
+**The reasoning.** The codebase is inconsistent, a design system fixes inconsistency, therefore
+build one. It sounds like a goal.
+
+**The tell.** At any point in the work you cannot say what fraction is done, so you cannot say
+when to stop. The predictable outcome is a `Theme` file that half the code uses — **strictly
+worse than no `Theme` file**, because now there are two idioms instead of one bad one.
+
+**The fix.** Replace the goal with a falsifiable sentence. The one used here:
+
+> Change the accent colour, the type scale, the corner radii, the spacing rhythm, the motion,
+> and the icon set — one edit each — and have every surface follow.
+
+Three properties make that worth more than any amount of "improve consistency" framing:
+
+1. **It is falsifiable.** At any moment you can say which of the six pass. At the start, one
+   did, partly: there was a single palette in code, but the website and the asset catalogs
+   were independent copies of it. At the end all six passed.
+2. **It scopes by outcome, not by file.** It does not say "clean up the main view controller."
+   It says what must become true, which lets the work go wherever it needs to go.
 3. **It kills gold-plating.** Anything that doesn't move one of the six is out.
 
-At the start, exactly one of the six passed (colour, partly). At the end all six passed.
-That's the report.
+### Mistake 2: Planning from reading instead of counting
 
-**Anti-pattern: "let's introduce a design system" as a goal.** A design system is a means.
-Without a test sentence you get a `Theme` file that half the code uses, which is strictly
-worse than no `Theme` file because now there are two idioms instead of one.
+**The reasoning.** You've read the code, you know where the mess is, the shape of the work is
+obvious. Counting feels like ceremony.
 
----
+**The tell.** The plan contains no numbers, so neither does the completion report. "Much more
+consistent now" is not a claim anyone can check.
 
-## 1. Count first. The inventory is the plan.
-
-Before any design work, one pass produced raw counts across the product source:
+**The fix.** One mechanical pass before any design work:
 
 ```
-88  .font(…)          call sites, none referring to a shared scale
-59  .padding(…)       call sites, 57 of them numeric literals
-69  spacing: <int>    literals
-21  .opacity(…)       literals
-11  .system(size:)    absolute point sizes
+88  font call sites, none referring to a shared scale
+59  padding call sites, 57 of them numeric literals
+69  spacing literals
+21  opacity literals
+11  absolute point sizes
  0  spacing, radius, typography, motion, or icon constants anywhere in the repo
 ```
 
-Plus a table of duplicated components (one row was rendered by **four** separate
-implementations), and a table of literals-by-meaning: which magic number appeared at how
-many sites and what it was standing in for.
+Three things fell out of counting that would not have fallen out of reading:
 
-Three things fell out of the counting that would not have fallen out of reading:
+- **The same intent had four different values.** A "quiet tint" was 0.08, 0.10, 0.12 and 0.15
+  depending on which file it was typed in. Nobody decided that; four different days did.
+- **Whole categories were invisible.** Nobody lists "we have no motion vocabulary" as a
+  problem until they count three inline durations in one file and notice nothing else in the
+  product animates at all.
+- **One component was rendered by four separate implementations.** Reading finds two of them.
 
-- **The website was better factored than the app.** The CSS already had custom properties
-  for the palette, a radius, and named surfaces (`--card`, `--border`, `--bg`) — roles the
-  Swift side did not have at all. That reversed the direction of travel on naming: the
-  Swift vocabulary was taken *from* the CSS rather than invented and then back-ported.
-- **The same intent had four different values.** A "quiet tint" was `0.08`, `0.10`, `0.12`
-  and `0.15` depending on which file it was typed in. Nobody decided that; four people-days
-  apart decided it four times.
-- **Opacity, motion and iconography were invisible categories.** Nobody lists "we have no
-  motion vocabulary" as a problem until they count three inline durations in one file and
-  find that nothing else in the product animates at all.
-
-The counts also become the acceptance criteria. At the end:
+The counts then become the acceptance criteria:
 
 | | was | now |
 | --- | --- | --- |
-| `.font(…)` not from a shared scale | 88 | 35, each a token definition or a documented literal |
-| `.padding(…)` numeric literals | 57 | 9 |
-| `spacing:` literals | 69 | 2 |
+| font calls not from a shared scale | 88 | 35, each a token definition or a documented literal |
+| padding numeric literals | 57 | 9 |
+| spacing literals | 69 | 2 |
 | off-grid strays | 11 | 0 |
 
-**Technique: keep the "documented literal" escape hatch, and make it expensive.** 35 is not
-0 and was never going to be. A literal that carries a comment saying why it isn't a token
-is fine. A literal with no comment is a bug. The count that matters is the second one.
+**Keep the "documented literal" escape hatch, and make it expensive.** 35 is not 0 and was
+never going to be. A literal carrying a comment saying why it isn't a token is fine. A literal
+with no comment is a bug. **The count that matters is the second one.**
+
+### Mistake 3: Assuming the app is your most advanced binding
+
+**The reasoning.** The app is where the engineering effort goes. The marketing site is a couple
+of static pages someone knocked out.
+
+**The tell.** You find yourself inventing names for concepts — `card`, `border`, `bg` — and
+then discover the CSS has had exactly those custom properties for a year.
+
+**The fix.** Inventory the web presence in the same pass as the app. In this case the site was
+**better factored than the app**, which reversed the direction of travel: the Swift vocabulary
+was taken *from* the CSS rather than invented and back-ported. It is also, at minimum, another
+copy of your palette, hand-maintained, already drifting — one of the two pages here was
+missing a colour the other had.
 
 ---
 
-## 2. Sequence so that risk starts late and each phase is separately revertable
+## 2. Sequencing
 
-The order used, and why it is the right order in general:
+### Mistake 4: Sweeping call sites onto tokens before converging components
 
-1. **Add the tokens, unused.** Values transcribed from what is on screen today. Nothing
-   consumes them. Zero behavioural risk.
-2. **Strings and formatters.** Deduplicate shared copy and formatting rules. Covered by
-   existing unit tests; no pixels move.
-3. **Semantic state colours** — the first visible change, alone, on its own commit.
-4. **Component convergence**, one component per commit, biggest payoff first.
+**The reasoning.** Tokens exist now; start using them. It's the mechanical part, it's safe, it
+shows progress.
+
+**The tell.** You edit a line to name its constant, and two weeks later delete the whole file
+that line was in.
+
+**The fix.** Order the phases so each one's output is the next one's input:
+
+1. **Add the tokens, unused.** Values transcribed from what's on screen today. Zero risk.
+2. **Strings and formatters.** Deduplicate shared copy and formatting rules while the work is
+   still covered by unit tests.
+3. **Semantic state colours** — the first broad styling change, alone, on its own commit.
+4. **Converge the duplicated components**, one per commit, biggest payoff first.
 5. **Sweep the call sites onto the tokens**, one target per commit.
-6. **The system/asset-catalog level** (accent colour, things the token layer can't reach).
+6. **The asset-catalog / system level** — things the token layer cannot reach.
 7. **The website.**
-8. **The spec document**, last, so it describes what was built rather than what was planned.
+8. **The spec document**, last.
 
-The properties that make this ordering work:
+Two orderings inside that are load-bearing and easy to get wrong:
 
-- **Phases 1–2 are pure additions.** They can land, sit, and be reviewed while the design
-  questions are still open. This matters more than it sounds: the token file becomes the
-  place the open questions get *written down* while phases 3–5 are still being argued.
-- **The sweep comes after convergence, not before.** Sweeping first means editing the same
-  call sites twice — once to name the constant, once to delete the whole implementation.
+- **The sweep comes after convergence**, per above.
 - **Merging the "which surface am I on" axis is its own phase, before the sweep**, for the
-  same reason: the sweep reads that parameter at nearly every site it touches.
-- **The spec is written last.** A spec written first is a wish list. Written last, every
-  line in it has a call site.
+  same reason — the sweep reads that parameter at nearly every site it touches.
 
-**Technique: one commit per component, and each commit deletes what it replaces.** No
-migration period, no "old and new coexist for a sprint". If the convergence is wrong you
-revert one commit and you are exactly back where you were. If old and new coexist you have
-permanently doubled the surface area and someone will add a call site to the old one.
+### Mistake 5: A migration period
 
----
+**The reasoning.** Land the new shared component, migrate callers gradually, delete the old one
+when everything's moved. Feels lower-risk.
 
-## 3. The token layer: design decisions that held up
+**The tell.** The phrase "for now" in a PR description.
 
-### 3.1 Static constants beat environment injection, if your reskin is rebuild-time
+**The fix.** **Each convergence commit deletes what it replaces, in the same commit.** If the
+convergence is wrong you revert one commit and you are exactly where you were. If old and new
+coexist you have permanently doubled the surface area, and somebody will add a call site to
+the old one — not out of carelessness, but because it's still there and it still works.
 
-The decision was made explicitly and up front: **is the reskin rebuild-time or runtime?**
-Rebuild-time. That single answer removed a large amount of machinery:
+### Mistake 6: Writing the spec first
 
-- No environment keys, no view modifiers, no injection at the root of each surface.
-- No question about what a widget timeline does with a theme (it renders in a separate
-  process with no host environment to inherit).
-- No question about a menu-bar item hosted from an app delegate outside the view hierarchy.
+**The reasoning.** You can't build to a spec you haven't written.
 
-Those three roots are the giveaway. **An environment-keyed theme has to be re-injected at
-every root, and it fails silently at any root somebody forgets** — the view just gets the
-default. With static constants there is no root and nothing to forget.
+**The tell.** Lines in the document that no code implements, and no reader can tell which
+lines those are.
 
-**Write down the revisit condition.** "If a runtime theme switch is ever wanted, this
-decision gets rewritten, not extended." That sentence lives in the source. It is honest
-about the cost and it stops the next person re-litigating it from scratch.
+**The fix.** Plan the target contract early — informally, in the task — and **publish the spec
+last, so every line in it has a call site.** Written first, it's a wish list. Written last,
+it's a description. The version here documents every token with *both* its bindings (the Swift
+value and the CSS value), plus an explicit list of the tokens that are Swift-only — platform
+symbol names, widget density families — **marked as such rather than silently absent**, so a
+reader can distinguish "not applicable to the web" from "somebody forgot".
 
-### 3.2 Name the roles now with one value each; don't build variant machinery
+### Mistake 7: Claiming "behaviour-preserving" without testing it ***mine***
 
-Dark mode was explicitly out of scope. The tempting conclusion — "so don't bother with
-semantic colour roles yet" — is wrong, and the reasoning is worth stealing:
+**The reasoning.** Phase 2 moves duplicated strings and formatters into one place. Nothing
+renders differently. It's a pure consolidation.
 
-> Replacing system semantic colours with named palette roles is a reskin blocker on its own
-> merits: a system colour does not move when the palette moves. Adding dark mode later then
-> becomes "give each role a second value" rather than "find every colour decision again".
-> **Do not build a variant mechanism to hold values nobody has chosen** — one value per
-> role, and the roles are the seam.
+**The tell.** It wasn't. Three copies of a date-range formatter used two different separators —
+one surface said "to" where two said "→". Consolidating them **changed visible copy on one
+surface**, and I wrote it up as a phase where "no pixels move."
 
-That is the general shape: **the naming is the expensive, irreversible part; the variant
-mechanism is cheap and can wait.** Do the expensive part early with the degenerate
-one-value case.
-
-### 3.3 One axis for "which surface am I on" — and expect to find three
-
-The plan assumed there were two competing spellings of surface/density. There were three:
-
-| Axis | Cases | Read by |
-| --- | --- | --- |
-| a `CardDensity` enum | regular / compact / widget | one component |
-| a `compact: Bool` parameter | 2 | a shared badge + two private helpers |
-| the new `Canvas` enum | 5 | everything the new work added |
-
-Two observations generalise:
-
-**A boolean is an enum that lost information, and it hides drift.** The `compact: Bool` was
-concealing a real bug: one screen passed `true` for two badges and passed nothing at all
-for a third, so a single row drew two badge sizes. Nobody could see it because `false` and
-"not specified" look the same at a call site. Converting the boolean to the surface enum
-made the row's inconsistency a compile-visible fact.
-
-**The coarse enum couldn't answer a question the fine one could.** Under the three-case
-axis, a component's body text had to be optional, because `.widget` couldn't distinguish
-the smallest widget family (no room for a body line) from the two that had room — so the
-*view code* computed the absence and passed `nil`. Under the five-case axis the theme
-answers it (`showsBody`) and the parameter is required again. **Optionality that exists to
-paper over a too-coarse axis is a design smell, not a modelling requirement.**
-
-Concretely: the axis had a case per *surface* (`phoneApp`, `desktopPopover`, `widgetSmall`,
-`widgetMedium`, `widgetLarge`), not per *size class*. Two widget families shared a card
-geometry and deliberately did not share a type size. A three-case density axis physically
-could not express that.
-
-### 3.4 Correlated values belong in one switch, not N parallel switches
-
-Card geometry resolved as **one function returning seven correlated values** (radius,
-paddings, shadow, fill opacity, …) rather than seven independent lookups, because a card's
-radius is not independently choosable from its padding. If two values must move together,
-make it impossible to move one.
-
-### 3.5 Set a bar for adding a token, and enforce it
-
-The rule used: **a typography role is added only once every surface has a real call site to
-transcribe.** Not "once we think we'll need it." Two roles qualified in the first pass; the
-rest waited, and two more earned their place during the sweep when a fifth call site
-appeared.
-
-The corollary is the fail-loud rule: **a role that genuinely does not exist on a surface
-must trap there, not return an invented value or an optional.** One canvas had no second
-line of text at all; the token for it traps on that case, and the trap is unreachable
-because that canvas passes no detail. That is strictly better than inventing a plausible
-size, which would silently become real the first time someone added the line.
-
-### 3.6 Delete tokens that lose their last call site, in the same commit
-
-Convergence retired one radius value on the spot: two of three surfaces used 8, one used 10
-for the same element, 8 won on majority, and the 10 token had no other site — so it was
-deleted in that commit. A token layer accumulates dead entries faster than a codebase
-accumulates dead functions, because nothing fails to compile.
+**The fix.** Two parts. Treat any consolidation of near-duplicates as a **visible change until
+proven otherwise**, because near-duplicates differ for a reason or by accident and you don't
+know which until you diff them. And pin the chosen behaviour with a test in the same commit —
+here, four of them, one of which caught a bad fixture of my own making (a late-evening UTC
+timestamp is already the next day in a summer-time timezone).
 
 ---
 
-## 4. Component convergence: the part that actually pays
+## 3. The token layer
 
-Tokens are the cheap half. The expensive half is that changing a component means finding
-all its copies. Seven convergences landed, one per commit.
+### Mistake 8: An environment-injected theme when the reskin is rebuild-time
 
-### 4.1 Read all N implementations before you write the one
+**The reasoning.** Themes are contextual, contexts are what the environment is for, inject at
+the root and everything downstream reads it. This is the idiomatic answer.
 
-The single most valuable thing here: **the plan was wrong about two of the seven, and both
-errors were only visible after reading every copy.**
+**The tell.** Count your roots. Here there were three: the app's view hierarchy, a menu-bar
+item hosted from an app delegate outside any hierarchy, and a widget rendering in a *separate
+process* with no host environment to inherit. **An environment-keyed theme has to be
+re-injected at every root, and it fails silently at any root someone forgets** — the view just
+gets the default and looks approximately right.
 
-- A header that looked like "one design at three sizes" was, on reading, **four genuinely
-  different designs**. One surface stacked a name under a wordmark; another put three
-  elements on one line; the compact widgets drew a single row; the large one stacked. One
-  component would have been a switch with four bodies and no shared structure. **Only the
-  metadata line actually repeated, and that is the only thing that converged.**
-- A footer that the inventory said had four sites had **five** — the fifth was inline in a
-  narrow sidebar column with a genuinely different layout, and it correctly did not converge
-  either.
+**The fix.** Ask the question explicitly on day one: **is the reskin rebuild-time or runtime?**
+If rebuild-time, static constants on nested enums. No environment keys, no modifiers, no
+injection, no root to forget, and no question about what a widget timeline does with a theme.
 
-**Anti-pattern: converging things that merely look alike.** A shared component whose body
-is `switch surface { case a: …; case b: …; case c: … }` with no common structure has bought
-you nothing and cost you a level of indirection. The test is whether the *structure* is
-shared and only the *values* differ. If the structure differs, converge the sub-part that
-doesn't (the metadata line), and leave the rest.
+**Where it costs.** If a user-selectable theme is ever wanted, this is a rewrite of the
+plumbing rather than an extension of it. **Write that revisit condition down in the source.**
+It is honest about the cost and it stops the next person re-litigating from scratch.
 
-### 4.2 Content stays with the caller; the component owns structure and style
+### Mistake 9: "No dark mode yet, so don't name the roles yet"
 
-This is what made four session-row implementations collapse into one. The four rows put
-genuinely different content on their second line — an absolute date on one surface, a
-secondary name on another, a relative time on a third — and genuinely different things in
-the trailing slot, from a live countdown to nothing at all.
+**The reasoning.** Semantic colour roles exist to hold variants. No variants, no roles. Adding
+them now is speculative generality.
 
-Had the component tried to own that, it would have needed the surface enum *plus* the
-domain model *plus* a formatting policy. Instead it takes `String?` / `View?` slots. The
-caller decides what goes there; the component decides how it looks.
+**The tell.** Platform semantic colours (`.primary`, `.secondary`, and friends) sitting beside
+your palette at dozens of sites. **They do not move when your palette moves**, which is the
+entire problem you're trying to solve — and they're usually the reason someone had to pin the
+whole surface to one appearance in the first place.
 
-**The optional slots also deleted two real bugs.** Two call sites had hidden fallbacks —
-`countdown ?? weekend.location` and a formatter that returned the location when a weekend
-had no sessions — both drawing a place name where a date or time belonged. Once the
-component takes an optional, the honest answer ("there is no second line here") is
-expressible, and the fallbacks had nothing left to do.
+**The fix.** Name the roles now, **one value each**, mapped to what is on screen today. Adding
+a variant later becomes "give each role a second value" rather than "find every colour decision
+again."
 
-That is a general result: **hidden fallbacks are often a symptom of a component that
-couldn't express absence.** Fix the expressiveness and the fallbacks evaporate.
+**The discipline that makes this safe:** do *not* build the variant mechanism. One value per
+role. **The naming is the expensive, irreversible part; the variant machinery is cheap and can
+wait.** Do the expensive part early in its degenerate form.
 
-### 4.3 Convergence forces decisions. Each one is a decision, and each needs a record
+### Mistake 10: A boolean where the axis has more than two cases
 
-Every convergence surfaced a disagreement that had never been decided by anybody:
+**The reasoning.** Two sizes, one flag. `compact: Bool`. Obvious.
 
-- Corner radius 8 vs 10 for the same element → **8, on majority**, dead token deleted.
-- An eyebrow label red on one surface, grey on two → **grey**, because red is this product's
-  *live* signal and the eyebrow marks something that hasn't started. Decided on semantics,
-  not on the vote.
-- Section-label padding 12/4 vs 10/2 → **12/4**, and the discovery that this was *not*
-  platform intent: the screen in question is shared, so both rhythms rendered in the same
-  window.
-- Vertical padding 8 vs 9 → **8**; both sites were off-grid, and they were the last two.
+**The tell — and this is the good one.** `false` and *unspecified* are indistinguishable at a
+call site. Here, one screen passed `true` for two badges and passed nothing at all for a third,
+so **a single row drew two badge sizes** and had done for months. Nobody could see it, because
+the wrong value and the missing value look the same in a diff and in a review.
 
-Note the two different tie-breakers. **Majority is the default; semantics overrides it.**
-The red/grey case went against the majority-of-one because there was an actual meaning
-attached to the colour. Write down which rule you used, because the next reader will
-otherwise assume you just counted.
+**The fix.** One named axis with a case per surface. Converting the boolean made the row's
+inconsistency a fact you could see. Expect to find more spellings than you planned for: this
+codebase had **three** — an enum, a boolean, and the new one — where the plan said two.
 
-### 4.4 Watch for the copy nobody counted
+**Get the granularity right, too.** The cases here are per *surface*, not per *size class*,
+because two widget families shared a card geometry and deliberately did not share a type size.
+A three-case density axis physically could not express that.
 
-The sweep found **a fifth implementation of the session row inside a loading skeleton** —
-hand-built with its own accent rule, label stack and panel, still carrying the corner radius
-the convergence had retired two phases earlier. Skeletons, placeholders, previews, and empty
-states are where duplicate components hide, because they don't look like the component; they
-look like grey rectangles.
+### Mistake 11: Optionality that papers over a too-coarse axis
 
-The fix is the general one: **the skeleton draws the real component**, with placeholder
-content, so it cannot drift from what it stands in for. Its placeholder strings became
-non-localised verbatim text, because they are shapes, not copy.
+**The reasoning.** This component's body text isn't always present, so the parameter is
+optional. That's just modelling reality.
+
+**The tell.** **View code computing something the theme should answer.** Under the coarse
+three-case axis, one case covered all widget sizes and couldn't distinguish the smallest family
+(no room for a body line) from the two with room — so the *call site* worked out the absence and
+passed `nil`.
+
+**The fix.** Refine the axis, not the API. With a case per surface, the theme answers it
+(`showsBody`) and the parameter becomes required again. **Optionality that exists only because
+an enum can't tell two cases apart is a design smell, not a modelling requirement.**
+
+### Mistake 12: N parallel lookups for correlated values
+
+**The reasoning.** Radius, padding, shadow and fill are separate properties, so they get
+separate tokens.
+
+**The tell.** Someone changes a card's radius on one surface without its padding, and it looks
+wrong in a way nobody can name.
+
+**The fix.** **One function returning the correlated set.** Card geometry here resolves seven
+values at once, because a card's radius is not independently choosable from its padding. If two
+values must move together, make it impossible to move one.
+
+### Mistake 13: Speculative tokens
+
+**The reasoning.** While we're defining the type scale, define the whole scale. We'll need
+`display` and `caption2` eventually.
+
+**The tell.** Constants with one call site, or none.
+
+**The fix.** A stated bar, enforced: **a role is added only once every surface has a real call
+site to transcribe.** Not "once we think we'll need it." Two roles qualified in the first pass
+here; two more earned their place later, during the sweep, when a fifth call site appeared.
+
+### Mistake 14: Treating "trap where the value doesn't exist" as the whole rule ***mine***
+
+**The reasoning.** Fail loudly. If a canvas has no second line of text, the token lookup for it
+should trap rather than invent a size. I wrote this up as the rule.
+
+**The tell.** A trap is a runtime hole presented as a design. It happens to be unreachable here
+— that canvas passes no detail — but "unreachable today" is a property of the call sites, not
+of the type.
+
+**The fix.** The invariant is **"never invent a default"**, not "always trap". Prefer, in order:
+
+1. make the invalid combination unrepresentable in the component's API;
+2. keep the lookup inside the component that knows which cases are valid;
+3. use a loud runtime failure only when encoding the subset in the type system costs more
+   machinery than the invariant is worth.
+
+Trapping is the third option, and it's a legitimate one — but it is the fallback, not the goal.
+What must never happen is returning a plausible invented value, which **silently becomes real
+the first time somebody adds the line.**
+
+### Mistake 15: Dead tokens
+
+**The reasoning.** It's a constant. It costs nothing to leave it.
+
+**The tell.** Nothing fails to compile when a token loses its last call site, so nothing tells
+you. A token layer accumulates dead entries faster than a codebase accumulates dead functions.
+
+**The fix.** Delete it in the commit that orphans it. One convergence here retired a radius on
+the spot: two surfaces used 8, one used 10 for the same element, 8 won, and the 10 token had no
+other site — so it went in the same commit rather than becoming a puzzle for later.
 
 ---
 
-## 5. Verification when you have no snapshot tests
+## 4. Component convergence
 
-This is the section worth the most, because it is the situation most teams are actually in.
-The repo had unit tests for domain logic and four build wrappers. **None of it covers what
-this work changes.** A component convergence that renders the wrong thing compiles and
-passes everything.
+### Mistake 16: Converging things that merely look alike
 
-The gap was named up front as *the largest risk in the task*, and the honest question
-— "is a snapshot harness a prerequisite?" — was left open rather than hand-waved.
+**The reasoning.** Three surfaces draw a header with the same information. That's one component
+at three sizes.
 
-**It was ultimately answered by removing its premise, not by building the harness.** Here is
-the toolkit that replaced it.
+**The tell.** The shared implementation's body is `switch surface { case a: … case b: … case c:
+… }` with no common structure. You have bought nothing and added a level of indirection.
 
-### 5.1 Separate compile confidence from behaviour confidence, explicitly
+**The fix.** Read all N implementations *before* writing the one, and test for shared
+*structure*, not shared *purpose*. Here, the header turned out to be **four genuinely different
+designs**: one surface stacked a name under a wordmark, another put three elements on one line,
+the compact widgets drew a single row, the large one stacked. **Only the metadata line actually
+repeated, and that is the only thing that converged.** Converge the sub-part that's genuinely
+shared and leave the rest alone.
 
-Say which one you have. "All three targets build" is a true and useful statement that tells
-you nothing about whether the popover still looks right. Every phase note in this work
-records both, separately, and says which commits are compile-verified *only*.
+### Mistake 17: Trusting your own inventory
 
-### 5.2 Split commits along the verifiability line
+**The reasoning.** You counted. The count said four.
 
-One target had no capture path at all. Its sweep therefore landed as **two commits**:
+**The tell.** It was five. The fifth was inline in a narrow sidebar column with a genuinely
+different layout — and it correctly did not converge either.
 
-- One provably neutral: every substitution replaced a literal with a token whose value
-  equals that literal.
-- One that genuinely changes pixels, with its evidence being colour measurements rather than
-  screenshots.
+**The fix.** Expect the inventory to be wrong in *both* directions: implementations you missed,
+and implementations that shouldn't converge. Re-read at convergence time, not at planning time.
 
-The second is revertable without losing the first. **When part of a change is provably safe
-and part isn't, don't ship them together** — you have thrown away the ability to revert
-cheaply, and you've made the reviewer treat the safe half with the same suspicion as the
-risky half.
+### Mistake 18: The component owning its content
 
-That split is also the seam a future snapshot harness attaches to, which is worth stating in
-the commit message.
+**The reasoning.** A session row shows a name, a date and a status. Give it the model.
 
-### 5.3 The value-multiset proof
+**The tell.** The component needs the domain model *plus* the surface enum *plus* a formatting
+policy, and every new caller adds a case to something.
 
-For "this refactor cannot change anything" claims, don't assert it — compute it:
+**The fix.** **The caller owns content; the component owns structure and style.** This is what
+let four implementations collapse into one here. The four rows put genuinely different content
+on the second line — an absolute date on one surface, a secondary name on another, a relative
+time on a third — and different things in the trailing slot, from a live countdown to nothing.
+The component takes optional string and view slots. The caller decides what goes in them.
 
-> Extract every literal removed by the diff and every token added. Resolve each token
-> against its definition. Compare the multisets.
+### Mistake 19: Hidden fallbacks
 
-25 values, identical, in the case above. This is a five-minute script and it converts a
-reviewer's "looks fine to me" into a proof. It works for spacing, radii, durations, colours
-— anything where a refactor claims to be a pure renaming.
+**The reasoning.** The countdown might be absent, and an empty line looks broken, so `??`
+something.
 
-### 5.4 Resolve-and-diff for CSS
+**The tell.** **A `??` between two different kinds of thing.** Two here — `countdown ??
+location`, and a formatter returning the location when there were no sessions — both drew a
+place name where a date or a time belonged. That is not a fallback, it's a category error with
+a default in front of it.
 
-The website consolidation had no build step and no tests. "Verified by opening it in a
-browser and confirming nothing moved" is the weakest possible check and it is what the plan
-originally called for.
+**The fix.** Make absence expressible, and the fallbacks evaporate on their own. Once the
+converged component took optionals, the honest answer ("there is no second line here") had
+somewhere to live and both `??` sites had nothing left to do. **Hidden fallbacks are often a
+symptom of a component that couldn't express absence** — fix the expressiveness first and see
+what's left.
 
-What was done instead: **parse every rule on both pages before and after, resolve every
-`var()` transitively, and compare declaration by declaration.** 38 rules on one page, 13 on
-the other, zero differences. Later, when a radius ladder replaced ten raw literals, the same
-technique gave: nine sites byte-identical, one intended change.
+### Mistake 20: Majority as design authority
 
-This is *stronger* than opening the page, not a substitute for it. A browser shows you one
-viewport of one page in one state. The resolution diff covers every declaration.
+**The reasoning.** Two surfaces say 8, one says 10. Democracy.
 
-### 5.5 Predict the offset, then check the diff matches the prediction
+**The tell.** You catch yourself resolving an accessibility or semantic question by counting.
 
-The sharpest technique in the whole exercise, and the one most worth copying.
+**The fix.** **For a convergence whose goal is to preserve the existing product, majority is a
+useful lowest-churn fallback — it is not authority.** Semantics, accessibility, an existing
+specification and platform convention all outrank it. Worked examples from the same phase:
 
-Naive pixel diffing tells you *that* pixels changed, which for a deliberate change is
-useless. Instead: **before capturing, state what the change should do in numbers, then
-verify the diff matches that statement.**
+- Corner radius 8 vs 10 for the same element → **8, on majority.** No meaning attached.
+- An eyebrow label red on one surface, grey on two → **grey**, but *not* because it was 2-1.
+  Red is this product's live-session signal, and the eyebrow marks something that hasn't
+  started. **Semantics against the count.**
+- Section-label padding 12/4 vs 10/2 → 12/4, plus the discovery that this was **not** platform
+  intent at all: the screen is shared, so both rhythms rendered in the same window.
 
-Real example. A spacing token changed one value from 14 to 12. The prediction: the header
-card's four children move up by exactly 0, 2, 4 and 6 points respectively (the accumulated
-delta), the wordmark row is byte-identical, and everything below the card shifts by a uniform
-6pt.
+**Write down which rule you used**, because the next reader will otherwise assume you counted.
 
-The diff matched, including a max channel delta of 23 in the shifted region — which is not a
-re-layout, it is a fixed background gradient seen through translucent cards at a 6pt offset.
-That is a *confirmation*, not an observation.
+### Mistake 21: A representative audit instead of a category-complete one
 
-Contrast with what naive diffing gets you: "the bottom 60% of the screen changed." True and
-worthless.
+**The reasoning.** You looked at the main view, the detail view and the widget. You found the
+duplication. It's thorough enough.
 
-### 5.6 Know your capture's noise floor before you trust a capture
+**The tell.** Reading the likely files finds the obvious copies and *feels* thorough. What it
+misses is the copies that don't look like the component. The sweep here found **a fifth
+implementation of the session row inside a loading skeleton** — hand-built with its own accent
+rule, label stack and panel, still carrying the corner radius the convergence had retired two
+phases earlier. Skeletons, placeholders, previews and empty states are where duplicate
+components hide, because they look like grey rectangles.
 
-Two consecutive captures of the same screen, taken minutes apart, differed in exactly three
-bands: the status-bar clock and two live countdowns. **Everything else is pixel-stable.**
+**The fix.** Enumerate the categories and count each one — palette and semantic colours,
+typography, spacing, radii, opacity, motion, icons, shared components, strings, formatters —
+and then, explicitly, **loading skeletons, placeholders, previews and empty states**. For each
+candidate convergence, search in three directions before writing anything: upstream callers,
+downstream rendering, and lateral copies elsewhere in the repository.
 
-Measuring that first is what makes every later diff readable — you know which changed bands
-are signal. Without it, every diff has three unexplained regions and you learn to ignore
-diffs, which is how visual verification dies.
+And fix the skeleton the general way: **it draws the real component** with placeholder content,
+so it cannot drift from what it stands in for. (Its placeholder strings became non-localised
+verbatim text, because they are shapes, not copy.)
 
-### 5.7 Assume the capture harness is lying to you
+---
 
-Hard-won, and it generalises to any screenshot tooling:
+## 5. Verification without snapshot tests
 
-- **The install pass is never the usable pass** — installing rewrote the home screen layout,
-  so the run that installed produced a bad capture roughly half the time.
-- **A screen with the widget missing entirely exits 0 with a valid PNG.** Exit code and file
-  existence prove nothing. Every capture has to actually be looked at.
+This is the section worth the most, because it's the situation most teams are actually in. This
+repo had unit tests for domain logic and four build wrappers. **None of it covers what this
+work changes.** A component convergence that renders the wrong thing compiles and passes
+everything.
+
+The honest question — "is a snapshot harness a prerequisite?" — was named as the largest risk
+and left open rather than hand-waved. It was ultimately **mitigated enough to proceed, not
+eliminated**: two of three surfaces gained pixel evidence, and one never did. Here is the
+toolkit that made the work reviewable anyway.
+
+### Mistake 22: Letting "builds" become "verified"
+
+**The reasoning.** All three targets compile and the tests pass. Green.
+
+**The tell.** One word doing two jobs in a status update, usually a session or two after the
+work, when whoever writes the summary wasn't there for the caveat.
+
+**The fix.** Keep the two kinds of confidence in separate columns and never merge them.
+"All three targets build" is true, useful, and tells you *nothing* about whether the popover
+still looks right. Every phase note in this work records build confidence, behaviour confidence
+and visual confidence separately, and says which commits are compile-verified **only**.
+
+### Mistake 23: Shipping provable and visible changes in one commit
+
+**The reasoning.** It's one target's sweep. It's one logical change.
+
+**The tell.** A reviewer has to treat the safe 90% with the same suspicion as the risky 10%,
+and a revert throws away both.
+
+**The fix.** **Split along the verifiability line.** The one target with no capture path landed
+as two commits: one where every substitution replaced a literal with a token of equal value,
+and one that genuinely changes pixels and whose evidence is colour measurements rather than
+screenshots. The second is revertable without losing the first. That split is also the seam a
+future snapshot harness attaches to — worth saying so in the commit message.
+
+### Mistake 24: Asserting neutrality instead of computing it
+
+**The reasoning.** Every change in this commit is a literal replaced by the token holding that
+literal. It is neutral by construction.
+
+**The tell.** "Trust me" in a review, and a reviewer who can't practically check 200 lines of
+substitutions by hand.
+
+**The fix — the value-multiset proof.** Extract every literal the diff removes and every token
+it adds, resolve each token against its definition, and compare the multisets. 25 values,
+identical, in the case above. It's a five-minute script and it converts "looks fine to me" into
+a proof. Works for spacing, radii, durations, colours — anything where the claim is pure
+renaming.
+
+### Mistake 25: "I opened it and nothing moved"
+
+**The reasoning.** It's a website. There's no build step. You look at it.
+
+**The tell.** One viewport, one page, one state, one person's memory of what it looked like
+before.
+
+**The fix — resolve and diff.** Parse every rule on every page before and after, resolve every
+variable reference transitively, compare declaration by declaration. 38 rules on one page, 13
+on the other, zero differences. Later, when a radius ladder replaced ten raw literals, the same
+script gave nine sites byte-identical and one intended change. **This is stronger than opening
+the page, not a substitute for it.**
+
+### Mistake 26: Diffing without a prediction
+
+**The reasoning.** Capture before, capture after, diff. If pixels changed, look at them.
+
+**The tell.** The diff says "the bottom 60% of the screen changed." True and worthless — and
+after two of those, people stop running the diff.
+
+**The fix — and this is the sharpest technique here.** **State what the change should do in
+numbers, then verify the diff matches the statement.** A real example: a spacing token moved
+from 14 to 12. The prediction, written before capturing: the header card's four children move
+up by exactly 0, 2, 4 and 6 points respectively (the accumulated delta), the wordmark row is
+byte-identical, and everything below the card shifts by a uniform 6pt.
+
+The diff matched — including a max channel delta of 23 in the shifted region, which is not a
+re-layout, it's a fixed background gradient seen through translucent cards at a 6pt offset.
+**That is a confirmation, not an observation.**
+
+### Mistake 27: Not knowing your capture's noise floor
+
+**The reasoning.** Two captures of the same screen should be identical.
+
+**The tell.** They aren't, and every diff has a few unexplained regions you learn to ignore —
+which is how visual verification quietly dies.
+
+**The fix.** Measure it once, first. Two consecutive captures here differed in exactly three
+bands: a status-bar clock and two live countdowns. **Everything else is pixel-stable.** Knowing
+that is what makes every later diff readable, because you know which changed bands are signal.
+
+### Mistake 28: Trusting the capture tooling
+
+**The reasoning.** It exited 0 and wrote a PNG.
+
+**The tells**, all three found the hard way:
+
+- **The install pass is never the usable pass.** Installing rewrote the home screen layout, so
+  the run that installed produced a bad capture about half the time.
+- **A screen with the subject missing entirely exits 0 and writes a valid PNG.** Exit code and
+  file existence prove nothing. Every capture has to be looked at by a human.
 - **A build flag can silently disable the thing you're testing.** Building with code signing
-  off strips the entitlement that creates the shared container, so the fixture could never be
-  seeded and the tool failed 40 lines later with an unrelated-looking error.
+  off stripped the entitlement that creates the shared container, so the fixture could never be
+  seeded — and the tool failed forty lines later with an unrelated-looking error.
 
-### 5.8 Some verification is arithmetic, and it is the cheapest kind
+**The fix.** Treat the harness as an unreliable narrator, and put each of these in its
+docstring the first time it bites you.
 
-Two checks in this work were neither builds nor screenshots:
+### The cheapest verification is arithmetic
 
-- **Contrast ratios**, computed exactly from the WCAG sRGB formula rather than estimated.
-- **Compositing a system colour** — resolving a semi-transparent system label over the actual
-  background to get the real rendered hex.
-
-Both took minutes and both changed decisions. See §6.
+Two checks here were neither builds nor screenshots, took minutes each, and **changed three
+decisions between them**: contrast ratios computed exactly from the sRGB formula rather than
+estimated, and compositing a semi-transparent platform colour over the actual background to get
+the real rendered hex. Skipping these is its own mistake; see the next section for what they
+found.
 
 ---
 
-## 6. Resolving divergences: measure, don't arbitrate
+## 6. Resolving divergences
 
-Three times, two bindings of the same design token held different values. Each time the
-instinct is to ask *which one is authoritative* — the Swift, the CSS, the spec document, the
-older one. That question has no good answer and produces political rather than technical
-outcomes.
+Three times, two bindings of the same design token held different values.
 
-**Every time, the productive move was to convert it into a measurement.**
+### Mistake 29: Asking which binding is authoritative
 
-### 6.1 Reframe the question until it has a number in it
+**The reasoning.** One of these is the source of truth. Find out which — the older one, the
+spec document, the one in the "real" language.
 
-Two text-colour roles had one value in Swift and a different value in CSS. The task file
-framed it as "picking either set moves pixels, and that is a design decision" — i.e. someone
-has to have taste about it.
+**The tell.** The discussion contains the words "should be" and no numbers. This question has no
+good answer and produces political rather than technical outcomes.
 
-Reframed: *which pair is more legible on the background both are actually drawn on?* Now it
-is arithmetic. The CSS pair was darker on both roles — supporting copy 5.32:1 → 6.66:1, quiet
-copy 3.31:1 → 4.05:1. Swift adopted the CSS values. **Nothing got lighter, so no call site
-lost legibility**, which is what made it a safe unilateral change across 28 sites.
+**The fix.** **Convert it into a measurement.** Every time, the productive move was to reframe
+until the question had a number in it. Two text-colour roles disagreed across Swift and CSS,
+and the plan framed it as "picking either set moves pixels, and that is a design decision" —
+i.e. someone has to have taste about it. Reframed: *which pair is more legible on the
+background both are actually drawn on?* Now it's arithmetic. The CSS pair was darker on both
+roles — supporting copy 5.32:1 → 6.66:1, quiet copy 3.31:1 → 4.05:1 — so Swift adopted it.
+**Nothing got lighter, so no call site lost legibility**, which is exactly what made it safe to
+change 28 sites at once.
 
-### 6.2 Map by value, not by name
+### Mistake 30: Mapping platform semantic colours by name
 
-The plan said to map the platform's system `.secondary` label colour onto the palette's
-`textSecondary`. Obvious, and wrong.
+**The reasoning.** The platform's secondary label maps to your `textSecondary`. It's in the
+name.
 
-Resolving it: the system's secondary label in the light appearance is black at 49.8% alpha,
-which over this app's off-white background renders as a hex **three units from the palette's
-*tertiary*** and thirty-three from its secondary. The platform has four label levels where
-this product has three, so its `.secondary` lands on this palette's *tertiary*.
+**The tell.** Two vocabularies sharing a word. Resolving it here: the platform's secondary label
+in the light appearance is black at 49.8% alpha, which over this app's off-white background
+renders a hex **three units from this palette's *tertiary*** and thirty-three from its
+secondary. The platform has four label levels where the product has three, so its "secondary"
+lands on the product's tertiary.
 
-Mapping by name would have visibly darkened seven labels on the one surface with no
-screenshot path. **When you replace a platform semantic colour with your own, composite it
-against your actual background and compare hexes.** Names across two vocabularies are false
-friends.
+**The fix.** Composite against your actual background and compare hexes. Mapping by name would
+have visibly darkened seven labels on the one surface with no screenshot path — the worst place
+to be wrong.
 
-### 6.3 Compare elements, not numbers
+### Mistake 31: Comparing numbers instead of elements
 
-The open question was whether a web card radius (16px) and the app's per-density card radii
-(24/18/14) were meant to be the same thing. Framed as numbers, it is unanswerable.
+**The reasoning.** The web card radius is 16; the app's are 24/18/14. Are they meant to be the
+same thing?
 
-Framed as elements, it took one line: the app's smallest radius token and the web's accent
-bar rule **round the same element** — a 3px-wide vertical rule with one rounded end. Same
-element, two answers (2 vs 3), and they disagreed only because nobody had ever put them side
-by side. Meanwhile the next two rungs already agreed independently, and the card radii are
-per-surface on *both* bindings — two ladders of three, neither derived from the other — so
-there was nothing to reconcile there and never will be.
+**The tell.** The question is unanswerable in that form, so it stays open for months.
 
-**Generalises to: when two bindings disagree, find an element both actually draw.** The
-numbers alone can't tell you whether you're looking at one concept with two values or two
-concepts that happen to be adjacent.
+**The fix.** **Find an element both bindings actually draw.** One line settled it here: the
+app's smallest radius token and the web's accent-bar rule round *the same element* — a 3px-wide
+vertical rule with one rounded end — and they disagreed 2 against 3 purely because nobody had
+put them side by side. Meanwhile the next two rungs already agreed independently, and the card
+radii are per-surface on *both* bindings: two ladders of three, neither derived from the other,
+nothing to reconcile and never will be. **Numbers alone can't tell you whether you're looking
+at one concept with two values or two concepts that happen to be adjacent.**
 
-### 6.4 Don't resolve a two-value divergence by inventing a third value
+### Mistake 32: Inventing a third value to settle a two-value split
 
-The measurement above left one role short of the 4.5:1 that normal-size text wants. A
-darker shade holding the same hue clears it at 4.55:1.
+**The reasoning.** Neither existing value is quite right, and you can compute one that is.
 
-That value was **recorded in the spec and not adopted**, with the reason written down:
+**The tell.** A value that nothing in the product has ever drawn.
 
-> Resolving a two-value divergence by inventing a third value neither binding has ever drawn
-> is how you get a fourth.
+**The fix.** The measurement above left one role short of the 4.5:1 that normal-size text wants;
+a darker shade holding the same hue clears it at 4.55:1. That value was **recorded in the spec
+and not adopted**, with the reason written down: *resolving a two-value divergence by inventing
+a third value neither binding has ever drawn is how you get a fourth.* The number is in the spec
+so nobody recomputes it. Adopting it would have been a separate decision needing its own
+justification, and it didn't have one.
 
-The number is in the spec so the next person doesn't have to recompute it. Adopting it was a
-separate decision with a separate justification, and it didn't have one.
+### Mistake 33: Treating a measurement as a verdict between the options you already had ***mine***
 
-### 6.5 A measurement can reframe a decision rather than settling it
+**The reasoning.** A semantic green was suspected of failing contrast for body text. Measure it;
+if it fails, add a darker companion colour for text. Two options, one measurement, done.
 
-The most instructive one. A semantic green was suspected of failing contrast for body text.
-It does — 3.31:1 against the app's background, versus the 4.5:1 bar.
+**The tell.** I nearly stopped at the first number. It does fail — 3.31:1 against the app's
+background, versus the 4.5:1 bar. That answer would have added a palette entry.
 
-But computing the *comparison* numbers reframed the whole question: **almost nothing in this
-palette clears 4.5:1 on that background.** The brand red is 3.93. The blue is 3.89. The grey
-being replaced is 2.75.
+**What the comparison numbers showed instead.** Almost *nothing* in this palette clears 4.5:1
+on that background: the brand red is 3.93, the blue 3.89, and the grey being replaced 2.75. So
+per surface, adopting green for finished-state text: one surface **improves**, one is unchanged,
+and only the third regresses — from near-black text.
 
-So per surface, adopting green for finished-state text: one surface *improves*, one is
-unchanged, and only the third regresses (from near-black text). The decision that followed
-was neither of the two originally on the table — it was **green carries the accent bar, the
-badge and the tint (all of which clear the 3:1 UI bar), and text stays on the primary role
-everywhere.** No new palette entry, no regression, and the accessibility exposure that
-already existed got smaller.
+**The fix, which was neither original option.** Green carries the accent bar, the badge and the
+tint, all of which clear the 3:1 bar for UI components; text stays on the primary role
+everywhere. No new palette entry, no regression, and the accessibility exposure that already
+existed got smaller. **A measurement's job is often to change what the options are, not to pick
+between the options you had.**
 
-**A measurement's job is often to change what the options are, not to pick between the
-options you had.**
+### Mistake 34: Triumphant summaries ***mine***
+
+**The reasoning.** The open question was "do we need a snapshot harness first?" We found a way
+to capture two surfaces. So the question is answered.
+
+**The tell.** I wrote that the question had been "answered by removing its premise." It hadn't.
+One surface never got a capture path at all, and it held the highest-risk part of the sweep.
+**The uncovered case quietly dropped out of the summary** — which is the general shape of this
+mistake, and it's easiest to commit about your own work.
+
+**The fix.** Say "mitigated, not eliminated", and name what's still uncovered, every time you
+restate the status. The residual gap is exactly the thing a later reader needs and the thing a
+summary is most likely to lose.
 
 ---
 
 ## 7. Where the reasoning lives
 
-A recurring theme, and the thing that most distinguishes this from a tidy-up.
+### Mistake 35: Reasoning that lives only in the task file
 
-**Every non-obvious value carries its justification in the source, at the definition.** Not
-in a wiki, not in a PR comment, not in a task file that gets deleted (this one did). The
-token definitions carry doc comments explaining the value. Examples of what that looks like
-in practice:
+**The reasoning.** The task file has all the context. It's detailed, it's current, everyone
+working on this reads it.
 
-- A colour constant that is *also* transcribed into three asset-catalog JSON files says so,
-  and says that nothing will fail to compile if they drift. **Cross-format duplication that
-  no compiler checks must be documented at both ends or it will drift silently.**
-- A value adopted from another binding records the date, the reason (contrast), the before
-  and after ratios, and the invariant it preserved ("nothing in this file gets lighter").
-- Two constants that sat 270 lines apart with nothing saying they were related — an
-  animation duration and the hold time before it reverts — became adjacent named tokens.
-  That relationship was previously nowhere.
-- A capability that was **declined** got a longer note than most that were built (see §8).
+**The tell.** The task is done, so the file gets deleted — and with it the only record of why
+the value is 8.
 
-**The commit message carries what the diff cannot.** These commits routinely run to 20+
-lines: what differed for a reason and stays; what differed for no reason and collapsed; the
-visible changes, all intended, enumerated; and the verification evidence with its limits.
-A commit that says "converge session rows" and shows a 400-line diff is unreviewable. One
-that says "the corner radius was 8 on two surfaces and 10 on the third for the same element;
-8 wins on majority; the 10 token had no other site and is deleted" can be checked in
-isolation.
+**The fix, in two halves, because the common overcorrection is worse.** The task file is
+**working memory and it's genuinely valuable as that**: it held the inventory, the evolving
+plan, phase status, verification limits, changed decisions and open questions across many
+sessions, and it's what let the work survive being put down and picked up. Keep it. But
+**before deleting it, promote everything durable into the layer that will be loaded when it
+matters**:
 
-**The spec document is written last and describes both bindings.** Every token, its Swift
-value and its CSS value, plus an explicit list of the tokens that are Swift-only (platform
-symbol names, widget density families) — *marked as such rather than silently absent*, so a
-reader can tell "not applicable to the web" from "somebody forgot".
+- token values and their invariants, in doc comments beside the definitions;
+- behaviour, in tests;
+- the as-built cross-platform contract, in the spec;
+- why a specific non-obvious decision was made, in that commit's message.
 
-**Anti-pattern: the task file as the memory.** This report exists because that file was
-about to be deleted. Anything in it that mattered had to already be in the source, the
-commits, or the guides. A design decision whose only record is a planning document has a
-half-life of about one quarter.
+**A design decision whose *only* record is a planning document has a half-life of about one
+quarter.**
 
----
+What this looks like in practice: two constants that sat 270 lines apart with nothing saying
+they were related — an animation duration and the hold time before it reverts — became adjacent
+named tokens, and that relationship was previously recorded nowhere at all.
 
-## 8. Deciding *not* to build something is a decision, and needs the same rigour
+**And the commit message carries what the diff cannot.** A commit saying "converge session rows"
+over a 400-line diff is unreviewable. One saying *"the corner radius was 8 on two surfaces and
+10 on the third for the same element; 8 wins on majority; the 10 token had no other site and is
+deleted"* can be checked in isolation, years later, by someone who wasn't there.
 
-One of the three items left open was a `--app` flag for the screenshot tool, to make
-capturing the app itself reliable. It was **declined**, and the reasoning was written into
-the tool's docstring:
+### Mistake 36: Cross-format duplication nobody checks
 
-- Making it reliable requires suppressing a network fetch on launch, and **nothing outside
+**The reasoning.** The palette lives in one place in code. Job done.
+
+**The tell.** A brand colour that is *also* transcribed into three asset-catalog JSON files,
+because an asset catalog cannot reference code. **Nothing will fail to compile if they drift** —
+the app just tints itself with last year's colour.
+
+**The fix.** You usually can't remove this duplication; the platform requires it. So document it
+**at both ends**, naming the other end explicitly. A comment that says "this value also exists
+in these three files and nothing checks that" is the entire defence available, and it works.
+
+### Mistake 37: Not recording what you decided *not* to build
+
+**The reasoning.** We considered it and said no. Nothing to write down.
+
+**The tell.** Someone proposes it again in six months, with the same enthusiasm and none of the
+analysis.
+
+**The fix.** Declining gets the same rigour as building. One capture-tool feature was declined
+here, and the note is longer than most of the ones that were built:
+
+- Making it reliable would require suppressing a network fetch on launch, and **nothing outside
   the app can do that.**
-- It would therefore need a test-only branch in product code. A grep established that
-  product code currently reads **no launch arguments anywhere** — so this would be a brand
-  new pattern whose only consumer is a screenshot script.
-- Against that: the listing screenshots don't need it, and the manual three-command path
-  already covers the before/after diffing it was wanted for.
+- So it needs a test-only branch in product code. A grep established that product code reads
+  **no launch arguments anywhere** — a brand-new pattern whose only consumer is a screenshot
+  script.
+- Against that: the listing screenshots don't need it, and a manual procedure already covers the
+  before/after diffing it was wanted for.
 - And: **a flag whose job is "do not refresh" is a bad thing to have one typo away from
   shipping.**
 
-The manual procedure went into the docstring instead of the argument parser — **including
-the part that was luck.** The first time it worked, it worked because the fetch happened to
-fail, and a failed fetch leaves the seeded fixture intact (the error path writes nothing)
-while a successful one replaces it. Out of season that race is usually won, *which is exactly
-what makes it unfit to be a supported flag.*
-
-Two things generalise:
-
-1. **Write down the revisit condition and the shape it should take.** "Revisit if app
-   screenshots ever go on the listing, and build it as a product capability — an offline
-   mode — rather than as test scaffolding." That is useful to the next person; "we decided
-   not to" is not.
-2. **Document the luck.** A procedure that works for a reason you didn't intend is a trap
-   for whoever runs it next. Say which part is load-bearing and which part is a coin flip.
+Two things generalise. **Write down the revisit condition and the shape it should take** —
+"revisit if these screenshots ever go on the store listing, and build it as a product
+capability (an offline mode) rather than as test scaffolding" is useful; "we decided not to" is
+not. And **document the luck**: the manual procedure worked the first time because a network
+fetch happened to fail, and a failed fetch leaves the seeded fixture intact where a successful
+one replaces it. A procedure that works for a reason you didn't intend is a trap for whoever
+runs it next. Say which part is load-bearing and which part is a coin flip.
 
 ---
 
-## 9. Anti-pattern catalogue
-
-Collected, in rough order of how much damage each does.
-
-| Anti-pattern | Why it bites |
-| --- | --- |
-| **A `Theme` half the code uses** | Two idioms is worse than one bad idiom. Sweep target-by-target to completion, with counts. |
-| **Converging things that look alike** | If only the values differ, converge. If the structure differs, you're building a switch with N bodies. Converge the shared sub-part instead. |
-| **A migration period** | "Old and new coexist for now" permanently doubles surface area and guarantees new call sites on the old one. Each convergence commit deletes what it replaces. |
-| **Booleans as surface/density axes** | `false` and "not specified" are indistinguishable at the call site, which is where drift hides. |
-| **Coarse axes forcing optionality** | If a parameter is optional only because the axis can't tell two cases apart, fix the axis. |
-| **Sweeping before converging** | You edit the same call sites twice, and the second edit deletes the first. |
-| **Hidden fallbacks (`?? somethingElse`)** | Two of them here drew a place name where a date belonged. Usually a symptom of a component that can't express absence. |
-| **Naming-based mapping between two colour vocabularies** | Platform semantic colours are alpha over your background. Composite and compare hexes, or you will move pixels on the surface you can't screenshot. |
-| **Inventing a third value to settle a two-value split** | Record it in the spec; adopt it only with its own justification. |
-| **Eyeballing "nothing moved"** | One viewport, one page, one state. Resolve and diff instead. |
-| **Trusting exit codes from capture tooling** | A screenshot of the wrong thing exits 0 and produces a valid PNG. |
-| **Diffing without a prediction** | "The bottom 60% changed" is true and worthless. State the expected offset first. |
-| **Reasoning that lives in the task file** | The task file gets deleted. The source doesn't. |
-| **Specs written before the code** | A spec written first is a wish list. Written last, every line has a call site. |
-| **Dead token accumulation** | Nothing fails to compile when a token loses its last call site. Delete it in the commit that orphans it. |
-| **Skipping the arithmetic checks** | Contrast ratios and colour compositing take minutes and changed three decisions here. |
-
----
-
-## 10. What I'd tell someone starting tomorrow
+## What I'd tell someone starting tomorrow
 
 1. **Write the falsifiable test sentence first.** Six things, one edit each, every surface
    follows. Score it honestly at the start and at the end.
-2. **Count before you plan.** The counts are the plan, the acceptance criteria, and the
-   argument for doing the work at all.
-3. **Look at your web presence, your marketing site, your docs.** In this case it was better
-   factored than the app and supplied the vocabulary. It is at minimum another copy of your
-   palette, and it is drifting.
-4. **Decide runtime-vs-rebuild-time explicitly, on day one.** It removes or adds an enormous
-   amount of machinery and it is the one decision that is a rewrite rather than an extension
-   if you get it wrong.
-5. **Name roles now, one value each. Don't build variant machinery.**
-6. **Land the additive phases early** so the token file becomes the place open questions get
-   recorded while they're still being argued.
-7. **Read every implementation before writing the shared one.** Expect the inventory to be
-   wrong about at least one of them, in both directions.
-8. **Establish your capture noise floor**, then diff against predictions, not against
+2. **Count before you plan.** The counts are the plan, the acceptance criteria, and the argument
+   for doing the work at all.
+3. **Inventory the website too.** It may be better factored than the app. It is at minimum
+   another copy of your palette, and it is drifting.
+4. **Decide runtime-vs-rebuild-time explicitly, on day one.** It's the one decision that is a
+   rewrite rather than an extension if you get it wrong.
+5. **Name the roles now, one value each. Don't build variant machinery.**
+6. **Land the additive phase early** so the token file becomes the place open questions get
+   written down while they're still being argued.
+7. **Read every implementation before writing the shared one**, and expect the inventory to be
+   wrong in both directions.
+8. **Establish your capture noise floor**, then diff against predictions rather than against
    expectations.
 9. **Split commits along the verifiability line.** Provably-neutral and visible changes ship
    separately, always.
-10. **When two bindings disagree, find the number.** Contrast, resolved hex, the element both
+10. **When two bindings disagree, find the number** — contrast, resolved hex, the element both
     actually draw. Seniority is not a technical argument.
-11. **Put the reasoning where the value is**, and assume every planning document you write
-    will be deleted. This one was.
+11. **Keep a ledger while the work is live, and put durable reasoning where the value is.**
+    Phase status, changed decisions, evidence and its limits, open questions. Then promote what
+    lasts into the source, the tests and the commit messages, because every planning document
+    is eventually deleted. This one was.
