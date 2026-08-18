@@ -38,7 +38,7 @@
       background: rgba(255, 247, 242, 0.08);
       backdrop-filter: blur(3px);
       -webkit-backdrop-filter: blur(3px);
-      border-radius: 10px;
+      border-radius: var(--radius-lg);
       padding: 6px 14px;
     }
 
@@ -51,7 +51,7 @@
       background: rgba(255, 247, 242, 0.08);
       backdrop-filter: blur(3px);
       -webkit-backdrop-filter: blur(3px);
-      border-radius: 16px;
+      border-radius: var(--radius-xxl);
       padding: 16px 20px;
     }
 
@@ -71,7 +71,7 @@
       gap: 10px;
       background: linear-gradient(135deg, var(--smoke), var(--deep-maroon));
       color: var(--on-dark);
-      border-radius: 10px;
+      border-radius: var(--radius-lg);
       padding: 14px 20px;
       box-shadow: 0 14px 30px rgba(31, 26, 26, 0.22);
     }
@@ -86,7 +86,7 @@
       background: none;
       border: 1px solid rgba(255, 255, 255, 0.28);
       color: var(--on-dark-quiet);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       padding: 4px 10px;
       font-size: 0.75rem;
       cursor: pointer;
@@ -167,7 +167,7 @@
       background: rgba(255, 247, 242, 0.08);
       backdrop-filter: blur(3px);
       -webkit-backdrop-filter: blur(3px);
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       padding: 2px 10px 2px 0;
     }
 
@@ -185,7 +185,7 @@
       padding: 18px 22px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 215, 212, 0.55) 100%);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-xxl);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       box-shadow: 0 10px 24px rgba(122, 12, 15, 0.07);
@@ -201,7 +201,7 @@
       bottom: 22%;
       width: 3px;
       background: var(--signal-red);
-      border-radius: 0 3px 3px 0;
+      border-radius: 0 var(--radius-hairline) var(--radius-hairline) 0;
       opacity: 0;
       transition: opacity 0.2s ease;
     }
@@ -217,7 +217,7 @@
     .feature-icon {
       width: 44px;
       height: 44px;
-      border-radius: 12px;
+      border-radius: var(--radius-xl);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -303,7 +303,7 @@
         <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Tap</a>
       </span>
       <span class="install-note" style="margin-top:4px">Then open <strong>No Spoilers</strong> from your Applications folder to start it.</span>
-      <img src="applications-folder.png" alt="No Spoilers in the Applications folder" style="max-width:320px;border-radius:10px;box-shadow:0 8px 24px rgba(31,26,26,0.18);margin-top:4px">
+      <img src="applications-folder.png" alt="No Spoilers in the Applications folder" style="max-width:320px;border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(31,26,26,0.18);margin-top:4px">
       <span class="install-label" style="margin-top:8px">Update</span>
       <div class="install-cmd">
         <code id="update-cmd">brew update && brew upgrade --cask npomfret/tap/no-spoilers</code>

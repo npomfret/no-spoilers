@@ -64,7 +64,26 @@
   --bg: linear-gradient(180deg, rgba(255,247,242,0.82) 0%, rgba(251,232,229,0.75) 54%, rgba(255,241,238,0.82) 100%);
   --card: rgba(255, 255, 255, 0.88);
   --border: rgba(122, 12, 15, 0.12);
-  --radius: 16px;
+
+  /* ── Radius ────────────────────────────────────────────────
+   * Seven raw literals sat beside a single `--radius` before this. The small
+   * end of the ladder is shared with `Theme.Radius` and holds the same
+   * numbers, which is not a coincidence — `--radius-hairline` rounds the same
+   * 3px-wide session accent bar that `Theme.Radius.hairline` rounds, and the
+   * web had it at 3px against Swift's 2px purely because nobody had put the
+   * two side by side.
+   *
+   * The top of the ladder is not shared and is not meant to be. Card radii are
+   * per-surface on both bindings: the app resolves 24/18/14 per `Theme.Canvas`
+   * inside `Theme.Card`, and these three are this canvas's own. See section 5
+   * of docs/guides/brand.md.
+   */
+  --radius-hairline: 2px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-xxl: 16px;
 
   --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 }

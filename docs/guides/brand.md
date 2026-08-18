@@ -133,11 +133,24 @@ this document.
 `Theme.Radius` — `hairline` 2 (the session accent bar), `small` 6 (the macOS menu row hover),
 `medium` 8 (the session row on every canvas).
 
-Card radii are **not** here. `Theme.Card` resolves them per canvas alongside the padding, fill and
-shadow that go with each: a card's radius is not independently choosable from its padding.
+CSS — `--radius-hairline` 2px, `--radius-sm` 6px, `--radius-md` 8px, then `--radius-lg` 10px,
+`--radius-xl` 12px, `--radius-xxl` 16px.
 
-The web's `--radius` is 16px. **Nobody has decided whether that and the app's 24/18/14 are meant to
-relate** — this is a genuine open question, not an oversight.
+**The small end is shared and holds the same numbers. The card end is per-surface and does not.**
+That is the answer to a question this document used to leave open, and putting the two ladders
+side by side is what answered it:
+
+- **`hairline` is literally the same element.** A 3pt-wide vertical session accent bar, rounded on
+  one end. Swift rounds it at 2, the web rounded it at 3, and nobody had ever compared them. The
+  web moved to 2 on 2026-08-18 — the only pixel this alignment changed.
+- **`small` 6 and `medium` 8 already agreed**, independently, before anyone looked.
+- **Card radii are per-surface on both bindings**, so there is nothing to reconcile. `Theme.Card`
+  resolves 24 / 18 / 14 per canvas alongside the padding, fill and shadow that go with each — a
+  card's radius is not independently choosable from its padding. The web is one canvas with three
+  block sizes and picks 16 / 12 / 10. Two ladders of three, neither derived from the other.
+
+Before this, the web had one `--radius` and seven raw literals beside it. Every one is now a token
+and every token has a call site.
 
 ## 6. Typography
 
