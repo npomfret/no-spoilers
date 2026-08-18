@@ -1,6 +1,7 @@
 # Task 27: the app cannot be reskinned — colour is the only token that exists
 
-**Status: DONE, all eight phases landed 2026-08-17. `Theme` lives in
+**Status: DONE, all eight phases landed 2026-08-17, and the three items they left open were
+decided 2026-08-18 — see "The three open items, closed" at the end. `Theme` lives in
 `NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift` and every family in it now has call sites,
 `Motion` included. Read "Progress" immediately below, then "Decisions" at the end. **Everything
 from section A onwards is the original review, and most of it no longer describes the code** — it
@@ -348,13 +349,8 @@ advice — becomes `docs/guides/brand.md`, where `CLAUDE.md` had been pointing a
 every token with both bindings. `important-code.md` gains five entries: the spec, its two bindings,
 `BrandPalette` and `SharedChrome`.
 
-It records two things rather than resolving them, because both are somebody's decision:
-
-- **The two bindings disagree on the text roles.** Swift's secondary and tertiary are #6D6663 and
-  #918782; the web's are #5F5754 and #827876. Phase 7 aligned the *names* without reconciling the
-  values, deliberately — picking either set moves pixels on a live page or in a shipped app.
-- **Whether the web's `--radius: 16px` and the app's 24/18/14 relate.** Still open, as it was in the
-  original review.
+It recorded two things rather than resolving them, because both were somebody's decision. Both
+were decided on 2026-08-18 — see "The three open items, closed" at the end.
 
 ---
 
@@ -381,8 +377,8 @@ commands, so the widget and the app can both be diffed; the macOS popover still 
 commits that change it are split from the ones that provably do not. If a snapshot harness is ever
 built, that split is the seam it should attach to.
 
-**Left open, deliberately:** the two text-role values above, the web/app radius question, and a
-reliable `--app` capture mode, which would need the fetch suppressed from inside the app.
+**Left open at the time:** the two text-role values, the web/app radius question, and a reliable
+`--app` capture mode. All three were decided the next day; see below.
 
 **Scope, as decided: a rebuild-time reskin (no runtime theme switch), no dark mode yet, the
 green/blue state palette wins, and `docs/` — the website — is in scope alongside the three app
@@ -884,3 +880,44 @@ The four questions that blocked phase 1, and what each one closes.
   variant beside it."* `SharedChrome` is that abstraction, and B is a list of variants beside it.
 - `NoSpoilersCore/Sources/NoSpoilersCore/SharedChrome.swift` — the existing boundary this task
   extends rather than replaces.
+
+---
+
+## The three open items, closed
+
+**2026-08-18, in three commits: `7cfc98b`, `1156e04`, and this one.** Two were resolved by
+measurement and one by declining to build it.
+
+**1. The text roles — Swift adopts the web's values (`7cfc98b`).** The question was never which
+binding had seniority, it was which pair reads better on ivory, and that is measurable. The web's
+is darker on both roles: supporting copy 5.32:1 → 6.66:1, quiet copy 3.31:1 → 4.05:1. Nothing gets
+lighter, so all 28 Swift call sites gain legibility and the role stops having two answers.
+
+Quiet copy still misses the 4.5:1 that normal-size text wants. `#79706E` clears it at 4.55:1
+holding the hue, and `brand.md` records that number without adopting it — resolving a two-value
+divergence by inventing a third value neither binding has drawn is how you get a fourth.
+
+**2. The radius question — the small end is shared, the card end is not (`1156e04`).** Putting the
+two ladders side by side answered it in one line: `Theme.Radius.hairline` and the web's accent bar
+are *the same element*, a 3px-wide vertical session rule rounded on one end, and they disagreed 2
+against 3 because nobody had ever compared them. `small` 6 and `medium` 8 already agreed
+independently. Card radii are per-surface on both bindings — 24/18/14 by `Canvas` in `Theme.Card`,
+16/12/10 by block size on the web — so there was nothing to reconcile there and never will be.
+
+The web gained the ladder it was missing: one `--radius` and seven raw literals became six tokens
+across ten sites. Verified by resolving every `var()` against HEAD — nine sites byte-identical, one
+intended change, the accent bar.
+
+**3. The `--app` capture mode — declined (this commit).** Making it reliable means suppressing the
+fetch, and nothing outside the app can do that; product code reads no launch arguments anywhere
+today, so it would be a new pattern whose only consumer is a screenshot script. Against that: the
+listing screenshots are widget screenshots, the manual three-command path already covers the
+before/after diffing this was wanted for, and a flag whose job is "do not refresh" is a bad thing
+to have one typo from shipping.
+
+So the procedure moves into `screenshots.py`'s docstring instead of into its argument parser,
+including the part that was luck the first time — a *failed* fetch leaves the fixture intact
+because `performRefresh`'s `catch` writes nothing, and a successful one replaces cache and screen
+both. Out of season the race is usually won, which is precisely what makes it unfit to be a flag.
+Revisit if app screenshots ever go on the listing, and build the seam as a product capability — an
+offline mode — rather than as test scaffolding.

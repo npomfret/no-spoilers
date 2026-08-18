@@ -17,6 +17,29 @@ and then calls `cache.save(...)` unconditionally — it does not consult
 `isFresh` — so the first refresh replaces the fixture with the real calendar.
 Launching the app to "make it pick up the data" destroys the data.
 
+**Capturing the app itself is a manual three-command procedure, on purpose.**
+It exists and it works — install a signed simulator build, launch it, wait
+about eight seconds, `simctl io screenshot` — and two consecutive captures
+differ only in the status-bar clock and the two countdowns that tick. But it
+races the fetch. A fetch that *fails* leaves the fixture intact, because the
+`catch` in `performRefresh` writes nothing and keeps the published state; a
+fetch that succeeds replaces both the cache and the screen. Out of season that
+race is usually won, which is exactly what makes it untrustworthy as a mode.
+
+    xcrun simctl install <udid> <NoSpoilersApp.app>   # signed, not CODE_SIGNING_ALLOWED=NO
+    xcrun simctl launch  <udid> <app bundle id>
+    xcrun simctl io      <udid> screenshot out.png    # after ~8s
+
+**There is deliberately no `--app` flag over it.** Making it reliable means
+suppressing the fetch, and nothing outside the app can do that — it would take
+a launch-argument branch inside `ScheduleStore`, and product code currently
+reads no launch arguments anywhere. That trade was weighed on 2026-08-18 and
+declined: the listing screenshots are widget screenshots, the manual path
+covers the before/after diffing this is otherwise wanted for, and a flag whose
+job is "do not refresh" is a bad thing to have one typo away from shipping.
+Revisit it if app screenshots ever go on the listing, and read the seam as a
+product capability — an offline mode — rather than as test scaffolding.
+
 **The reboot renders; it does not reload.** Booting makes the Home Screen draw
 every widget on it, and the widget reads the App Group cache directly rather
 than the network, so on a device seeing this widget for the first time a seeded
