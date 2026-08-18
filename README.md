@@ -287,13 +287,11 @@ the seeded data.
 exits 0 with a valid PNG, so look at the picture before uploading it.** Full detail, including why
 only `--install` clears a stored timeline: `docs/guides/building.md`.
 
-## Design Document
+## Design
 
-Full design rationale, architecture decisions, and implementation notes:
-`~/.gstack/projects/no-spoilers/nickpomfret-main-design-20260328-093516.md`
-
-Brand palette for the GitHub Pages docs and marketing surface:
-`docs/guides/brand.md`
+`docs/guides/` is the design and architecture reference. `important-code.md` maps the control
+plane and the files that define repo standards; `brand.md` is the cross-platform token spec
+covering the three app targets and the GitHub Pages marketing surface.
 
 ## Tasks
 

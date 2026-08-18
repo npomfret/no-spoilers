@@ -34,7 +34,7 @@ Canonical guide for maintaining this repo's Claude Code control plane.
 ## Tool and ecosystem policy
 
 - Prefer code, tests, project files, and docs before external tools.
-- Use gstack `/browse` for web browsing when browsing is required.
+- Use `WebFetch` and `WebSearch` when browsing is required; do not use `mcp__claude-in-chrome__*`.
 - External Claude Code plugins or specialist skills are optional user-level overlays unless explicitly adopted as project policy.
 - Use multiple sibling clones for genuinely independent parallel sessions; do not make worktrees the default interactive model.
 

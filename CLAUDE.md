@@ -50,4 +50,4 @@ Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md`
 - Recreate it if missing:
   `xcrun simctl create "NoSpoilers-iPhone" com.apple.CoreSimulator.SimDeviceType.iPhone-17 <runtime>`
 
-Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use gstack `/browse` for web browsing; never use `mcp__claude-in-chrome__*`.
+Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use `WebFetch` and `WebSearch` for web browsing; never use `mcp__claude-in-chrome__*`.
