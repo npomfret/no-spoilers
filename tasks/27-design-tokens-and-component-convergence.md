@@ -858,15 +858,22 @@ The four questions that blocked phase 1, and what each one closes.
 
 ## Still open
 
-- ~~**The `successGreen` contrast figure** (C4)~~ — **measured 2026-08-17, see Progress.** 3.31:1 on
-  ivory, and the finding is that iOS *improves* while only the widget would regress. What is still
-  open is the decision it feeds: a new `#278253` palette entry for text, or keep finished names on
-  `smoke` and let green carry only the bar, badge and tint.
-- **Whether a snapshot-test harness is a prerequisite** to phases 3-4, given that nothing in the
-  repo can catch a visual regression and two of the three surfaces have no capture path. See
-  Verification.
-- **Whether the web `--radius: 16px` and the app's 24/18/14 densities are meant to relate.** Nobody
-  has decided; the token spec will have to say something.
+**Nothing. All three were answered; the annotations are what happened to each.**
+
+- ~~**The `successGreen` contrast figure** (C4)~~ — **measured 2026-08-17, and the decision it fed
+  was taken with it.** 3.31:1 on ivory; iOS *improves* and only the widget would regress. The
+  choice went to the second option: finished session names stay on `textPrimary` and green carries
+  only the bar, badge and tint. No `#278253` entry was added and no new palette colour exists.
+- ~~**Whether a snapshot-test harness is a prerequisite** to phases 3-4~~ — **no, and the question
+  was answered by removing its premise rather than by building one.** The iOS pager turned out to
+  be capturable in three commands, so two of the three surfaces gained a capture path during phase
+  5. macOS still has none, which is why its two commits are split along the verifiability line —
+  `e1f35dc` provably neutral by value-multiset proof, `1ca2735` and `7c5a7c5` visible and evidenced
+  by measurement. That split is the seam a harness should attach to if one is ever built.
+- ~~**Whether the web `--radius: 16px` and the app's 24/18/14 densities are meant to relate**~~ —
+  **decided 2026-08-18 in `1156e04`.** The small end of the ladder is shared and already held the
+  same numbers; the card end is per-surface on both bindings and has nothing to reconcile. See "The
+  three open items, closed" at the end of this file.
 
 ## Related
 
