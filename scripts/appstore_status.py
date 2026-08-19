@@ -664,7 +664,14 @@ def gather(client: Client) -> dict:
         (i for i in info["data"] if i["attributes"].get("state") == "READY_FOR_DISTRIBUTION"),
         None,
     ) or (info["data"][0] if info["data"] else None)
+    # **The edited record is reported too, where it differs.** Name and subtitle are
+    # app-wide, so a rename sits here and not on any version, and reporting only the live
+    # record makes a rename that shipped six days ago look like it never happened — which
+    # is exactly backwards when the rename is what a rejection asked for. The live value
+    # stays the headline; the pending one is shown beside it.
+    editable = next((i for i in info["data"] if i is not live), None)
     app_locales: dict[str, dict] = {}
+    app_pending: dict[str, dict] = {}
     if live:
         included = {(i["type"], i["id"]): i for i in info.get("included") or []}
         relationships = live.get("relationships") or {}
@@ -678,6 +685,13 @@ def gather(client: Client) -> dict:
             entry = included.get(("appInfoLocalizations", linked["id"]))
             if entry:
                 app_locales[entry["attributes"]["locale"]] = entry["attributes"]
+
+    if editable:
+        included = {(i["type"], i["id"]): i for i in info.get("included") or []}
+        for linked in ((editable.get("relationships") or {}).get("appInfoLocalizations") or {}).get("data") or []:
+            entry = included.get(("appInfoLocalizations", linked["id"]))
+            if entry:
+                app_pending[entry["attributes"]["locale"]] = entry["attributes"]
 
     versions = client.get(
         f"/v1/apps/{app['id']}/appStoreVersions?limit=20"
@@ -718,9 +732,12 @@ def gather(client: Client) -> dict:
             # the version and are edited on a different page. Merged here
             # because nobody thinks of them as separate when asking whether a
             # locale is finished.
-            fields.update(
-                {k: v for k, v in (app_locales.get(fields["locale"]) or {}).items() if k != "locale"}
-            )
+            live_fields = app_locales.get(fields["locale"]) or {}
+            fields.update({k: v for k, v in live_fields.items() if k != "locale"})
+            pending = app_pending.get(fields["locale"]) or {}
+            fields["pending"] = {
+                k: v for k, v in pending.items() if k != "locale" and v != live_fields.get(k)
+            }
             fields["screenshots"] = screenshot_families(
                 platform, _screenshot_sets(client, localization["id"])
             )
@@ -902,6 +919,10 @@ def render(report: dict) -> str:
                 ("whatsNew", "what's new", ""),
             ):
                 lines.append(_row(label, fields.get(key), note))
+                # An app-wide edit waiting on the next release. Named rather than
+                # substituted: the top line is still what the store says today.
+                if key in (fields.get("pending") or {}):
+                    lines.append(_row("", fields["pending"][key], "pending, ships with this version"))
             for name, count in (fields.get("screenshots") or {}).items():
                 shown = "?" if count is None else ("none" if count == 0 else str(count))
                 lines.append(_row(f"{name} screenshots", shown))
@@ -1537,9 +1558,25 @@ def _selftest() -> int:
     if "password set" not in rendered or "ap19" in rendered:
         failures.append("the demo account should render as set, never as a value")
 
+    # An app-wide rename waiting on this version is named rather than hidden behind the
+    # live value. Reporting only what the store says today made a rename that had already
+    # shipped look like it had never been made — and the rename was what a rejection had
+    # asked for, so the report agreed with the rejection against the fix.
+    pending = _fixture()
+    pending["versions"][0]["listing"][0]["pending"] = {"name": "No Spoilers - GP"}
+    pending_rendered = render(pending)
+    if "pending, ships with this version" not in pending_rendered:
+        failures.append("a pending app-wide edit was not reported")
+    if "No Spoilers - GP" not in pending_rendered:
+        failures.append("the pending value itself was not shown")
+    if "No Spoilers - Grand Prix" not in pending_rendered:
+        failures.append("the live value should stay the headline")
+    if "pending" in rendered:
+        failures.append("a listing with no pending edit should not mention one")
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 84 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 88 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
