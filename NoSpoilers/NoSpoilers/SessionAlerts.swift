@@ -75,7 +75,7 @@ enum SessionAlertDefaults {
 /// Local notifications need no entitlement — `NoSpoilersApp.entitlements` carries only the App
 /// Group and does not change for this. Only remote push would.
 @MainActor
-final class SessionAlertScheduler: ObservableObject {
+final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     /// What iOS currently permits. `.notDetermined` until asked.
     @Published private(set) var authorization: UNAuthorizationStatus = .notDetermined
 
@@ -85,6 +85,26 @@ final class SessionAlertScheduler: ObservableObject {
     static let pendingLimit = 64
 
     private let center = UNUserNotificationCenter.current()
+
+    override init() {
+        super.init()
+        center.delegate = self
+    }
+
+    /// Show the alert even when the app is open.
+    ///
+    /// Without this iOS drops a foreground notification silently, which is the wrong answer for
+    /// both of ours. A start warning is the one moment someone might be looking at this app —
+    /// checking the time of the very session it is about to warn them about — and a safe-to-watch
+    /// alert that arrives while the app is open is exactly when the user is deciding what to put
+    /// on. Neither is worth swallowing; both were, until a simulator push arrived and rendered
+    /// nothing at all.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
 
     func refreshAuthorization() async {
         authorization = await center.notificationSettings().authorizationStatus

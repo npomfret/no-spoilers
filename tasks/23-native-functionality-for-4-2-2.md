@@ -99,11 +99,33 @@ support. The build currently extracts no App Intents symbols at all.
   soonest N, so the OS never chooses which to drop.
 - None of this is guaranteed to move Apple. It is the branch that is left, not a certainty.
 
+## Verifying it on a simulator — `scripts/alerts_check.py`
+
+Added 2026-08-22. Launches the app on `NoSpoilers-iPhone`, then streams the `alerts` log channel
+back and reports the counts. `--push` delivers one notification carrying the exact strings
+`Strings.Alerts` produces — extracted from the Swift rather than transcribed, so the sample cannot
+drift from the product and still screenshot convincingly.
+
+First run found two things:
+
+- **The app reached the scheduler and correctly declined** — `not scheduling authorization=0`. The
+  whole path from launch to `UNUserNotificationCenter` works; the only missing step is a human
+  pressing Allow, and there is no `simctl` verb for notification authorization.
+- **A foreground notification was being dropped silently.** No `UNUserNotificationCenterDelegate`
+  was set, so iOS swallowed anything arriving while the app was open. That is the wrong answer for
+  both alerts: a start warning is most likely to land while someone is in this very app checking
+  that session's time, and a safe-to-watch alert arriving while the app is open is exactly when
+  someone is deciding what to put on. Fixed with `willPresent` returning `[.banner, .sound]`.
+
+`--push` is also gated on authorization: `simctl` accepts the payload and iOS displays it nowhere.
+Both screenshots taken before the prompt was answered showed an empty screen.
+
 ## Still open after C and D
 
-- **Nothing here has run on a device.** The planner is covered by tests; the delivery half is not
-  testable without one. What is unverified is the part only a device shows: that the prompt appears
-  where intended, that a notification actually arrives, and that the copy reads correctly on a lock
-  screen. That needs a session scheduled minutes away on the simulator or a phone.
+- **No alert has been observed firing.** Everything up to the OS accepting the request is proven;
+  delivery is not. The app cannot be given an imminent session on demand — see the harness
+  docstring for why seeding a fixture does not survive `ScheduleStore.refresh()` — so this needs
+  either a real session an hour or two out, or the offline-mode seam that `screenshots.py` declined
+  to open on 2026-08-18.
 - The alert copy has not been through `spoiler-safety-reviewer`.
 - Phase E — App Intents / Shortcuts / Siri — not started.
