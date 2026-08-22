@@ -35,10 +35,21 @@ export PATH="/usr/bin:/bin:${PATH}"
 #
 #   Use the given CURRENT_PROJECT_VERSION instead of bumping the project's own.
 #   ship.sh passes it so one ship run is one build number on every platform.
+#
+# Dirty tree (--allow-dirty, optional):
+#
+#   Archive uncommitted work anyway. See the preflight for why that is refused
+#   by default; there is no equivalent escape hatch for the test gate.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/_version.sh"
+
+# Every path below this line is relative to the repository, and preflight now
+# runs git and the tests from here too. Same move `scripts/verify-core-tests.sh`
+# makes for the same reason: a script that only works from one directory works
+# by luck.
+cd "${SCRIPT_DIR}/.."
 
 # ── Version ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +71,7 @@ fi
 PLATFORM=""
 CHANNEL=""
 FORCED_BUILD=""
+ALLOW_DIRTY=""
 NOTARYTOOL_KEY=""
 NOTARYTOOL_KEY_ID=""
 NOTARYTOOL_ISSUER=""
@@ -72,6 +84,7 @@ while [[ $# -gt 0 ]]; do
     --platform)           PLATFORM="$2";          shift 2 ;;
     --channel)            CHANNEL="$2";           shift 2 ;;
     --build)              FORCED_BUILD="$2";      shift 2 ;;
+    --allow-dirty)        ALLOW_DIRTY="yes";      shift ;;
     --notarytool-key)     NOTARYTOOL_KEY="$2";    shift 2 ;;
     --notarytool-key-id)  NOTARYTOOL_KEY_ID="$2"; shift 2 ;;
     --notarytool-issuer)  NOTARYTOOL_ISSUER="$2"; shift 2 ;;
@@ -153,6 +166,86 @@ if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
   fi
 fi
 
+# ── Preflight: the working tree ─────────────────────────────────────────────
+#
+# `xcodebuild archive` builds the tree, not the commit, and this script stages
+# only the project file. So an uncommitted edit is in the build, in the upload
+# and in front of users, while the commit, the tag and the TestFlight note all
+# describe something else — and since 2026-08-22 the note is derived from that
+# commit, which turns a dirty ship from a note that is missing into one that is
+# confidently wrong. Nothing here ever reverts your files; it stops instead.
+
+if [[ -z "$ALLOW_DIRTY" ]]; then
+  if [[ -n "$(git status --porcelain)" ]]; then
+    echo "The working tree is not clean, so the build would not match the commit:" >&2
+    git status --short >&2
+    echo "" >&2
+    echo "Commit it, stash it, or pass --allow-dirty if you meant it." >&2
+    exit 1
+  fi
+fi
+
+# ── Preflight: the build number ─────────────────────────────────────────────
+#
+# Read before anything is edited or built, because the next check needs it.
+
+CURRENT_BUILD=$(current_build_number)
+if [[ -n "$FORCED_BUILD" ]]; then
+  NEW_BUILD="$FORCED_BUILD"
+else
+  NEW_BUILD=$((CURRENT_BUILD + 1))
+fi
+
+# **A spent (version, build) pair does not fail the build.** It compiles,
+# archives, exports, uploads, goes green, and dies minutes later by email at
+# "Preparing build for App Store Connect failed" — after every expensive step
+# has already succeeded. One GET answers it beforehand.
+#
+# The exit codes are read rather than the output: 0 free, 3 taken, anything else
+# means the check itself did not run. Collapsing those would let a missing key
+# or an offline laptop read as "the number is free", which is the outcome this
+# is here to prevent.
+
+if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
+  echo "==> Checking App Store Connect for ${PLATFORM} ${VERSION} build ${NEW_BUILD}..."
+  set +e
+  python3 "${SCRIPT_DIR}/appstore_status.py" --spent "${PLATFORM}" "${VERSION}" "${NEW_BUILD}"
+  SPENT_STATUS=$?
+  set -e
+  case "$SPENT_STATUS" in
+    0) ;;
+    3)
+      echo "" >&2
+      echo "That build number is already used in this version, and Apple would refuse the" >&2
+      echo "upload after the archive rather than before it. Pick another with --build," >&2
+      echo "or open a new train by shipping a different version. Nothing was built." >&2
+      exit 1
+      ;;
+    *)
+      echo "" >&2
+      echo "Could not find out whether ${VERSION} build ${NEW_BUILD} is free (exit ${SPENT_STATUS})." >&2
+      echo "Stopping rather than guessing: the wrong guess costs a full archive and upload." >&2
+      exit 1
+      ;;
+  esac
+fi
+
+# ── Preflight: the gate ─────────────────────────────────────────────────────
+#
+# **This is the same gate Xcode Cloud applies, in the path that now does the
+# shipping.** `NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh` runs this exact
+# wrapper before every archive and its comment calls it "the only thing standing
+# between a broken commit and TestFlight" — which stopped being true the moment
+# Xcode Cloud ran out of compute quota and every release started coming from
+# here instead. Build 10003 went out ungated on 2026-08-22.
+#
+# There is deliberately no way to skip it. The CI path has none either, and a
+# release is the last place to start trusting a flag that says the tests do not
+# matter this time.
+
+echo "==> Running the release gate: scripts/verify-core-tests.sh..."
+"${SCRIPT_DIR}/verify-core-tests.sh"
+
 # ── Helper: idempotent tag ────────────────────────────────────────────────────
 
 tag_version() {
@@ -173,18 +266,11 @@ tag_version() {
 # instead: ship.sh passes one number to every platform so a single ship run
 # produces one build, not one per invocation.
 
-CURRENT_BUILD=$(current_build_number)
-if [[ -n "$FORCED_BUILD" ]]; then
-  NEW_BUILD="$FORCED_BUILD"
-else
-  NEW_BUILD=$((CURRENT_BUILD + 1))
-fi
-
 echo "==> Setting CURRENT_PROJECT_VERSION ${CURRENT_BUILD} → ${NEW_BUILD}..."
-sed -i '' "s/CURRENT_PROJECT_VERSION = ${CURRENT_BUILD};/CURRENT_PROJECT_VERSION = ${NEW_BUILD};/g" "${PBXPROJ}"
+set_build_number "${NEW_BUILD}"
 
 echo "==> Bumping MARKETING_VERSION to ${VERSION} in project..."
-sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PBXPROJ}"
+set_marketing_version "${VERSION}"
 
 # ── Shared: clean → archive ──────────────────────────────────────────────────
 #
@@ -281,7 +367,17 @@ if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
     tag_version
 
     echo ""
-    echo "Done (app-store / ${PLATFORM})! v${VERSION} uploaded. Submit for review in App Store Connect."
+    echo "Done (app-store / ${PLATFORM})! v${VERSION} uploaded."
+    echo ""
+    # The upload reaches nobody on its own. A build sits in no tester group
+    # until somebody puts it in one — internal groups included — and every
+    # other signal reads as success while it does, which is how build 32 spent
+    # three days VALID and uninstallable. Naming the command here costs a line
+    # and is the only place the next step is ever said out loud.
+    echo "It is uploaded, not delivered. Processing takes a few minutes, then:"
+    echo "  scripts/testflight_distribute.py --platform ${PLATFORM} --apply"
+    echo ""
+    echo "Then submit for review in App Store Connect."
   else
     tag_version
 

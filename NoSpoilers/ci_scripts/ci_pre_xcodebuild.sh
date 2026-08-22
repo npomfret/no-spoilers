@@ -50,34 +50,17 @@ echo "ci_pre_xcodebuild: running scripts/verify-core-tests.sh"
 echo "ci_pre_xcodebuild: core tests passed"
 
 # ── The stamp ────────────────────────────────────────────────────────────────
-
-build="${CI_BUILD_NUMBER}"
-cd "${CI_PRIMARY_REPOSITORY_PATH}/NoSpoilers"
-
-# `-all` updates every build configuration, which is what we need:
-# NoSpoilersWidgetExtension carries its own CURRENT_PROJECT_VERSION and is
-# embedded in NoSpoilersApp. An app whose extension disagrees about its build
-# number is rejected at upload.
 #
-# agvtool also prints `Cannot find ".../YES"` here. That is it misreading
-# GENERATE_INFOPLIST_FILE = YES as a plist path. It is noise, it does not affect
-# the exit status, and it is not the failure you are looking for.
-xcrun agvtool new-version -all "${build}"
+# `set_build_number` is shared with `scripts/release.sh` rather than repeated
+# here. It was repeated until 2026-08-22, and the two copies had drifted in the
+# way that matters: this one used `agvtool -all` and then counted the
+# configurations that took the value, and release.sh used a `sed` keyed on
+# whichever value it read first and counted nothing. Same job, one careful
+# implementation and one that would silently stamp a subset — and the careless
+# one was in the path that ships to the App Store.
 
-# Trust the file, not the tool: agvtool exits 0 in cases where it changed
-# nothing at all. Every occurrence must carry the new value, not just the first
-# one — a partial stamp is the extension-mismatch rejection above.
-#
-# `|| true` on both counts: grep exits 1 on zero matches, and under `set -e` that
-# would kill the script one line before the message explaining why.
-pbxproj="NoSpoilers.xcodeproj/project.pbxproj"
-total=$(grep -c "CURRENT_PROJECT_VERSION = " "${pbxproj}" || true)
-stamped=$(grep -c "CURRENT_PROJECT_VERSION = ${build};" "${pbxproj}" || true)
+# shellcheck disable=SC1091
+source "${CI_PRIMARY_REPOSITORY_PATH}/scripts/_version.sh"
 
-if [[ "${total}" -eq 0 || "${stamped}" -ne "${total}" ]]; then
-  echo "ci_pre_xcodebuild: agvtool exited 0 but stamped ${stamped}/${total} configurations" >&2
-  grep -n "CURRENT_PROJECT_VERSION" "${pbxproj}" >&2
-  exit 1
-fi
-
-echo "ci_pre_xcodebuild: CURRENT_PROJECT_VERSION is now ${build} in all ${total} configurations"
+echo "ci_pre_xcodebuild: stamping CURRENT_PROJECT_VERSION ${CI_BUILD_NUMBER}"
+set_build_number "${CI_BUILD_NUMBER}"

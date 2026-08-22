@@ -70,3 +70,73 @@ suggest_next_version() {
   done
   printf '%s' "$SUGGESTED"
 }
+
+# ── Writing the version into the project ────────────────────────────────────
+#
+# Both setters prove their work against the file afterwards. Neither tool is
+# trustworthy on its own: `agvtool` exits 0 in cases where it changed nothing,
+# and a `sed` reports success for a pattern that matched no lines. The failure
+# they guard is silent and expensive — NoSpoilersWidgetExtension carries its own
+# CURRENT_PROJECT_VERSION and is embedded in NoSpoilersApp, and an app whose
+# extension disagrees about its build number is refused at upload, after the
+# archive, the export and the wait.
+
+# Set CURRENT_PROJECT_VERSION in every build configuration.
+#
+# One implementation, two callers: scripts/release.sh on a laptop and
+# NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh in Xcode Cloud. It was two until
+# 2026-08-22 and only the CI one counted its work — release.sh used a `sed`
+# keyed on whichever CURRENT_PROJECT_VERSION it read first, which silently
+# stamps a subset the moment the configurations disagree. That is the only case
+# where the stamp matters at all, so the careful half was missing from exactly
+# the path that now ships everything.
+set_build_number() {
+  local BUILD="$1" PBXPROJ TOTAL STAMPED
+  if [[ ! "$BUILD" =~ ^[0-9]+$ ]]; then
+    echo "set_build_number needs a whole number (got: ${BUILD})" >&2
+    return 1
+  fi
+  PBXPROJ="$(pbxproj_path)" || return 1
+
+  # agvtool reads the directory it is run from, not a path. It also prints
+  # `Cannot find ".../YES"` — that is it misreading GENERATE_INFOPLIST_FILE = YES
+  # as a plist path. Noise, not the failure you are looking for.
+  ( cd "$(dirname "$(dirname "${PBXPROJ}")")" && xcrun agvtool new-version -all "${BUILD}" ) || return 1
+
+  # `|| true` on both: grep exits 1 on zero matches, which under `set -e` would
+  # kill the caller one line before the message explaining why.
+  TOTAL=$(grep -cF "CURRENT_PROJECT_VERSION = " "${PBXPROJ}" || true)
+  STAMPED=$(grep -cF "CURRENT_PROJECT_VERSION = ${BUILD};" "${PBXPROJ}" || true)
+  if [[ "$TOTAL" -eq 0 || "$STAMPED" -ne "$TOTAL" ]]; then
+    echo "agvtool exited 0 but stamped ${STAMPED}/${TOTAL} configurations" >&2
+    grep -n "CURRENT_PROJECT_VERSION" "${PBXPROJ}" >&2
+    return 1
+  fi
+  echo "  CURRENT_PROJECT_VERSION = ${BUILD} in all ${TOTAL} configurations"
+}
+
+# Set MARKETING_VERSION in every build configuration.
+#
+# The pattern is unguarded on the current value, unlike the build number's used
+# to be, so it cannot stamp a subset — but it can still match nothing at all if
+# the project stops spelling the setting this way, and a release that silently
+# ships the previous version string is worth one grep to rule out.
+set_marketing_version() {
+  local VERSION="$1" PBXPROJ TOTAL STAMPED
+  if [[ -z "$VERSION" ]]; then
+    echo "set_marketing_version needs a version" >&2
+    return 1
+  fi
+  PBXPROJ="$(pbxproj_path)" || return 1
+
+  sed -i '' "s/MARKETING_VERSION = .*;/MARKETING_VERSION = ${VERSION};/g" "${PBXPROJ}"
+
+  TOTAL=$(grep -cF "MARKETING_VERSION = " "${PBXPROJ}" || true)
+  STAMPED=$(grep -cF "MARKETING_VERSION = ${VERSION};" "${PBXPROJ}" || true)
+  if [[ "$TOTAL" -eq 0 || "$STAMPED" -ne "$TOTAL" ]]; then
+    echo "MARKETING_VERSION is ${VERSION} in ${STAMPED}/${TOTAL} configurations" >&2
+    grep -n "MARKETING_VERSION" "${PBXPROJ}" >&2
+    return 1
+  fi
+  echo "  MARKETING_VERSION = ${VERSION} in all ${TOTAL} configurations"
+}

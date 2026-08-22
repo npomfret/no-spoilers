@@ -480,6 +480,46 @@ def platform_builds(get: "Callable[[str], dict]", app_id: str, platform: str) ->
     ]
 
 
+def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> dict[str, set[str]]:
+    """Which build numbers each marketing version on this platform already holds.
+
+    The question a release has to ask before it builds anything. **A spent
+    `(version, build)` pair does not fail the build** — it compiles, archives,
+    exports, goes green, and dies minutes later at "Preparing build for App
+    Store Connect failed", by email, after every expensive step has succeeded.
+
+    Two things make "what is spent" different from "what is the highest number".
+    **An expired build still occupies its number** — it stops launching, it does
+    not free anything — so this reads every build rather than the live ones.
+    And **a CANCELED Xcode Cloud run consumes its number exactly as a delivered
+    one does**, which is why trains have holes and why "next number" and "next
+    free number" are different questions.
+
+    `include=preReleaseVersion` is what joins a build to its train. The filtered
+    collection accepts that include; `/v1/apps/{id}/builds` answers HTTP 400 for
+    it. See docs/guides/building.md.
+    """
+    # `builds_path` already carries the platform filter and the limit; this
+    # adds the join and nothing else.
+    response = get(builds_path(app_id, platform) + "&include=preReleaseVersion")
+    trains = {
+        item["id"]: item["attributes"]["version"]
+        for item in response.get("included") or []
+        if item["type"] == "preReleaseVersions"
+    }
+
+    spent: dict[str, set[str]] = {}
+    for build in response["data"]:
+        linked = ((build.get("relationships") or {}).get("preReleaseVersion") or {}).get("data")
+        # A build with no train is not a build this can reason about, and
+        # guessing which version it belongs to is how a real collision gets
+        # reported as free.
+        if not linked or linked["id"] not in trains:
+            continue
+        spent.setdefault(trains[linked["id"]], set()).add(build["attributes"]["version"])
+    return spent
+
+
 def live_builds(builds: list[dict]) -> list[dict]:
     """The builds a tester could install, most recently uploaded first.
 
@@ -991,10 +1031,50 @@ def render(report: dict) -> str:
     return "\n".join(lines)
 
 
+# What `--spent` means to a shell caller, which cannot tell one non-zero exit
+# from another. `SystemExit("message")` exits 1 for a missing key, an HTTP
+# error or an unreadable answer, so 1 has to mean "the check did not run" and
+# the answer needs a code of its own. A release script that read a network
+# failure as "the number is free" would build for ten minutes and be refused at
+# upload, which is the exact outcome this check exists to prevent.
+#
+# **3 rather than 2, because argparse owns 2**: it exits 2 on a usage error of
+# its own, so a mistyped flag would have arrived at the caller wearing the
+# answer "that build number is taken". Refusing to release is the safe
+# direction to be wrong in, which is exactly why it would never have been
+# noticed.
+SPENT_EXIT = 3
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--json", action="store_true", help="emit the report as JSON")
-    parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
+    parser.add_argument(
+        "--spent",
+        nargs=3,
+        metavar=("PLATFORM", "VERSION", "BUILD"),
+        help="ask whether one (version, build) pair is already used on this platform, "
+        f"and report nothing else. Exit 0 free, {SPENT_EXIT} spent, 1 the check failed.",
+    )
+    arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
+
+    if arguments.spent:
+        platform, version, build = arguments.spent
+        # `platform_flag` runs the other way — API spelling to flag — and the
+        # names differ by more than case, so the wrong direction resolves to a
+        # hard stop rather than to a wrong query.
+        if platform not in PLATFORM_FLAGS:
+            raise SystemExit(
+                f"unknown platform {platform!r} (expected one of {', '.join(sorted(PLATFORM_FLAGS))})"
+            )
+        client = Client()
+        held = train_builds(client.get, find_app(client.get)["id"], PLATFORM_FLAGS[platform])
+        train = held.get(version, set())
+        if build in train:
+            print(f"{platform} {version} already holds build {build}")
+            return SPENT_EXIT
+        print(f"{platform} {version} holds {len(train)} build(s), none of them {build}")
+        return 0
 
     report = gather(Client())
     if "--json" in sys.argv:
@@ -1368,6 +1448,47 @@ def _selftest() -> int:
         if "filter[app]=123" not in path:
             failures.append("builds_path lost the app filter")
 
+    # `train_builds` answers the question a release asks before it builds
+    # anything, and the join it depends on is the part that can silently return
+    # nothing: drop the `include` and every build loses its train, every train
+    # reads as empty, and every spent build number reports as free.
+    def _trains(*rows: tuple[str, str, str]) -> dict:
+        return {
+            "data": [
+                {
+                    "id": build_id,
+                    "attributes": {"version": number},
+                    "relationships": {"preReleaseVersion": {"data": {"id": train_id}}},
+                }
+                for build_id, number, train_id in rows
+            ],
+            "included": [
+                {"type": "preReleaseVersions", "id": "t1", "attributes": {"version": "1.1.2"}},
+                {"type": "preReleaseVersions", "id": "t2", "attributes": {"version": "1.1.1"}},
+            ],
+        }
+
+    held = train_builds(lambda _: _trains(("a", "31", "t1"), ("b", "9", "t2"), ("c", "10003", "t1")),
+                        "123", "IOS")
+    if held != {"1.1.2": {"31", "10003"}, "1.1.1": {"9"}}:
+        failures.append(f"train_builds did not group builds by their train: {held}")
+
+    # An app record with nothing on it yet is an empty answer, not an error.
+    if train_builds(lambda _: {"data": [], "included": []}, "123", "IOS") != {}:
+        failures.append("train_builds invented a train from an empty app record")
+
+    # A build whose train did not come back is unplaceable. Guessing which
+    # version owns it is how a real collision gets reported as free.
+    orphan = train_builds(lambda _: {**_trains(("a", "31", "t1")), "included": []}, "123", "IOS")
+    if orphan != {}:
+        failures.append(f"train_builds placed a build with no train: {orphan}")
+
+    # argparse exits 2 on a usage error of its own, so the spent answer cannot
+    # also be 2 — a mistyped flag would reach a release script wearing the
+    # answer "that build number is taken".
+    if SPENT_EXIT in (0, 1, 2):
+        failures.append(f"SPENT_EXIT {SPENT_EXIT} collides with an exit code that means something else")
+
     # The report covers macOS because Xcode Cloud archives it. Losing that is
     # losing the whole point of this section: a stranded Mac build reads as no
     # Mac build, and every other signal reads as success.
@@ -1576,7 +1697,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 88 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 92 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

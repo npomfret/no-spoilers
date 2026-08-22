@@ -25,8 +25,30 @@ failed-archive path proven on a throwaway repo, `--build` proven to pin and to b
   what has not run. The 2026-08-12 run is the counter-example that made the fix necessary rather
   than evidence for it: two auto-bumps three minutes apart (`ba44cad`, `4461978`) put **10001 on
   macOS and 10002 on iOS** for one release, which is exactly what `--build` now pins.
-- **`scripts/ship-ios.sh` after the rewrite**, and specifically that its upload does not collide
-  with a CI build number.
+Discharged by running it on 2026-08-22:
+
+- ~~**`scripts/ship-ios.sh` after the rewrite**, and specifically that its upload does not collide
+  with a CI build number.~~ It ran, and shipped `1.1.2 build 10003` — the whole path, archive
+  through App Store Connect, under the current script. No collision: the 1.1.2 train held Xcode
+  Cloud's numbers and took `10003` without complaint. What the run cost is recorded below, because
+  it went wrong in two ways that had nothing to do with the rewrite.
+
+## What the first real run actually found — 2026-08-22
+
+Neither fault was in the list above, and neither would have been found by rehearsing the script.
+
+- **The build shipped ungated.** `ci_pre_xcodebuild.sh` runs `verify-core-tests.sh` before every
+  Xcode Cloud archive and its comment calls that line "the only thing standing between a broken
+  commit and TestFlight". It was, literally: `release.sh` ran no tests at all, which nobody noticed
+  while CI was the ordinary path. Xcode Cloud ran out of compute quota the same week, and the gate
+  left the path entirely without a single line changing.
+- **The build reached the testers with an empty *What to Test* note**, as every 10000-band build
+  always had. `testflight_distribute.py` asked the Xcode Cloud run for the commit and left the note
+  alone when no run claimed the number — which is every build `release.sh` uploads.
+
+Both are fixed, and the fixes are in `docs/guides/building.md`. The general lesson is the one worth
+keeping: **the local path was never a second-class copy of the CI path, it was a path missing the CI
+path's safeguards**, and that stayed invisible for as long as it was the exception.
 
 Discharged by observation on 2026-08-16, not by running anything:
 
@@ -54,6 +76,12 @@ and walking away.
 
 ## The other half: `release.sh` has no dry run
 
+**Half of this is now answered, 2026-08-22.** Preflight grew the two checks that a rehearsal was
+most wanted for — a dirty working tree and a `(version, build)` pair App Store Connect already
+holds — plus the test gate, and all three run before anything is edited, built or uploaded. What
+remains unrehearsed is the second half of the run: export, notarize, upload, tag, GitHub release,
+tap push.
+
 The two writing tools have opposite safety postures. `testflight_distribute.py` is dry-run by
 default and needs `--apply`. `release.sh` has no dry run at all and pushes to two repositories.
 
@@ -71,6 +99,7 @@ last chance to find out what a rehearsal would have needed to cover.
 ## Verification
 
 - [ ] One `ship.sh` run puts the same version **and the same build number** on all three channels
+- [x] `scripts/ship-ios.sh` completes under the current script — 2026-08-22, `1.1.2 build 10003`
 - [x] The uploaded `release.sh` build number lands in the 10000 band and collides with nothing
       Xcode Cloud has uploaded — observed 2026-08-16 on the 2026-08-12 uploads, see above
 - [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
