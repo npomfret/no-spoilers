@@ -99,51 +99,33 @@ public enum TimelinePlanner {
         )
     }
 
-    /// Every moment inside the horizon at which what the widget should be showing changes.
+    /// The moments inside the horizon at which the widget should redraw.
     ///
-    /// Three kinds of boundary: a session starting, a session effectively ending, and the 24-hour
-    /// "recently finished" window of a whole weekend expiring. Deduplicated, because they collide
-    /// routinely — `SessionResolver.effectiveEndDate` clamps an end to the next session's start, so
-    /// back-to-back sessions produce the same instant twice.
+    /// The traversal itself lives in `ScheduleBoundaries`, which is shared with everything else
+    /// that has to know when the picture changes. What is left here is the widget's own part: seed
+    /// the current moment so a timeline always has something to show immediately, drop anything
+    /// past the horizon, and reduce to bare instants.
     ///
-    /// `now` itself is always first. The horizon is **inclusive**: a session starting exactly on it
-    /// is planned for, since excluding it would archive an entry that is wrong from the moment the
-    /// timeline is handed over.
+    /// Deduplicated, because boundaries collide routinely — `SessionResolver.effectiveEndDate`
+    /// clamps an end to the next session's start, so back-to-back sessions produce the same instant
+    /// twice — and a timeline entry is a picture, where one picture is enough. Callers that need to
+    /// tell those two events apart take the boundaries instead.
+    ///
+    /// The horizon is **inclusive**: a session starting exactly on it is planned for, since
+    /// excluding it would archive an entry that is wrong from the moment the timeline is handed
+    /// over.
     private static func boundaryDates(
         after now: Date,
         upTo horizon: Date,
         weekends: [RaceWeekend],
         confirmedEndDates: [String: Date]
     ) -> [Date] {
-        var candidates: [Date] = [now]
+        let withinHorizon = ScheduleBoundaries
+            .all(after: now, weekends: weekends, confirmedEndDates: confirmedEndDates)
+            .map(\.date)
+            .filter { $0 <= horizon }
 
-        func appendIfWithinHorizon(_ date: Date) {
-            if date > now && date <= horizon {
-                candidates.append(date)
-            }
-        }
-
-        for weekend in weekends where !weekend.allSessions.isEmpty {
-            // Schedule the boundary where the 24h "recently finished" window expires.
-            let endTime = RaceWeekendResolver.effectiveEndDate(of: weekend, confirmedEndDates: confirmedEndDates)
-            appendIfWithinHorizon(endTime.addingTimeInterval(24 * 3600))
-        }
-
-        let allSessions = weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
-        for index in allSessions.indices {
-            let session = allSessions[index]
-            let nextSession = index + 1 < allSessions.count ? allSessions[index + 1] : nil
-
-            appendIfWithinHorizon(session.startsAt)
-
-            appendIfWithinHorizon(SessionResolver.effectiveEndDate(
-                for: session,
-                nextSession: nextSession,
-                confirmedEndAt: confirmedEndDates[session.id]
-            ))
-        }
-
-        return Set(candidates.map(\.timeIntervalSinceReferenceDate))
+        return Set(([now] + withinHorizon).map(\.timeIntervalSinceReferenceDate))
             .map(Date.init(timeIntervalSinceReferenceDate:))
             .sorted()
     }
