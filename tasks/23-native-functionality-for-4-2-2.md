@@ -77,10 +77,63 @@ check already uses.
 The About sheet gained a caller-built `extra` slot in `a8a356f`, and it is where the widget
 instructions now live. It is the app's only menu and is where these belong too.
 
-### Phase E — App Intents / Shortcuts / Siri
+### Phase E — a Live Activity for the next session (ActivityKit)
+
+Added to the backlog 2026-08-22, and **ranked above App Intents** for this task's purpose. Prompted
+by the BBC Sport app starting one unprompted for a football match — that is push-to-start
+(iOS 17.2+), which needs a server; ours does not, and the difference is instructive.
+
+**Why this is the strongest answer to 4.2.2 we have.** The accusation is "does not sufficiently
+differ from a web browsing experience". A Live Activity is on the Lock Screen seconds after the app
+is opened, and a web page structurally cannot put anything there. It is also *reviewable*: it can be
+named in the review notes and screenshotted, where App Intents only helps if the reviewer thinks to
+try Siri. Every previous 4.2.2 answer has been prose; this one is visible.
+
+**It needs no backend and no permission.** `Text(timerInterval:)` counts down on its own from a date
+range handed over once, so there is no APNs, no server and no push-to-start. Live Activities need no
+authorization prompt at all — worth noting beside the notification prompt that turned out never to
+have been shown to anybody (below).
+
+**The pieces already exist.** `NoSpoilersWidgetBundle` can host an `ActivityConfiguration` in the
+same extension, so there is no new target. `ScheduleBoundaries.all()` already produces
+`sessionStart` and `sessionEnd` for the next session — its own doc comment anticipates exactly this
+caller: *"anything that speaks to the user — a notification, an intent's answer — has to know which
+session moved and which way."* This is the third caller that type was built for, and it must not
+compute either instant independently.
+
+Sketch, to be confirmed against the repo before implementing:
+
+- `SessionCountdownAttributes` in `NoSpoilersCore`, shared by the app and the extension.
+- An `ActivityConfiguration` added to `NoSpoilersWidgetBundle`, beside `NoSpoilersWidget`.
+- Content is a Grand Prix name, a session name and a clock. Nothing else, ever — the same three
+  fields the widget already draws.
+- Started from the foreground when the next boundary is within range; ended at the session's
+  effective end.
+
+**The constraint that shapes the whole feature: 8 hours.** A Live Activity runs 8 hours active and
+stays visible up to 4 more in a stale state. A race weekend is three days, so this cannot be "start
+it on Friday and watch it all weekend" — it is one activity for the *next* session, started when the
+app is opened. That is a useful shape but not the one people will assume, so it must not be
+described as weekend-long in any copy or listing text.
+
+Second constraint, following from having no server: an activity can only be *started* while the app
+is in the foreground. The UX is therefore "open the app, and the countdown moves to your Lock
+Screen", which is close to how the app is already used.
+
+**Spoiler surface.** Small but real: this is pushed content on a locked screen that the user cannot
+decline to read, same class as the notification copy. It shows a clock, but it needs
+`spoiler-safety-reviewer` like anything else that speaks.
+
+**Sequencing.** Not to be started before the alert copy has had its audit, the permission fix has
+been observed working end to end, and Apple has had its Resolution Center reply. Stacking a second
+user-facing surface on top of a feature that was silently inert for every user is how two features
+end up looking fine and not being fine.
+
+### Phase F — App Intents / Shortcuts / Siri
 
 Separate and self-contained. "When's the next session?" in Siri and Spotlight, plus automation
-support. The build currently extracts no App Intents symbols at all.
+support. The build currently extracts no App Intents symbols at all. Kept because it is cheap once
+the domain is this well factored, but Phase E answers the rejection more directly.
 
 ## Verification
 
@@ -109,8 +162,8 @@ drift from the product and still screenshot convincingly.
 First run found two things:
 
 - **The app reached the scheduler and correctly declined** — `not scheduling authorization=0`. The
-  whole path from launch to `UNUserNotificationCenter` works; the only missing step is a human
-  pressing Allow, and there is no `simctl` verb for notification authorization.
+  whole path from launch to `UNUserNotificationCenter` works. It was read at the time as "the only
+  missing step is a human pressing Allow". **That reading was wrong, and the correction is below.**
 - **A foreground notification was being dropped silently.** No `UNUserNotificationCenterDelegate`
   was set, so iOS swallowed anything arriving while the app was open. That is the wrong answer for
   both alerts: a start warning is most likely to land while someone is in this very app checking
@@ -120,6 +173,29 @@ First run found two things:
 `--push` is also gated on authorization: `simctl` accepts the payload and iOS displays it nowhere.
 Both screenshots taken before the prompt was answered showed an empty screen.
 
+## The prompt had never been shown to anyone — 2026-08-22
+
+`authorization=0` is `UNAuthorizationStatusNotDetermined`: not "the user said no", not "the user has
+not got round to it", but **nobody has ever been asked**. Three defects, each of which hid the next.
+
+- **`SessionAlertsView` asked from `.onChange(of: wantsAnything)`, and both alerts ship on.** So
+  `wantsAnything` is already `true` when the screen first draws and never changes. Anyone leaving
+  the defaults alone — everyone — got no prompt for the life of the install, every reschedule logged
+  `not scheduling`, and the screen looked entirely correct while doing it: two switches on, no
+  warning, no alerts. Opening the screen with an alert on now asks.
+- **Nothing rescheduled when permission arrived.** The grant happens under the About sheet, and
+  dismissing a sheet is not a scene change, so even a granted permission bought nothing until the
+  app was next backgrounded and reopened. `ContentView` now reschedules on `alerts.authorization`,
+  beside the weekends and scene-phase triggers it already owns.
+- **`alerts_check.py` could not observe the launch it was checking.** It launched the app and *then*
+  attached the log stream, missing a line written milliseconds into launch — and `simctl launch` on
+  an already-running app returns the existing pid without re-running anything, so once the app was
+  up it saw an empty channel and blamed the missing prompt. It now terminates, waits for the
+  stream's banner to confirm it is attached, then launches.
+
+The lesson worth keeping: **a default-on preference cannot be the trigger for a one-shot prompt**,
+because the change it waits for has already happened.
+
 ## Still open after C and D
 
 - **No alert has been observed firing.** Everything up to the OS accepting the request is proven;
@@ -128,4 +204,9 @@ Both screenshots taken before the prompt was answered showed an empty screen.
   either a real session an hour or two out, or the offline-mode seam that `screenshots.py` declined
   to open on 2026-08-18.
 - The alert copy has not been through `spoiler-safety-reviewer`.
-- Phase E — App Intents / Shortcuts / Siri — not started.
+- Phase E — a Live Activity for the next session — backlogged 2026-08-22, not started.
+- Phase F — App Intents / Shortcuts / Siri — not started.
+- **Xcode Cloud has no compute quota left**, confirmed 2026-08-22: runs 33, 34 and 35 were all
+  cancelled 5–8 seconds after creation with `startedDate: None` and no `cancelReason`, and
+  `POST /v1/ciBuildRuns` answers `500`. Until it resets, every build is a local `scripts/ship-ios.sh`
+  run. `1.1.2 build 10003` went out that way and is with the internal testers.
