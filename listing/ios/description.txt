@@ -1,0 +1,34 @@
+A Home Screen widget with the whole Grand Prix weekend on it — and never the result.
+
+If you watch on replay, you know the problem. Search for a start time and you get the result. Sports sites, schedule pages, even a notification banner will tell you who won before you have watched a lap. There is nowhere safe to look up when the sessions actually are.
+
+This is that place.
+
+THE WIDGET
+Add it in small, medium or large and the weekend sits on your Home Screen: which sessions have finished and are safe to watch, and a live countdown to the next one. Check your phone all weekend without going near anything that could ruin it. The small size gives you the next session at a glance; the large size shows the full weekend and what is coming after it.
+
+WHAT YOU SEE
+• Sessions that have finished — safe to watch now
+• The current or next session, with a live countdown
+• The rest of the weekend at a glance
+• Practice, Sprint Qualifying, Sprint, Qualifying and the race
+• Every start time in your own time zone, in your own date format
+
+WHAT YOU NEVER SEE
+• Race results
+• Driver or constructor standings
+• Position changes, fastest laps, or anything else time-sensitive
+• Spoilers, in any form, ever
+
+SPOILER-FREE BY CONSTRUCTION
+This is not a setting you have to remember to switch on. The app has no fields for results anywhere in its data model — they are not hidden, not collapsed, not fetched on demand. They do not exist. The schedule is the only thing it knows. Opening the app, or glancing at the widget, is always safe.
+
+WORKS OFFLINE
+The calendar is cached on your device. On a plane, in a tunnel, or with no signal at the circuit, the widget and the countdown keep working.
+
+ALSO ON MAC
+The same app lives in the macOS menu bar, one click from anything you are doing.
+
+No account. No sign-in. No tracking. No ads.
+
+An independent app. Not affiliated with, endorsed by, or associated with any racing series, team, circuit or broadcaster.

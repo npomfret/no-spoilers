@@ -1,0 +1,9 @@
+This is a menu bar app. After launching, the icon appears in the top right of the menu bar. Click it to open the popover, which shows the schedule for the current Grand Prix weekend.
+
+WHAT IT DOES
+It shows when the sessions of a Grand Prix weekend are, which of them have already finished and are therefore safe to watch on replay, and a live countdown to the next one.
+
+It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
+
+NO ACCOUNT IS NEEDED
+There is no sign-in anywhere in the app, so the demo account previously attached to this app does not apply to anything. All functionality is available immediately on launch.

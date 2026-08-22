@@ -1,0 +1,12 @@
+No Spoilers lives in your menu bar and keeps you on top of the race weekend — without ruining it.
+
+Every session of the weekend is listed: Practice, Qualifying, Sprint, and Race. Sessions that have finished are marked as safe to watch. Upcoming sessions show a live countdown. The result never appears.
+
+FEATURES
+- Menu bar access — always one click away
+- The whole Grand Prix weekend at a glance
+- A safe-to-watch marker on every session that has finished, using the time it actually ended
+- Live countdown to the next session
+- Keeps itself up to date with the published calendar
+
+Whether you are watching live or catching up later, No Spoilers tells you exactly what you can watch — and nothing more.

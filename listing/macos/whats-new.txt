@@ -1,0 +1,5 @@
+• Sessions are marked safe to watch using the time the session actually ended, rather than an estimate
+• Refreshed visual style throughout the popover
+• A tidier menu bar item
+• The version and build number now appear in About
+• Fixes for unusual calendar entries that could stop the schedule loading

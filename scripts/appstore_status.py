@@ -62,6 +62,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import re
 import subprocess
 import sys
 import time
@@ -270,6 +271,38 @@ class Client:
         except urllib.error.HTTPError as error:
             detail = error.read().decode(errors="replace")[:400]
             raise SystemExit(f"GET {path} -> HTTP {error.code}\n{detail}")
+
+
+# The marks this product may not use, and the one place it must.
+#
+# `CLAUDE.md` makes this a non-negotiable, and it is not an abstract rule: three
+# 4.1(a) Copycats rejections came off this app record. The August 2026 sweep
+# removed the terms from the app, the widget and the website, and from the iOS
+# listing — and missed the macOS listing entirely, which then sat live on the
+# store carrying `F1,Formula 1` in its keywords for another nine days. Nothing
+# pointed at it, because nothing was looking.
+#
+# `\bf1\b` rather than a substring: `f1` inside a URL is a match worth seeing,
+# but `confirm` is not.
+MARKS = re.compile(r"\bf1\b|\bformula\s*(?:1|one)\b", re.I)
+
+# The trademark disclaimer has to name the marks to disclaim them. It is the
+# only sanctioned use, and it is matched as a whole phrase so that dropping it
+# into a description does not launder the rest of the text.
+MARKS_ALLOWED = "trademarks of Formula One Licensing"
+
+
+def trademark_hits(value: object) -> list[str]:
+    """The owned terms in one field, lowercased and deduplicated.
+
+    Returns them rather than a boolean because which term appeared is the whole
+    diagnosis: `formula 1` in a keyword list is a different mistake from `f1` in
+    a support URL, and a caller that only knows "something matched" has to go and
+    look anyway.
+    """
+    if not isinstance(value, str) or MARKS_ALLOWED in value:
+        return []
+    return sorted({hit.lower() for hit in MARKS.findall(value)})
 
 
 def _text(value: object) -> str:
@@ -848,6 +881,26 @@ def attention(report: dict) -> list[str]:
             if bare:
                 found.append(f"{platform} {name} {locale}: no {' or '.join(bare)} screenshots")
 
+            # The owned terms, in the copy a reviewer reads. This section walks
+            # the newest version per platform and nothing older, which is what
+            # keeps this from going permanently red: a shipped version's words
+            # are history and cannot be edited anyway, so once a newer version
+            # carries the fix the old one stops being reported. The pending
+            # name and subtitle are checked with it, since a listing is what a
+            # 4.1(a) reviewer sees rather than any one page of it.
+            checked = {**fields, **(fields.get("pending") or {})}
+            marks = sorted({
+                hit
+                for key, value in checked.items()
+                if key not in ("locale", "pending", "screenshots")
+                for hit in trademark_hits(value)
+            })
+            if marks:
+                found.append(
+                    f"{platform} {name} {locale}: listing uses {', '.join(marks)} — "
+                    "owned terms, and this is the surface 4.1(a) is judged on"
+                )
+
         review = version["review"]
         if review is None:
             found.append(f"{platform} {name} has no App Review contact details")
@@ -858,6 +911,12 @@ def attention(report: dict) -> list[str]:
             if review.get("demoAccountRequired") and not review.get("demoAccountPasswordSet"):
                 found.append(
                     f"{platform} {name} says a demo account is required and has no password set"
+                )
+            notes = sorted(set(trademark_hits(review.get("notes"))))
+            if notes:
+                found.append(
+                    f"{platform} {name} App Review notes use {', '.join(notes)} — "
+                    "the reviewer reads these first"
                 )
 
     for submission in report["submissions"]:
@@ -1100,7 +1159,10 @@ def _version(**overrides) -> dict:
                 "subtitle": None,
                 "privacyPolicyUrl": "https://example.invalid/privacy",
                 "description": "Race week without the result.",
-                "keywords": "f1,grand prix",
+                # Swept, like the real listing. A "nothing is wrong here"
+                # fixture that carries an owned term makes every check written
+                # against it start life with an exception.
+                "keywords": "motorsport,racing,schedule",
                 "supportUrl": "https://example.invalid/support",
                 "promotionalText": None,
                 "whatsNew": "Fixes.",
@@ -1448,6 +1510,48 @@ def _selftest() -> int:
         if "filter[app]=123" not in path:
             failures.append("builds_path lost the app filter")
 
+    # The owned terms. Three 4.1(a) rejections came off this app record, and the
+    # macOS listing then carried `F1,Formula 1` in its keywords for nine days
+    # after the sweep that was supposed to have removed them — live, unflagged,
+    # and found only because someone dumped both listings side by side.
+    if trademark_hits("F1,Formula 1,schedule") != ["f1", "formula 1"]:
+        failures.append("trademark_hits missed the keyword list that was actually live")
+    if trademark_hits("the whole Grand Prix weekend") != []:
+        failures.append("trademark_hits flagged the swept wording it is meant to allow")
+    # Word boundaries, both ways: a URL is worth seeing, an ordinary word is not.
+    if trademark_hits("github.com/sportstimes/f1") != ["f1"]:
+        failures.append("trademark_hits missed a mark inside a URL")
+    for innocent in ("confirm the finish", "F10 sessions", "formulae"):
+        if trademark_hits(innocent) != []:
+            failures.append(f"trademark_hits matched inside a word: {innocent!r}")
+    # The disclaimer has to name the marks to disclaim them, and it is matched
+    # as a whole phrase so that pasting it in cannot launder the rest.
+    disclaimer = "Formula 1, F1, and related marks are trademarks of Formula One Licensing BV."
+    if trademark_hits(disclaimer) != []:
+        failures.append("trademark_hits flagged the required trademark disclaimer")
+    if trademark_hits(None) != [] or trademark_hits(42) != []:
+        failures.append("trademark_hits tried to search something that is not text")
+
+    # In the report, on the two surfaces a reviewer reads.
+    marked = [{**_version()["listing"][0], "keywords": "F1,Formula 1,schedule"}]
+    expect("marks in keywords", _fixture(versions=[_version(listing=marked)]), "owned terms")
+    expect(
+        "marks in review notes",
+        _fixture(versions=[_version(review={**_version()["review"], "notes": "the F1 schedule"})]),
+        "App Review notes use f1",
+    )
+
+    # A pending fix masks the live value: the name is still `No Spoilers F1` on
+    # the store and there is nothing left to do about it, so reporting it would
+    # be a line that cannot be actioned and never goes away.
+    staged = [{
+        **_version()["listing"][0],
+        "name": "No Spoilers F1",
+        "pending": {"name": "No Spoilers - Grand Prix"},
+    }]
+    if any("owned terms" in item for item in attention(_fixture(versions=[_version(listing=staged)]))):
+        failures.append("a mark already fixed in the pending listing was still reported")
+
     # `train_builds` answers the question a release asks before it builds
     # anything, and the join it depends on is the part that can silently return
     # nothing: drop the `include` and every build loses its train, every train
@@ -1697,7 +1801,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 92 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 105 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

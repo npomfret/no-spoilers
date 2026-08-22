@@ -65,10 +65,14 @@ A stale note is worse than no note: it describes changes the tester does not
 have, and it looks entirely plausible while doing it. The check is therefore not
 "is there a note" but "does the note name *this* build".
 
-This is the only Python file here that writes to App Store Connect.
-`appstore_status.py` stays a report and issues `GET`s alone; keeping the two
-apart is what makes it safe to run the report whenever the answer is in doubt.
-It is also why they hold different keys.
+It writes through `asc_write.Session`, which `appstore_listing.py` also uses —
+one App Manager key, spelled once. `appstore_status.py` stays a report and
+issues `GET`s alone; keeping the reader apart from the writers is what makes it
+safe to run whenever the answer is in doubt, and is why it holds a different key.
+
+This one owns TestFlight: which build the testers get, and what they are told it
+contains. The App Store listing — description, keywords, review notes, the
+version record itself — is `appstore_listing.py` and does not belong here.
 
 It refuses to act without `--apply`, and it will not submit anything for review
 unless asked twice: adding a build to a group can be undone, and a review
@@ -88,21 +92,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import appstore_status as asc
+from asc_write import ADMIN_KEY_ID, Session, _hint
 
 REPO = Path(__file__).resolve().parent.parent
-
-# An App Manager key. The Developer-level key `appstore_status.py` uses reads
-# every one of these endpoints and is then refused the write with an empty 403,
-# which is the least helpful error in this API — see `_hint`.
-ADMIN_KEY_ID = "ASC6H3SL2D"
 
 # Which platform's builds to hand over. Xcode Cloud has archived macOS as well
 # as iOS since 2026-08-14, so "the newest build" stopped
@@ -160,65 +157,6 @@ EXTERNAL_STATES = {
     "IN_BETA_TESTING": ("already out with external testers", True),
     "EXPIRED": ("expired — TestFlight builds last 90 days", False),
 }
-
-
-class Session:
-    """Signs with `appstore_status`'s token, and writes, which it does not."""
-
-    def __init__(self) -> None:
-        key = asc.key_path(ADMIN_KEY_ID)
-        if not key.exists():
-            raise SystemExit(
-                f"no private key at {key}\n"
-                f"{ADMIN_KEY_ID} must be an App Manager key, downloadable once from "
-                "App Store Connect > Users and Access > Integrations. The Developer key "
-                "the rest of this repo uses cannot distribute a build."
-            )
-        self.bearer = asc.token(asc.ISSUER_ID, ADMIN_KEY_ID, key)
-
-    def _call(self, method: str, path: str, body: dict | None = None) -> dict:
-        request = urllib.request.Request(
-            asc.API + path,
-            data=json.dumps(body).encode() if body is not None else None,
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self.bearer}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=asc.TIMEOUT) as response:
-                raw = response.read()
-                return json.loads(raw) if raw else {}
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode(errors="replace")[:400]
-            raise SystemExit(f"{method} {path} -> HTTP {error.code}\n{detail}{_hint(error.code)}")
-
-    def get(self, path: str) -> dict:
-        return self._call("GET", path)
-
-    def post(self, path: str, body: dict) -> dict:
-        return self._call("POST", path, body)
-
-    def patch(self, path: str, body: dict) -> dict:
-        return self._call("PATCH", path, body)
-
-
-def _hint(code: int) -> str:
-    """The two failures worth naming, because neither says what it means.
-
-    A 403 from this API arrives with an empty `detail` and is indistinguishable
-    from a malformed body, which sends you rewriting a request that was fine.
-    """
-    if code == 403:
-        return (
-            "\n\nA 403 here is almost always the key rather than the request: an App "
-            "Store Connect key at Developer level reads all of this and is refused "
-            f"every write. {ADMIN_KEY_ID} must still be an App Manager key."
-        )
-    if code == 401:
-        return "\n\nA 401 means the .p8 is not an App Store Connect key, or the issuer is wrong."
-    return ""
 
 
 def explain(is_internal: bool, detail: dict) -> tuple[str, str, bool]:

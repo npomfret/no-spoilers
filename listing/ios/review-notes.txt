@@ -1,0 +1,26 @@
+No Spoilers is a Home Screen widget. That is the product on iPhone and iPad.
+
+Please add the widget before reviewing. A widget is not visible until someone places it, so a review that only launches the app does not see what the app is for.
+
+TO ADD IT
+1. Touch and hold an empty area of the Home Screen until the icons jiggle.
+2. Tap the widget button at the top of the screen (Edit, then Add Widget).
+3. Search for "No Spoilers" and pick a size.
+
+There are three sizes and each shows a different amount of the race weekend:
+- Small: the Grand Prix, the next session, and a live countdown to it.
+- Medium: the next session with its countdown, the last session that finished, and the weekend after this one.
+- Large: every session of the weekend with its status, plus what is coming next.
+
+WHAT IT DOES
+It shows when the sessions of a Grand Prix weekend are, which of them have already finished and are therefore safe to watch on replay, and a live countdown to the next one.
+
+It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
+
+The schedule is cached on the device in a shared App Group container, which the widget reads directly. The widget and its countdown keep working with no network connection.
+
+NO ACCOUNT IS NEEDED
+There is no sign-in anywhere in the app, so the demo account previously attached to this submission does not apply to anything. All functionality is available immediately on launch.
+
+CORRECTION TO EARLIER REVIEW NOTES
+The notes previously on this version said "This is a menu bar app... the icon appears in the top-right of the menu bar." That was wrong and should never have been on this submission - there is no menu bar on iPhone or iPad. We are sorry for the confusion it caused.

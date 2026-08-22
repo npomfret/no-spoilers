@@ -14,12 +14,14 @@ disable-model-invocation: true
 3. Classify the requested action before proceeding:
    - read-only status: `scripts/appstore_status.py` or `scripts/ci_health.py`
    - TestFlight distribution: `scripts/testflight_distribute.py --apply`
+   - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
    - Store or Homebrew release: one of `scripts/ship*.sh`
    - deterministic listing screenshots: `scripts/screenshots.py`
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
-5. Preserve existing boundaries: releases run locally, Xcode Cloud does not distribute to testers automatically, `appstore_status.py` remains read-only, and only `testflight_distribute.py` writes TestFlight metadata or groups.
-6. For screenshots, follow the script docstring and `docs/guides/building.md`; never launch the app after seeding a fixture.
-7. Report the exact command, external effect, and any manual follow-up. Never claim store or TestFlight delivery from a green local build alone.
+5. Preserve existing boundaries: releases run locally, Xcode Cloud does not distribute to testers automatically, `appstore_status.py` remains read-only, `testflight_distribute.py` is the only thing that writes TestFlight metadata or groups, and `appstore_listing.py` is the only thing that writes App Store listing copy. Never edit listing copy in the App Store Connect web form — it is checked in, and a web edit is a silent divergence from the repository.
+6. Never submit anything for App Review. No tool here does it and none should: it is a person pressing Submit.
+7. For screenshots, follow the script docstring and `docs/guides/building.md`; never launch the app after seeding a fixture.
+8. Report the exact command, external effect, and any manual follow-up. Never claim store or TestFlight delivery from a green local build alone.
 
 ## Do not
 
