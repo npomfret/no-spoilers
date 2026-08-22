@@ -87,14 +87,32 @@ struct SessionAlertsView: View {
         // Matches AboutView: NoSpoilersBackground is a hardcoded light gradient, so the subtree
         // has to resolve system colours light or the text goes unreadable on a dark-mode device.
         .preferredColorScheme(.light)
-        .task { await scheduler.refreshAuthorization() }
-        // Asked here and nowhere else. The prompt is one-shot for the life of the install, so it
-        // is spent the first time someone turns an alert on — a point at which they have found
-        // this screen and know what they are agreeing to.
-        .onChange(of: wantsAnything) { _, wantsAnything in
-            guard wantsAnything, scheduler.authorization == .notDetermined else { return }
-            Task { await scheduler.requestAuthorization() }
+        .task {
+            await scheduler.refreshAuthorization()
+            await askIfWanted()
         }
+        .onChange(of: wantsAnything) { _, _ in
+            Task { await askIfWanted() }
+        }
+    }
+
+    /// Asked from this screen and nowhere else, the first time it is opened with an alert on.
+    ///
+    /// The prompt is one-shot for the life of the install, so it is spent at the point someone
+    /// has found this screen, read what the alerts say, and left one switched on — not on launch,
+    /// before anyone knows what the app is for, which is the reliable way to lose the permission
+    /// permanently.
+    ///
+    /// **`.onChange` alone was not enough, and that was a silent hole.** Both alerts ship on, so
+    /// `wantsAnything` is already true when this screen first draws and never changes — the
+    /// prompt was therefore never shown to anybody who left the defaults alone, which is
+    /// everybody. Authorization stayed `.notDetermined` for the life of the install, every
+    /// reschedule logged `not scheduling`, and the screen looked completely correct while doing
+    /// it: two switches on, no warning, no alerts. Found on 2026-08-22 by
+    /// `scripts/alerts_check.py`, which is the only reason it was found at all.
+    private func askIfWanted() async {
+        guard wantsAnything, scheduler.authorization == .notDetermined else { return }
+        await scheduler.requestAuthorization()
     }
 
     /// Whether any alert is switched on at all.

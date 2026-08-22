@@ -129,6 +129,13 @@ struct ContentView: View {
         .onChange(of: store.weekends) { _, weekends in
             Task { await alerts.reschedule(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
         }
+        // The grant arrives while this view is on screen, underneath the About sheet the prompt
+        // was asked from. Dismissing a sheet is not a scene change, so without this the answer
+        // costs nothing until the app is next backgrounded and reopened: permission granted,
+        // switches on, and not one alert pending.
+        .onChange(of: alerts.authorization) { _, _ in
+            Task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
+        }
         .onChange(of: store.weekends) { _, _ in
             homeSelectionIfNeeded()
         }

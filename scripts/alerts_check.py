@@ -152,17 +152,38 @@ def push(udid: str, which: str) -> None:
     print("\n  In the app:  ⓘ  >  Session alerts  >  turn one on  >  Allow")
 
 
-def stream(udid: str, seconds: int) -> list[dict]:
-    """Collect the alerts channel for a while.
+def observe(udid: str, seconds: int) -> list[dict]:
+    """Relaunch the app with the alerts channel already open, and collect what it says.
 
     ndjson because `LogChannel` writes one JSON object per line and the useful
     half is inside `eventMessage`; the compact style would need unpicking twice.
+
+    **The order here is the whole point, and getting it wrong cost a day.** The
+    line worth reading is written milliseconds into launch — `reschedule` runs
+    from `.task` on the root view — so a stream attached afterwards sees an
+    empty channel. Worse, `simctl launch` on an app that is *already* running
+    returns the existing pid without re-running anything, so the previous
+    version of this could not observe a launch at all once the app was up: it
+    reported "nothing on the alerts channel" for an app that was logging
+    `not scheduling` on every single launch, and blamed the missing permission
+    prompt for it. Terminate first, attach, then launch.
+
+    The banner `log stream` prints before its first record is what says the
+    stream is attached. Waiting for it rather than sleeping a guessed interval
+    is the difference between a race this can lose and one it cannot.
     """
+    run("xcrun", "simctl", "terminate", udid, APP_BUNDLE_ID, check=False)
+
     command = (
         "xcrun", "simctl", "spawn", udid, "log", "stream",
         "--style", "ndjson", "--predicate", LOG_PREDICATE,
     )
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    process.stdout.readline()
+
+    run("xcrun", "simctl", "launch", udid, APP_BUNDLE_ID)
+    print(f"launched {APP_BUNDLE_ID}, listening for {seconds}s")
+
     lines: list[dict] = []
     try:
         process.wait(timeout=seconds)
@@ -184,11 +205,10 @@ def stream(udid: str, seconds: int) -> list[dict]:
 def report(entries: list[dict]) -> int:
     if not entries:
         print("\nNothing on the alerts channel.")
-        print("\nThe most likely reason is that notifications have not been allowed yet — there")
-        print("is no simctl verb for that, so it is a manual tap:")
-        print("\n  In the app:  ⓘ  >  Session alerts  >  turn one on  >  Allow")
-        print("\nThen run this again. If it stays empty after that, the app is not reaching")
-        print("`SessionAlertScheduler.reschedule` at all.")
+        print("\nThe app was relaunched with the stream already attached, so this is not a race:")
+        print("it means `SessionAlertScheduler.reschedule` was never reached. Check that")
+        print("`ContentView` still calls it from `.task`, and that the build on the device is")
+        print("the one you just made.")
         return 1
 
     print()
@@ -201,7 +221,11 @@ def report(entries: list[dict]) -> int:
 
     if refused and not scheduled:
         print("\nThe app declined to schedule: iOS has not authorized notifications.")
-        print("  In the app:  ⓘ  >  Session alerts  >  turn one on  >  Allow")
+        print("`authorization` is a UNAuthorizationStatus — 0 notDetermined, 1 denied, 2 authorized.")
+        print("\n  0: nobody has been asked. Open the app, tap the ⓘ, then `Session alerts` —")
+        print("     opening that screen with an alert switched on is what asks. Press Allow.")
+        print("  1: iOS has been told no, and only Settings can undo it:")
+        print("     Settings > Notifications > No Spoilers > Allow Notifications.")
         return 1
 
     if not scheduled:
@@ -254,9 +278,7 @@ def main() -> int:
         push(udid, arguments.push)
         return 0
 
-    run("xcrun", "simctl", "launch", udid, APP_BUNDLE_ID)
-    print(f"launched {APP_BUNDLE_ID}, listening for {arguments.watch}s")
-    return report(stream(udid, arguments.watch))
+    return report(observe(udid, arguments.watch))
 
 
 if __name__ == "__main__":
