@@ -25,7 +25,13 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            // The app's chrome row: who you are looking at on the left, what you can do on the
+            // right. The wordmark used to live inside the weekend's header card, which made the
+            // app's own name a property of the weekend — redrawn on all 23 pages, and absent
+            // entirely while the first schedule was still loading. It belongs above the pager.
+            HStack(spacing: Theme.Space.xl) {
+                NoSpoilersWordmark(size: .large)
+                Spacer()
                 // Swiping is otherwise the only way between 23 weekends, with page dots as the
                 // only indication of where you are. If a swipe does not take — the thing this
                 // screen was reported for — there is no other route back to the weekend that
@@ -46,7 +52,6 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(Strings.Navigation.jumpToCurrentWeekend)
                 }
-                Spacer()
                 Button {
                     showAbout = true
                 } label: {
@@ -280,11 +285,10 @@ struct ContentView: View {
 
         return NoSpoilersCard(canvas: .iosApp) {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
-                HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.iosApp)) {
-                    NoSpoilersWordmark(size: .large)
-                    Spacer()
-                    FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.iosApp))
-                }
+                // Centred rather than pushed to one edge: the wordmark that used to balance it
+                // on the left is now in the chrome row, and the weekend's name below is centred.
+                FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.iosApp))
+                    .frame(maxWidth: .infinity)
 
                 Text(weekend.grandPrixName)
                     .font(Theme.Typography.weekendTitle(.iosApp))
@@ -379,10 +383,6 @@ struct ContentView: View {
         VStack(spacing: Theme.Space.xxl) {
             NoSpoilersCard(canvas: .iosApp) {
                 VStack(alignment: .leading, spacing: Theme.Space.xl) {
-                    HStack {
-                        NoSpoilersWordmark(size: .large)
-                        Spacer()
-                    }
                     HStack {
                         Spacer(minLength: 0)
                         Text(verbatim: "Loading Grand Prix")
