@@ -125,6 +125,11 @@ WAITING = {
     "PROCESSING_FOR_APP_STORE": "publishing",
 }
 
+# States only a version that reached the store can be in. Used for one
+# question — has this *platform* ever shipped — which is not the same question
+# as whether the app has. See `first` below.
+SHIPPED = {"READY_FOR_SALE", "REPLACED_WITH_NEW_VERSION", "REMOVED_FROM_SALE"}
+
 # The listing fields App Store Connect will not accept a submission without,
 # under the names this report prints. Everything else is reported and never
 # chased: a marketing URL is a decision, not an omission.
@@ -771,6 +776,13 @@ def gather(client: Client) -> dict:
         "&include=appStoreVersionLocalizations,build"
     )
     included = {(i["type"], i["id"]): i for i in versions.get("included") or []}
+    # Which platforms have ever reached the store, worked out before the walk
+    # below throws the older versions away.
+    shipped_platforms = {
+        v["attributes"].get("platform")
+        for v in versions["data"]
+        if v["attributes"].get("appStoreState") in SHIPPED
+    }
     seen_platforms: set[str] = set()
     for version in versions["data"]:
         platform = version["attributes"].get("platform")
@@ -790,6 +802,10 @@ def gather(client: Client) -> dict:
             "state": version["attributes"].get("appStoreState"),
             "releaseType": version["attributes"].get("releaseType"),
             "created": version["attributes"].get("createdDate"),
+            # Whether this is the first version of the app *on this platform*.
+            # Under Universal Purchase one record covers macOS and iOS, so the
+            # app being on sale says nothing about whether this platform is.
+            "first": platform not in shipped_platforms,
             "build": (included.get(("builds", build["id"])) or {}).get("attributes", {}).get("version")
             if build
             else None,
@@ -870,10 +886,15 @@ def attention(report: dict) -> list[str]:
             empty = [label for key, label in REQUIRED_TEXT if not _text(fields.get(key))]
             if not _text(fields.get("privacyPolicyUrl")):
                 empty.append("privacy policy URL")
-            # Every version of this app is an update — it has been on sale since
-            # 1.0.13 — so a blank "What's New" is a blank release note, not an
-            # inapplicable field.
-            if not _text(fields.get("whatsNew")):
+            # **Only for a platform that has already shipped.** "What's New in
+            # This Version" describes a change from a version somebody has, so
+            # Apple refuses it outright on a first release — `PATCH` answers
+            # `409 STATE_ERROR: Attribute 'whatsNew' cannot be edited at this
+            # time`, measured on iOS 1.1.2 on 2026-08-22. This asked for it
+            # anyway, reasoning that the app had been on sale since 1.0.13 —
+            # true, and about macOS. One record covers both platforms and the
+            # field does not, so the line could never be actioned by anybody.
+            if not version["first"] and not _text(fields.get("whatsNew")):
                 empty.append("what's new")
             if empty:
                 found.append(f"{platform} {name} {locale}: {', '.join(empty)} empty")
@@ -1152,6 +1173,7 @@ def _version(**overrides) -> dict:
         "releaseType": "AFTER_APPROVAL",
         "created": "2026-08-01T00:00:00Z",
         "build": "1022",
+        "first": False,
         "listing": [
             {
                 "locale": "en-GB",
@@ -1510,6 +1532,17 @@ def _selftest() -> int:
         if "filter[app]=123" not in path:
             failures.append("builds_path lost the app filter")
 
+    # "What's New" on a platform's first release. Apple refuses the field with a
+    # 409, so asking for it is a line nobody can ever clear — and the reasoning
+    # that produced it was "this app has been on sale since 1.0.13", which is
+    # true of macOS and says nothing about iOS.
+    blank = [{**_version()["listing"][0], "whatsNew": None}]
+    expect("no release notes on an update", _fixture(versions=[_version(listing=blank)]),
+           "what's new")
+    if any("what's new" in item
+           for item in attention(_fixture(versions=[_version(listing=blank, first=True)]))):
+        failures.append("release notes were demanded for a platform's first version")
+
     # The owned terms. Three 4.1(a) rejections came off this app record, and the
     # macOS listing then carried `F1,Formula 1` in its keywords for nine days
     # after the sweep that was supposed to have removed them — live, unflagged,
@@ -1801,7 +1834,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 105 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 107 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

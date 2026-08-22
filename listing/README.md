@@ -21,6 +21,12 @@ An empty file is an error, because it reads as both "leave it alone" and "clear 
 `whats-new.txt` describes the release being prepared. Git history keeps the previous ones; App
 Store Connect keeps them per version.
 
+**There is no `whats-new.txt` for a platform's first release, and there cannot be.** "What's New in
+This Version" describes a change from a version somebody already has, so Apple refuses the field
+outright — `PATCH` answers `409 STATE_ERROR: Attribute 'whatsNew' cannot be edited at this time`.
+Measured on iOS 1.1.2 on 2026-08-22, which is iOS's first version however long the app has been on
+sale on macOS. `listing/ios/whats-new.txt` belongs here from 1.1.3 onwards and not before.
+
 en-GB only — it is the app's only locale, and a second one would be a directory level rather than a
 rewrite.
 

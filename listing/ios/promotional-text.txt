@@ -1,1 +1,1 @@
-A Home Screen and Lock Screen widget with the whole race weekend on it: which sessions are safe to watch, a live countdown to the next one, and never the result.
+A Home Screen widget with the whole race weekend on it: which sessions are safe to watch, a live countdown to the next one, and never the result.

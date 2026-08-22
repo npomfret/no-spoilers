@@ -51,6 +51,14 @@ def _hint(code: int) -> str:
         )
     if code == 401:
         return "\n\nA 401 means the .p8 is not an App Store Connect key, or the issuer is wrong."
+    if code == 409:
+        return (
+            "\n\nA 409 is App Store Connect refusing the *state*, not the body, and its `detail` "
+            "says what without saying why. The one measured here: `Attribute 'whatsNew' cannot be "
+            "edited at this time` on a platform's first version — there is no what's-new for a "
+            "release nobody has yet, and Apple will not take one. iOS 1.1.2, 2026-08-22. Before "
+            "rewriting the request, check whether the field applies to this version at all."
+        )
     return ""
 
 
