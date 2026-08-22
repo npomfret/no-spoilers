@@ -36,6 +36,10 @@ enum Strings {
             "Search for No Spoilers, pick a size, and tap Add Widget"
         ]
         static let installFooter: LocalizedStringKey = "Today View and Lock Screen are different places — make sure you are on the Home Screen."
+        /// Puts the prompt card away for good. The steps stay in About.
+        static let dismissPrompt: LocalizedStringKey = "Not now"
+        static let aboutSectionLabel: LocalizedStringKey = "Widget"
+        static let aboutRowTitle: LocalizedStringKey = "How to add the widget"
     }
     enum Error {
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."

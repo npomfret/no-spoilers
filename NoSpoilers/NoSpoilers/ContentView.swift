@@ -10,7 +10,16 @@ struct ContentView: View {
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
     @State private var showAbout = false
+    @State private var showWidgetHelp = false
     @State private var widgetInstall: WidgetInstallStatus = .unknown
+    /// Whether the user has put the install prompt away. Local to the app, not
+    /// the App Group: it is a preference of this screen and no extension has
+    /// any business reading it. Keyed like the macOS menu-bar preferences.
+    ///
+    /// One-way on purpose. Nothing sets it back, because the only thing that
+    /// could is another prompt, and a prompt that returns is the behaviour this
+    /// replaced. The steps stay reachable from About.
+    @AppStorage("widget.installPromptDismissed") private var installPromptDismissed = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -84,7 +93,15 @@ struct ContentView: View {
         }
         .background(backgroundGradient)
         .sheet(isPresented: $showAbout) {
-            AboutView(onDone: { showAbout = false })
+            AboutView(onDone: { showAbout = false }) {
+                widgetHelpSection
+            }
+            // Attached inside the About sheet rather than beside it: this is the
+            // presenter, and a second `.sheet` on the root would have to wait for
+            // About to close before it could open.
+            .sheet(isPresented: $showWidgetHelp) {
+                WidgetInstallSheet(onDone: { showWidgetHelp = false })
+            }
         }
         .onAppear {
             homeSelectionIfNeeded()
@@ -185,15 +202,37 @@ struct ContentView: View {
         return VStack(spacing: Theme.Space.xxl) {
             // First, because a user without the widget has not finished setting the app up and
             // that is the most useful thing on the screen for them. It scrolls away like any other
-            // card, and it is gone for good the moment they act.
-            if widgetInstall.shouldPromptToInstall {
-                WidgetInstallCard()
+            // card, and it is gone for good the moment they act — or the moment they say no.
+            if widgetInstall.shouldPromptToInstall && !installPromptDismissed {
+                WidgetInstallCard(onDismiss: { installPromptDismissed = true })
             }
             headerCard(weekend: weekend, sessions: sessions, nextSession: nextSession)
             sessionCard(sessions: sessions)
             if nextSession != nil, let nextWeekend {
                 nextWeekendCard(nextWeekend)
             }
+        }
+    }
+
+    /// The widget's permanent home, handed to `AboutView`'s slot.
+    ///
+    /// A row that opens the steps rather than the steps themselves: About is a
+    /// fixed-height sheet with three sections already in it, and inlining a
+    /// numbered list would push the Done button off an iPhone SE.
+    private var widgetHelpSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            NoSpoilersSectionLabel(Strings.Widget.aboutSectionLabel)
+            Button {
+                showWidgetHelp = true
+            } label: {
+                NoSpoilersDetailRow(Strings.Widget.aboutRowTitle) {
+                    Image(systemName: Theme.Icon.disclosure)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textTertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

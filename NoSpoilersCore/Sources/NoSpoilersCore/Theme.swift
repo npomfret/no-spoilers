@@ -971,6 +971,12 @@ public enum Theme {
         /// Jump the pager back to the weekend happening now.
         public static let currentWeekend = "location.fill"
         public static let about = "info.circle"
+        /// A row that opens something else. The only chevron in the app; named
+        /// for the job rather than the direction so a right-to-left locale can
+        /// change the glyph here and nowhere else.
+        public static let disclosure = "chevron.right"
+        /// Puts a one-off prompt away for good.
+        public static let dismiss = "xmark"
         public static let website = "globe"
         public static let settings = "gear"
         public static let quit = "power"

@@ -4,12 +4,30 @@ import SwiftUI
 /// and the iOS main view. Presented with a closure-based dismissal so the
 /// host view owns the navigation model (macOS switches a screen enum; iOS
 /// drives a sheet binding).
-public struct AboutView: View {
+///
+/// **This is the app's only menu**, so anything a platform needs a permanent
+/// home for and does not want on the main screen goes in the `extra` slot —
+/// iOS puts the widget instructions there. The slot is content the caller
+/// builds, in the manner of `NoSpoilersCard` and `NoSpoilersDetailRow`, rather
+/// than a platform flag read from inside: macOS has no Home Screen and the
+/// steps would be wrong there, and the next thing to need this will not be
+/// widget-shaped either.
+public struct AboutView<Extra: View>: View {
     private let onDone: () -> Void
+    private let extra: Extra
 
-    public init(onDone: @escaping () -> Void) {
+    public init(onDone: @escaping () -> Void, @ViewBuilder extra: () -> Extra) {
         self.onDone = onDone
+        self.extra = extra()
     }
+
+    /// Whether the caller actually put something in the slot.
+    ///
+    /// A section here is content plus the `Divider` under it, and the divider
+    /// is ours rather than the caller's — every other section's is. An
+    /// `EmptyView` draws nothing but a divider placed beside it still would,
+    /// which is a stray line across the macOS popover.
+    private var hasExtra: Bool { Extra.self != EmptyView.self }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +37,14 @@ public struct AboutView: View {
             )
 
             Divider()
+
+            // ── Platform section ──────────────────────────────
+            // Above acknowledgements because it is the only thing here anyone
+            // opens this screen to do; the credits below are reference.
+            if hasExtra {
+                extra
+                Divider()
+            }
 
             // ── Acknowledgements ──────────────────────────────
             VStack(alignment: .leading, spacing: 0) {
@@ -90,5 +116,13 @@ public struct AboutView: View {
                     .underline()
             }
         }
+    }
+}
+
+extension AboutView where Extra == EmptyView {
+    /// The plain screen, with nothing in the slot — macOS, and any caller that
+    /// has nothing platform-specific to add.
+    public init(onDone: @escaping () -> Void) {
+        self.init(onDone: onDone, extra: { EmptyView() })
     }
 }
