@@ -46,6 +46,16 @@ way to tell a working run from a broken one. This script asks the Xcode Cloud
 run for the commit and writes `whatsNew` over the API instead, where the result
 is visible and a failure is an HTTP error rather than silence.
 
+**A locally shipped build has no Xcode Cloud run to ask**, and until 2026-08-22
+that meant no note: `release.sh` uploads from the 10000 band, no run produced
+those numbers, and every one of them reached the testers blank. Build 10003 went
+out that way on the day Xcode Cloud ran out of compute quota, which is when a
+gap that had always been there stopped being theoretical — a local ship is now
+the ordinary path, not the fallback. The commit is knowable without the API:
+`release.sh` commits `bump to vX.Y.Z (build N)` immediately after the archive
+succeeds, so git holds the same answer Xcode Cloud would have given. See
+`ship_commit`.
+
 The trade is that a build **nobody distributes now has no note at all**, and may
 show a previous build's if App Store Connect carries one forward. That is the
 right way round: an undistributed build reaches no tester, and the note becomes
@@ -79,11 +89,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import appstore_status as asc
+
+REPO = Path(__file__).resolve().parent.parent
 
 # An App Manager key. The Developer-level key `appstore_status.py` uses reads
 # every one of these endpoints and is then refused the write with an empty 403,
@@ -288,8 +302,9 @@ def source_commit(session: Session, product_id: str, version: str) -> dict | Non
 
     None is a valid answer, not a swallowed error. `release.sh` uploads from
     10000 up and no run produced them, and a run started from Xcode by hand can
-    carry no source commit at all. Neither has a commit to name, and inventing
-    one would be worse than leaving the note alone.
+    carry no source commit at all. Neither has a run to name; the first of those
+    two has a ship commit instead, and `ship_commit` is the caller's next
+    question rather than this one's business.
 
     A product that does not exist is *not* one of those cases, which is why the
     id is found by `asc.find_ci_product` and passed in rather than looked up
@@ -309,7 +324,81 @@ def source_commit(session: Session, product_id: str, version: str) -> dict | Non
     commit = run["attributes"].get("sourceCommit")
     if not commit:
         return None
-    return {"subject": commit["message"].split("\n")[0], "sha": commit["commitSha"]}
+    return {
+        "subject": commit["message"].split("\n")[0],
+        "sha": commit["commitSha"],
+        "source": "the Xcode Cloud run",
+    }
+
+
+def _git(*arguments: str) -> str:
+    """One git command against this checkout, or a hard stop.
+
+    `-C REPO` rather than the working directory: this is run from wherever the
+    caller happens to be, and a git answer about somebody else's checkout would
+    be a confidently wrong note rather than a missing one.
+    """
+    return subprocess.run(
+        ("git", "-C", str(REPO), *arguments),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def ship_commit(version: str) -> dict | None:
+    """The commit a local `release.sh` ship built, or None if no ship built it.
+
+    **Asked only after Xcode Cloud has said no, and the order is load-bearing.**
+    Build numbers are unique per upload path but not across them, and this repo
+    already holds the collision: `bump to v1.0.21 (build 4)` sits in git while
+    Xcode Cloud has its own iOS build 4. A run is authoritative about its own
+    number, so CI answers first and git is only asked about numbers no run
+    claims.
+
+    **The commit returned is the bump commit's parent, not the bump commit.**
+    `release.sh` archives from the working tree and commits the version bump
+    afterwards, so the tree that was built is the parent's tree plus a build
+    number. The parent is therefore the tip of `main` at the moment of the ship,
+    which is exactly what Xcode Cloud's `sourceCommit` is for a run — the same
+    fact by a different route, rather than a second definition of it. The bump
+    commit is how it is found and nothing more; naming it in the note would give
+    every ship the subject `bump to vX (build N)`, which repeats the marker line
+    and tells a tester nothing.
+
+    Two consequences worth knowing before reading a note:
+
+    - **A re-ship with no work in between names the previous bump.** Build 10002
+      followed 10001 with nothing between them, so its note reads `bump to
+      v1.1.1 (build 10001)`. That is the honest answer — the build carries no
+      change beyond its number — and inventing prose for the case would be a
+      second note format for one build in twenty.
+    - **Anything uncommitted at ship time is in the build and not in the note.**
+      `release.sh` stages only the project file, and nothing anywhere requires a
+      clean tree before archiving.
+
+    Two ships claiming one build number is contradiction rather than absence, so
+    it stops here instead of picking one.
+    """
+    if not version.isdigit():
+        return None
+
+    # Anchored at both ends. Without the `$`, build 1000 matches the commit for
+    # build 10001 — the same failure `note_names_build` guards on the way out.
+    pattern = rf"^bump to v[0-9]+\.[0-9]+\.[0-9]+ \(build {version}\)$"
+    bumps = _git("log", "--format=%H", "--extended-regexp", f"--grep={pattern}").split()
+    if not bumps:
+        return None
+    if len(bumps) > 1:
+        raise SystemExit(
+            f"{len(bumps)} commits claim to have shipped build {version}: {' '.join(bumps)}\n"
+            "One build number is one ship. Until that is untangled, the note this would "
+            "write is a guess about which."
+        )
+
+    built = _git("log", "-1", "--format=%H%x00%s", f"{bumps[0]}^").strip()
+    sha, _, subject = built.partition("\0")
+    return {"subject": subject, "sha": sha, "source": "the local ship commit"}
 
 
 def note_on(session: Session, build_id: str) -> dict | None:
@@ -358,18 +447,25 @@ def repair_note(session: Session, product_id: str, build: dict, apply: bool) -> 
         return
 
     seen = note_state(existing)
-    commit = source_commit(session, product_id, build["version"])
+    commit = source_commit(session, product_id, build["version"]) or ship_commit(build["version"])
     if commit is None:
-        print(f"what to test: {seen}, and no Xcode Cloud run produced this build, so leaving it")
+        print(
+            f"what to test: {seen}, and nothing names the commit behind build "
+            f"{build['version']} — no Xcode Cloud run and no ship commit — so leaving it"
+        )
         return
 
     wanted = note_text(commit["subject"], commit["sha"], build["version"])
     marker = note_claims(wanted)
+    # Where the commit came from, every time. The two paths are indistinguishable
+    # in the note itself, and which one answered is the first thing worth knowing
+    # when a note looks wrong.
     if not apply:
-        print(f"what to test: {seen}. Would set {marker!r}. Re-run with --apply.")
+        print(f"what to test: {seen}. Would set {marker!r}, from {commit['source']}. "
+              "Re-run with --apply.")
         return
     write_note(session, build["id"], existing, wanted)
-    print(f"what to test: {seen}, now {marker!r}")
+    print(f"what to test: {seen}, now {marker!r}, from {commit['source']}")
 
 
 def testers(session: Session, group_id: str) -> list[dict]:
@@ -619,6 +715,36 @@ def _selftest() -> int:
     if note_state({"id": "x", "whatsNew": "just a subject"}) != "has no build marker":
         failures.append("note_state did not report a note carrying no marker")
 
+    # `ship_commit` against this repo's own history, which is the only place the
+    # thing it parses exists. Build 10003 is the ship that made the gap concrete:
+    # shipped locally on 2026-08-22 with Xcode Cloud out of quota, and it reached
+    # the internal testers with an empty note.
+    shipped = ship_commit("10003")
+    if shipped is None:
+        failures.append("ship_commit found no ship for build 10003, which release.sh shipped")
+    else:
+        if not shipped["sha"].startswith("8d7af11"):
+            failures.append(f"ship_commit named {shipped['sha'][:12]} rather than build 10003's tip")
+        if shipped["subject"].startswith("bump to v"):
+            failures.append("ship_commit returned the bump commit rather than the commit it built")
+        if not note_names_build(
+            note_text(shipped["subject"], shipped["sha"], "10003"), "10003"
+        ):
+            failures.append("a note built from ship_commit does not name its own build")
+
+    # The anchor. `(build 10001)` contains `1000`, and an unanchored grep would
+    # hand build 1000 another build's commit — well-formed, plausible, wrong.
+    if ship_commit("1000") is not None:
+        failures.append("ship_commit matched a build number by prefix")
+
+    # Absence is an answer here: every Xcode Cloud build reaches this function
+    # having already been refused by `source_commit`, and none of them has a
+    # ship commit. Returning something would be inventing one.
+    if ship_commit("999999") is not None:
+        failures.append("ship_commit invented a ship for a build nothing shipped")
+    if ship_commit("not-a-number") is not None:
+        failures.append("ship_commit tried to parse a version that is not a build number")
+
     if "App Manager" not in _hint(403) or ADMIN_KEY_ID not in _hint(403):
         failures.append("the 403 hint does not name the key")
     if _hint(200):
@@ -652,7 +778,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 28 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 34 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
