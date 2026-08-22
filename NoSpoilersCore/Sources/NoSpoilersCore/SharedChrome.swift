@@ -264,17 +264,26 @@ public struct NoSpoilersWeekendMeta: View {
 /// the trailing slot: a `Link` on one, a `Toggle` on the other. That is content,
 /// so it stays with the callers.
 public struct NoSpoilersDetailRow<Trailing: View>: View {
-    private let label: LocalizedStringKey
+    private let label: Text
     private let trailing: Trailing
 
     public init(_ label: LocalizedStringKey, @ViewBuilder trailing: () -> Trailing) {
-        self.label = label
+        self.label = Text(label)
+        self.trailing = trailing()
+    }
+
+    /// For a label that is already a resolved string rather than a key — a session's
+    /// `displayName`, say. **The same pair `NoSpoilersBadge` carries**, and for the same reason:
+    /// wrapping a runtime string in `LocalizedStringKey` looks like localisation and is the
+    /// opposite of it, because the key it forms is the English text itself.
+    public init(_ label: String, @ViewBuilder trailing: () -> Trailing) {
+        self.label = Text(label)
         self.trailing = trailing()
     }
 
     public var body: some View {
         HStack {
-            Text(label)
+            label
                 .font(.body)
                 .foregroundStyle(Theme.Palette.textPrimary)
 

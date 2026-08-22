@@ -47,7 +47,7 @@ experience" — and it is answerable in code rather than in argument.
 
 ## Plan
 
-### Phase A — one enumeration of schedule boundaries — **IN PROGRESS**
+### Phase A — one enumeration of schedule boundaries — **DONE 2026-08-22** (`df57c7c`)
 
 `TimelinePlanner.boundaryDates` already computes *every moment at which what the product should be
 showing changes*: session starts, session effective ends, and the 24h recently-finished window of a
@@ -59,20 +59,20 @@ package, which is the drift the core rules call a correctness issue. So the trav
 `ScheduleBoundaries` and returns `[ScheduleBoundary]`; `TimelinePlanner` keeps its behaviour exactly
 and maps to dates. Its tests are the proof that nothing moved.
 
-### Phase B — plan the alerts (Core, pure, testable)
+### Phase B — plan the alerts (Core, pure, testable) — **DONE 2026-08-22** (`df57c7c`)
 
 A planner in the shape of `TimelinePlanner`: schedule + confirmed ends + preferences + `now` in,
 an ordered list of alerts out. iOS allows **64 pending local notifications**, so the cap is a
 parameter the caller owns, exactly as `maxEntries` is.
 
-### Phase C — deliver them (iOS target)
+### Phase C — deliver them (iOS target) — **DONE 2026-08-22**
 
 `UNUserNotificationCenter`: permission, scheduling, replacing the pending set. Local notifications
 need no entitlement — `NoSpoilersApp.entitlements` holds only the App Group and does not change.
 Rescheduled on launch and on `scenePhase == .active`, which is the same trigger the widget install
 check already uses.
 
-### Phase D — preferences UI
+### Phase D — preferences UI — **DONE 2026-08-22**
 
 The About sheet gained a caller-built `extra` slot in `a8a356f`, and it is where the widget
 instructions now live. It is the app's only menu and is where these belong too.
@@ -91,7 +91,19 @@ support. The build currently extracts no App Intents symbols at all.
 ## Open risks
 
 - Notification permission is a one-shot prompt. Asking on first launch, before the user knows what
-  the app is for, is the reliable way to get it denied forever.
+  the app is for, is the reliable way to get it denied forever. **Resolved:** it is requested only
+  from `SessionAlertsView`, the first time someone switches an alert on. Nothing in app startup can
+  reach it.
 - 64 pending is a hard OS cap. A full season is well over that, so the cap has to be a deliberate
-  window rather than an accident.
+  window rather than an accident. **Resolved:** `SessionAlertPlanner` takes the cap and returns the
+  soonest N, so the OS never chooses which to drop.
 - None of this is guaranteed to move Apple. It is the branch that is left, not a certainty.
+
+## Still open after C and D
+
+- **Nothing here has run on a device.** The planner is covered by tests; the delivery half is not
+  testable without one. What is unverified is the part only a device shows: that the prompt appears
+  where intended, that a notification actually arrives, and that the copy reads correctly on a lock
+  screen. That needs a session scheduled minutes away on the simulator or a phone.
+- The alert copy has not been through `spoiler-safety-reviewer`.
+- Phase E — App Intents / Shortcuts / Siri — not started.

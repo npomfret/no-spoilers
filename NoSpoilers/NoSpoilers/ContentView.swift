@@ -4,6 +4,7 @@ import NoSpoilersCore
 
 struct ContentView: View {
     @EnvironmentObject private var store: ScheduleStore
+    @EnvironmentObject private var alerts: SessionAlertScheduler
     @Environment(\.scenePhase) private var scenePhase
     @State private var now = Date()
     @State private var selectedWeekendIndex: Int = 0
@@ -11,6 +12,7 @@ struct ContentView: View {
     @State private var refreshTimer: AnyCancellable?
     @State private var showAbout = false
     @State private var showWidgetHelp = false
+    @State private var showAlertSettings = false
     @State private var widgetInstall: WidgetInstallStatus = .unknown
     /// Whether the user has put the install prompt away. Local to the app, not
     /// the App Group: it is a preference of this screen and no extension has
@@ -94,13 +96,19 @@ struct ContentView: View {
         .background(backgroundGradient)
         .sheet(isPresented: $showAbout) {
             AboutView(onDone: { showAbout = false }) {
-                widgetHelpSection
+                VStack(alignment: .leading, spacing: 0) {
+                    widgetHelpSection
+                    alertSettingsSection
+                }
             }
             // Attached inside the About sheet rather than beside it: this is the
             // presenter, and a second `.sheet` on the root would have to wait for
             // About to close before it could open.
             .sheet(isPresented: $showWidgetHelp) {
                 WidgetInstallSheet(onDone: { showWidgetHelp = false })
+            }
+            .sheet(isPresented: $showAlertSettings) {
+                SessionAlertsView(onDone: { showAlertSettings = false })
             }
         }
         .onAppear {
@@ -109,6 +117,13 @@ struct ContentView: View {
         }
         .task { await refresh() }
         .task { widgetInstall = await WidgetInstallStatus.current() }
+        // Rescheduled from whatever the store holds now, and again whenever it changes. The
+        // schedule arriving is what the pending alerts are made of, and on a cold launch it
+        // arrives after this view does.
+        .task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
+        .onChange(of: store.weekends) { _, weekends in
+            Task { await alerts.reschedule(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
+        }
         .onChange(of: store.weekends) { _, _ in
             homeSelectionIfNeeded()
         }
@@ -129,6 +144,11 @@ struct ContentView: View {
             // instructions on this very card. Coming back to it still telling them to do what they
             // just did would be worse than never showing it.
             Task { widgetInstall = await WidgetInstallStatus.current() }
+            // Same reason the install check is re-asked here: the most likely thing to have
+            // happened while we were backgrounded is the user changing their mind in Settings,
+            // and a safe-to-watch alert placed on a grace-window estimate is corrected by the
+            // confirmed end time arriving in the meantime.
+            Task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
             setupRefreshTimer()
         }
         .onDisappear {
@@ -226,6 +246,24 @@ struct ContentView: View {
                 showWidgetHelp = true
             } label: {
                 NoSpoilersDetailRow(Strings.Widget.aboutRowTitle) {
+                    Image(systemName: Theme.Icon.disclosure)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Palette.textTertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// The alert preferences, in the same slot as the widget instructions.
+    private var alertSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            NoSpoilersSectionLabel(Strings.Alerts.sectionLabel)
+            Button {
+                showAlertSettings = true
+            } label: {
+                NoSpoilersDetailRow(Strings.Alerts.rowTitle) {
                     Image(systemName: Theme.Icon.disclosure)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textTertiary)

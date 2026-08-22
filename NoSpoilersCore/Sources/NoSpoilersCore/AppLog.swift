@@ -83,6 +83,16 @@ public enum AppLog {
     /// Confirmed session end times from OpenF1 — asked for, stored, or refused.
     public static let sessionEnd = LogChannel(subsystem: subsystem, category: "session-end")
 
+    /// Local notifications: what was planned, what the OS accepted, and whether it was allowed
+    /// to at all.
+    ///
+    /// Written only by the iOS target, and declared here with the others for the reason `update`
+    /// is. It needs a channel for the same reason `widget` does: **an alert that never arrives is
+    /// indistinguishable from a weekend where nothing happened.** Nobody reports a notification
+    /// they did not get, so the count planned, the count pending and the authorization state are
+    /// the only evidence that the feature is working at all.
+    public static let alerts = LogChannel(subsystem: subsystem, category: "alerts")
+
     /// The menu-bar app asking GitHub whether there is a newer release.
     ///
     /// Written only by the macOS target, and still declared here with the others: a second
