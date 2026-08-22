@@ -503,7 +503,48 @@ delivers TestFlight builds per push. Both pipelines are working and proven as of
    and `10001`. If iOS is approved first the staged rename lands anyway, leaving `No Spoilers - Grand
    Prix` over a Mac description about the F1 race weekend: better, and still inconsistent.
 
+## The macOS listing was never swept — found and fixed 2026-08-22
+
+**The 4.1(a) sweep of 2026-08-13 covered the iOS listing and stopped there.** The macOS listing had
+carried the marks the whole time, live on the store, on the one surface an App Review trademark
+check actually reads:
+
+```
+keywords      F1,Formula 1,schedule,spoiler free,menu bar,calendar,widget
+description   "...keeps you on top of the F1 race weekend..."
+review notes  "...the popover showing the F1 schedule."
+```
+
+Nothing pointed at it. `appstore_status.py` reports what the listing *is* and has no opinion about
+what is in it, and macOS had not been submitted since April, so no reviewer had looked at those
+words since long before anyone knew they mattered. It surfaced only because the build-and-deliver
+audit of 2026-08-22 dumped the full listing for both platforms side by side.
+
+macOS `1.0.21` is `READY_FOR_SALE` and its metadata cannot be edited in place, so the fix needed a
+new version — which was overdue anyway, the Mac store sitting on `1.0.21 build 2` while the project
+was at `1.1.2`. **macOS `1.1.2` now exists in `PREPARE_FOR_SUBMISSION` with build `10004` attached**,
+carrying swept keywords, description, what's-new and review notes, and with the demo account cleared:
+the Mac record still required one, with a real address and password, for an app that has no sign-in
+anywhere. iOS corrected exactly that on 2026-08-13 and said so to Apple in writing; macOS was not
+touched at the time.
+
+`1.0.21` and `1.0.13` still hold the terms and always will — they are the historical records of what
+shipped. The live listing stops carrying them when `1.1.2` is approved.
+
+The app code and the website were already clean. The only remaining occurrences anywhere are the
+trademark disclaimer, which is required, and the names of the two data sources.
+
+**It was not submitted.** That is a person pressing Submit, and it is the one step in this file that
+nothing here automates.
+
 ## Note on the name
 
 `No Spoilers - Grand Prix` is already prepared, already accepted for 4.1(c), and needs no further
 decision. Keep it. `INFOPLIST_KEY_CFBundleDisplayName` is `No Spoilers`, which is already clean.
+
+**It is stranded, and macOS is the way out.** Name and subtitle are app-level, so they ship with the
+next *approved* version on either platform — and the `appInfo` holding `No Spoilers - Grand Prix` /
+`Spoiler-free GP race widget` reads `REJECTED`, because the last thing to carry it was the iOS
+submission Apple turned down. The live app is still called `No Spoilers F1`. Approving macOS `1.1.2`
+should release it without iOS having to be answered first; that is the expectation and not yet an
+observed fact.
