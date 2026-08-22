@@ -174,8 +174,40 @@ so it is safe to create early.
 
 ## App Store screenshots
 
-`scripts/screenshots.py` captures them from a simulator against fixture data. Its docstring is the
-long-form reference and is kept current; what follows is the policy around it.
+`scripts/screenshots.py` captures the iOS ones from a simulator against fixture data, and
+`scripts/mac_screenshots.py` the macOS one from the real app on this machine. Both docstrings are
+the long-form reference and are kept current; what follows is the policy around them.
+
+**macOS had no tooling at all until 2026-08-22, and the listing shows it**: the only Mac image is a
+1280x800 file called `Gemini_Generated_Image_utojutojutojutoj.jpg` — a picture of an idea of the
+app, not the app. Guideline 2.3.3 wants screenshots of the app in use.
+
+The Mac path is a different problem from iOS in every part except the fixture, which it imports
+rather than repeats. There is no simulator, so it drives the installed app; there is no widget, so
+it must launch it, and launching starts a fetch that overwrites the fixture; and the popover is
+opened by a System Events click, which needs Accessibility. Two refusals came directly out of the
+first two runs and are the reason it is trustworthy:
+
+- **It checks the app it is about to photograph is the build this checkout makes.** The first run
+  captured the installed `1.0.21` — the last release, from before the 4.1(a) sweep — and produced a
+  flawless screenshot of the owned wordmark in the menu bar and again in the popover header, with
+  every step reporting success. That is the asset three Copycats rejections were about.
+- **It refuses to run with the feed reachable** unless `--allow-network` says otherwise, because the
+  app refetches on launch and again when the popover opens, so the picture is of today rather than
+  of the fixture. With the network off the fetch throws, `performRefresh` keeps the published state,
+  and the capture reproduces.
+
+**How it knows which data it photographed is the app's own log, not the cache file.** Reading the
+cache back was the first design and it was wrong on both runs — once because the fetch had not
+finished writing when it looked, and once because the app was running from a path where the save to
+the group container failed, so the screen held live data the disk never received. `ScheduleStore`
+logs `refresh complete` or `refresh failed` on the `store` channel, and that is a fact the app
+states rather than one to infer. Same pattern as `alerts_check.py`, attached before launch for the
+same reason.
+
+The capture is a region of the real screen anchored to the top-right, so it contains the menu bar,
+the popover hanging off it, and whatever is behind them. Set a plain desktop picture first. A
+1280x800 point region lands as 2560x1600 on a Retina Mac, and App Store Connect accepts both.
 
 ```
 scripts/screenshots.py --device "NoSpoilers-iPhone-11-Pro-Max" --expect 1242x2688 --widget-size large

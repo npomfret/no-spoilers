@@ -16,7 +16,7 @@ disable-model-invocation: true
    - TestFlight distribution: `scripts/testflight_distribute.py --apply`
    - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
    - Store or Homebrew release: one of `scripts/ship*.sh`
-   - deterministic listing screenshots: `scripts/screenshots.py`
+   - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
 5. Preserve existing boundaries: releases run locally, Xcode Cloud does not distribute to testers automatically, `appstore_status.py` remains read-only, `testflight_distribute.py` is the only thing that writes TestFlight metadata or groups, and `appstore_listing.py` is the only thing that writes App Store listing copy. Never edit listing copy in the App Store Connect web form — it is checked in, and a web edit is a silent divergence from the repository.
 6. Never submit anything for App Review. No tool here does it and none should: it is a person pressing Submit.

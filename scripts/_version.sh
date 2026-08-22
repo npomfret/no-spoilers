@@ -45,6 +45,21 @@ current_build_number() {
   printf '%s' "$BUILD"
 }
 
+# The MARKETING_VERSION the project holds. Shared for the same reason as
+# current_build_number: anything that needs to know what this checkout builds
+# must read the one line, not its own grep of the same file.
+current_marketing_version() {
+  local PBXPROJ VERSION
+  PBXPROJ="$(pbxproj_path)" || return 1
+  VERSION=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" \
+    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  if [[ -z "$VERSION" ]]; then
+    echo "could not read MARKETING_VERSION from ${PBXPROJ}" >&2
+    return 1
+  fi
+  printf '%s' "$VERSION"
+}
+
 suggest_next_version() {
   local PBXPROJ TAGGED PROJECT BASE MAJOR MINOR PATCH SUGGESTED
   PBXPROJ="$(pbxproj_path)" || return 1
