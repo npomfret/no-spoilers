@@ -1,22 +1,27 @@
 import Combine
 import Foundation
 import UserNotifications
-import NoSpoilersCore
 
 /// Where the alert preferences live, and the only place their keys and defaults are spelled.
 ///
 /// Two readers — the settings screen through `@AppStorage`, and the scheduler through
 /// `current()` — so a key written in two places would be a preference the user can set and the
 /// scheduler cannot see. They are named once here and both sides take them from here.
-enum SessionAlertDefaults {
-    static let remindBeforeStartKey   = "alerts.remindBeforeStart"
-    static let startLeadMinutesKey    = "alerts.startLeadMinutes"
-    static let announceSafeToWatchKey = "alerts.announceSafeToWatch"
-    static let groupsKey              = "alerts.groups"
+///
+/// **In Core since 2026-08-23, when the Mac app got alerts too.** It was in the iOS target while
+/// iOS was the only caller; a second copy beside it would have been two spellings of every key,
+/// and the first one to drift would be a preference one platform writes and the other cannot see.
+/// `UserDefaults.standard` still means each app's own — the two do not share a domain, and
+/// nothing here pretends they do.
+public enum SessionAlertDefaults {
+    public static let remindBeforeStartKey   = "alerts.remindBeforeStart"
+    public static let startLeadMinutesKey    = "alerts.startLeadMinutes"
+    public static let announceSafeToWatchKey = "alerts.announceSafeToWatch"
+    public static let groupsKey              = "alerts.groups"
 
-    static let remindBeforeStart   = true
-    static let startLeadMinutes    = 30
-    static let announceSafeToWatch = true
+    public static let remindBeforeStart   = true
+    public static let startLeadMinutes    = 30
+    public static let announceSafeToWatch = true
 
     /// Practice is out of the box, everything else is in.
     ///
@@ -27,16 +32,16 @@ enum SessionAlertDefaults {
     /// **This expands to exactly the four kinds the per-kind default used to name**, which is
     /// pinned by `SessionAlertGroupTests` — the grouping changed how the preference is expressed
     /// and was not meant to change what anybody is told about.
-    static let groups: Set<SessionAlertGroup> = [.qualifying, .races]
+    public static let groups: Set<SessionAlertGroup> = [.qualifying, .races]
 
     /// The offered warning times, in minutes.
-    static let leadChoices = [5, 15, 30, 60, 120]
+    public static let leadChoices = [5, 15, 30, 60, 120]
 
-    static func encode(_ groups: Set<SessionAlertGroup>) -> String {
+    public static func encode(_ groups: Set<SessionAlertGroup>) -> String {
         groups.map(\.rawValue).sorted().joined(separator: ",")
     }
 
-    static func decode(_ raw: String) -> Set<SessionAlertGroup> {
+    public static func decode(_ raw: String) -> Set<SessionAlertGroup> {
         let parts = raw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
         let groups = parts.compactMap(SessionAlertGroup.init(rawValue:))
         // Dropped rather than trapped: an unreadable entry here can only come from a rawValue
@@ -59,7 +64,7 @@ enum SessionAlertDefaults {
     ///
     /// The `??`s are reading an unset preference on a first launch, which is an expected state
     /// with a real answer, not the absent data the fail-fast rule is about.
-    static func current(_ defaults: UserDefaults = .standard) -> SessionAlertPreferences {
+    public static func current(_ defaults: UserDefaults = .standard) -> SessionAlertPreferences {
         let wantsStart = defaults.object(forKey: remindBeforeStartKey) as? Bool ?? remindBeforeStart
         let minutes = defaults.object(forKey: startLeadMinutesKey) as? Int ?? startLeadMinutes
         let stored = defaults.string(forKey: groupsKey)
@@ -87,18 +92,18 @@ enum SessionAlertDefaults {
 /// Local notifications need no entitlement — `NoSpoilersApp.entitlements` carries only the App
 /// Group and does not change for this. Only remote push would.
 @MainActor
-final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     /// What iOS currently permits. `.notDetermined` until asked.
-    @Published private(set) var authorization: UNAuthorizationStatus = .notDetermined
+    @Published public private(set) var authorization: UNAuthorizationStatus = .notDetermined
 
     /// **iOS keeps 64 pending local notifications per app and silently drops the rest.** A full
     /// season is far more than that, so the planner is given the cap and returns the soonest 64
     /// rather than letting the OS decide which to lose.
-    static let pendingLimit = 64
+    public static let pendingLimit = 64
 
     private let center = UNUserNotificationCenter.current()
 
-    override init() {
+    public override init() {
         super.init()
         center.delegate = self
     }
@@ -111,14 +116,14 @@ final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificatio
     /// alert that arrives while the app is open is exactly when the user is deciding what to put
     /// on. Neither is worth swallowing; both were, until a simulator push arrived and rendered
     /// nothing at all.
-    nonisolated func userNotificationCenter(
+    public nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
     }
 
-    func refreshAuthorization() async {
+    public func refreshAuthorization() async {
         authorization = await center.notificationSettings().authorizationStatus
     }
 
@@ -129,7 +134,7 @@ final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificatio
     /// the app is for — is the reliable way to lose the permission permanently, so nothing here
     /// is called from app startup.
     @discardableResult
-    func requestAuthorization() async -> Bool {
+    public func requestAuthorization() async -> Bool {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound])
             AppLog.alerts.notice("authorization requested", ["granted": granted])
@@ -149,7 +154,7 @@ final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificatio
     /// overran is scheduled at the wrong moment when it is first planned. Rebuilding the whole set
     /// on each launch and activation is what makes that self-correcting; topping up would preserve
     /// the first, wrong answer for as long as the alert stayed pending.
-    func reschedule(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
+    public func reschedule(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
         await refreshAuthorization()
         guard authorization == .authorized || authorization == .provisional else {
             // Nothing to clear: if we were never allowed to schedule, there is nothing pending.
@@ -183,7 +188,7 @@ final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNotificatio
     }
 
     /// Drops everything pending. Called when the user turns the last alert off.
-    func cancelAll() {
+    public func cancelAll() {
         center.removeAllPendingNotificationRequests()
         AppLog.alerts.notice("cancelled all pending alerts")
     }

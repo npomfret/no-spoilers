@@ -228,6 +228,41 @@ competes with everything else on a lock screen, and "I got no notification" and 
 notification" are the same report. Anything that measures whether alerts work has to account for
 that before treating a user's account as evidence.
 
+## Phase G — the same alerts on macOS — **DONE 2026-08-23**
+
+Raised by a tester who was asked for notification permission when installing the Mac app and
+assumed it was ours. It was not: the Mac binary did not link `UserNotifications` at all, which
+`otool -L` on the release archive settled in one line. But the question underneath was right — the
+menu bar app sits on a desktop all day, and a start warning there competes with less than one on a
+phone does. Today's alert arrived and was scrolled past.
+
+**`SessionAlertDefaults` and `SessionAlertScheduler` moved to Core** rather than being copied. A
+second scheduler beside the first would have been two spellings of every preference key and two
+places to fix the next permission defect. The alert copy moved with them, because it ships to two
+apps and is the one string a user cannot decline to read.
+
+**`SessionAlertSettingsRows` is shared and the screens are not.** The iOS sheet and the macOS
+settings pane look nothing alike, but the rule about when to spend the one-shot permission prompt
+is the same rule, and it took three defects to get right. Each platform passes in its own route to
+system settings; `Strings.Alerts` names the pane per platform with `#if os(macOS)`, as `AboutView`
+already does.
+
+Rescheduling on macOS hangs off `store.$weekends` rather than a lifecycle hook: the cache load in
+`ScheduleStore.init` publishes before the delegate finishes launching and every refresh publishes
+again, so one subscription covers the cold launch, the hourly timer and the fetch a popover
+triggers — the three moments iOS covers with `.task`, `scenePhase` and an `onChange`.
+
+**Two things only running it could have found.**
+
+- **`.removeDuplicates()` on `$authorization` is load-bearing.** `reschedule` begins by calling
+  `refreshAuthorization`, which *assigns* `authorization`, and `@Published` fires on assignment
+  rather than on change — so the sink fed itself several hundred times a second. The first signed
+  build wrote 7MB of `not scheduling` before anyone read the log. iOS never had this because
+  SwiftUI's `onChange` is change-based. After the fix: three lines per launch.
+- **A Debug build from DerivedData never finishes launching** — no status item, no `ScheduleStore`
+  log line, no crash. Stashing the change reproduced it exactly, so it is the build, not the code.
+  Anything checking macOS behaviour has to run a signed archive.
+
 ## Still open after C and D
 
 - **The safe-to-watch alert has not been observed**, and its timing is the interesting half.

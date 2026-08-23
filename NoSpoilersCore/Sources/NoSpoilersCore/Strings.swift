@@ -167,6 +167,58 @@ public enum Strings {
         }
     }
 
+    /// What the alerts say, on both platforms.
+    ///
+    /// **In Core since 2026-08-23**, with the scheduler that builds the notification content from
+    /// it. Copy that ships to two apps and is written in one of them is copy that diverges, and
+    /// this is the one string in the product a user cannot choose not to read — the spoiler
+    /// surface `.claude/rules/spoiler-safety.md` calls out by name.
+    ///
+    /// `scripts/alerts_check.py` extracts the two bodies from this block rather than transcribing
+    /// them, so that a sample notification cannot drift from the product and still screenshot
+    /// convincingly. If this moves again, that extractor moves with it.
+    public enum Alerts {
+        public static func startingSoonTitle(_ grandPrix: String) -> String { grandPrix }
+        public static func startingSoonBody(session: String, minutes: Int) -> String {
+            minutes == 1
+                ? "\(session) starts in 1 minute"
+                : "\(session) starts in \(minutes) minutes"
+        }
+
+        public static func safeToWatchTitle(_ grandPrix: String) -> String { grandPrix }
+        public static func safeToWatchBody(session: String) -> String {
+            "\(session) has finished — safe to watch"
+        }
+
+        // MARK: Settings
+
+        public static let sectionLabel: LocalizedStringKey    = "Alerts"
+        public static let rowTitle: LocalizedStringKey        = "Session alerts"
+        public static let screenSubtitle: LocalizedStringKey  = "Session alerts"
+        public static let intro: LocalizedStringKey           = "Be told when a session is about to start, and when it has finished and is safe to watch. Neither ever mentions a result."
+        public static let remindBeforeStart: LocalizedStringKey = "Before a session starts"
+        public static let announceSafeToWatch: LocalizedStringKey = "When a session is safe to watch"
+        public static let leadTime: LocalizedStringKey        = "How much warning"
+        public static func leadMinutes(_ minutes: Int) -> String {
+            minutes == 1 ? "1 minute" : "\(minutes) minutes"
+        }
+        public static let whichSessions: LocalizedStringKey   = "Which sessions"
+
+        /// Shown when the system has been told no. Neither app can reopen that prompt itself.
+        ///
+        /// Named per platform because the sentence has to tell someone where to go, and "Settings"
+        /// and "System Settings" are different places. `AboutView` already branches this way for
+        /// the same reason.
+        public static let deniedTitle: LocalizedStringKey     = "Notifications are turned off"
+        #if os(macOS)
+        public static let deniedBody: LocalizedStringKey      = "macOS is holding these back. Turn them on for No Spoilers in System Settings and they will start arriving."
+        public static let openSettings: LocalizedStringKey    = "Open System Settings"
+        #else
+        public static let deniedBody: LocalizedStringKey      = "iOS is holding these back. Turn them on for No Spoilers in Settings and they will start arriving."
+        public static let openSettings: LocalizedStringKey    = "Open Settings"
+        #endif
+    }
+
     public enum RaceNames {
         public static func grandPrix(_ name: String) -> String { "\(name) Grand Prix" }
     }

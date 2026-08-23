@@ -8,15 +8,14 @@ of an idea of the app, uploaded because taking a real one had no tooling and
 wants screenshots that show the app in use, and this app is arguing with App
 Review already.
 
-macOS is a different problem from iOS in every part except the fixture:
+macOS is a different problem from iOS in every part:
 
 - **There is no simulator.** This drives the real app on this machine, so it
-  quits your running copy, overwrites the shared cache with the fixture, and
-  leaves the app running afterwards holding fixture data until its next
-  successful fetch. None of that is destructive and all of it is visible.
-- **There is no widget to render from the cache.** The picture only exists
-  while the app is running, so unlike `screenshots.py` this one *must* launch
-  it — and launching it starts a fetch that overwrites the fixture. See below.
+  quits your running copy and leaves the app running afterwards. Nothing here
+  writes to the app's data any more — see below for what it cost to learn that.
+- **There is no widget to render from a cache.** The picture only exists while
+  the app is running, so unlike `screenshots.py` this one *must* launch it —
+  and launching it starts a fetch. See below.
 - **The popover cannot be opened from a command.** It is an `NSPopover` shown
   by `togglePopover` on a click, and there is no URL scheme and no scripting
   dictionary. System Events clicks the status item, which needs Accessibility.
@@ -37,6 +36,34 @@ rejecting, and every part of the run reported success. So the app's
 **It refuses to run with the schedule feed reachable**, unless told otherwise,
 because a run with the network up is not reproducible. See below.
 
+## It no longer seeds a fixture, because it could not and should not
+
+The first version wrote `schedule-cache.json` into the App Group container and
+expected the app to draw it. **Neither capture ever showed the fixture** — both
+showed the live calendar, which was put down to the fetch winning the race.
+
+The real reason surfaced on 2026-08-23, in the app's own log:
+
+    cache load failed at launch   Code=257  file couldn't be opened
+    cache save failed             Code=513  you don't have permission to save
+
+The Mac app is sandboxed and this script is not. A file written into a group
+container by an unsandboxed process is one the sandboxed app can neither read
+nor replace, so the seed was invisible to the app and, worse, **it displaced the
+cache the app maintains**: from the moment of the first run the Mac app had no
+readable cache and could not write a new one. It carried on working — it refetches
+on launch and keeps published state when the cache fails — which is why nothing
+looked wrong for a day.
+
+So the seeding is gone rather than fixed. Making it work means writing the file
+*as the app*, which means the app growing a way to be told what to hold, which is
+the offline-mode seam that `screenshots.py` declined to open on 2026-08-18 and
+that this script has no business opening on its own.
+
+**What is left is honest**: this captures whatever the app is showing, and says
+which calendar that was. For a listing screenshot that is a picture of today —
+fine for a menu bar app whose subject is this weekend, and not reproducible.
+
 ## The fetch is not suppressed. It is refused, then detected.
 
 `ScheduleStore.refresh()` fetches and saves unconditionally, and the popover
@@ -52,9 +79,9 @@ capture and say which data you got.** A tool that cannot guarantee the fixture
 but always tells you the truth about it is worth more than one that quietly
 does neither.
 
-`performRefresh` keeps the published state when the fetch throws, so the way to
-make a run deterministic today is to **turn the network off** — which is why
-this checks the feed host first and stops if it answers.
+`performRefresh` keeps the published state when the fetch throws, so with the
+network off the app draws whatever cache it already holds — its own, now that
+nothing here overwrites it. That is still not the fixture, and this says so.
 
 The read-back is kept as a second line of defence and is deliberately not
 trusted on its own: on the first run it reported the fixture intact for a
@@ -68,9 +95,9 @@ Usage:
     scripts/mac_screenshots.py --expect 2560x1600
     scripts/mac_screenshots.py --region 1440x900 --out tmp/screenshots
 
-Stdlib only, and it imports the fixture from `screenshots.py` rather than
-repeating it — the two listings should show the same weekend, and a second copy
-of the fixture is how they stop.
+Stdlib only. It borrows `check_size` from `screenshots.py` and nothing else:
+the two scripts share the App Store's pixel rules and no longer share a fixture,
+because this one does not have one.
 """
 
 import argparse
@@ -79,17 +106,11 @@ import socket
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from screenshots import (  # noqa: E402
-    APP_GROUP_ID,
-    CACHE_FILENAME,
-    check_size,
-    fixture_json,
-)
+from screenshots import check_size  # noqa: E402
 
 # The installed app. A menu bar app has no window to attach to, so there is no
 # way to drive the copy in DerivedData without installing it first.
@@ -233,23 +254,6 @@ def quit_app() -> None:
             return
         time.sleep(0.25)
     raise SystemExit(f"{PROCESS} would not quit; stop it by hand and re-run")
-
-
-def cache_path() -> Path:
-    """Where the Mac app and the widget share the schedule.
-
-    Not derived from the app bundle: the container belongs to the App Group and
-    exists whether or not the app is installed. If it is missing the app has
-    never run on this machine, and seeding a directory that nothing reads would
-    produce a screenshot of an empty state that looks like a rendering bug.
-    """
-    container = Path.home() / "Library/Group Containers" / APP_GROUP_ID
-    if not container.is_dir():
-        raise SystemExit(
-            f"no App Group container at {container}\n"
-            "Launch the app once so macOS creates it."
-        )
-    return container / CACHE_FILENAME
 
 
 def wait_for_status_item() -> None:
@@ -406,28 +410,23 @@ def main() -> int:
             raise SystemExit(
                 f"{FEED_HOST} is reachable, so the app will refetch and this capture will not\n"
                 "reproduce — it will show whatever weekend is next today.\n\n"
-                "Turn the network off and run it again: the fetch then fails, `performRefresh`\n"
-                "keeps the published state, and the fixture is what gets photographed.\n"
-                "Or pass --allow-network if a picture of today is what you want."
+                "Turn the network off and run it again: the fetch then fails and the app draws\n"
+                "the cache it already holds. Or pass --allow-network if a picture of today is\n"
+                "what you want, which for a menu bar app about this weekend it may well be."
             )
         print(f"!        {FEED_HOST} is reachable and --allow-network was given")
     else:
-        print(f"offline  {FEED_HOST} unreachable, so the fixture will survive the launch")
+        print(f"offline  {FEED_HOST} unreachable, so the app will draw its own cache")
 
     if arguments.dry_run:
         print(f"quit     {PROCESS}" + ("" if app_running() else "  (not running)"))
-        print(f"seed     {cache_path()}")
         print(f"launch   {arguments.app.name}, wait for the status item")
         print(f"click    menu bar item, settle {SETTLE_SECONDS}s")
         print(f"capture  {region[0]}x{region[1]} points, top-right -> {destination}")
-        print("verify   the cache still holds the fixture")
+        print("verify   which calendar the app says it drew")
         return 0
 
     quit_app()
-
-    path = cache_path()
-    path.write_text(fixture_json(datetime.now(timezone.utc)))
-    print(f"seeded {path}")
 
     stream = start_log()
     subprocess.run(("open", "-a", str(arguments.app)), check=True)

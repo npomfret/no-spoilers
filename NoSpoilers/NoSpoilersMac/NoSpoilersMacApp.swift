@@ -63,6 +63,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     private var popover: NSPopover!
     private let store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
     private let updateChecker = UpdateChecker()
+    private let alerts = SessionAlertScheduler()
     private var labelHostingView: NSHostingView<MenuBarLabelView>!
     private var cancellables = Set<AnyCancellable>()
     private var localClickMonitor: Any?
@@ -73,6 +74,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         let popoverView = MenuBarPopoverRootView(
             store: store,
             updateChecker: updateChecker,
+            alerts: alerts,
             dismissPopover: { [weak self] in
                 self?.popover.performClose(nil)
             }
@@ -141,6 +143,46 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
             .sink { [weak self] _ in Task { await self?.store.refresh() } }
             .store(in: &cancellables)
 
+        // ── Alerts ───────────────────────────────────────────────────────────
+        //
+        // Driven off the schedule rather than off the lifecycle, because the schedule arriving is
+        // what the pending alerts are made of: the cache load in `ScheduleStore.init` publishes
+        // before this runs, and every refresh after it publishes again. One subscription therefore
+        // covers the cold launch, the hourly timer and the fetch a popover triggers — the three
+        // moments iOS covers with `.task`, `scenePhase` and an `onChange`.
+        //
+        // Nothing here asks for permission. That is spent from the settings pane, once, when
+        // somebody has read what the alerts say — see `SessionAlertSettingsRows.askIfWanted`.
+        store.$weekends
+            // Only when it actually changed. `ScheduleStore` assigns `weekends` on every
+            // refresh whether or not the feed moved, and `@Published` fires on assignment
+            // rather than on change — so without this the hourly refresh rebuilds all 64
+            // pending notifications for nothing.
+            .removeDuplicates()
+            .sink { [weak self] weekends in
+                guard let self else { return }
+                Task { await self.alerts.reschedule(weekends: weekends,
+                                                    confirmedEndDates: self.store.confirmedEndDates) }
+            }
+            .store(in: &cancellables)
+
+        // Granting permission is not a schedule change, so nothing above would notice it. Without
+        // this the first alerts would wait for the next hourly refresh — on iOS the same gap meant
+        // a granted permission bought nothing until the app was next reopened.
+        alerts.$authorization
+            // **`removeDuplicates` is load-bearing here, not a tidy-up.** `reschedule` starts by
+            // calling `refreshAuthorization`, which assigns `authorization` — and `@Published`
+            // fires on assignment even when the value is identical. Without it the sink feeds
+            // itself: reschedule → assign → sink → reschedule, hundreds of times a second, which
+            // is what the first signed build did until somebody read the log. The iOS side never
+            // had this because SwiftUI's `onChange` is change-based.
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { await self.alerts.reschedule(weekends: self.store.weekends,
+                                                    confirmedEndDates: self.store.confirmedEndDates) }
+            }
+            .store(in: &cancellables)
     }
 
     @objc func togglePopover(_ sender: Any?) {

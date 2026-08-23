@@ -1,26 +1,16 @@
 import SwiftUI
-import UserNotifications
 import NoSpoilersCore
 
 /// The alert preferences, opened from the row in About.
 ///
 /// Same surface as `AboutView` and `WidgetInstallSheet` — shared screen header, scrolling body,
-/// Done footer — because it is presented the same way and from the same place. The rows are
-/// `NoSpoilersDetailRow` with a control trailing, which is what the macOS settings screen already
-/// is; this is that pattern on the other platform, not a second one.
+/// Done footer — because it is presented the same way and from the same place.
+///
+/// **The rows themselves are `SessionAlertSettingsRows` in Core**, shared with the macOS settings
+/// pane. What is left here is the frame this platform puts around them and the way this platform
+/// reaches its notification settings. The prompt logic is deliberately not here: it is the part
+/// that took three defects to get right, and it must not exist twice.
 struct SessionAlertsView: View {
-    @AppStorage(SessionAlertDefaults.remindBeforeStartKey)
-    private var remindBeforeStart = SessionAlertDefaults.remindBeforeStart
-
-    @AppStorage(SessionAlertDefaults.startLeadMinutesKey)
-    private var startLeadMinutes = SessionAlertDefaults.startLeadMinutes
-
-    @AppStorage(SessionAlertDefaults.announceSafeToWatchKey)
-    private var announceSafeToWatch = SessionAlertDefaults.announceSafeToWatch
-
-    @AppStorage(SessionAlertDefaults.groupsKey)
-    private var groupsRaw = SessionAlertDefaults.encode(SessionAlertDefaults.groups)
-
     @EnvironmentObject private var scheduler: SessionAlertScheduler
     @Environment(\.openURL) private var openURL
 
@@ -28,56 +18,23 @@ struct SessionAlertsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            NoSpoilersScreenHeader(subtitle: Text(Strings.Alerts.screenSubtitle))
+            NoSpoilersScreenHeader(subtitle: Text(NoSpoilersCore.Strings.Alerts.screenSubtitle))
 
             Divider()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(Strings.Alerts.intro)
+                    Text(NoSpoilersCore.Strings.Alerts.intro)
                         .font(.subheadline)
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, Theme.Space.xxl)
                         .padding(.top, Theme.Space.xl)
 
-                    if scheduler.authorization == .denied {
-                        deniedNotice
-                    }
-
-                    NoSpoilersDetailRow(Strings.Alerts.remindBeforeStart) {
-                        Toggle("", isOn: $remindBeforeStart).labelsHidden()
-                    }
-                    if remindBeforeStart {
-                        NoSpoilersDetailRow(Strings.Alerts.leadTime) {
-                            Picker("", selection: $startLeadMinutes) {
-                                ForEach(SessionAlertDefaults.leadChoices, id: \.self) { minutes in
-                                    Text(Strings.Alerts.leadMinutes(minutes)).tag(minutes)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                        }
-                    }
-                    NoSpoilersDetailRow(Strings.Alerts.announceSafeToWatch) {
-                        Toggle("", isOn: $announceSafeToWatch).labelsHidden()
-                    }
-
-                    NoSpoilersSectionLabel(Strings.Alerts.whichSessions)
-                    ForEach(SessionAlertGroup.allCases, id: \.self) { group in
-                        NoSpoilersDetailRow(group.displayName) {
-                            Toggle("", isOn: binding(for: group)).labelsHidden()
-                        }
-                        // What the row covers, under the row. Two of the three are not
-                        // guessable — the Sprint is under Races and Sprint Qualifying is under
-                        // Qualifying — and a switch whose scope you have to infer is one people
-                        // turn off to find out.
-                        Text(group.summary)
-                            .font(.caption)
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                            .padding(.horizontal, Theme.Space.xxl)
-                            .padding(.bottom, Theme.Space.sm)
-                    }
+                    SessionAlertSettingsRows(scheduler: scheduler, onOpenSystemSettings: {
+                        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                        openURL(url)
+                    })
                 }
                 .padding(.bottom, Theme.Space.xl)
             }
@@ -96,66 +53,6 @@ struct SessionAlertsView: View {
         // Matches AboutView: NoSpoilersBackground is a hardcoded light gradient, so the subtree
         // has to resolve system colours light or the text goes unreadable on a dark-mode device.
         .preferredColorScheme(.light)
-        .task {
-            await scheduler.refreshAuthorization()
-            await askIfWanted()
-        }
-        .onChange(of: wantsAnything) { _, _ in
-            Task { await askIfWanted() }
-        }
-    }
-
-    /// Asked from this screen and nowhere else, the first time it is opened with an alert on.
-    ///
-    /// The prompt is one-shot for the life of the install, so it is spent at the point someone
-    /// has found this screen, read what the alerts say, and left one switched on — not on launch,
-    /// before anyone knows what the app is for, which is the reliable way to lose the permission
-    /// permanently.
-    ///
-    /// **`.onChange` alone was not enough, and that was a silent hole.** Both alerts ship on, so
-    /// `wantsAnything` is already true when this screen first draws and never changes — the
-    /// prompt was therefore never shown to anybody who left the defaults alone, which is
-    /// everybody. Authorization stayed `.notDetermined` for the life of the install, every
-    /// reschedule logged `not scheduling`, and the screen looked completely correct while doing
-    /// it: two switches on, no warning, no alerts. Found on 2026-08-22 by
-    /// `scripts/alerts_check.py`, which is the only reason it was found at all.
-    private func askIfWanted() async {
-        guard wantsAnything, scheduler.authorization == .notDetermined else { return }
-        await scheduler.requestAuthorization()
-    }
-
-    /// Whether any alert is switched on at all.
-    private var wantsAnything: Bool { remindBeforeStart || announceSafeToWatch }
-
-    /// iOS has been told no, and the app cannot reopen that prompt — only Settings can.
-    private var deniedNotice: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            Text(Strings.Alerts.deniedTitle)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.Palette.textPrimary)
-            Text(Strings.Alerts.deniedBody)
-                .font(.caption)
-                .foregroundStyle(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(Strings.Alerts.openSettings) {
-                guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-                openURL(url)
-            }
-            .font(.caption.weight(.semibold))
-        }
-        .padding(.horizontal, Theme.Space.xxl)
-        .padding(.top, Theme.Space.xl)
-    }
-
-    private func binding(for group: SessionAlertGroup) -> Binding<Bool> {
-        Binding(
-            get: { SessionAlertDefaults.decode(groupsRaw).contains(group) },
-            set: { isOn in
-                var next = SessionAlertDefaults.decode(groupsRaw)
-                if isOn { next.insert(group) } else { next.remove(group) }
-                groupsRaw = SessionAlertDefaults.encode(next)
-            }
-        )
     }
 }
 

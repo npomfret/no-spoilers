@@ -75,7 +75,10 @@ from screenshots import (  # noqa: E402
 )
 
 REPO = Path(__file__).resolve().parent.parent
-STRINGS = REPO / "NoSpoilers/NoSpoilers/Strings.swift"
+# The alert copy moved to Core on 2026-08-23 when the Mac app got alerts too —
+# two apps shipping one set of words, written once. This extractor said it would
+# have to move with them, and this is that move.
+STRINGS = REPO / "NoSpoilersCore/Sources/NoSpoilersCore/Strings.swift"
 
 # The project's own simulator. Never a stock device name: capturing reboots the
 # device and reinstalls the app, and other projects on this machine share the
@@ -101,10 +104,10 @@ def alert_copy() -> dict[str, str]:
     still producing a perfectly convincing screenshot.
     """
     source = STRINGS.read_text()
-    block = re.search(r"\n    enum Alerts \{\n(.*?)\n    \}\n", source, re.S)
+    block = re.search(r"\n    public enum Alerts \{\n(.*?)\n    \}\n", source, re.S)
     if not block:
         raise SystemExit(
-            f"no `enum Alerts` block in {STRINGS.relative_to(REPO)}\n"
+            f"no `public enum Alerts` block in {STRINGS.relative_to(REPO)}\n"
             "If the strings moved, this extractor has to move with them."
         )
     literals = re.findall(r'"((?:[^"\\]|\\.)*)"', block.group(1))
@@ -114,7 +117,7 @@ def alert_copy() -> dict[str, str]:
         if len(found) != 1:
             raise SystemExit(
                 f"expected exactly one {description} literal containing {needle!r} in "
-                f"`enum Alerts`, found {len(found)}"
+                f"`public enum Alerts`, found {len(found)}"
             )
         return found[0]
 

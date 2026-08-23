@@ -271,11 +271,11 @@ struct ContentView: View {
     /// The alert preferences, in the same slot as the widget instructions.
     private var alertSettingsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            NoSpoilersSectionLabel(Strings.Alerts.sectionLabel)
+            NoSpoilersSectionLabel(NoSpoilersCore.Strings.Alerts.sectionLabel)
             Button {
                 showAlertSettings = true
             } label: {
-                NoSpoilersDetailRow(Strings.Alerts.rowTitle) {
+                NoSpoilersDetailRow(NoSpoilersCore.Strings.Alerts.rowTitle) {
                     Image(systemName: Theme.Icon.disclosure)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textTertiary)

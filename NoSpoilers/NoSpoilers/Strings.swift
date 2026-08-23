@@ -49,38 +49,6 @@ enum Strings {
     /// stops: no outcome, no adjective, nothing that reads as commentary. "Qualifying has
     /// finished" is a fact about a clock. Anything warmer starts to sound like it knows how it
     /// went.
-    enum Alerts {
-        static func startingSoonTitle(_ grandPrix: String) -> String { grandPrix }
-        static func startingSoonBody(session: String, minutes: Int) -> String {
-            minutes == 1
-                ? "\(session) starts in 1 minute"
-                : "\(session) starts in \(minutes) minutes"
-        }
-
-        static func safeToWatchTitle(_ grandPrix: String) -> String { grandPrix }
-        static func safeToWatchBody(session: String) -> String {
-            "\(session) has finished — safe to watch"
-        }
-
-        // MARK: Settings
-
-        static let sectionLabel: LocalizedStringKey    = "Alerts"
-        static let rowTitle: LocalizedStringKey        = "Session alerts"
-        static let screenSubtitle: LocalizedStringKey  = "Session alerts"
-        static let intro: LocalizedStringKey           = "Be told when a session is about to start, and when it has finished and is safe to watch. Neither ever mentions a result."
-        static let remindBeforeStart: LocalizedStringKey = "Before a session starts"
-        static let announceSafeToWatch: LocalizedStringKey = "When a session is safe to watch"
-        static let leadTime: LocalizedStringKey        = "How much warning"
-        static func leadMinutes(_ minutes: Int) -> String {
-            minutes == 1 ? "1 minute" : "\(minutes) minutes"
-        }
-        static let whichSessions: LocalizedStringKey   = "Which sessions"
-        /// Shown when iOS has been told no. The app cannot reopen that prompt itself.
-        static let deniedTitle: LocalizedStringKey     = "Notifications are turned off"
-        static let deniedBody: LocalizedStringKey      = "iOS is holding these back. Turn them on for No Spoilers in Settings and they will start arriving."
-        static let openSettings: LocalizedStringKey    = "Open Settings"
-    }
-
     enum Error {
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."
     }

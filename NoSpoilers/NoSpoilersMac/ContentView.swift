@@ -307,6 +307,7 @@ struct MenuBarPopoverRootView: View {
 
     @ObservedObject var store: ScheduleStore
     @ObservedObject var updateChecker: UpdateChecker
+    @ObservedObject var alerts: SessionAlertScheduler
     let dismissPopover: () -> Void
     @State private var screen: Screen = .weekend
 
@@ -321,7 +322,7 @@ struct MenuBarPopoverRootView: View {
                     openAbout: { screen = .about }
                 )
             case .settings:
-                SettingsView(onDone: dismissPopover)
+                SettingsView(alerts: alerts, onDone: dismissPopover)
             case .about:
                 AboutView(onDone: { screen = .weekend })
             }
@@ -339,6 +340,7 @@ struct SettingsView: View {
     @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = false
     @AppStorage("menuBar.showSession")   private var showSession:   Bool = false
     @AppStorage("menuBar.showCountdown") private var showCountdown: Bool = true
+    @ObservedObject var alerts: SessionAlertScheduler
     let onDone: () -> Void
 
     var body: some View {
@@ -366,6 +368,13 @@ struct SettingsView: View {
             NoSpoilersDetailRow(Strings.Settings.showSession)   { Toggle("", isOn: $showSession)   .labelsHidden().toggleStyle(.switch).controlSize(.small) }
             NoSpoilersDetailRow(Strings.Settings.showCountdown) { Toggle("", isOn: $showCountdown) .labelsHidden().toggleStyle(.switch).controlSize(.small) }
 
+            // The same rows the iOS screen shows, from Core. Only the frame and the route to
+            // system settings differ per platform; the rule about when to spend the one-shot
+            // permission prompt is shared, because it is the part that took three defects to get
+            // right and must not exist twice.
+            NoSpoilersSectionLabel(NoSpoilersCore.Strings.Alerts.sectionLabel)
+            SessionAlertSettingsRows(scheduler: alerts, onOpenSystemSettings: openNotificationSettings)
+
             Divider()
 
             // ── Footer ────────────────────────────────────────────
@@ -381,5 +390,13 @@ struct SettingsView: View {
         .background(NoSpoilersBackground())
     }
 
-
+    /// The Notifications pane, which is the only place a denied prompt can be undone.
+    ///
+    /// `x-apple.systempreferences:` with the extension identifier rather than the old
+    /// `com.apple.preference.notifications`: the pane was rewritten in Ventura and this app
+    /// requires macOS 14, so the modern identifier is the one that is always right here.
+    private func openNotificationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
+    }
 }
