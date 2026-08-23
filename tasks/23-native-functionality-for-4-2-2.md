@@ -265,7 +265,32 @@ triggers — the three moments iOS covers with `.task`, `scenePhase` and an `onC
 
 ## Still open after C and D
 
-- **The safe-to-watch alert has not been observed**, and its timing is the interesting half.
+## The safe-to-watch alert has now fired too — 2026-08-23
+
+Reported by the same tester on the same race. Both halves of the feature are now observed on a real
+device: the start warning and the all-clear.
+
+**Which path delivered it is not known, and the two mean different things.** The Dutch race started
+14:00 BST; `endsAt` is 16:00 and a race's `gracePeriod` is 90 minutes, so the estimate fires at
+17:30 — an hour and a half after the flag. OpenF1 gives `date_end` as 15:00Z, which is 16:00 BST, so
+a confirmed end would have fired on time. The alert arriving at all says it was one of those; only
+the arrival time tells you which, and nobody wrote it down.
+
+It matters because the answer decides what to do next:
+
+- **If it fired at 17:30**, the confirmer bought nothing in the field and the shipped experience is
+  "safe to watch" arriving 90 minutes late — for a feature whose entire audience is people waiting
+  to press play, that is the wrong end of the trade.
+- **If it fired at 16:00**, the confirmation reached the pending set in time and the grace window is
+  only ever a fallback.
+
+The structural problem stands either way: the confirmation can only narrow the window if the app is
+foregrounded between the confirmation being published and the estimated end, and if it is
+foregrounded *after* the confirmed end has passed the alert is dropped instead — see below. That is
+a lot of conditions on the useful outcome. **Log the fire time**, and consider whether a race's
+90-minute grace is defensible without one.
+
+- ~~**The safe-to-watch alert has not been observed**~~, and its timing is the interesting half.
   `effectiveEndDate` is `confirmedEndAt ?? (endsAt + gracePeriod)`, and a race's grace is 90
   minutes on top of a two-hour default duration — so the estimate fires 3½ hours after lights out
   unless OpenF1 confirms the real end first and the app is opened to rebuild the pending set.

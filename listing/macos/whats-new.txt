@@ -1,3 +1,4 @@
+• Alerts before a session starts, and when one has finished and is safe to watch
 • Sessions are marked safe to watch using the time the session actually ended, rather than an estimate
 • Refreshed visual style throughout the popover
 • A tidier menu bar item
