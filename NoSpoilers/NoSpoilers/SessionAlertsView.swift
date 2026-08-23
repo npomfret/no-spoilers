@@ -18,8 +18,8 @@ struct SessionAlertsView: View {
     @AppStorage(SessionAlertDefaults.announceSafeToWatchKey)
     private var announceSafeToWatch = SessionAlertDefaults.announceSafeToWatch
 
-    @AppStorage(SessionAlertDefaults.kindsKey)
-    private var kindsRaw = SessionAlertDefaults.encode(SessionAlertDefaults.kinds)
+    @AppStorage(SessionAlertDefaults.groupsKey)
+    private var groupsRaw = SessionAlertDefaults.encode(SessionAlertDefaults.groups)
 
     @EnvironmentObject private var scheduler: SessionAlertScheduler
     @Environment(\.openURL) private var openURL
@@ -64,10 +64,19 @@ struct SessionAlertsView: View {
                     }
 
                     NoSpoilersSectionLabel(Strings.Alerts.whichSessions)
-                    ForEach(SessionKind.allCases, id: \.self) { kind in
-                        NoSpoilersDetailRow(kind.displayName) {
-                            Toggle("", isOn: binding(for: kind)).labelsHidden()
+                    ForEach(SessionAlertGroup.allCases, id: \.self) { group in
+                        NoSpoilersDetailRow(group.displayName) {
+                            Toggle("", isOn: binding(for: group)).labelsHidden()
                         }
+                        // What the row covers, under the row. Two of the three are not
+                        // guessable — the Sprint is under Races and Sprint Qualifying is under
+                        // Qualifying — and a switch whose scope you have to infer is one people
+                        // turn off to find out.
+                        Text(group.summary)
+                            .font(.caption)
+                            .foregroundStyle(Theme.Palette.textSecondary)
+                            .padding(.horizontal, Theme.Space.xxl)
+                            .padding(.bottom, Theme.Space.sm)
                     }
                 }
                 .padding(.bottom, Theme.Space.xl)
@@ -138,13 +147,13 @@ struct SessionAlertsView: View {
         .padding(.top, Theme.Space.xl)
     }
 
-    private func binding(for kind: SessionKind) -> Binding<Bool> {
+    private func binding(for group: SessionAlertGroup) -> Binding<Bool> {
         Binding(
-            get: { SessionAlertDefaults.decode(kindsRaw).contains(kind) },
+            get: { SessionAlertDefaults.decode(groupsRaw).contains(group) },
             set: { isOn in
-                var next = SessionAlertDefaults.decode(kindsRaw)
-                if isOn { next.insert(kind) } else { next.remove(kind) }
-                kindsRaw = SessionAlertDefaults.encode(next)
+                var next = SessionAlertDefaults.decode(groupsRaw)
+                if isOn { next.insert(group) } else { next.remove(group) }
+                groupsRaw = SessionAlertDefaults.encode(next)
             }
         )
     }

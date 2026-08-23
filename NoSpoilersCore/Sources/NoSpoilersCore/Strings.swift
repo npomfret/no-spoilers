@@ -148,6 +148,14 @@ public enum Strings {
             public static let sprint           = "Sprint"
             public static let race             = "Race"
         }
+        /// The three alert groups. Named for what a reader would call them, not for the
+        /// `SessionKind` cases underneath — "Races" covers the Sprint, and "Qualifying" covers
+        /// Sprint Qualifying, which is why each row also prints `SessionAlertGroup.summary`.
+        public enum Group {
+            public static let practice   = "Free practice"
+            public static let qualifying = "Qualifying"
+            public static let races      = "Races"
+        }
         public enum Short {
             public static let fp1              = "FP1"
             public static let fp2              = "FP2"

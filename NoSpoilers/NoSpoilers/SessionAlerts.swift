@@ -12,7 +12,7 @@ enum SessionAlertDefaults {
     static let remindBeforeStartKey   = "alerts.remindBeforeStart"
     static let startLeadMinutesKey    = "alerts.startLeadMinutes"
     static let announceSafeToWatchKey = "alerts.announceSafeToWatch"
-    static let kindsKey               = "alerts.kinds"
+    static let groupsKey              = "alerts.groups"
 
     static let remindBeforeStart   = true
     static let startLeadMinutes    = 30
@@ -23,27 +23,36 @@ enum SessionAlertDefaults {
     /// Three hours of practice a weekend, and someone who only watches the race would be woken
     /// six times for sessions they will never open. The people who do want practice are the ones
     /// most likely to go and find the setting.
-    static let kinds: Set<SessionKind> = [.qualifying, .sprintQualifying, .sprint, .race]
+    ///
+    /// **This expands to exactly the four kinds the per-kind default used to name**, which is
+    /// pinned by `SessionAlertGroupTests` — the grouping changed how the preference is expressed
+    /// and was not meant to change what anybody is told about.
+    static let groups: Set<SessionAlertGroup> = [.qualifying, .races]
 
     /// The offered warning times, in minutes.
     static let leadChoices = [5, 15, 30, 60, 120]
 
-    static func encode(_ kinds: Set<SessionKind>) -> String {
-        kinds.map(\.rawValue).sorted().joined(separator: ",")
+    static func encode(_ groups: Set<SessionAlertGroup>) -> String {
+        groups.map(\.rawValue).sorted().joined(separator: ",")
     }
 
-    static func decode(_ raw: String) -> Set<SessionKind> {
+    static func decode(_ raw: String) -> Set<SessionAlertGroup> {
         let parts = raw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
-        let kinds = parts.compactMap(SessionKind.init(rawValue:))
+        let groups = parts.compactMap(SessionAlertGroup.init(rawValue:))
         // Dropped rather than trapped: an unreadable entry here can only come from a rawValue
         // this app used to write and no longer knows, which is a rename in our own code and not
         // something to crash a user's launch over. Logged, because silently narrowing what
         // someone asked to be told about is the kind of thing nobody reports.
-        if kinds.count != parts.count {
-            AppLog.alerts.error("dropped unknown session kinds from preferences",
-                                ["stored": parts.count, "understood": kinds.count])
+        //
+        // The old `alerts.kinds` key reads as exactly that and is not migrated. The alerts
+        // shipped to four internal testers the day before this changed, so there is no
+        // preference out there worth carrying — and a migration path nobody exercises is a
+        // liability that outlives the thing it was written for.
+        if groups.count != parts.count {
+            AppLog.alerts.error("dropped unknown alert groups from preferences",
+                                ["stored": parts.count, "understood": groups.count])
         }
-        return Set(kinds)
+        return Set(groups)
     }
 
     /// What the user has currently asked for.
@@ -53,13 +62,16 @@ enum SessionAlertDefaults {
     static func current(_ defaults: UserDefaults = .standard) -> SessionAlertPreferences {
         let wantsStart = defaults.object(forKey: remindBeforeStartKey) as? Bool ?? remindBeforeStart
         let minutes = defaults.object(forKey: startLeadMinutesKey) as? Int ?? startLeadMinutes
-        let stored = defaults.string(forKey: kindsKey)
+        let stored = defaults.string(forKey: groupsKey)
 
+        // Expanded here and nowhere else. `SessionAlertPlanner` decides per session and knows
+        // nothing about groups, which keeps the mapping at the one boundary where a preference
+        // becomes a plan.
         return SessionAlertPreferences(
             startLead: wantsStart ? TimeInterval(minutes * 60) : nil,
             announceSafeToWatch: defaults.object(forKey: announceSafeToWatchKey) as? Bool
                 ?? announceSafeToWatch,
-            kinds: stored.map(decode) ?? kinds
+            kinds: SessionAlertGroup.kinds(in: stored.map(decode) ?? groups)
         )
     }
 }

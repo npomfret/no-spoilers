@@ -72,10 +72,30 @@ need no entitlement — `NoSpoilersApp.entitlements` holds only the App Group an
 Rescheduled on launch and on `scenePhase == .active`, which is the same trigger the widget install
 check already uses.
 
-### Phase D — preferences UI — **DONE 2026-08-22**
+### Phase D — preferences UI — **DONE 2026-08-22**, regrouped 2026-08-23
 
 The About sheet gained a caller-built `extra` slot in `a8a356f`, and it is where the widget
 instructions now live. It is the app's only menu and is where these belong too.
+
+**Seven per-session switches became three groups on 2026-08-23** — free practice, qualifying,
+races. Seven was one row per `SessionKind`, which is the schedule's vocabulary and not the
+reader's: nobody wants Practice 2 and not Practice 3.
+
+The preference is now *stored* as groups, not merely displayed as them. A per-kind store behind a
+grouped UI has states the UI cannot draw, and the first half-selected group would have to be
+rendered as something, silently. `SessionAlertPlanner` still takes `Set<SessionKind>` and does not
+know `SessionAlertGroup` exists — planning is per session, grouping is a preference, and the
+expansion happens once in `SessionAlertDefaults.current()`.
+
+`SessionKind.alertGroup` is the written direction and `SessionAlertGroup.kinds` is derived from it,
+so the two cannot disagree and a new session kind fails to compile until it is given a group.
+Two of the three names are not guessable — the Sprint is under Races, Sprint Qualifying is under
+Qualifying — so each row prints the sessions it covers underneath.
+
+The old `alerts.kinds` key is not migrated. The alerts had been with four internal testers for one
+day; there was no preference out there worth carrying, and a migration nobody exercises outlives
+the thing it was written for. The cost of the change is that "the Grand Prix but not the Sprint" is
+no longer expressible.
 
 ### Phase E — a Live Activity for the next session (ActivityKit)
 
@@ -196,13 +216,29 @@ not got round to it", but **nobody has ever been asked**. Three defects, each of
 The lesson worth keeping: **a default-on preference cannot be the trigger for a one-shot prompt**,
 because the change it waits for has already happened.
 
+## An alert has now fired — 2026-08-23
+
+**Observed on a real device**, on build `10003`, for the Dutch Grand Prix start. It was reported as
+missing first and then found: it had arrived and been scrolled past. That closes the last unproven
+step of Phases A to D — the plan reaches the OS, the OS holds it, and it is delivered to a phone.
+The route that got there was a real session an hour out, not a harness.
+
+Worth keeping from the false alarm: **the alert arrived and was not noticed.** A start warning
+competes with everything else on a lock screen, and "I got no notification" and "I did not see the
+notification" are the same report. Anything that measures whether alerts work has to account for
+that before treating a user's account as evidence.
+
 ## Still open after C and D
 
-- **No alert has been observed firing.** Everything up to the OS accepting the request is proven;
-  delivery is not. The app cannot be given an imminent session on demand — see the harness
-  docstring for why seeding a fixture does not survive `ScheduleStore.refresh()` — so this needs
-  either a real session an hour or two out, or the offline-mode seam that `screenshots.py` declined
-  to open on 2026-08-18.
+- **The safe-to-watch alert has not been observed**, and its timing is the interesting half.
+  `effectiveEndDate` is `confirmedEndAt ?? (endsAt + gracePeriod)`, and a race's grace is 90
+  minutes on top of a two-hour default duration — so the estimate fires 3½ hours after lights out
+  unless OpenF1 confirms the real end first and the app is opened to rebuild the pending set.
+  **Opening the app after a confirmed end has passed drops the alert rather than firing it**:
+  `plan` walks boundaries after `now`, so a confirmed end in the past produces none, and
+  `reschedule` has already cleared the pending set. Defensible — by then the session reads as
+  finished on the screen in front of you — but it means the all-clear is not guaranteed, and
+  nothing says so anywhere else.
 - The alert copy has not been through `spoiler-safety-reviewer`.
 - Phase E — a Live Activity for the next session — backlogged 2026-08-22, not started.
 - Phase F — App Intents / Shortcuts / Siri — not started.
