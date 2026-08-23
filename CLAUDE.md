@@ -2,6 +2,12 @@
 
 Spoiler-free Formula 1 weekend timelines for iOS, macOS, and WidgetKit. Keep this root contract short; detailed policy belongs in `.claude/rules/`, `.claude/skills/`, agents, and `docs/guides/`.
 
+## Project status
+
+The desktop app, which is largely a menu bar widget has been accepted by the Apple App Store and is live.
+
+The iPhone iOS app has not been accepted in the Apple App Store yet. The review process is difficult to pass but it is being worked on.  This is our priority.
+
 ## Non-negotiables
 
 - This is a Formula 1 app. But we must never use that word of F1 or any "owned" or copyrights terms or images.
