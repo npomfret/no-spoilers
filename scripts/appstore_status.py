@@ -909,17 +909,56 @@ def attention(report: dict) -> list[str]:
             # carries the fix the old one stops being reported. The pending
             # name and subtitle are checked with it, since a listing is what a
             # 4.1(a) reviewer sees rather than any one page of it.
-            checked = {**fields, **(fields.get("pending") or {})}
-            marks = sorted({
-                hit
-                for key, value in checked.items()
+            pending = fields.get("pending") or {}
+            staged = {
+                key: value
+                for key, value in fields.items()
                 if key not in ("locale", "pending", "screenshots")
-                for hit in trademark_hits(value)
+            }
+            staged.update(pending)
+            marks = sorted({
+                hit for value in staged.values() for hit in trademark_hits(value)
             })
             if marks:
                 found.append(
                     f"{platform} {name} {locale}: listing uses {', '.join(marks)} — "
                     "owned terms, and this is the surface 4.1(a) is judged on"
+                )
+
+            # **What the store shows today, which is a different question with a
+            # different answer.** `name` and `subtitle` belong to the app rather
+            # than the version, so a staged fix for either reaches the public
+            # page only when some version is approved.
+            #
+            # This used to be one check, with the pending value merged over the
+            # live one — and the merge silently masked exactly the case it was
+            # meant to cover. `No Spoilers F1` and `F1 race weekend schedule`
+            # were the live name and subtitle on 2026-08-25, read off the public
+            # page, while the clean rename sat pending behind four consecutive
+            # iOS rejections and this report called the listing clean the whole
+            # time. That is the failure `listing/README.md` was written about,
+            # one field further along.
+            #
+            # The masking was deliberate and its reason has expired: it said the
+            # line "cannot be actioned and never goes away". It can — the same
+            # pending name rides on *any* platform's next approval, and macOS is
+            # a version away from clearing it. So it is reported, and worded so
+            # that what to do about it is the point.
+            #
+            # A mark the staged value keeps is left to the check above rather
+            # than said twice.
+            live = sorted({
+                hit
+                for key, value in fields.items()
+                if key in pending
+                for hit in trademark_hits(value)
+                if hit not in trademark_hits(pending[key])
+            })
+            if live:
+                found.append(
+                    f"{platform} {name} {locale}: the store still shows "
+                    f"{', '.join(live)} — the fix is staged and reaches the public "
+                    "page only when a version is approved"
                 )
 
         review = version["review"]
@@ -1574,16 +1613,36 @@ def _selftest() -> int:
         "App Review notes use f1",
     )
 
-    # A pending fix masks the live value: the name is still `No Spoilers F1` on
-    # the store and there is nothing left to do about it, so reporting it would
-    # be a line that cannot be actioned and never goes away.
+    # A live mark with the fix staged behind it. **This case used to assert the
+    # opposite** — that a pending rename silenced the report — and the store
+    # then carried `No Spoilers F1` for months with nothing looking at it. The
+    # listing itself is clean, so the 4.1(a) line stays quiet; what the public
+    # page shows is its own line, because getting a version approved is a
+    # different job from editing copy.
     staged = [{
         **_version()["listing"][0],
         "name": "No Spoilers F1",
         "pending": {"name": "No Spoilers - Grand Prix"},
     }]
-    if any("owned terms" in item for item in attention(_fixture(versions=[_version(listing=staged)]))):
-        failures.append("a mark already fixed in the pending listing was still reported")
+    live_masked = attention(_fixture(versions=[_version(listing=staged)]))
+    if any("owned terms" in item for item in live_masked):
+        failures.append("a mark already fixed in the pending listing was reported as copy to edit")
+    if not any("the store still shows f1" in item for item in live_masked):
+        failures.append("a mark live on the store went unreported because a fix was pending")
+
+    # The staged value keeps the mark, so there is copy to edit and that is the
+    # only thing to say. Reporting it twice would make the store line noise in
+    # the one case where it carries no information.
+    unfixed = [{
+        **_version()["listing"][0],
+        "name": "No Spoilers F1",
+        "pending": {"name": "No Spoilers F1 - Grand Prix"},
+    }]
+    live_unfixed = attention(_fixture(versions=[_version(listing=unfixed)]))
+    if not any("owned terms" in item for item in live_unfixed):
+        failures.append("a mark the pending name keeps was not reported as copy to edit")
+    if any("the store still shows" in item for item in live_unfixed):
+        failures.append("a mark the pending name keeps was reported twice")
 
     # `train_builds` answers the question a release asks before it builds
     # anything, and the join it depends on is the part that can silently return

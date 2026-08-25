@@ -41,3 +41,11 @@ The macOS keywords read `F1,Formula 1,schedule,spoiler free,menu bar,calendar,wi
 2026-08-22 — nine days after the sweep that was supposed to have removed them, live on the store the
 whole time. The sweep edited four surfaces by hand and there was no fifth place to look. This
 directory is that place.
+
+**Two fields are still not in it: the app name and the subtitle.** They belong to the app record
+rather than to a version, App Store Connect edits them on a different page, and no API this
+repository uses writes them — so they are copy that exists only in a web form, which is the thing
+this directory was created to end. On 2026-08-25 the public page read `No Spoilers F1` /
+`F1 race weekend schedule`, with the clean rename staged and waiting on an approval that four
+consecutive iOS rejections had not delivered. `appstore_status.py` reports the live value under
+NEEDS YOU; until these move in here, that report is the only thing watching them.

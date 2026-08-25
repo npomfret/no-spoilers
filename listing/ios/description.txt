@@ -5,7 +5,16 @@ If you watch on replay, you know the problem. Search for a start time and you ge
 This is that place.
 
 THE WIDGET
-Add it in small, medium or large and the weekend sits on your Home Screen: which sessions have finished and are safe to watch, and a live countdown to the next one. Check your phone all weekend without going near anything that could ruin it. The small size gives you the next session at a glance; the large size shows the full weekend and what is coming after it.
+Add it in small, medium, large — or extra large on iPad — and the weekend sits on your Home Screen: which sessions have finished and are safe to watch, and a live countdown to the next one. Check your phone all weekend without going near anything that could ruin it. The small size gives you the next session at a glance; the larger sizes show the full weekend and what is coming after it.
+
+ON YOUR LOCK SCREEN
+There is a Lock Screen widget too — a tile, or a single line beside the clock — and it turns up in StandBy as well. When a session is close, open the app once and the countdown moves to your Lock Screen as a Live Activity, and to the Dynamic Island on iPhone. No unlocking, no opening anything.
+
+TOLD, NOT SPOILED
+An alert before a session starts, and another when a session has finished and is safe to watch — worked out from the time it actually ended, not the time it was meant to. Pick which sessions you want to hear about and how much warning you get, or have none of it. Neither alert ever mentions a result.
+
+ASK SIRI
+"When is the next session in No Spoilers?" Answered out loud, without opening the app and without a signal. It is in Spotlight too, and in Shortcuts if you automate things.
 
 WHAT YOU SEE
 • Sessions that have finished — safe to watch now
@@ -24,10 +33,7 @@ SPOILER-FREE BY CONSTRUCTION
 This is not a setting you have to remember to switch on. The app has no fields for results anywhere in its data model — they are not hidden, not collapsed, not fetched on demand. They do not exist. The schedule is the only thing it knows. Opening the app, or glancing at the widget, is always safe.
 
 WORKS OFFLINE
-The calendar is cached on your device. On a plane, in a tunnel, or with no signal at the circuit, the widget and the countdown keep working.
-
-ALSO ON MAC
-The same app lives in the macOS menu bar, one click from anything you are doing.
+The calendar is cached on your device. On a plane, in a tunnel, or with no signal at the circuit, the widget, the countdown and the Siri answer keep working.
 
 No account. No sign-in. No tracking. No ads.
 

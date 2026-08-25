@@ -1,23 +1,43 @@
-No Spoilers is a Home Screen widget. That is the product on iPhone and iPad.
-
-Please add the widget before reviewing. A widget is not visible until someone places it, so a review that only launches the app does not see what the app is for.
-
-TO ADD IT
-1. Touch and hold an empty area of the Home Screen until the icons jiggle.
-2. Tap the widget button at the top of the screen (Edit, then Add Widget).
-3. Search for "No Spoilers" and pick a size.
-
-There are three sizes and each shows a different amount of the race weekend:
-- Small: the Grand Prix, the next session, and a live countdown to it.
-- Medium: the next session with its countdown, the last session that finished, and the weekend after this one.
-- Large: every session of the weekend with its status, plus what is coming next.
-
-WHAT IT DOES
-It shows when the sessions of a Grand Prix weekend are, which of them have already finished and are therefore safe to watch on replay, and a live countdown to the next one.
+No Spoilers shows when the sessions of a Grand Prix weekend are, which of them have already finished and are therefore safe to watch on replay, and a live countdown to the next one.
 
 It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
 
-The schedule is cached on the device in a shared App Group container, which the widget reads directly. The widget and its countdown keep working with no network connection.
+WHAT THE APP DOES ON THE DEVICE
+This version was previously returned under 4.2.2. Everything below is a system feature that runs on the device and that a web page cannot reach. None of it needs an account, a network connection, or a purchase.
+
+1. HOME SCREEN AND LOCK SCREEN WIDGETS
+The widget is the product. Please add it before reviewing — a widget is not visible until someone places it, so a review that only launches the app does not see what the app is for.
+
+TO ADD IT
+a. Touch and hold an empty area of the Home Screen until the icons jiggle.
+b. Tap the widget button at the top of the screen (Edit, then Add Widget).
+c. Search for "No Spoilers" and pick a size.
+
+Four Home Screen sizes, each showing a different amount of the weekend:
+- Small: the Grand Prix, the next session, and a live countdown to it.
+- Medium: the next session with its countdown, the last session that finished, and the weekend after this one.
+- Large: every session of the weekend with its status, plus what is coming next.
+- Extra large (iPad only): the full weekend in one column and what is coming next in the other.
+
+Two Lock Screen sizes, added through Customise on the Lock Screen: a tile with the Grand Prix, the session and the countdown, and a single line beside the clock with the session and the countdown. Both also appear in StandBy.
+
+The app builds the widget's timeline itself, from a schedule cached on the device, and refreshes it at the moments the display would otherwise go stale.
+
+2. A LIVE ACTIVITY
+When a session is within eight hours, opening the app puts the countdown on the Lock Screen as a Live Activity — and in the Dynamic Island on iPhone. It ends when the session does.
+
+Please note that this is only visible when a session is actually close. If you are reviewing between race weekends there is nothing for it to show, and it will not appear. Everything else here can be seen at any time.
+
+3. NOTIFICATIONS
+The app can tell you before a session starts, and again when a session has finished and is safe to watch. The all-clear uses the time the session actually ended, published after the fact, rather than the time it was scheduled to end.
+
+They are found under the info button in the top corner of the app, then "Session alerts". You can choose which sessions you hear about — practice, qualifying, races — and how much warning you get. The permission prompt is asked for there, the first time an alert is switched on, and never on launch.
+
+4. SIRI, SPOTLIGHT AND SHORTCUTS
+Ask Siri "When is the next session in No Spoilers" and the app answers out loud, without being opened and without a network connection. The same action is in Spotlight and available to the Shortcuts app for automation. It never speaks a result.
+
+5. IT WORKS OFFLINE
+The schedule is cached on the device in a shared App Group container, which the widget and the Siri action read directly. Turn off Wi-Fi and mobile data and the app, the widget and the countdown all keep working.
 
 NO ACCOUNT IS NEEDED
 There is no sign-in anywhere in the app, so the demo account previously attached to this submission does not apply to anything. All functionality is available immediately on launch.
