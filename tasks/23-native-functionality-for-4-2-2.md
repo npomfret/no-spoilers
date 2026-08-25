@@ -109,10 +109,12 @@ is opened, and a web page structurally cannot put anything there. It is also *re
 named in the review notes and screenshotted, where App Intents only helps if the reviewer thinks to
 try Siri. Every previous 4.2.2 answer has been prose; this one is visible.
 
-**It needs no backend and no permission.** `Text(timerInterval:)` counts down on its own from a date
-range handed over once, so there is no APNs, no server and no push-to-start. Live Activities need no
-authorization prompt at all — worth noting beside the notification prompt that turned out never to
-have been shown to anybody (below).
+**It needs no backend. It does need permission — see the correction at the end of this file.**
+`Text(timerInterval:)` counts down on its own from a date range handed over once, so there is no
+APNs, no server and no push-to-start. ~~Live Activities need no authorization prompt at all — worth
+noting beside the notification prompt that turned out never to have been shown to anybody
+(below).~~ **Wrong, corrected 2026-08-25.** There is a prompt, iOS raises it on the first activity,
+and the irony of writing that sentence beside the notification-prompt defect is not lost.
 
 **The pieces already exist.** `NoSpoilersWidgetBundle` can host an `ActivityConfiguration` in the
 same extension, so there is no new target. `ScheduleBoundaries.all()` already produces
@@ -560,3 +562,53 @@ Second-order, and worth naming beside the above. An activity started as `upcomin
 being accurate — it counts up once the instant passes. So the failure mode is a dimmed card saying
 how long ago a session started, which is a schedule fact and not a spoiler. Named because "the Lock
 Screen is showing something out of date" is the kind of report that arrives without a diagnosis.
+
+## The prompt nobody knew about — 2026-08-25
+
+**iOS asks "Allow Live Activities from No Spoilers?" the first time an app starts one**, as an
+inline prompt on the Lock Screen under the activity itself, with Don't Allow and Allow. Seen on the
+`NoSpoilers-iPhone` simulator, on the first Live Activity this project has ever put in front of
+anybody. Phase E asserted three times, in three files, that no such prompt exists.
+
+**It is the notification permission again, one feature later**, and the resemblance is close enough
+to be uncomfortable:
+
+- Something the user can refuse, once, with no way back from inside the app.
+- After a refusal `areActivitiesEnabled` is false, `refresh` returns having done nothing, and the
+  Lock Screen simply stays as it was.
+- Every log line reads as normal, and the feature looks exactly like one that is working and has
+  nothing to show yet — which, given the 8-hour look-ahead, is its ordinary state.
+
+The difference is that there is nothing to *request*, and therefore no one-shot prompt to spend:
+iOS raises it on the first activity and `ActivityAuthorizationInfo` can be consulted freely. So the
+fix is not about when to ask. It is about admitting the answer.
+
+**What was done.** `SessionActivityController` publishes `activitiesEnabled` — optimistic until the
+first refresh, so a fresh install does not warn about a prompt nobody has seen, and assigned only
+on change, which is the macOS `removeDuplicates` lesson. `SessionAlertsView` gained a Lock Screen
+section: a line explaining the feature when it is on, and an off-notice in the same shape as
+`SessionAlertSettingsRows.deniedNotice` when it is not. Not in the shared rows — those are also the
+Mac app's, and macOS has no ActivityKit.
+
+**And the review notes now say to tap Allow.** A reviewer who dismisses that prompt loses the
+strongest 4.2.2 answer in the submission, permanently, and would have had nothing telling them so.
+
+### What the simulator run proved, and what it did not
+
+With `lookAhead` temporarily widened to 40 days and reverted afterwards, uncommitted:
+
+- `Activity.request` succeeds and returns an id.
+- The lifecycle works — started, updated, then a superseded activity ended and replaced when the
+  network refresh produced a different weekend to the one the cold cache had.
+- The Dynamic Island renders: glyph in the compact leading, relative countdown in the trailing.
+- The Lock Screen presentation renders: Grand Prix, session name, countdown, nothing else.
+
+Not proven: any of it on real hardware, and the expanded Dynamic Island regions, which need a long
+press. The 8-hour look-ahead is covered by `FeaturedSessionPlannerTests` rather than by this.
+
+**The simulator will not lock from `Device ▸ Lock` under AppleScript** — the click returns a valid
+menu-item reference and the framebuffer stays on the Home Screen, across four attempts and a device
+restart. A person pressing ⌘L is what produced the Lock Screen capture. Worth knowing before
+anyone tries to automate a Lock Screen screenshot again; `tasks/23`'s Phase H follow-on already
+says not to drive that UI with synthetic clicks, and this is a second reason.
+

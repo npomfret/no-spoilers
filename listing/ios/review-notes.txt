@@ -3,7 +3,7 @@ No Spoilers shows when the sessions of a Grand Prix weekend are, which of them h
 It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
 
 WHAT THE APP DOES ON THE DEVICE
-This version was previously returned under 4.2.2. Everything below is a system feature that runs on the device and that a web page cannot reach. None of it needs an account, a network connection, or a purchase.
+This version was previously returned under 4.2.2. Everything below runs on the device and cannot be reached by a web page. None of it needs an account, a network connection, or a purchase.
 
 1. HOME SCREEN AND LOCK SCREEN WIDGETS
 The widget is the product. Please add it before reviewing — a widget is not visible until someone places it, so a review that only launches the app does not see what the app is for.
@@ -19,14 +19,16 @@ Four Home Screen sizes, each showing a different amount of the weekend:
 - Large: every session of the weekend with its status, plus what is coming next.
 - Extra large (iPad only): the full weekend in one column and what is coming next in the other.
 
-Two Lock Screen sizes, added through Customise on the Lock Screen: a tile with the Grand Prix, the session and the countdown, and a single line beside the clock with the session and the countdown. Both also appear in StandBy.
+Two Lock Screen sizes, added through Customise: a tile with the Grand Prix, the session and the countdown, and a single line beside the clock with the session and the countdown. Both also appear in StandBy.
 
-The app builds the widget's timeline itself, from a schedule cached on the device, and refreshes it at the moments the display would otherwise go stale.
+The app builds the widget's timeline itself from a schedule cached on the device, refreshing it at the moments the display would otherwise go stale.
 
 2. A LIVE ACTIVITY
 When a session is within eight hours, opening the app puts the countdown on the Lock Screen as a Live Activity — and in the Dynamic Island on iPhone. It ends when the session does.
 
-Please note that this is only visible when a session is actually close. If you are reviewing between race weekends there is nothing for it to show, and it will not appear. Everything else here can be seen at any time.
+iOS asks "Allow Live Activities from No Spoilers?" the first time this happens, on the Lock Screen. Please tap Allow. Tapping Don't Allow switches the feature off for the install and it cannot be shown again from inside the app.
+
+Please note that it is only visible when a session is actually close. If you are reviewing between race weekends there is nothing for it to show, and it will not appear. Everything else here can be seen at any time.
 
 3. NOTIFICATIONS
 The app can tell you before a session starts, and again when a session has finished and is safe to watch. The all-clear uses the time the session actually ended, published after the fact, rather than the time it was scheduled to end.
@@ -43,4 +45,4 @@ NO ACCOUNT IS NEEDED
 There is no sign-in anywhere in the app, so the demo account previously attached to this submission does not apply to anything. All functionality is available immediately on launch.
 
 CORRECTION TO EARLIER REVIEW NOTES
-The notes previously on this version said "This is a menu bar app... the icon appears in the top-right of the menu bar." That was wrong and should never have been on this submission - there is no menu bar on iPhone or iPad. We are sorry for the confusion it caused.
+Notes on an earlier submission said "This is a menu bar app". That was wrong - there is no menu bar on iPhone or iPad - and we are sorry for the confusion it caused.

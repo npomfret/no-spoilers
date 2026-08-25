@@ -42,6 +42,19 @@ enum Strings {
         static let aboutSectionLabel: LocalizedStringKey = "Widget"
         static let aboutRowTitle: LocalizedStringKey = "How to add the widget"
     }
+    /// The Lock Screen countdown, and the refusal that can switch it off.
+    ///
+    /// **Written the day the prompt was discovered.** iOS asks *"Allow Live Activities from
+    /// No Spoilers?"* on the first activity, and a Don't Allow left the feature inert with nothing
+    /// anywhere in the app admitting it. These are what admits it. Target-private rather than in
+    /// Core because ActivityKit is iOS-only and the Mac app has no such surface to describe.
+    enum Activity {
+        static let sectionLabel: LocalizedStringKey = "Lock Screen"
+        static let intro: LocalizedStringKey = "When a session is close, open No Spoilers and the countdown moves to your Lock Screen until the session starts."
+        static let deniedTitle: LocalizedStringKey = "Live Activities are turned off"
+        static let deniedBody: LocalizedStringKey = "iOS is holding these back, so the countdown cannot reach your Lock Screen. Turn Live Activities on for No Spoilers in Settings."
+    }
+
     /// What Siri says, and what Spotlight and the Shortcuts app call it.
     ///
     /// **Spoken text, which is the strictest surface in the product.** A notification can at least

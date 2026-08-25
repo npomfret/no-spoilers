@@ -11,12 +11,23 @@ import NoSpoilersCore
 /// part no test can reach: asking ActivityKit to start, update or end something. Keeping that
 /// boundary is what stops the untestable half growing logic of its own.
 ///
-/// **Live Activities need no authorization prompt and no entitlement.** `areActivitiesEnabled` is
-/// a Settings switch the user may already have turned off, which is not the same as being asked;
-/// there is nothing to request and nothing to spend, so unlike the notification permission this
-/// can be consulted freely. `NoSpoilersApp.entitlements` carries only the App Group and does not
-/// change — only push-to-start would need more, and that needs a server this product does not
-/// have.
+/// **There is no entitlement, and there IS a prompt.** This file said the opposite until
+/// 2026-08-25, when the first Live Activity anyone had ever looked at came up on a Lock Screen
+/// under *"Allow Live Activities from No Spoilers?"* with Don't Allow and Allow beneath it. iOS
+/// asks the first time an app starts one, on the activity itself, and nothing in the API surfaces
+/// that it is about to.
+///
+/// So this is the notification permission again, one feature later: something the user can refuse,
+/// after which `areActivitiesEnabled` is false, `refresh` returns having done nothing, and the
+/// feature is inert for the life of the install while every log line reads as normal. The lesson
+/// from that one was that a silent refusal has to become something the user can see —
+/// `activitiesEnabled` is published for exactly that, and `SessionAlertsView` draws it.
+///
+/// What is still true is that there is nothing to *request*: no `requestAuthorization` exists, the
+/// prompt is iOS's own and comes with the first activity, and a refusal is only reversible in
+/// Settings. So this can be consulted freely; there is no one-shot prompt to spend.
+/// `NoSpoilersApp.entitlements` carries only the App Group and does not change — only
+/// push-to-start would need more, and that needs a server this product does not have.
 ///
 /// **Started only from the foreground.** ActivityKit permits `request` nowhere else without push,
 /// so the shape of the feature is "open the app, and the countdown moves to your Lock Screen".
@@ -29,6 +40,16 @@ import NoSpoilersCore
 /// Screen.
 @MainActor
 final class SessionActivityController: ObservableObject {
+
+    /// Whether iOS will show our activities at all.
+    ///
+    /// **Published because a refusal is otherwise invisible.** Optimistic until the first refresh
+    /// so a fresh install does not flash a warning about a prompt nobody has been shown yet;
+    /// `refresh` writes the truth on every foreground moment.
+    ///
+    /// Assigned only when it changes. `@Published` fires on assignment rather than on change, and
+    /// the macOS alerts sink fed itself several hundred times a second learning that.
+    @Published private(set) var activitiesEnabled = true
 
     /// How far ahead a session may start and still be worth an activity.
     ///
@@ -47,7 +68,9 @@ final class SessionActivityController: ObservableObject {
     /// at the right one after the next refresh. Recomputing on every foreground is what makes that
     /// self-correcting.
     func refresh(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
+        if activitiesEnabled != enabled { activitiesEnabled = enabled }
+        guard enabled else {
             // Nothing to clear: with the switch off there is nothing of ours running.
             AppLog.activity.notice("live activities are turned off")
             return
