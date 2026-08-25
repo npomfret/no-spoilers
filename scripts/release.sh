@@ -29,6 +29,21 @@ export PATH="/usr/bin:/bin:${PATH}"
 #     --api-key /path/to.p8 --api-key-id KEY_ID --api-issuer ISSUER_ID
 #     (omit flags to print manual upload instructions)
 #
+# Signing without an Xcode account (--signing-key, optional):
+#
+#   Automatic signing normally resolves profiles through an Apple ID signed into
+#   Xcode. A build agent has no such account, and the fallback is the generic
+#   "iOS Team Provisioning Profile: *" — which carries no App Group, so the
+#   archive dies naming a capability rather than an account. Given these three,
+#   xcodebuild talks to App Store Connect directly and creates the profile it
+#   needs, which is what -allowProvisioningUpdates is for.
+#
+#     --signing-key /path/to.p8 --signing-key-id KEY_ID --signing-issuer ISSUER
+#
+#   Separate from --api-key on purpose: that one uploads and this one *writes*
+#   profiles, which is a higher role. Callers with an Xcode account should keep
+#   omitting these, so the path that has shipped real builds does not change.
+#
 #   both          Runs app-store then developer-id from the same archive (macos only)
 #
 # Build number (--build, optional):
@@ -78,6 +93,9 @@ NOTARYTOOL_ISSUER=""
 API_KEY=""
 API_KEY_ID=""
 API_ISSUER=""
+SIGNING_KEY=""
+SIGNING_KEY_ID=""
+SIGNING_ISSUER=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -91,6 +109,9 @@ while [[ $# -gt 0 ]]; do
     --api-key)            API_KEY="$2";            shift 2 ;;
     --api-key-id)         API_KEY_ID="$2";         shift 2 ;;
     --api-issuer)         API_ISSUER="$2";         shift 2 ;;
+    --signing-key)        SIGNING_KEY="$2";        shift 2 ;;
+    --signing-key-id)     SIGNING_KEY_ID="$2";     shift 2 ;;
+    --signing-issuer)     SIGNING_ISSUER="$2";     shift 2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -283,6 +304,24 @@ set_marketing_version "${VERSION}"
 
 trap 'echo "" >&2; echo "Release failed before the version bump was committed. ${PBXPROJ} is modified and unpushed; nothing was published." >&2' ERR
 
+# ── Shared: signing authentication ──────────────────────────────────────────
+#
+# Empty unless --signing-key was given, which is what keeps a machine with an
+# Xcode account building exactly as it did before.
+
+SIGNING_AUTH=()
+if [[ -n "$SIGNING_KEY" ]]; then
+  [[ -f "$SIGNING_KEY" ]] || { echo "no signing key at ${SIGNING_KEY}" >&2; exit 1; }
+  [[ -n "$SIGNING_KEY_ID" && -n "$SIGNING_ISSUER" ]] \
+    || { echo "--signing-key needs --signing-key-id and --signing-issuer too" >&2; exit 1; }
+  SIGNING_AUTH=(
+    -authenticationKeyPath "$SIGNING_KEY"
+    -authenticationKeyID "$SIGNING_KEY_ID"
+    -authenticationKeyIssuerID "$SIGNING_ISSUER"
+  )
+  echo "==> Signing will authenticate to App Store Connect as ${SIGNING_KEY_ID}."
+fi
+
 echo "==> Cleaning ${SCHEME}..."
 xcodebuild clean \
   -project "${PROJECT}" \
@@ -295,6 +334,7 @@ xcodebuild archive \
   -destination "${DESTINATION}" \
   -archivePath "${ARCHIVE_PATH}" \
   -allowProvisioningUpdates \
+  "${SIGNING_AUTH[@]+"${SIGNING_AUTH[@]}"}" \
   CODE_SIGN_STYLE=Automatic \
   DEVELOPMENT_TEAM=6FZN56WC8G \
   MARKETING_VERSION="${VERSION}" \
@@ -336,7 +376,8 @@ if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-AppStore.plist" \
     -exportPath "${EXPORT_PATH_APPSTORE}" \
-    -allowProvisioningUpdates
+    -allowProvisioningUpdates \
+    "${SIGNING_AUTH[@]+"${SIGNING_AUTH[@]}"}"
 
   echo ""
   echo "  Package: ${PACKAGE_PATH}"
@@ -403,7 +444,8 @@ if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
     -archivePath "${ARCHIVE_PATH}" \
     -exportOptionsPlist "NoSpoilers/ExportOptions-DeveloperID.plist" \
     -exportPath "${EXPORT_PATH_DEVID}" \
-    -allowProvisioningUpdates
+    -allowProvisioningUpdates \
+    "${SIGNING_AUTH[@]+"${SIGNING_AUTH[@]}"}"
 
   echo "==> Zipping..."
   ditto -c -k --sequesterRsrc --keepParent \

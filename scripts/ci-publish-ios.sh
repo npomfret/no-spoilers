@@ -41,6 +41,16 @@ IDENTITY="Apple Distribution: Nick Pomfret (6FZN56WC8G)"
 API_KEY_ID="S394C74APG"
 PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
 
+# **A second key, and it has to be a second one.** `API_KEY_ID` uploads;
+# this one lets `xcodebuild` create the provisioning profile, which is a write
+# against the developer account and needs the App Manager role. Build 725 is
+# what settled that this step is necessary at all: automatic signing with no
+# Xcode account falls back to the generic "iOS Team Provisioning Profile: *",
+# and the archive then fails naming a missing App Group rather than a missing
+# account, which sends you looking at entitlements.
+SIGNING_KEY_ID="ASC6H3SL2D"
+ASC_ISSUER="69a6de6e-6d3e-47e3-e053-5b8c7c11a4d1"
+
 CHECK_ONLY=""
 if [[ "${1:-}" == "--check" ]]; then
   CHECK_ONLY="yes"
@@ -90,9 +100,12 @@ fi
 # having delivered nothing — the failure mode this whole file exists to make
 # impossible.
 
-echo "==> Asserting the App Store Connect key is present..."
-[[ -f "${HOME}/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8" ]] \
-  || fail "no AuthKey_${API_KEY_ID}.p8 in ${HOME}/.appstoreconnect/private_keys"
+echo "==> Asserting the App Store Connect keys are present..."
+KEYS="${HOME}/.appstoreconnect/private_keys"
+[[ -f "${KEYS}/AuthKey_${API_KEY_ID}.p8" ]] \
+  || fail "no AuthKey_${API_KEY_ID}.p8 in ${KEYS} — nothing could be uploaded"
+[[ -f "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8" ]] \
+  || fail "no AuthKey_${SIGNING_KEY_ID}.p8 in ${KEYS} — nothing could be signed"
 
 # ── 3. A push remote that can actually push ──────────────────────────────────
 #
@@ -144,4 +157,7 @@ fi
 echo ""
 echo "==> Preflight passed. Shipping iOS ${VERSION} via scripts/ship-ios.sh..."
 echo ""
-exec "${SCRIPT_DIR}/ship-ios.sh" "${VERSION}"
+exec "${SCRIPT_DIR}/ship-ios.sh" "${VERSION}" \
+  --signing-key "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8" \
+  --signing-key-id "${SIGNING_KEY_ID}" \
+  --signing-issuer "${ASC_ISSUER}"
