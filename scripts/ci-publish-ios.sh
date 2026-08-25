@@ -19,6 +19,16 @@ set -euo pipefail
 # Usage:
 #   scripts/ci-publish-ios.sh          # ships the version the project holds
 #   scripts/ci-publish-ios.sh 1.1.3    # opens a new version train
+#   scripts/ci-publish-ios.sh --check  # run the assertions and stop
+#
+# **`--check` exists because the assertions are the only part of this that can
+# be tested without shipping something.** Whether a build agent's login keychain
+# is unlocked in its own session cannot be answered from an SSH shell, from a
+# unit test, or by reading anything; it needs a build. Without a way to ask that
+# question on its own, the only way to find out is to press the button that
+# uploads to Apple, pushes a commit and pushes a tag — and to find out by having
+# all three not happen. Run this first on a new agent, after an OS update, and
+# after anything touches the keychain.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
@@ -31,6 +41,11 @@ IDENTITY="Apple Distribution: Nick Pomfret (6FZN56WC8G)"
 API_KEY_ID="S394C74APG"
 PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
 
+CHECK_ONLY=""
+if [[ "${1:-}" == "--check" ]]; then
+  CHECK_ONLY="yes"
+  shift
+fi
 VERSION="${1:-$(current_marketing_version)}"
 
 fail() {
@@ -103,6 +118,13 @@ git config user.name  >/dev/null || fail "no git user.name on this agent, so the
 git config user.email >/dev/null || fail "no git user.email on this agent, so the bump commit has no author"
 
 # ── Hand over ────────────────────────────────────────────────────────────────
+
+if [[ -n "$CHECK_ONLY" ]]; then
+  echo ""
+  echo "Preflight passed. This agent can sign, can upload and can push."
+  echo "Nothing was built and nothing was shipped: --check was passed."
+  exit 0
+fi
 
 echo ""
 echo "==> Preflight passed. Shipping iOS ${VERSION} via scripts/ship-ios.sh..."
