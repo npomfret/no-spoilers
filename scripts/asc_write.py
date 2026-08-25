@@ -102,3 +102,12 @@ class Session:
 
     def patch(self, path: str, body: dict) -> dict:
         return self._call("PATCH", path, body)
+
+    def delete(self, path: str) -> dict:
+        """Added 2026-08-25 for `appstore_screenshots.py`, which is the only caller.
+
+        Replacing a screenshot set means removing what it holds first: the API
+        has no replace, and an upload into a full set appends. A 204 comes back
+        with no body, which `_call` already handles.
+        """
+        return self._call("DELETE", path)
