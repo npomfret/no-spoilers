@@ -63,9 +63,17 @@ rules that exclude prose directories.
 | Configuration | Runs | Xcode lock |
 |---|---|---|
 | `NoSpoilers_Checks` | `scripts/verify-python-selftests.sh` | none — starts no Xcode |
-| `NoSpoilers_Build` | `verify-mac-build.sh`, `verify-ios-build.sh`, `verify-widget-build.sh` as three steps | `no-spoilers-xcode` writeLock |
-| `NoSpoilers_Tests` | `scripts/verify-core-tests.sh` | `no-spoilers-xcode` writeLock |
+| `NoSpoilers_Build` | `verify-mac-build.sh`, `verify-ios-build.sh`, `verify-widget-build.sh` as three steps | `no-spoilers-xcode` readLock |
+| `NoSpoilers_Tests` | `scripts/verify-core-tests.sh` | `no-spoilers-xcode` readLock |
 | `NoSpoilers_Verdict` | nothing; snapshot-depends on the other three | — |
+
+`Build` and `Tests` held **write** locks until 2026-08-25, which on a quota-3 resource means
+"drain the machine" and made our own two configurations queue behind each other on a machine with
+three agents. Nothing about them needs that: they are hermetic compiles in separate checkouts with
+`HOME`, the caches and DerivedData redirected inside each one, and neither boots a simulator. The
+resource is kept rather than deleted because it is what a future simulator-driving configuration
+would take a write lock on — and a write lock only means anything if what it has to displace is
+holding read locks.
 
 Two deliberate departures from the pattern it was copied from, both because the underlying reason
 does not carry over:
@@ -118,12 +126,26 @@ survive the redirected `HOME` on a machine that is not a developer's — is now 
 
 **`funmax-xcode` is defined inside the `SuperFunMaxMusic` project, so our builds cannot see it and
 theirs cannot see ours.** Two projects' Xcode builds can therefore run at the same moment on the
-one Mac Studio. Phase 1 boots no simulator — every wrapper is `generic/platform=…`, `-sdk
-iphoneos`, or host `swift test` — so this is CPU contention and nothing worse. The real fix is
-moving the lock to the root project so both projects share one, and that edits *their*
-configuration: it is the server owner's call, not ours. **It becomes urgent the moment anything
-here boots a simulator**, because two projects driving `simctl` on one machine is the failure
-`CLAUDE.md` already warns about for the stock simulators.
+one Mac Studio.
+
+This task first recommended moving that lock to the root project so the estate shared one. **That
+recommendation was wrong and was withdrawn on 2026-08-25 after reading what the locks actually
+do.** The quota is 3, which is the agent count, so `readLock` (1 of 3) means "I am using Xcode but
+tolerate company" and `writeLock` (all 3) means "drain the machine". Their UI legs hold read locks
+and run three-up; `Compile`, `Unit` and `Ship` hold write locks.
+
+Joining that pool would make our **one-minute** chain drain their **fifteen-minute** UI matrix
+before it could start, and hold the whole machine while it ran — slower for both projects, to fix
+contention that is not causing failures. And moving the definition means deleting it from their
+project and recreating it at root while their configurations still name it, so a surprise in name
+resolution breaks somebody's `Ship`. Not worth it for a performance nicety.
+
+What is true is narrower: `SuperFunMaxMusic_Ship` takes a write lock, which is a release declaring
+it needs a quiet machine, and today that is quietly false because our compiles can run underneath
+it. The cost is CPU contention during a notarize, not a broken build. **Revisit the moment
+anything here boots a simulator** — `screenshots.py` or `alerts_check.py` reaching CI would make
+two projects drive `simctl` on one machine, which is exactly the failure `CLAUDE.md` warns about
+for the stock simulators, and then joining the estate lock with a *read* lock becomes correct.
 
 `SuperFunMaxMusic` also stores its TeamCity settings in its own repository as Kotlin DSL
 (`versionedSettings`, `format=kotlin`). Ours does not. That would be a new file layout in this
