@@ -122,6 +122,54 @@ The open question this task raised — whether `verify-core-tests.sh` and the Py
 survive the redirected `HOME` on a machine that is not a developer's — is now answered by #455 and
 #457 passing on a fresh agent-side checkout.
 
+## The nightly
+
+Added 2026-08-25 on `NoSpoilers_Verdict`: a scheduling trigger, **daily at 00:00 Europe/London**,
+with `triggerBuildWithPendingChangesOnly` off so it runs on nights when nobody pushed. The shape is
+copied from `TsFirebaseSimulator_BuildAndUnit`, the estate's only other scheduling trigger, which
+also pins `Europe/London` rather than the server's UTC — so midnight stays local midnight instead of
+drifting an hour twice a year.
+
+**The dependencies had to stop being reusable, or the nightly would have been theatre.** All three
+snapshot dependencies carried `take-started-build-with-same-revisions=true`. That is right for a
+push, where four VCS triggers fire at one revision and TeamCity collapses them into a single chain.
+At midnight it is fatal: the revision is almost always one that has already been built, so Verdict
+reuses the last green `Checks`, `Build` and `Tests` and reports success having compiled nothing.
+Build #527 demonstrated it exactly — triggered 09:06:14, started 09:06:15, zero dependency builds
+created. The three are now `take-started-build-with-same-revisions=false`, and the retest created
+four builds where the previous run created one.
+
+`take-successful-builds-only` flipped itself to `false` as a side effect of that change. It is inert
+once there is no reuse to constrain, and failure still propagates: #545 went red as
+`Snapshot dependencies failed to start: 3`.
+
+An earlier attempt used the trigger's `enforceCleanCheckout` and
+`enforceCleanCheckoutForDependencies` instead. **Both were removed; they do not do what the names
+suggest.** They did not stop the reuse — #527 had both set and reused anyway — the dependency builds
+they did produce ran `git reset --hard` rather than a clean checkout, so gitignored
+`tmp/DerivedData` survived and nothing recompiled, and forcing checkout down the server-side patch
+path is what turned a wedged agent into a failed build rather than a slow one.
+
+Still unverified, because the agents broke the same morning: a full green chain under the new
+dependency settings, and confirmation that a push still produces one build per configuration rather
+than a duplicate set.
+
+## The agents leak simulators, and wedge
+
+On 2026-08-25 every build on every project on the server began failing with `Error while applying
+patch`. The cause was not TeamCity. The agent JVMs on `macstudio.local` could not spawn *any*
+subprocess — `hostname`, `/usr/bin/git` and `chmod` all failed with
+`posix_spawn failed, error: 0 (none)`. Agent-side checkout falls back to server-side checkout when
+git will not run, and server-side checkout needs `chmod`, so the fallback failed too. `SuperFunMaxMusic`,
+`WlBillSplitter` and this project were all red together; build #523 was the last green one.
+
+The machine was carrying 1099 processes under one user — mostly leaked simulator scaffolding,
+`SimMetalHost`, `MTLCompilerService` and `DTServiceHub`, with `distnoted` and `cfprefsd` multiplied
+behind them — at a 15-minute load average of 13.6. Restarting the three agents clears the wedge; the
+leak is why it will come back. The scaffolding comes from driving simulators in CI, which is the
+same hazard `CLAUDE.md` is guarding against when it insists this project owns named simulators
+rather than sharing the stock ones.
+
 ## Known, and deliberately not fixed here
 
 **`funmax-xcode` is defined inside the `SuperFunMaxMusic` project, so our builds cannot see it and
@@ -193,5 +241,7 @@ buys back a path that currently works.
 - Whether to move `funmax-xcode` to the root project so the two projects share one Xcode lock.
 - Whether to adopt `versionedSettings` and keep the CI configuration in this repo.
 - Whether to wire the root `NpomfretTeamCity` GitHub App connection up for commit statuses.
-- Per-push triggering is on. The whole chain takes about a minute, so nightly was not needed; if
-  that stops being true, the trigger is the thing to change.
+- Whether the nightly should build from a genuinely clean tree. It does not today: the checkout is
+  `git reset --hard`, so `tmp/DerivedData` persists and the nightly compile is incremental. Doing it
+  properly means clearing the checkout directory, not the trigger flag that claims to.
+- Whether a push still produces one build per configuration now that dependency reuse is off.
