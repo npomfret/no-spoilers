@@ -155,6 +155,7 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
     /// on each launch and activation is what makes that self-correcting; topping up would preserve
     /// the first, wrong answer for as long as the alert stayed pending.
     public func reschedule(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
+        await logDelivered()
         await refreshAuthorization()
         guard authorization == .authorized || authorization == .provisional else {
             // Nothing to clear: if we were never allowed to schedule, there is nothing pending.
@@ -185,6 +186,34 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
             "planned": alerts.count,
             "pending": await center.pendingNotificationRequests().count,
         ])
+    }
+
+    /// Writes down when the alerts that have already arrived actually arrived.
+    ///
+    /// **The one question this feature could not answer about itself.** Both alerts were observed
+    /// on a real device on 2026-08-23, and for the safe-to-watch alert *which path delivered it*
+    /// was never established — the Dutch race was over at 16:00 by OpenF1's confirmed end and at
+    /// 17:30 by the grace-window estimate, and only the arrival time tells the two apart. Nobody
+    /// wrote it down, and there was no way to go back and look.
+    ///
+    /// The distinction decides whether the confirmer is worth having: an all-clear arriving 90
+    /// minutes after the flag is the wrong end of the trade for an audience whose whole reason for
+    /// being here is waiting to press play.
+    ///
+    /// `deliveredNotifications` is the only route to it. Nothing wakes the app when a notification
+    /// fires — `willPresent` needs the app already open and `didReceive` needs a tap — but the OS
+    /// keeps what it delivered, with the instant it did, until the user clears the Notification
+    /// Centre. So this is read on the way past, on every reschedule. Best effort by construction:
+    /// an alert someone swiped away is gone, and that is not worth working around.
+    private func logDelivered() async {
+        let delivered = await center.deliveredNotifications()
+        guard !delivered.isEmpty else { return }
+        for notification in delivered {
+            AppLog.alerts.notice("delivered", [
+                "id": notification.request.identifier,
+                "at": notification.date,
+            ])
+        }
     }
 
     /// Drops everything pending. Called when the user turns the last alert off.

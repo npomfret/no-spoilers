@@ -97,7 +97,7 @@ day; there was no preference out there worth carrying, and a migration nobody ex
 the thing it was written for. The cost of the change is that "the Grand Prix but not the Sprint" is
 no longer expressible.
 
-### Phase E — a Live Activity for the next session (ActivityKit)
+### Phase E — a Live Activity for the next session (ActivityKit) — **DONE 2026-08-25**
 
 Added to the backlog 2026-08-22, and **ranked above App Intents** for this task's purpose. Prompted
 by the BBC Sport app starting one unprompted for a football match — that is push-to-start
@@ -149,17 +149,96 @@ been observed working end to end, and Apple has had its Resolution Center reply.
 user-facing surface on top of a feature that was silently inert for every user is how two features
 end up looking fine and not being fine.
 
-### Phase F — App Intents / Shortcuts / Siri
+**Overtaken 2026-08-25**, deliberately: Nick chose one submission carrying everything rather than a
+release per phase. The reasoning above does not disappear with the sequence — it becomes the list of
+things to *check* before this ships rather than before it is written. The alert copy audit is done
+(below); the permission fix has been observed end to end and both alerts have fired on a real
+device; the Resolution Center reply is still Nick's to send. What is genuinely not discharged is
+that **nothing has looked at a Live Activity or heard a Siri answer on a device** — see the
+verification note at the end of this section.
+
+#### What building it actually cost — 2026-08-25
+
+Close to the sketch, with three corrections worth keeping.
+
+- **`Text(timerInterval:)` was the wrong idiom and is not used.** The sketch assumed a self-running
+  countdown, and there is one — but a Live Activity **does not re-render with the clock**. The
+  system redraws it when the app pushes an update, and with no server the app cannot push one from
+  the background. So an activity that says "starts in" is still saying it a minute after the session
+  began. `staleDate` is the honest answer: it is set to the moment the content stops being true —
+  the start when upcoming, the effective end when live — and the system dims a stale activity rather
+  than letting it read as a live claim. The countdown itself is `Text(_:style: .relative)`, which is
+  the idiom the widget already uses.
+- **A running session gets no countdown at all.** The live phase says `Strings.Schedule.inProgress`
+  and stops. Counting down to a running session's end would be counting to the grace-window
+  *estimate* — the same guess `SessionAlertPlanner` places the safe-to-watch alert on, half an hour
+  behind the fact — and a clock ticking toward zero reads as "nearly over", which is a claim about
+  the session this product has no business making.
+- **`SessionActivityPlanner` was renamed `FeaturedSessionPlanner` before it shipped**, because
+  Phase F wants exactly the same sentence and a boundary named for one of its two callers is a
+  boundary the other one will eventually be copied instead of reusing. It answers "what is on, or on
+  next" — the session running, or the next to start. `lookAhead` stays caller-owned and the two
+  callers genuinely differ: 8 hours for the activity, `.infinity` for the intent.
+
+Nine tests in `FeaturedSessionPlannerTests`, including the back-to-back clamp and the grace window,
+so the decision to start one is assertable even though the activity itself is not.
+
+The type lives in Core under `#if os(iOS)`: ActivityKit matches a running activity to its
+configuration by attribute-type identity, so the app and the extension must share one declaration —
+a copy in each compiles and then never renders. The app target gained
+`INFOPLIST_KEY_NSSupportsLiveActivities`; `NoSpoilersApp.entitlements` did not change, as predicted.
+
+### Phase F — App Intents / Shortcuts / Siri — **DONE 2026-08-25**
 
 Separate and self-contained. "When's the next session?" in Siri and Spotlight, plus automation
-support. The build currently extracts no App Intents symbols at all. Kept because it is cheap once
-the domain is this well factored, but Phase E answers the rejection more directly.
+support. Kept because it is cheap once the domain is this well factored, but Phase E answers the
+rejection more directly.
+
+**It reuses both of Phase E's boundaries and adds no domain logic.** `FeaturedSessionPlanner` gives
+the answer, so the sentence Siri speaks and the countdown on the Lock Screen cannot disagree.
+`ScheduleSnapshotLoader` gives it the schedule — which meant **moving `resolveWidgetData` out of
+`NoSpoilersWidget.swift` into Core**, where it is now `ScheduleSnapshotLoader.load()`. It was
+private to the widget for as long as the widget was the only process that wakes up cold with nothing
+in memory; an intent launched by Siri is the second, with the same problem and the same right
+answer, and a copy beside the original would have been two answers to where the schedule comes from.
+52 lines left the widget and none of its behaviour changed.
+
+**The one rule this feature cannot follow is the strings rule**, and it is the framework's doing.
+`appintentsmetadataprocessor` extracts the intent title, its description, the shortcut's short title
+and the spoken phrases at *build* time, and fails the build on anything that is not a literal at the
+declaration site — `expect a compile-time constant literal`, then `'LocalizedStringResource' must be
+initialized with a call to its initializer or a string literal`. Those four are inline in
+`NextSessionIntent.swift` under a comment saying so, and `Strings.Intents` carries a note pointing at
+them. What the intent says at *run* time is not extracted and lives in `Strings.Intents` normally.
+`systemImageName` is the same constraint, so `Theme.Icon.sessionCountdown` is written out as
+`"timer"` there with the token named in a comment.
+
+**`AppShortcutsProvider` is the half that matters for review.** Without it the intent is reachable
+only by someone who opens the Shortcuts app and goes looking, which is nobody — and a reviewer
+checking what this app does that a browser cannot would never find it.
+
+**Verified by reading the extracted metadata, not by trusting the build.** "Extracted no relevant App
+Intents symbols, skipping writing output" is what the build log said before this and it is not an
+error, so a green build proves nothing here. `Metadata.appintents/extract.actionsdata` inside the
+built `.app` now carries `NextSessionIntent` with `isDiscoverable: true`, and an `autoShortcuts`
+entry with all three phrase templates and `${applicationName}` substitution in place.
 
 ## Verification
 
-- `scripts/verify-core-tests.sh` for A and B — both are pure and belong in the package's tests.
-- `scripts/verify-ios-build.sh` for C, D and E.
+- `scripts/verify-core-tests.sh` for A, B and E's planner — all pure and belonging in the package's
+  tests.
+- `scripts/verify-ios-build.sh` for C, D, E and F.
 - `spoiler-safety-reviewer` on the alert copy before any of it ships.
+
+**All five wrappers pass as of 2026-08-25** — `verify-core-tests` (98 tests, up from 88),
+`verify-mac-build`, `verify-widget-build`, `verify-ios-build`, `verify-python-selftests`.
+
+**That is compile confidence, and for Phase F metadata confidence. It is not behaviour.** Nothing
+has seen a Live Activity on a Lock Screen or heard Siri answer. Both are foreground-started features
+on a real device and neither is reachable from `alerts_check.py` or `screenshots.py`. **This is the
+open item that stands between the code and the submission**, and the honest way to close it is ten
+minutes on a device: open the app inside 8 hours of a session and look at the Lock Screen, then ask
+Siri "what is on next in No Spoilers".
 
 ## Open risks
 
@@ -417,10 +496,67 @@ a lot of conditions on the useful outcome. **Log the fire time**, and consider w
   `reschedule` has already cleared the pending set. Defensible — by then the session reads as
   finished on the screen in front of you — but it means the all-clear is not guaranteed, and
   nothing says so anywhere else.
-- The alert copy has not been through `spoiler-safety-reviewer`.
-- Phase E — a Live Activity for the next session — backlogged 2026-08-22, not started.
-- Phase F — App Intents / Shortcuts / Siri — not started.
+- ~~The alert copy has not been through `spoiler-safety-reviewer`.~~ **Audited 2026-08-25**, read
+  against `.claude/rules/spoiler-safety.md` directly rather than by the agent — see the audit
+  section below. Clean, with one inherent timing channel recorded and deliberately kept.
+- ~~Phase E — a Live Activity for the next session~~ **DONE 2026-08-25.** Not yet seen on a device.
+- ~~Phase F — App Intents / Shortcuts / Siri~~ **DONE 2026-08-25.** Not yet heard on a device.
+- **The safe-to-watch alert's fire time is now recorded.** `SessionAlertScheduler.logDelivered()`
+  reads `deliveredNotifications` on every reschedule and writes each alert's id and arrival instant
+  to the `alerts` channel. That is the only route to it — nothing wakes the app when a notification
+  fires, `willPresent` needs the app already open and `didReceive` needs a tap — and it is best
+  effort by construction, because an alert the user swiped away is gone. It answers the question
+  left open on 2026-08-23: whether the confirmed end reached the pending set in time, or whether the
+  all-clear arrived 90 minutes after the flag.
 - **Xcode Cloud has no compute quota left**, confirmed 2026-08-22: runs 33, 34 and 35 were all
   cancelled 5–8 seconds after creation with `startedDate: None` and no `cancelReason`, and
   `POST /v1/ciBuildRuns` answers `500`. Until it resets, every build is a local `scripts/ship-ios.sh`
   run. `1.1.2 build 10003` went out that way and is with the internal testers.
+
+## The copy audit — 2026-08-25
+
+Every string the product puts in front of someone who did not choose to look, read against
+`.claude/rules/spoiler-safety.md`. Three surfaces now qualify, where the task began with one: the
+notification bodies, the Live Activity, and what Siri says out loud — which is the strictest of the
+three, because it can be asked for in a room with other people in it.
+
+**Done by reading rather than by `spoiler-safety-reviewer`**, which this session was not permitted to
+spawn. The rule file is short and the surface is four sentences; it is not a substitute for the agent
+on a data-ingestion change, and the next one should go through the agent properly.
+
+**Nothing carries a result-shaped field.** Every string is built from three values and no others —
+`RaceWeekend.grandPrixName`, `SessionKind.displayName`, and an instant. There is no fourth, and no
+new one was added: the Live Activity shows the same three fields the accessory widget families show,
+which are the same three every other family leads with.
+
+**No owned terms.** Checked across every changed Swift file; the only occurrences of "Grand Prix"
+are the ones already throughout the product, and nothing says "F1", "Formula 1" or "Formula One".
+
+One wording change came out of it: the intent's upcoming answer was *"Race at the Belgian Grand Prix
+starts Sun, 24 Aug, 14:00"*, which reads clipped when spoken. It now says **starts on**.
+
+### The one real finding, and why it stays
+
+**A late safe-to-watch alert leaks that the session overran.** `effectiveEndDate` is
+`confirmedEndAt ?? (endsAt + gracePeriod)`, so a red flag or a long delay pushes OpenF1's confirmed
+end later and the all-clear arrives later with it. Someone watching the clock can infer that
+something happened. This is the case the Constraints section flagged on 2026-08-22 and it is real.
+
+**It is kept, because the alternative is worse in the direction that matters.** Firing at a fixed
+estimate regardless of the confirmed end would mean telling someone a session is safe to watch while
+it is still running — which is not an inference about an incident but a live broadcast, and the
+actual spoiler this product exists to prevent. A timing channel that reveals "it ran long" is the
+cost of never being wrong about "it is over".
+
+It is also not addressable in copy, which is what an audit of copy can reach. The words are a fact
+about a clock; the channel is the clock. Recorded here so the next person does not rediscover it and
+assume nobody thought about it.
+
+### The Live Activity's stale window
+
+Second-order, and worth naming beside the above. An activity started as `upcoming` keeps saying
+"starts in" until the app is next opened, because nothing can update it from the background. The
+`staleDate` is set to the session start so the system dims it, and the relative time it draws goes on
+being accurate — it counts up once the instant passes. So the failure mode is a dimmed card saying
+how long ago a session started, which is a schedule fact and not a spoiler. Named because "the Lock
+Screen is showing something out of date" is the kind of report that arrives without a diagnosis.

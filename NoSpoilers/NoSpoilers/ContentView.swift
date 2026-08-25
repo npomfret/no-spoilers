@@ -5,6 +5,7 @@ import NoSpoilersCore
 struct ContentView: View {
     @EnvironmentObject private var store: ScheduleStore
     @EnvironmentObject private var alerts: SessionAlertScheduler
+    @EnvironmentObject private var activities: SessionActivityController
     @Environment(\.scenePhase) private var scenePhase
     @State private var now = Date()
     @State private var selectedWeekendIndex: Int = 0
@@ -126,8 +127,14 @@ struct ContentView: View {
         // schedule arriving is what the pending alerts are made of, and on a cold launch it
         // arrives after this view does.
         .task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
+        // The Live Activity follows the alerts exactly: same moments, same inputs. It is a
+        // separate call rather than a line inside `reschedule` because the two answer to different
+        // parts of the OS and fail independently — notifications can be denied while activities
+        // are enabled, and the reverse — so one returning early must not take the other with it.
+        .task { await activities.refresh(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
         .onChange(of: store.weekends) { _, weekends in
             Task { await alerts.reschedule(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
+            Task { await activities.refresh(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
         }
         // The grant arrives while this view is on screen, underneath the About sheet the prompt
         // was asked from. Dismissing a sheet is not a scene change, so without this the answer
@@ -161,6 +168,10 @@ struct ContentView: View {
             // and a safe-to-watch alert placed on a grace-window estimate is corrected by the
             // confirmed end time arriving in the meantime.
             Task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
+            // The single most important moment for this one. An activity is dead 8 hours after it
+            // starts and the app cannot renew it from the background, so coming back to the
+            // foreground is the only chance there is to put the next session on the Lock Screen.
+            Task { await activities.refresh(weekends: store.weekends, confirmedEndDates: store.confirmedEndDates) }
             setupRefreshTimer()
         }
         .onDisappear {

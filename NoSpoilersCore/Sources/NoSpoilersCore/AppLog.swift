@@ -93,6 +93,23 @@ public enum AppLog {
     /// the only evidence that the feature is working at all.
     public static let alerts = LogChannel(subsystem: subsystem, category: "alerts")
 
+    /// The Live Activity: what the planner decided, and what ActivityKit did about it.
+    ///
+    /// Written only by the iOS target, and needed for a sharper version of the reason `alerts` is.
+    /// **An activity is started from the foreground and then lives on a Lock Screen the app cannot
+    /// read back.** Nothing observes whether it appeared, stayed, or was quietly ended by the
+    /// system when its 8 hours ran out, so the decision to start one and ActivityKit's answer are
+    /// the only evidence there will ever be.
+    public static let activity = LogChannel(subsystem: subsystem, category: "activity")
+
+    /// Siri, Spotlight and the Shortcuts app asking what is on next.
+    ///
+    /// Written only by the iOS target. The reason it needs a channel is the same one the widget
+    /// has: **an intent runs in a process the system starts and kills**, with nothing attached and
+    /// no screen to leave a mark on. If the answer is wrong, or the schedule read comes back
+    /// empty, this line is the only place it will ever be visible.
+    public static let intents = LogChannel(subsystem: subsystem, category: "intents")
+
     /// The menu-bar app asking GitHub whether there is a newer release.
     ///
     /// Written only by the macOS target, and still declared here with the others: a second

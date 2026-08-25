@@ -75,58 +75,6 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
     }
 }
 
-private struct WidgetDataSnapshot {
-    let weekends: [RaceWeekend]
-    let confirmedEndDates: [String: Date]
-}
-
-/// Reads weekends from the shared cache; if the cache is empty or inaccessible, fetches from the
-/// network and writes back to cache so the next reload is fast.
-///
-/// The fetch goes through `ScheduleFetcher` like everything else. This used to be a second
-/// implementation — its own `Codable` response type, its own hardcoded feed URL, and a
-/// `DispatchSemaphore` to make an async API synchronous. `getTimeline` takes a completion handler,
-/// so there was never a need to block: it can just await.
-private func resolveWidgetData() async -> WidgetDataSnapshot {
-    let cache = ScheduleCache()
-    let confirmedEndDates = SessionEndConfirmer.loadStoredDates(appGroupID: NoSpoilersConfig.appGroupID)
-
-    let cacheResult = Result { try cache.load(for: NoSpoilersConfig.appGroupID) }
-    switch cacheResult {
-    case .success(let weekends) where !weekends.isEmpty:
-        AppLog.cache.notice("cache hit", ["weekends": weekends.count,
-                                          "confirmedEnds": confirmedEndDates.count])
-        return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
-    case .success:
-        AppLog.cache.notice("cache empty, falling back to network")
-    case .failure(let error):
-        AppLog.cache.error("cache load failed, falling back to network",
-                           ["error": LogValue.error(error)])
-    }
-
-    // Cache miss or App Group unavailable — fetch directly so the widget does not need the app to
-    // have run first.
-    do {
-        let weekends = try await ScheduleFetcher().fetch()
-        AppLog.schedule.notice("network fetch", ["weekends": weekends.count])
-        // Only persist a successful fetch. Writing an empty array back would overwrite a cache
-        // that may be corrupt-but-recoverable with a known-bad value, and would do it precisely
-        // when the network is the thing that is broken.
-        do {
-            try cache.save(weekends, for: NoSpoilersConfig.appGroupID)
-            AppLog.cache.notice("cache written", ["weekends": weekends.count])
-        } catch {
-            AppLog.cache.error("cache save failed", ["error": LogValue.error(error)])
-        }
-        return WidgetDataSnapshot(weekends: weekends, confirmedEndDates: confirmedEndDates)
-    } catch {
-        // No cache and no network. `noDataView` is the modelled state for this; there is nothing
-        // to invent and nothing to save.
-        AppLog.schedule.error("network fetch failed", ["error": LogValue.error(error)])
-        return WidgetDataSnapshot(weekends: [], confirmedEndDates: confirmedEndDates)
-    }
-}
-
 private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
     let placeholderWeekend = RaceWeekend(
         round: 16,
@@ -162,7 +110,7 @@ private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
     )
 }
 
-private func makeEntry(at now: Date, data: WidgetDataSnapshot) -> NoSpoilersEntry {
+private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry {
     let weekends = data.weekends
     let confirmedEndDates = data.confirmedEndDates
 
@@ -251,7 +199,7 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
             return
         }
         Task {
-            completion(makeEntry(at: now, data: await resolveWidgetData()))
+            completion(makeEntry(at: now, data: await ScheduleSnapshotLoader.load()))
         }
     }
 
@@ -266,7 +214,7 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
     /// unit-tested in `TimelinePlannerTests`; nothing here re-derives one.
     private func buildTimeline() async -> Timeline<NoSpoilersEntry> {
         let now = Date()
-        let data = await resolveWidgetData()
+        let data = await ScheduleSnapshotLoader.load()
 
         let plan = TimelinePlanner.plan(
             at: now,

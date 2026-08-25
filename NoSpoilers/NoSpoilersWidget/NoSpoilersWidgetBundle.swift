@@ -17,5 +17,9 @@ struct NoSpoilersWidgetBundle: WidgetBundle {
 
     var body: some Widget {
         NoSpoilersWidget()
+        // The Live Activity lives in this bundle rather than a target of its own: ActivityKit
+        // matches a running activity to its configuration by attribute type, and one extension is
+        // all that needs. See `SessionActivityWidget`.
+        SessionActivityWidget()
     }
 }

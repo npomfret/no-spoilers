@@ -8,6 +8,10 @@ struct NoSpoilersApp: App {
     /// nothing about notifications is reachable from the widget extension, which cannot schedule
     /// them and must not try.
     @StateObject private var alerts = SessionAlertScheduler()
+    /// Owned here for the same reason, and used from the same three foreground moments. A Live
+    /// Activity can only be started while the app is in the foreground, so there is nowhere else
+    /// it could live.
+    @StateObject private var activities = SessionActivityController()
 
     init() { AppLog.launched(process: "ios") }
 
@@ -16,6 +20,7 @@ struct NoSpoilersApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(alerts)
+                .environmentObject(activities)
         }
     }
 }

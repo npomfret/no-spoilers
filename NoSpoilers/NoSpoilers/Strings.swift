@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 
 // MARK: - Strings
@@ -41,14 +42,35 @@ enum Strings {
         static let aboutSectionLabel: LocalizedStringKey = "Widget"
         static let aboutRowTitle: LocalizedStringKey = "How to add the widget"
     }
-    /// Notification copy.
+    /// What Siri says, and what Spotlight and the Shortcuts app call it.
     ///
-    /// **This is the only text in the product the user cannot choose not to read.** Everything
-    /// else waits until someone opens the app or glances at a widget; this arrives on a lock
-    /// screen, possibly in front of other people. So it says the session and the weekend and
-    /// stops: no outcome, no adjective, nothing that reads as commentary. "Qualifying has
-    /// finished" is a fact about a clock. Anything warmer starts to sound like it knows how it
-    /// went.
+    /// **Spoken text, which is the strictest surface in the product.** A notification can at least
+    /// be read privately; this can be asked for out loud in a room. It says the session, the
+    /// weekend and a clock time, and stops — the same three fields every other surface leads with,
+    /// and for the same reason.
+    ///
+    /// **Only half of this intent's copy is here**, and the split is the framework's rather than a
+    /// choice. Anything the system reads at install time — the intent's title and description, the
+    /// shortcut's short title, and the spoken phrases — is extracted at build time by
+    /// `appintentsmetadataprocessor`, which fails the build on anything that is not a literal at
+    /// the declaration site. Those four are inline in `NextSessionIntent.swift`, under a comment
+    /// saying so. What is left here is what the intent says at run time, which is not extracted
+    /// and follows the ordinary rule.
+    enum Intents {
+        static func inProgress(session: String, grandPrix: String) -> String {
+            "\(session) is in progress at the \(grandPrix)."
+        }
+
+        static func startsAt(session: String, grandPrix: String, when: String) -> String {
+            "\(session) at the \(grandPrix) starts on \(when)."
+        }
+
+        /// The off-season and a phone that has never fetched a schedule, answered the same way.
+        /// Claiming the season is over when the truth is a failed fetch would be worse than
+        /// vague.
+        static let nothingScheduled =
+            "There is no session scheduled yet. Open No Spoilers to refresh the calendar."
+    }
     enum Error {
         static let unavailableBody: LocalizedStringKey    = "Pull to refresh or open the app again to update the shared widget cache."
     }

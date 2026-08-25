@@ -968,6 +968,11 @@ public enum Theme {
         public static let scheduleUnavailable = "calendar.badge.exclamationmark"
         /// The Home Screen widget itself, on the iOS install prompt.
         public static let widget = "square.grid.2x2.fill"
+        /// The countdown to a session, wherever there is room for a glyph and not
+        /// a name. The Dynamic Island's minimal presentation is one circle wide,
+        /// and its compact leading slot little more, so the Live Activity says
+        /// "a session is coming" in a symbol there and in words everywhere else.
+        public static let sessionCountdown = "timer"
         /// Jump the pager back to the weekend happening now.
         public static let currentWeekend = "location.fill"
         public static let about = "info.circle"
