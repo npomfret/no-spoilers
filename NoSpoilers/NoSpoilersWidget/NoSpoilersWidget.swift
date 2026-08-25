@@ -311,9 +311,11 @@ struct NoSpoilersWidgetEntryView: View {
     /// canvas axis says and what `extraLargeView` already did by passing
     /// `.widgetLarge` to every component in its left-hand column.
     ///
-    /// The `default` branch mirrors `body`'s: `systemMedium` is the fallback
-    /// family, so anything WidgetKit adds later renders at medium until someone
-    /// designs for it.
+    /// The `default` branch mirrors `systemFamilyView`'s: `systemMedium` is the
+    /// fallback family, so anything WidgetKit adds later renders at medium until
+    /// someone designs for it. **The accessory families never reach this** —
+    /// `body` routes them away before a canvas is asked for, because they have
+    /// no scale on this axis and no palette to resolve against.
     private var canvas: Theme.Canvas {
         switch family {
         case .systemSmall:                     return .widgetSmall
@@ -322,7 +324,24 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
+    /// **Two groups of families, not one list.** The system families draw the
+    /// app's own surface — its background, its palette, its `Theme.Canvas`
+    /// scale. The accessory families draw on the Lock Screen and in StandBy,
+    /// where the system owns the material and renders everything in a single
+    /// vibrancy pass: a palette colour there is not a colour, it is a shade of
+    /// the wallpaper. Splitting at the top means nothing below has to keep
+    /// asking which world it is in.
     var body: some View {
+        switch family {
+        case .accessoryRectangular: accessoryRectangularView
+        case .accessoryInline:      accessoryInlineView
+        default:                    systemFamilyView
+        }
+    }
+
+    /// `systemSmall` through `systemExtraLarge` — the Home Screen and Today view.
+    @ViewBuilder
+    private var systemFamilyView: some View {
         if let weekend = entry.weekend {
             switch family {
             case .systemSmall:
@@ -510,6 +529,88 @@ struct NoSpoilersWidgetEntryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Accessory families
+
+    /// `accessoryRectangular` — the Lock Screen tile, and the one accessory
+    /// family with room to say what is happening rather than only when.
+    ///
+    /// Three lines is the whole budget, and they are the three fields every
+    /// other family already leads with: the Grand Prix, the session, the clock.
+    /// **Nothing is shown here that the Home Screen widget does not already
+    /// show.** This is content pushed onto a locked screen that the reader
+    /// cannot decline to look at — the same class of surface as the alert copy
+    /// — so it is deliberately a smaller view of the same three fields rather
+    /// than a new place to put something.
+    ///
+    /// **No `Theme.Palette` and no `Theme.Canvas`.** Accessory families render
+    /// in `.accessory` vibrancy mode, which flattens every colour into one
+    /// material: `stateLive` red arrives as exactly the same shade as the body
+    /// text, so a live session has to say so in words where `smallSessionTime`
+    /// can say it in colour. The type is the system's to scale here too, which
+    /// is why these are semantic fonts and not a sixth case on the canvas axis.
+    @ViewBuilder
+    private var accessoryRectangularView: some View {
+        if let weekend = entry.weekend, let session = primarySession() {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(weekend.grandPrixName)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(session.name)
+                    .font(.caption)
+                    .lineLimit(1)
+                accessoryStateText(session.state)
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } else {
+            Text(accessoryEmptyTitle)
+                .font(.headline)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    /// `accessoryInline` — the single line beside the Lock Screen clock, which
+    /// the system draws in its own font and its own colour whatever this asks
+    /// for. One `Text`, no styling, no second line, and no view that is not one.
+    ///
+    /// **The session wins the width, not the Grand Prix.** Both do not fit, and
+    /// someone who has put this on their Lock Screen during a race weekend
+    /// knows which weekend it is; what a glance is for is how long.
+    private var accessoryInlineView: some View {
+        guard let session = primarySession() else {
+            return Text(accessoryEmptyTitle)
+        }
+        return Text(session.shortName) + Text(verbatim: " \u{00B7} ") + accessoryStateText(session.state)
+    }
+
+    /// A session's state as one line of plain text.
+    ///
+    /// The finished case is `stateLabel`'s large-family wording — "Finished"
+    /// and how long ago — because the accessory families have the same one line
+    /// to spend and no badge to spend it in.
+    private func accessoryStateText(_ state: SessionState) -> Text {
+        switch state {
+        case .finished(let endedAt):
+            return Text(Strings.Sessions.finished) + Text(verbatim: " \u{00B7} ") + Text(endedAt, style: .relative)
+        case .live:
+            return Text(NoSpoilersCore.Strings.Schedule.inProgress)
+        case .upcoming(let startsAt):
+            return Text(startsAt, style: .relative)
+        }
+    }
+
+    /// The one line an accessory family has for "nothing to show".
+    ///
+    /// `offSeasonView` and `noDataView` are message cards — an icon, a title and
+    /// a paragraph telling you what to do about it. None of that fits on a Lock
+    /// Screen tile, and both reduce to their title without losing the answer.
+    private var accessoryEmptyTitle: LocalizedStringKey {
+        entry.isOffSeason
+            ? Strings.OffSeason.badge
+            : NoSpoilersCore.Strings.Schedule.unavailableTitle
     }
 
     /// **The round pill goes with this, and that is the point rather than a
@@ -704,6 +805,28 @@ struct NoSpoilersWidgetEntryView: View {
 
 // MARK: - Widget
 
+/// The container background, and which families get one.
+///
+/// **Only the system families do.** `NoSpoilersBackground` is the app's own
+/// dark surface; on the Lock Screen the system supplies the material and draws
+/// the widget over the wallpaper, so a filled background there is at best
+/// ignored and at worst a plate over someone's photo — and which of those you
+/// get differs between the Lock Screen, StandBy and the tinted Home Screen.
+/// Naming the families the background is for costs one branch and does not
+/// depend on any of those three stripping it for us.
+private struct NoSpoilersWidgetBackdrop: View {
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        switch family {
+        case .accessoryRectangular, .accessoryInline, .accessoryCircular:
+            Color.clear
+        default:
+            NoSpoilersBackground()
+        }
+    }
+}
+
 struct NoSpoilersWidget: Widget {
     let kind: String = NoSpoilersConfig.widgetKind
 
@@ -711,12 +834,15 @@ struct NoSpoilersWidget: Widget {
         StaticConfiguration(kind: kind, provider: NoSpoilersTimelineProvider()) { entry in
             NoSpoilersWidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) {
-                    NoSpoilersBackground()
+                    NoSpoilersWidgetBackdrop()
                 }
         }
         .configurationDisplayName(NoSpoilersCore.Strings.AppInfo.name)
         .description(Strings.Widget.widgetDescription)
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([
+            .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge,
+            .accessoryRectangular, .accessoryInline,
+        ])
     }
 }
 
@@ -725,24 +851,29 @@ struct NoSpoilersWidget: Widget {
 struct NoSpoilersWidget_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            NoSpoilersWidgetEntryView(entry: placeholderEntry())
-                .previewContext(WidgetPreviewContext(family: .systemSmall))
-                .previewDisplayName("Small")
-
-            NoSpoilersWidgetEntryView(entry: placeholderEntry())
-                .previewContext(WidgetPreviewContext(family: .systemMedium))
-                .previewDisplayName("Medium")
-
-            NoSpoilersWidgetEntryView(entry: placeholderEntry())
-                .previewContext(WidgetPreviewContext(family: .systemLarge))
-                .previewDisplayName("Large")
-
-            NoSpoilersWidgetEntryView(entry: placeholderEntry())
-                .previewContext(WidgetPreviewContext(family: .systemExtraLarge))
-                .previewDisplayName("Extra Large")
+            preview(.systemSmall, "Small")
+            preview(.systemMedium, "Medium")
+            preview(.systemLarge, "Large")
+            preview(.systemExtraLarge, "Extra Large")
+            preview(.accessoryRectangular, "Lock Screen \u{2014} Rectangular")
+            preview(.accessoryInline, "Lock Screen \u{2014} Inline")
         }
-        .containerBackground(for: .widget) {
-            NoSpoilersBackground()
-        }
+    }
+
+    /// One preview per family, each carrying the same backdrop split the widget
+    /// itself uses.
+    ///
+    /// **The background moved off the `Group` to get here.** Applying it once
+    /// to all six would draw the accessory families over the app's own dark
+    /// surface, which is the one thing they are never drawn on — and a Lock
+    /// Screen tile that looks right in a preview and wrong on a phone is worse
+    /// than no preview.
+    private static func preview(_ family: WidgetFamily, _ name: String) -> some View {
+        NoSpoilersWidgetEntryView(entry: placeholderEntry())
+            .containerBackground(for: .widget) {
+                NoSpoilersWidgetBackdrop()
+            }
+            .previewContext(WidgetPreviewContext(family: family))
+            .previewDisplayName(name)
     }
 }

@@ -263,6 +263,124 @@ triggers — the three moments iOS covers with `.task`, `scenePhase` and an `onC
   log line, no crash. Stashing the change reproduced it exactly, so it is the build, not the code.
   Anything checking macOS behaviour has to run a signed archive.
 
+## Phase H — Lock Screen widgets, and the iPad size that was switched off — **DONE 2026-08-24**
+
+Sequenced ahead of Phase E, and the survey that found it started from the same question: what can
+this app put somewhere a web page structurally cannot reach? A Live Activity was the answer on
+record. **A Lock Screen widget is a better one per unit of work**, and the reason is that it is
+permanent — an activity runs 8 hours and then stops, where an accessory widget someone has placed
+is still there next weekend.
+
+Two changes, both in `NoSpoilersWidget.swift`, both to `supportedFamilies`:
+
+- **`.accessoryRectangular` and `.accessoryInline` are new.** Rectangular is the Lock Screen and
+  StandBy tile and draws the same three fields every other family leads with — the Grand Prix, the
+  session, the clock. Inline is the single line beside the Lock Screen clock and gets the session
+  and the clock, because both do not fit and someone who placed it knows which weekend it is.
+  `.accessoryCircular` was **deliberately not added**: the idiomatic content for it is a `Gauge`
+  showing progress toward the next session, progress needs a start instant, and this task's own
+  constraint is that nothing may compute a session boundary independently of `SessionResolver`.
+  A circle with a name and a countdown crammed into it is worse than no circle.
+
+- **`.systemExtraLarge` is restored.** It was dropped in `f420206` on 2026-03-29 — one clause in a
+  commit body about icons and the small-view redesign, with no reason given — a month before the
+  first rejection. **`extraLargeView` was never deleted**, nor its `Theme.Canvas` mapping nor its
+  preview, so it has been compiling and unreachable ever since. It is the iPad-only family, and
+  every 4.2.2 rejection including 2026-08-21 was reviewed on an iPad.
+
+Three things the accessory families forced, each of which would have been a defect if assumed:
+
+- **They get no container background.** `NoSpoilersBackground` is the app's own dark surface; on
+  the Lock Screen the system supplies the material. `NoSpoilersWidgetBackdrop` now branches on
+  family so the app's background is named as belonging to the system families, rather than relying
+  on three different placements — Lock Screen, StandBy, tinted Home Screen — to strip it.
+- **They get no `Theme.Palette` and no `Theme.Canvas`.** Accessory families render in `.accessory`
+  vibrancy mode, which flattens every colour into one material: `stateLive` red arrives as exactly
+  the shade of the body text. So a live session says so in words here, where `smallSessionTime`
+  says it in colour. `canvas` is not reached at all — `body` routes accessory families away before
+  one is asked for, which keeps `Theme.Canvas` the single size axis rather than growing a case
+  that resolves to nothing.
+- **`offSeasonView` and `noDataView` do not fit.** Both are message cards — icon, title, paragraph.
+  Both reduce to their existing title, so no new copy was written.
+
+**No new user-facing strings.** That is deliberate: this is content pushed onto a locked screen
+that the reader cannot decline to look at, the same class of surface as the alert copy, and the
+right way to add a surface like that is to show fewer of the fields already audited rather than new
+ones. The spoiler exposure is unchanged.
+
+**Verification.** `verify-widget-build.sh`, `verify-ios-build.sh` and `verify-core-tests.sh` all
+pass (88 tests). **That is compile confidence only.** Nothing has looked at these families
+rendered:
+
+- Lock Screen widgets are placed through Lock Screen customisation, which `scripts/screenshots.py`
+  does not drive — its `WIDGET_SIZES` is `("small", "medium", "large")` and it works by rewriting
+  `gridSize` in the Home Screen plist, which accessory widgets do not live in.
+- `.systemExtraLarge` cannot be placed on an iPhone at all, and this project owns no iPad
+  simulator — `CLAUDE.md` names `NoSpoilers-iPhone` and nothing else.
+
+So there are two follow-ons, and they are what stands between this and a screenshot for the
+listing: teach `screenshots.py` the accessory families and `extraLarge`, and create a project-owned
+`NoSpoilers-iPad`. Until then the previews in the file are the only look anyone has had, and a
+preview is not a device.
+
+### Phase H follow-on — the iPad half is done, the Lock Screen half cannot be done this way — 2026-08-24
+
+**`.systemExtraLarge` is now verified rendering**, on a project-owned `NoSpoilers-iPad`
+(`iPad-Pro-13-inch-M5-12GB`, iOS 26.5, 2064x2752 — the 13" listing slot). `WIDGET_SIZES` in
+`scripts/screenshots.py` gained `extraLarge`; the camel-case spelling is SpringBoard's, established
+by writing it and reading back what survived the boot rather than guessed. The capture shows the
+two-column layout — full weekend on the left, NEXT UP on the right — against the seeded fixture.
+
+**The Lock Screen families cannot be placed the way the Home Screen ones are, and the reason is
+worth writing down so nobody spends the afternoon again.** The Home Screen works because
+`IconState.plist` is SpringBoard's own declarative copy of the layout, which it reads on boot.
+There is no such file for the Lock Screen. What was checked, in order:
+
+- The poster store (`PRBPosterExtensionDataStore`) holds the selected Lock Screen poster and its
+  appearance, but **no widget layout at all** — not in `posterAttributes`, not in the poster's
+  `contents/`, `supplements/` or `renderingConfiguration`.
+- Placement lives in chronod's `chrono.sql`, table `HostConfigs`, under host `::Complications`
+  (`::SpringBoard-Homescreen` is the Home Screen's). Its `CHSWidgetConfiguration` archive carries
+  `metricsByFamily` for families 10, 11 and 12 — sizes `{72,72}`, `{162,72}` and `{342,36}`, which
+  are circular, rectangular and inline.
+- A `CHSConfiguredWidgetContainerDescriptor` for family 11 was written into that archive and it
+  **survived the boot** — read back intact, naming our extension. It rendered nothing, at every
+  `location` value tried (0, 1, 2, 3).
+- Read back later, chronod had **pruned the descriptor by itself**. That is the answer:
+  `::Complications` is *derived* from state PosterBoard owns, and reconciliation drops anything not
+  backed by a real Lock Screen configuration. Writing it can never work.
+
+The only remaining route is driving the Lock Screen customisation UI, and that is **not** something
+to automate here: it means synthetic clicks at absolute screen coordinates against the real
+desktop, which on a shared machine hits whatever window is actually under the pointer. Do not add
+it. If a Lock Screen screenshot is ever needed for the listing, add the widget by hand once on
+`NoSpoilers-iPhone` — the configuration then persists on that device, and seed/reboot/lock/capture
+is ordinary tooling from there. Locking itself is safe to script: the Simulator's
+`Device ▸ Lock` menu item can be clicked **by name**, which is unambiguous.
+
+**Two traps in `screenshots.py` were found by walking into both**, and both are now handled:
+
+- `resolveWidgetData()` falls back to the network on a cache miss **and writes the result back**, so
+  a device seeing the widget for the first time poisons its own cache with the live calendar before
+  any fixture exists. The capture then shows today's races and looks entirely correct.
+  `confirm_fixture_intact` now fails the run instead.
+- The widget page was being missed entirely: installing parks SpringBoard on the page the new icon
+  landed on, and it stayed there across two further reboots, producing a clean screenshot of
+  Apple's apps. `set_widget_size` now leaves the widget's page as the **only** page.
+
+  The trade is that iOS reflows the other apps onto that page, so listing screenshots show a
+  populated Home Screen rather than a widget alone. **This was put to Nick on 2026-08-24 and the
+  populated Home Screen was chosen** — a screenshot silently missing its own subject is the worse
+  failure, and it had already happened three times in one afternoon. Leaving the widget alone is
+  not a free choice: the apps need a second page to live on, and a second page is exactly what the
+  device parks on. Do not quietly restore `state["iconLists"][0] = [...]` to make the picture
+  emptier; that trades a decided question back for the flakiness.
+
+**Known cosmetic debt.** `Text + Text` is deprecated from iOS 26 and the file now emits six such
+warnings — four new, two pre-existing in `stateLabel`. The composition was kept in the established
+local spelling rather than converting two sites and leaving the third; converting all three needs
+new `LocalizedStringKey` format functions and is a separate change.
+
 ## Still open after C and D
 
 ## The safe-to-watch alert has now fired too — 2026-08-23

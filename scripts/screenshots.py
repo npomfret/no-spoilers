@@ -87,6 +87,7 @@ Usage:
     scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688
     scripts/screenshots.py --device "iPhone 11 Pro Max" --device "iPad Pro 13-inch (M5)"
     scripts/screenshots.py --device "iPhone 11 Pro Max" --widget-size small
+    scripts/screenshots.py --device "NoSpoilers-iPad" --widget-size extraLarge
     scripts/screenshots.py --device "iPhone 11 Pro Max" --install path/to/NoSpoilersApp.app
     scripts/screenshots.py --device "iPhone 11 Pro Max" --dry-run
 
@@ -116,7 +117,13 @@ CACHE_FILENAME = "schedule-cache.json"
 # `gridSize` values SpringBoard accepts, and the families the widget declares in
 # NoSpoilersWidget.swift. Keep the two in step: asking for a family the widget
 # does not support gets the entry silently dropped from the layout.
-WIDGET_SIZES = ("small", "medium", "large")
+#
+# `extraLarge` is iPad-only — there is no iPhone Home Screen slot that shape, and
+# SpringBoard drops the entry on one. Capture it on `NoSpoilers-iPad`, which is
+# why that simulator exists. The spelling is camel-case where the others are
+# lower-case; that is SpringBoard's, confirmed by writing it and reading back
+# what survived the boot, not a guess.
+WIDGET_SIZES = ("small", "medium", "large", "extraLarge")
 
 # Relative to the device's `dataPath`, which simctl reports — the containing
 # directory is derivable from the UDID but asking is what makes this survive a
@@ -328,10 +335,20 @@ def set_widget_size(udid: str, size: str) -> None:
     failing rather than being undone.
 
     An existing entry is resized in place; a device that has never had the
-    widget placed gets one written from scratch as the sole content of page 1.
-    Page 1 is the only page reachable: a boot lands there and `simctl` has no
-    gesture or page-navigation verb, so anything on page 2 cannot be captured.
-    Clearing the page also keeps Apple's stock widgets out of the listing.
+    widget placed gets one written from scratch.
+
+    **The widget's page is left as the only page**, not merely cleared. There is
+    no `simctl` gesture or page-navigation verb, so whichever page SpringBoard
+    happens to be showing is the one that gets captured — and installing the app
+    parks it on the page the new icon landed on, which on this device it then
+    kept across two further reboots. The result is a screenshot of a Home Screen
+    full of Apple's apps: valid, convincing, and missing the entire subject.
+
+    iOS then reflows the other apps onto this page rather than retiring them to
+    the App Library, so the listing shows a populated Home Screen with the widget
+    at the top. That was put to Nick on 2026-08-24 and chosen deliberately over
+    the emptier picture: leaving the widget alone requires a second page for the
+    apps to live on, and a second page is precisely what the device parks on.
     """
     path = springboard_state(udid)
     state = plistlib.loads(path.read_bytes())
@@ -347,11 +364,11 @@ def set_widget_size(udid: str, size: str) -> None:
     )
     if existing is not None:
         existing["gridSize"] = size
-        state["iconLists"][0] = [existing]
+        state["iconLists"] = [[existing]]
         action = "resized"
     else:
-        state["iconLists"][0] = [
-            {
+        state["iconLists"] = [
+            [{
                 "allowsExternalSuggestions": True,
                 "allowsSuggestions": True,
                 "bundleIdentifier": WIDGET_BUNDLE_ID,
@@ -362,9 +379,15 @@ def set_widget_size(udid: str, size: str) -> None:
                 "iconType": "custom",
                 "uniqueIdentifier": str(uuid.uuid4()).upper(),
                 "widgetIdentifier": WIDGET_KIND,
-            }
+            }]
         ]
         action = "placed"
+
+    # SpringBoard pairs this list with `iconLists` positionally and drops pages
+    # it cannot identify, so it has to shrink with them.
+    identifiers = state.get("listUniqueIdentifiers")
+    if isinstance(identifiers, list) and len(identifiers) > 1:
+        state["listUniqueIdentifiers"] = identifiers[:1]
 
     path.write_bytes(plistlib.dumps(state))
     print(f"  {action} {WIDGET_KIND} on page 1 at {size}")
@@ -397,6 +420,34 @@ def confirm_widget_size(udid: str, size: str) -> None:
         raise SystemExit(
             f"asked for {size}, SpringBoard kept {entry.get('gridSize')!r} on {udid}"
         )
+
+
+def confirm_fixture_intact(cache_file: Path, seeded: str) -> None:
+    """Prove the widget did not replace the fixture with the real calendar.
+
+    `resolveWidgetData()` in NoSpoilersWidget.swift falls back to the network
+    when the cache is missing or empty and writes what it fetches back — the
+    widget deliberately does not need the app to have run first. On a device
+    seeing this widget for the first time that fetch happens before any fixture
+    exists, and every later run then races it.
+
+    The failure is the dangerous kind: a screenshot of today's calendar is
+    correct-looking and internally consistent, and nothing marks it as wrong
+    until a race name changes between two runs of the same command.
+
+    This catches the cache being overwritten. It does NOT catch a stale
+    *timeline* — a cache holding the fixture while WidgetKit still draws a
+    picture generated hours ago from real data. Only `--install` invalidates
+    that; see the module docstring.
+    """
+    if cache_file.read_text() == seeded:
+        return
+    raise SystemExit(
+        f"the fixture at {cache_file} was replaced while the device booted.\n"
+        "The widget fetched the live calendar and wrote it back, so the capture would\n"
+        "show today's races rather than the fixture. Re-run the same command: the cache\n"
+        "is no longer empty, so this time the widget reads it instead of the network."
+    )
 
 
 def app_group_container(udid: str) -> Path:
@@ -504,7 +555,8 @@ def capture(
     ensure_installed(udid, install)
 
     cache_file = app_group_container(udid) / CACHE_FILENAME
-    cache_file.write_text(fixture_json(datetime.now(timezone.utc)))
+    seeded = fixture_json(datetime.now(timezone.utc))
+    cache_file.write_text(seeded)
     print(f"  seeded {cache_file}")
 
     # Reboot rather than launch: see the module docstring. The layout edit goes
@@ -517,6 +569,7 @@ def capture(
     if widget_size:
         confirm_widget_size(udid, widget_size)
     time.sleep(SETTLE_SECONDS)
+    confirm_fixture_intact(cache_file, seeded)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     run("xcrun", "simctl", "io", udid, "screenshot", str(destination))

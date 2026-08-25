@@ -47,13 +47,16 @@ Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md`
 
 ## Simulators
 
-- **Always target this project's own named simulator, `NoSpoilers-iPhone`.** Other projects run on
-  this machine and share the stock simulators; capturing screenshots seeds an App Group fixture,
-  reinstalls the app, and reboots the device, so using a stock simulator corrupts their state and
-  lets theirs corrupt ours.
+- **Always target this project's own named simulators, `NoSpoilers-iPhone` and `NoSpoilers-iPad`.**
+  Other projects run on this machine and share the stock simulators; capturing screenshots seeds an
+  App Group fixture, reinstalls the app, and reboots the device, so using a stock simulator corrupts
+  their state and lets theirs corrupt ours.
+- `NoSpoilers-iPad` exists because `.systemExtraLarge` has no iPhone slot — SpringBoard drops the
+  entry on one — so that family can only be built, placed or photographed on an iPad.
 - Never pass a bare stock device name (`iPhone 17`) or a raw UDID to `xcodebuild -destination` or
   `scripts/screenshots.py --device`.
-- Recreate it if missing:
+- Recreate them if missing:
   `xcrun simctl create "NoSpoilers-iPhone" com.apple.CoreSimulator.SimDeviceType.iPhone-17 <runtime>`
+  `xcrun simctl create "NoSpoilers-iPad" com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB <runtime>`
 
 Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use `WebFetch` and `WebSearch` for web browsing; never use `mcp__claude-in-chrome__*`.
