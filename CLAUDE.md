@@ -53,10 +53,23 @@ Load `docs/guides/swift-patterns.md`, `building.md`, `testing.md`, or `brand.md`
   their state and lets theirs corrupt ours.
 - `NoSpoilers-iPad` exists because `.systemExtraLarge` has no iPhone slot — SpringBoard drops the
   entry on one — so that family can only be built, placed or photographed on an iPad.
+- **`NoSpoilers-iPhone-65` and `NoSpoilers-iPad-129` exist because the other two cannot fill the
+  listing's slots.** App Store Connect holds `APP_IPHONE_65` (1242x2688) and
+  `APP_IPAD_PRO_3GEN_129` (2048x2732) for this app, and `NoSpoilers-iPhone` renders 1206x2622
+  while `NoSpoilers-iPad` renders 2064x2752 — both refused. Added 2026-08-25, after checking the
+  display types on the record rather than trusting a doc comment. Use these two for anything
+  destined for the listing and the first two for everything else.
+- **A freshly created simulator drops the widget from the Home Screen until the app has been
+  launched once**, with `screenshots.py` reporting `SpringBoard dropped NoSpoilersWidget` and
+  suggesting `supportedFamilies` — which is the wrong place to look. WidgetKit has not registered
+  the extension yet. Launch the app once, let it settle, terminate it, then capture; the script
+  re-seeds the fixture afterwards, so the launch cannot leave real data in the picture.
 - Never pass a bare stock device name (`iPhone 17`) or a raw UDID to `xcodebuild -destination` or
   `scripts/screenshots.py --device`.
 - Recreate them if missing:
   `xcrun simctl create "NoSpoilers-iPhone" com.apple.CoreSimulator.SimDeviceType.iPhone-17 <runtime>`
   `xcrun simctl create "NoSpoilers-iPad" com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB <runtime>`
+  `xcrun simctl create "NoSpoilers-iPhone-65" com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro-Max <runtime>`
+  `xcrun simctl create "NoSpoilers-iPad-129" com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M4 <runtime>`
 
 Use `/comment`, `/merge`, and `/sanity-check` only when explicitly requested. Use `WebFetch` and `WebSearch` for web browsing; never use `mcp__claude-in-chrome__*`.
