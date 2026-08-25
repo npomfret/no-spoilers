@@ -105,3 +105,29 @@ last chance to find out what a rehearsal would have needed to cover.
 - [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
 - [ ] `docs/guides/building.md` updated with whatever the first real run turns out to have been
       wrong about — it is the canonical description and currently describes an untested design
+
+## A second path now exists, and it has been run — 2026-08-25
+
+**TeamCity ships iOS.** `Publish iOS` on `ci.snowmonkey.co.uk`, manual, gated on `Verdict`, running
+`scripts/ci-publish-ios.sh` over the same `release.sh`. It uploaded `1.1.2 build 10008` on
+2026-08-25 — archive, sign, export, validate, upload — in three minutes once an agent was free.
+Xcode Cloud having no quota is what made this worth building; the full account is under *Publishing
+from TeamCity* in `docs/guides/building.md`.
+
+**It does not discharge anything in this file.** What is still unrehearsed here is `ship.sh`
+shipping three channels from one version on a laptop, and none of that ran. The iOS App Store
+channel of `release.sh` is now exercised twice over — locally on 2026-08-22 and from CI on
+2026-08-25 — and the macOS and Developer ID channels are exactly as unproven as they were.
+
+**Three things the CI run found that the local path had not.**
+
+- **A failed export still leaves a pushed bump commit.** The commit is placed after the archive on
+  the reasoning that the build number is then real. Build 738 archived, pushed
+  `bump to v1.1.2 (build 10007)`, and then failed the export — so 10007 exists in this repository's
+  history and nowhere else. Harmless to Apple, misleading to a reader.
+- **The *What to Test* note is not being found on this path.** `testflight_distribute.py` looks for
+  the `bump to vX.Y.Z (build N)` commit and reported *"no Xcode Cloud run and no ship commit"* for
+  build 10008, whose bump commit is on `main`. Testers get a blank note. Not diagnosed.
+- **The installed distribution profiles expire.** Roughly a year, and the failure reads as a cloud
+  signing permission error rather than an expiry. Admin role on `ASC6H3SL2D` is the durable fix.
+

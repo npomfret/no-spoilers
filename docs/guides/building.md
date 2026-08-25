@@ -33,7 +33,7 @@ than merely known: the build lands in the 10000 band (see the train-ordering not
 *What to Test* note comes from git rather than from a run.
 
 - **The App Store is the core product on both platforms; Homebrew is an add-on.** Decided 2026-08-13, and `release.sh` now says so: `--platform` and `--channel` are both **required** (there is no default, because the only default was `macos` + `developer-id`, so asking for nothing shipped the add-on), and in `--channel both` the App Store upload runs **before** the Developer ID / Homebrew channel. Do not swap that back — both export from the same already-valid archive, and with Homebrew first a notary timeout killed the run before the store upload was attempted. A Homebrew failure still fails the run; it can no longer cost you the upload.
-- `scripts/release.sh` is the single release engine. `scripts/ship-*.sh` are thin argument wrappers over it. **Releases run on your machine, never in CI**, and `scripts/ship.sh` is the whole of it: Mac App Store, macOS Developer ID and iOS App Store in one run, version-locked, every platform shipped whether or not its source changed.
+- `scripts/release.sh` is the single release engine. `scripts/ship-*.sh` are thin argument wrappers over it. **Since 2026-08-25 a release can also run on a TeamCity agent** — see *Publishing from TeamCity* below; it is the same engine behind a preflight, not a second one. `scripts/ship.sh` is the whole of the local path: Mac App Store, macOS Developer ID and iOS App Store in one run, version-locked, every platform shipped whether or not its source changed.
   - **`release.sh` refuses to ship three things, and all three checks run before anything is edited, built or uploaded.** Added 2026-08-22, when Xcode Cloud running out of quota made this the only path anything ships through.
     - **A dirty working tree.** `xcodebuild archive` builds the tree, not the commit, and the run stages only the project file — so an uncommitted edit is in the build, in the upload and in front of users while the commit, the tag and the TestFlight note all describe something else. Since the note is now derived from that commit, a dirty ship produces a note that is confidently wrong rather than merely missing. `--allow-dirty` if you mean it; nothing here ever reverts your files.
     - **A `(version, build)` pair App Store Connect already holds**, via `appstore_status.py --spent PLATFORM VERSION BUILD`. This is the hazard documented below turned into a check: a spent pair compiles, archives, exports, uploads, goes green, and dies minutes later by email at *"Preparing build for App Store Connect failed"*. The exit codes are read rather than the output — 0 free, 3 taken, anything else means the check did not run — because collapsing them would let an offline laptop read as "the number is free", which is the exact outcome it exists to prevent. (3 rather than 2: argparse owns 2 for its own usage errors.)
@@ -45,6 +45,67 @@ than merely known: the build lands in the 10000 band (see the train-ordering not
   - **An upload is not a delivery, and the run says so.** After a successful App Store Connect upload `release.sh` prints the `testflight_distribute.py --platform <p> --apply` command, because a build reaches no tester group on its own — whichever path uploaded it — and every other signal reads as success while it does not. That is how macOS build 32 spent three days `VALID` and uninstallable.
   - **`gh release create` is guarded**, because it refuses an existing release and a re-run after a partial failure has already redone the expensive half. An existing `vX.Y.Z` gets `gh release upload --clobber` instead.
   - **There was a `.github/workflows/release.yml` claiming to do the Developer ID channel on a `v*` tag. It was deleted on 2026-08-12 because it had never worked — ten tag pushes since March, ten failures, each dying in about twelve seconds importing a certificate from `secrets.DEVELOPER_ID_CERT_P12`, which was never set. The repository has no secrets at all.** It was a duplicate of what `ship.sh` already does locally, so nothing was lost, and every release you have ever shipped went out from a laptop. What it cost was worse than nothing: a red cross on every release tag, teaching everyone that a failed run on a release is normal.
+
+### Publishing from TeamCity
+
+**`Publish iOS` on `ci.snowmonkey.co.uk` archives, signs and uploads. It has no trigger.** A person
+presses it, and its snapshot dependency on `Verdict` with `take-successful-builds-only` means it can
+only run on a revision the five checks have already passed — press it on an unbuilt revision and it
+queues the chain itself first. It holds `no-spoilers-xcode` as a **write** lock, where `Build` and
+`Tests` hold read locks, so a release never races a compile. **The five verification configurations
+still hold no credential and must not gain one**; everything below is in the publish configuration
+alone.
+
+`scripts/ci-publish-ios.sh` is the step. It asserts three things and `exec`s `ship-ios.sh`. Each
+assertion is a failure that is otherwise expensive, silent, or misdiagnosed, and all three were
+learned by walking into them.
+
+- **The login keychain.** The agents are LaunchAgents running as a real user and **their session's
+  keychain is unlocked, so signing works there** — proven by build 705 on 2026-08-25, which is the
+  fact this whole path rests on. It is not true of an SSH session on the same machine as the same
+  user, where `codesign` fails with `errSecInternalComponent` while `security find-identity` lists
+  the identity happily. So the assertion **signs a throwaway binary** rather than listing anything.
+  `--check` runs the three and stops; run it on a new agent, after an OS update, and after anything
+  touches the keychain, because the alternative way to ask is to press the button that uploads.
+- **Two App Store Connect keys, and they are different roles.** `S394C74APG` uploads.
+  `ASC6H3SL2D`, the App Manager key, is passed to `xcodebuild` as `-authenticationKeyPath` via
+  `release.sh`'s `--signing-key/--signing-key-id/--signing-issuer`, because **automatic signing with
+  no Xcode account falls back to the generic `iOS Team Provisioning Profile: *`** — which carries no
+  App Group, so build 725 died naming a missing capability in three errors out of four and the
+  account in one. An agent that had never signed would send you into entitlements. Only
+  `ci-publish-ios.sh` passes the trio; omitted, it expands to nothing and a machine with an Xcode
+  account archives exactly as before.
+- **The push URL.** TeamCity checks the public remote out anonymously and read-only, while
+  `release.sh` commits the bump and pushes the tag. It is rewritten to SSH using the agent
+  account's own GitHub key — **unscoped and shared with everything else on that machine. A deploy
+  key scoped to this repository is the better answer and is not done.**
+
+**The archive and the export need different profiles, and only the archive can create one.** Build
+738 archived successfully against development profiles, pushed its bump commit, and then failed the
+export with `Cloud signing permission error` and `No profiles for 'pomocorp.NoSpoilers.NoSpoilersMac'
+were found`. App Store export wants a *distribution* profile, and minting one is cloud signing,
+which the App Manager key is refused. **The fix was to install the two `iOS Team Store` profiles by
+hand**, copied from the laptop that has an Xcode account; automatic signing then used them instead
+of trying to create one, and build 10008 went out. **That is a patch with a fuse in it** — profiles
+expire in about a year and the failure will read as a permission problem rather than an expiry. The
+durable fix is Admin role on the signing key so it can mint its own.
+
+**A failed export still leaves a pushed bump commit.** `release.sh` commits after the archive on the
+reasoning that the build number is then real, and 738 is the counter-example: archive succeeded,
+`bump to v1.1.2 (build 10007)` is on `main`, and nothing was ever uploaded. Build 10007 exists in
+this repository's history and nowhere else. Harmless — Apple only requires numbers to increase — but
+the commit is honest about the archive and misleading about the release.
+
+**The *What to Test* note does not survive this path.** `testflight_distribute.py` finds the shipping
+commit by its `bump to vX.Y.Z (build N)` message and names its parent; on build 10008 it reported
+*"nothing names the commit behind build 10008 — no Xcode Cloud run and no ship commit"*. The commit
+is there and it is not being found. Testers get a blank note, which is the state the local path was
+in until 2026-08-22. Not diagnosed.
+
+**Proven end to end on 2026-08-25**: iOS `1.1.2 build 10008`, archive through App Store Connect, in
+three minutes once an agent was free. Queueing is the real cost — three agents serve the whole
+estate, and a `--check` run waits behind everything.
+
 - Xcode Cloud archives **both** schemes on every push to `main` and uploads both: `NoSpoilersApp` for iOS and `NoSpoilers` for macOS, two ARCHIVE actions in one workflow. **The build arrives attached to no tester group and nobody can install it until it is put in one** — that is a command somebody runs, deliberately, not a post-action. The argument for that, and the rest of what handing a build over involves, is under **TestFlight** below. Its hook lives in `NoSpoilers/ci_scripts/`, beside the Xcode project — Xcode Cloud ignores a `ci_scripts` directory at the repository root.
   - **The macOS action was added 2026-08-14.** Before it, macOS had no CI, no test gate and no beta channel, so Homebrew was the only fast way to get a Mac build to anyone — which is why it read as the core product however often the docs called it an add-on. One workflow rather than two, deliberately: actions in a workflow share the run number, so one commit produces iOS build N and macOS build N. Two workflows would have made the platforms drift apart by build number for no gain, which is the same defect `ship.sh` was just fixed for.
   - Actions run concurrently and the distribution audience belongs to each archive action alone, so a macOS signing failure does not stop the iOS build being delivered. That is the same property that makes the pre-build hook the only real gate.
