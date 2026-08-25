@@ -110,9 +110,24 @@ echo "==> Asserting the App Store Connect key is present..."
 
 echo "==> Asserting the checkout can push..."
 git remote set-url --push origin "${PUSH_REMOTE}"
-ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
-  -T git@github.com 2>&1 | grep -q "successfully authenticated" \
-  || fail "this agent cannot authenticate to GitHub, so the version bump could not be pushed"
+
+# **`ssh -T git@github.com` exits 1 on success.** GitHub authenticates you, says
+# so, and closes the connection because it offers no shell — and ssh reports the
+# closed connection. Under `set -o pipefail` that made the first version of this
+# check fail on a working agent, which cost a whole queue wait to find out. The
+# output is what carries the answer, so the output is what is read; the exit code
+# is deliberately discarded.
+#
+# What ssh said is printed on failure. A check that reports "cannot authenticate"
+# and hides the reason sends the next person to look at GitHub permissions, which
+# is where this one was not.
+GITHUB_SAYS="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+  -T git@github.com 2>&1 || true)"
+case "${GITHUB_SAYS}" in
+  *"successfully authenticated"*) ;;
+  *) fail "this agent cannot authenticate to GitHub, so the version bump could not be pushed.
+GitHub said: ${GITHUB_SAYS}" ;;
+esac
 
 git config user.name  >/dev/null || fail "no git user.name on this agent, so the bump commit has no author"
 git config user.email >/dev/null || fail "no git user.email on this agent, so the bump commit has no author"
