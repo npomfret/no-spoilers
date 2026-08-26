@@ -527,12 +527,19 @@ struct ContentView: View {
         return Strings.Sessions.countdownIn(Self.countdownUnits.string(for: remaining))
     }
 
-    /// Hours here are `totalHours`, not hours-within-a-day: a session finished two days ago reads
-    /// "48h", which is what this has always shown.
+    /// One unit, because the badge sits at the end of a session row and has never shown more.
+    ///
+    /// **It is the same ladder as `countdownUnits`, and it used to be a second copy of it.** That
+    /// copy read `totalHours` rather than hours-within-a-day and had no days tier at all, so it
+    /// counted upwards forever: the pager walks every round of the season, and swiping back to
+    /// round 1 in November rendered every session as `Finished 5800h`. Seen as `Finished 4166h` on
+    /// 2026-08-26, on a simulator holding an old fixture, which is the same reading a user gets by
+    /// swiping. Anything under a day is unchanged — `3h` and `42m` render exactly as before — so
+    /// the only values that move are the ones that were wrong.
+    private static let finishedUnits = CountdownFormatter(units: 1, floor: .minutes)
+
     private func finishedAgo(since date: Date) -> String {
-        let elapsed = DurationBreakdown(since: date, to: now)
-        if elapsed.totalHours >= 1 { return NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours) }
-        return NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
+        Self.finishedUnits.string(for: DurationBreakdown(since: date, to: now))
     }
 
     private func refresh() async {

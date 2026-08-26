@@ -6,6 +6,8 @@ final class CountdownFormatterTests: XCTestCase {
     private let iosApp = CountdownFormatter(units: 2, floor: .minutes)
     /// The macOS popover: three units, all the way to seconds.
     private let popover = CountdownFormatter(units: 3, floor: .seconds)
+    /// The finished badge, on both platforms: one unit, stopping at minutes.
+    private let finished = CountdownFormatter(units: 1, floor: .minutes)
 
     // MARK: - Equivalence with what it replaced
 
@@ -86,5 +88,44 @@ final class CountdownFormatterTests: XCTestCase {
         let remaining = DurationBreakdown(totalSeconds: 2 * 86_400)
         XCTAssertEqual(iosApp.string(for: remaining), "2d 0h")
         XCTAssertEqual(popover.string(for: remaining), "2d 0h 0m")
+    }
+
+    // MARK: - The finished badge
+
+    /// The finished ladder as both platforms wrote it before 2026-08-26, kept for the same reason
+    /// as the two above: so "nothing under a day moved" is checked rather than claimed.
+    ///
+    /// **It has no days tier, and that is the defect and not a simplification.** `totalHours` is
+    /// uncapped, so this counts upwards forever — the weekend pager walks every round of the
+    /// season, and swiping back to round 1 late in the year rendered `Finished 5800h`.
+    private func finishedLadderAsItWas(_ r: DurationBreakdown) -> String {
+        if r.totalHours >= 1 { return "\(r.totalHours)h" }
+        return "\(r.minutes)m"
+    }
+
+    /// Under a day, the fix changes nothing. Walked at every tier boundary below 24h.
+    func testUnderADayTheFinishedBadgeReadsExactlyAsItDid() {
+        for totalSeconds in stride(from: 1, through: 86_399, by: 7) {
+            let elapsed = DurationBreakdown(totalSeconds: totalSeconds)
+            XCTAssertEqual(
+                finished.string(for: elapsed),
+                finishedLadderAsItWas(elapsed),
+                "finished badge diverged at \(totalSeconds)s"
+            )
+        }
+    }
+
+    /// Over a day it stops counting in hours, which is the whole point of the change.
+    func testPastADayTheFinishedBadgeRollsOverIntoDays() {
+        let cases: [(days: Int, hours: Int, expected: String, wasHours: String)] = [
+            (1, 0, "1d", "24h"),
+            (1, 2, "1d", "26h"),
+            (173, 14, "173d", "4166h"),
+        ]
+        for c in cases {
+            let elapsed = DurationBreakdown(totalSeconds: c.days * 86_400 + c.hours * 3_600)
+            XCTAssertEqual(finished.string(for: elapsed), c.expected)
+            XCTAssertEqual(finishedLadderAsItWas(elapsed), c.wasHours, "the old reading changed too")
+        }
     }
 }

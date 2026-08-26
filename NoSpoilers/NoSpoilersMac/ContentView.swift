@@ -186,12 +186,9 @@ struct WeekendPopoverView: View {
                 nextSession: nextSession,
                 confirmedEndAt: store.confirmedEndDates[session.id]
             )
-            let elapsed = DurationBreakdown(since: endedAt, to: now)
             NoSpoilersStatusBadge(
                 text: Strings.Popover.finishedAgo(
-                    elapsed.totalHours > 0
-                        ? NoSpoilersCore.Strings.Schedule.durationHours(elapsed.totalHours)
-                        : NoSpoilersCore.Strings.Schedule.durationMinutes(elapsed.minutes)
+                    Self.finishedUnits.string(for: DurationBreakdown(since: endedAt, to: now))
                 ),
                 style: .finished,
                 canvas: .macPopover
@@ -215,6 +212,14 @@ struct WeekendPopoverView: View {
     /// read it, so a static minutes reading looks frozen. Shows no "in" prefix — the popover has
     /// the session name beside it doing that work.
     private static let countdownUnits = CountdownFormatter(units: 3, floor: .seconds)
+
+    /// One unit, and minutes rather than the seconds `countdownUnits` uses: a finished badge is a
+    /// fact that is not going to change, so ticking it is noise where ticking a countdown is not.
+    ///
+    /// **Shares iOS's fix and its reason.** This site had the same unbounded `totalHours` ladder
+    /// written out a second time, so the popover counted a finished session upwards in hours with
+    /// no days tier, forever. See the comment on `finishedUnits` in the iOS `ContentView`.
+    private static let finishedUnits = CountdownFormatter(units: 1, floor: .minutes)
 
     private func countdown(to date: Date, from now: Date) -> String {
         let remaining = DurationBreakdown(until: date, from: now)
