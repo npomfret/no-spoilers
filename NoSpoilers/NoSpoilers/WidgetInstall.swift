@@ -64,43 +64,22 @@ enum WidgetInstallStatus {
 /// The instructions themselves: why, the three steps, and the one place people
 /// get it wrong.
 ///
-/// **Extracted so the prompt and the menu cannot drift.** The card below is a
-/// one-off nudge a user can put away for good; `WidgetInstallSheet` is where
+/// **Extracted so the prompt and the menu cannot drift.** `WidgetInstallCard`
+/// below is a one-off nudge a user can put away for good; `HelpSheet` is where
 /// the steps live permanently, for whoever dismissed the nudge or wants a
 /// second widget later. Two copies of a three-step sequence is exactly the kind
 /// of thing that gets edited once.
+///
+/// **The drawing moved to `HelpSteps` on 2026-08-26** when the Lock Screen
+/// needed the same treatment. What is left here is the binding of these three
+/// particular strings, which is the part that must not be written twice.
 struct WidgetInstallSteps: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.xl) {
-            Text(Strings.Widget.installBody)
-                .font(.subheadline)
-                .foregroundStyle(Theme.Palette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(alignment: .leading, spacing: Theme.Space.md) {
-                ForEach(Array(Strings.Widget.installSteps.enumerated()), id: \.offset) { index, step in
-                    HStack(alignment: .top, spacing: Theme.Space.lg) {
-                        Text(String(index + 1))
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white)
-                            // A glyph diameter, not a gap — `Theme.Space` is
-                            // the spacing rhythm and does not apply to it,
-                            // same as the flag heights.
-                            .frame(width: 20, height: 20)
-                            .background(Circle().fill(BrandPalette.signalRed))
-                        Text(step)
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.Palette.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            Text(Strings.Widget.installFooter)
-                .font(.caption)
-                .foregroundStyle(Theme.Palette.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        HelpSteps(
+            intro: Strings.Widget.installBody,
+            steps: Strings.Widget.installSteps,
+            footer: Strings.Widget.installFooter
+        )
     }
 }
 
@@ -115,8 +94,8 @@ struct WidgetInstallSteps: View {
 /// **It used to have no way out.** `.notInstalled` is a durable state for anyone
 /// who decides they do not want a widget, so the card sat on top of every one of
 /// the twenty-three weekend pages, on every launch, for the rest of the season.
-/// Dismissing does not hide the instructions, it moves them: `WidgetInstallSheet`
-/// is reachable from About at any time.
+/// Dismissing does not hide the instructions, it moves them: `HelpSheet` is
+/// reachable from About at any time.
 struct WidgetInstallCard: View {
     let onDismiss: () -> Void
 
@@ -147,51 +126,8 @@ struct WidgetInstallCard: View {
     }
 }
 
-/// The permanent home for the steps, opened from the row in About.
-///
-/// Same surface as `AboutView` — the shared screen header, a scrolling body and
-/// a Done footer — because it is presented the same way and from the same place.
-/// It scrolls where the About screen does not: three steps and a footnote at an
-/// accessibility text size do not fit an iPhone SE sheet, and this one has
-/// nothing below it competing for the height.
-struct WidgetInstallSheet: View {
-    let onDone: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            NoSpoilersScreenHeader(subtitle: Text(Strings.Widget.installTitle))
-
-            Divider()
-
-            ScrollView {
-                WidgetInstallSteps()
-                    .padding(Theme.Space.xxl)
-            }
-
-            Divider()
-
-            HStack {
-                Spacer()
-                Button(NoSpoilersCore.Strings.Actions.done) { onDone() }
-                    .keyboardShortcut(.defaultAction)
-            }
-            .padding(.horizontal, Theme.Space.xxl)
-            .padding(.vertical, Theme.Space.lg)
-        }
-        .background(NoSpoilersBackground())
-        // Matches `AboutView`: `NoSpoilersBackground` is a hardcoded light
-        // gradient, so the subtree has to resolve system colours light or the
-        // text goes unreadable on a dark-mode device.
-        .preferredColorScheme(.light)
-    }
-}
-
-#Preview("Card") {
+#Preview {
     WidgetInstallCard(onDismiss: {})
         .padding(Theme.Space.xxl)
         .background(NoSpoilersBackground().ignoresSafeArea())
-}
-
-#Preview("Sheet") {
-    WidgetInstallSheet(onDone: {})
 }

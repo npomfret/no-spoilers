@@ -973,6 +973,15 @@ public enum Theme {
         /// and its compact leading slot little more, so the Live Activity says
         /// "a session is coming" in a symbol there and in words everywhere else.
         public static let sessionCountdown = "timer"
+        /// The Lock Screen, on the iOS help sheet. The accessory widget families
+        /// and the Live Activity both live there and neither can be reached from
+        /// inside the app, so the help is all the signposting they get.
+        public static let lockScreen = "lock.fill"
+        /// The session alerts, on the iOS help sheet. The settings screen itself
+        /// is headed by words rather than a glyph.
+        public static let alerts = "bell.fill"
+        /// Asking out loud — the App Intent, on the iOS help sheet.
+        public static let siri = "mic.fill"
         /// Jump the pager back to the weekend happening now.
         public static let currentWeekend = "location.fill"
         public static let about = "info.circle"

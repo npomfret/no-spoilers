@@ -36,12 +36,53 @@ enum Strings {
             "Tap the + button in the top corner",
             "Search for No Spoilers, pick a size, and tap Add Widget"
         ]
-        static let installFooter: LocalizedStringKey = "Today View and Lock Screen are different places — make sure you are on the Home Screen."
+        static let installFooter: LocalizedStringKey = "Today View and Lock Screen are different places — make sure you are on the Home Screen. There is a Lock Screen widget too, added a different way; see What No Spoilers can do."
         /// Puts the prompt card away for good. The steps stay in About.
         static let dismissPrompt: LocalizedStringKey = "Not now"
         static let aboutSectionLabel: LocalizedStringKey = "Widget"
-        static let aboutRowTitle: LocalizedStringKey = "How to add the widget"
     }
+    /// The help sheet: one section per thing this app can do that is not the screen you are on.
+    ///
+    /// **Written because five of the six were undiscoverable.** A Lock Screen widget has to be
+    /// added through Lock Screen customisation, a Live Activity appears only when a session is
+    /// close, and a Siri phrase has to be guessed. None of them announce themselves, and the app
+    /// had instructions for the Home Screen widget alone — which is the one thing it already
+    /// nagged people about on the main screen.
+    ///
+    /// Every string here describes the schedule, a surface, or a gesture. No session outcome can
+    /// be expressed in any of them, which is the property to keep when adding one.
+    enum Help {
+        static let sectionLabel: LocalizedStringKey  = "Help"
+        static let rowTitle: LocalizedStringKey      = "What No Spoilers can do"
+        static let screenSubtitle: LocalizedStringKey = "What No Spoilers can do"
+        static let intro: LocalizedStringKey = "Six places the weekend can reach you, and never a result in any of them."
+
+        static let homeScreenTitle: LocalizedStringKey = "On your Home Screen"
+
+        static let lockScreenTitle: LocalizedStringKey = "On your Lock Screen"
+        static let lockScreenBody: LocalizedStringKey = "A tile with the Grand Prix, the session and its countdown, or a single line beside the clock. Both also turn up in StandBy."
+        /// Numbered on screen by position, so the numbers are never in the translated text.
+        static let lockScreenSteps: [LocalizedStringKey] = [
+            "Touch and hold your Lock Screen, then tap Customise",
+            "Tap the Lock Screen picture, then the area under the clock",
+            "Search for No Spoilers and pick a shape"
+        ]
+        static let lockScreenFooter: LocalizedStringKey = "The single line goes in the narrow slot above the clock, beside the date."
+
+        static let countdownTitle: LocalizedStringKey = "The countdown, once a session is close"
+        static let countdownBody: LocalizedStringKey = "When a session is within a few hours, open No Spoilers and the countdown moves to your Lock Screen on its own — and to the Dynamic Island, if your iPhone has one. It clears itself when the session starts. The first time, iOS will ask whether to allow it."
+
+        static let alertsTitle: LocalizedStringKey = "Alerts"
+        static let alertsBody: LocalizedStringKey = "Be told before a session starts, and again when one has finished and is safe to watch. Choose which sessions and how much warning under Session alerts, above."
+
+        static let siriTitle: LocalizedStringKey = "Ask out loud"
+        static let siriBody: LocalizedStringKey = "Siri answers without opening the app, and without a signal. It is in Spotlight and Shortcuts too."
+        static let siriPhrase: LocalizedStringKey = "\u{201C}When is the next session in No Spoilers?\u{201D}"
+
+        static let iPadTitle: LocalizedStringKey = "On iPad"
+        static let iPadBody: LocalizedStringKey = "There is an extra large widget on iPad only: the whole weekend in one column and what is coming next in the other."
+    }
+
     /// The Lock Screen countdown, and the refusal that can switch it off.
     ///
     /// **Written the day the prompt was discovered.** iOS asks *"Allow Live Activities from

@@ -12,7 +12,7 @@ struct ContentView: View {
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
     @State private var showAbout = false
-    @State private var showWidgetHelp = false
+    @State private var showHelp = false
     @State private var showAlertSettings = false
     @State private var widgetInstall: WidgetInstallStatus = .unknown
     /// Whether the user has put the install prompt away. Local to the app, not
@@ -103,15 +103,15 @@ struct ContentView: View {
         .sheet(isPresented: $showAbout) {
             AboutView(onDone: { showAbout = false }) {
                 VStack(alignment: .leading, spacing: 0) {
-                    widgetHelpSection
+                    helpSection
                     alertSettingsSection
                 }
             }
             // Attached inside the About sheet rather than beside it: this is the
             // presenter, and a second `.sheet` on the root would have to wait for
             // About to close before it could open.
-            .sheet(isPresented: $showWidgetHelp) {
-                WidgetInstallSheet(onDone: { showWidgetHelp = false })
+            .sheet(isPresented: $showHelp) {
+                HelpSheet(onDone: { showHelp = false })
             }
             .sheet(isPresented: $showAlertSettings) {
                 SessionAlertsView(onDone: { showAlertSettings = false })
@@ -257,18 +257,21 @@ struct ContentView: View {
         }
     }
 
-    /// The widget's permanent home, handed to `AboutView`'s slot.
+    /// Everything the app can do, handed to `AboutView`'s slot.
     ///
-    /// A row that opens the steps rather than the steps themselves: About is a
-    /// fixed-height sheet with three sections already in it, and inlining a
-    /// numbered list would push the Done button off an iPhone SE.
-    private var widgetHelpSection: some View {
+    /// A row that opens the help rather than the help itself: About is a
+    /// fixed-height sheet with three sections already in it, and inlining six
+    /// capabilities would push the Done button off an iPhone SE.
+    ///
+    /// **Was "How to add the widget" until 2026-08-26.** The widget was the only
+    /// thing the app explained, and by then it was one of six.
+    private var helpSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            NoSpoilersSectionLabel(Strings.Widget.aboutSectionLabel)
+            NoSpoilersSectionLabel(Strings.Help.sectionLabel)
             Button {
-                showWidgetHelp = true
+                showHelp = true
             } label: {
-                NoSpoilersDetailRow(Strings.Widget.aboutRowTitle) {
+                NoSpoilersDetailRow(Strings.Help.rowTitle) {
                     Image(systemName: Theme.Icon.disclosure)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textTertiary)
