@@ -206,6 +206,48 @@ if [[ -z "$ALLOW_DIRTY" ]]; then
   fi
 fi
 
+# ── Preflight: the branch tip ───────────────────────────────────────────────
+#
+# **A checkout that is behind its upstream cannot finish this run**, because the
+# bump commit below is pushed with a bare `git push` and a non-fast-forward is
+# rejected. Build 958 found that out the expensive way on 2026-08-26: queued at
+# the same revision as the run before it, it archived for four minutes and then
+# died on the push, having built a number nothing recorded.
+#
+# TeamCity pins a revision when a build is *queued*, not when it starts, so a
+# publish sitting behind another one in the queue is the ordinary way to arrive
+# here rather than an exotic one. Asked now, it costs a fetch; asked implicitly
+# by the push, it costs the archive.
+#
+# **Behind or diverged is refused; ahead is fine.** Shipping local commits that
+# are not on the remote yet is the normal laptop flow — the push at the end
+# carries them up with the bump. Only an upstream this checkout has not seen is
+# a problem, so the question is whether the upstream is an ancestor of HEAD and
+# not whether the two are equal.
+#
+# There is deliberately no flag to skip it. An override would not let the run
+# finish, it would only move the same failure to the far side of the archive,
+# which is the thing being fixed.
+
+UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+if [[ -z "$UPSTREAM" ]]; then
+  echo "This checkout's branch has no upstream, so the version bump could not be pushed." >&2
+  echo "Set one with: git branch --set-upstream-to origin/main" >&2
+  exit 1
+fi
+
+echo "==> Checking ${UPSTREAM} has nothing this checkout is missing..."
+git fetch --quiet "${UPSTREAM%%/*}"
+if ! git merge-base --is-ancestor "$UPSTREAM" HEAD; then
+  echo "" >&2
+  echo "${UPSTREAM} holds work this checkout does not, so the version bump could not be" >&2
+  echo "pushed and the run would die after the archive:" >&2
+  git --no-pager log --oneline "HEAD..${UPSTREAM}" >&2
+  echo "" >&2
+  echo "Rebase onto it and start again. Nothing was built." >&2
+  exit 1
+fi
+
 # ── Preflight: the build number ─────────────────────────────────────────────
 #
 # Read before anything is edited or built, because the next check needs it.
@@ -349,12 +391,63 @@ trap - ERR
 # point at this commit, so this cannot move any further down.
 
 echo "==> Committing and pushing version bump..."
+
+# **The commit this archive was actually built from, named before it can move.**
+# HEAD is still the tip the preflight checked and `xcodebuild` compiled, and the
+# rebase below may give the bump commit a different parent, so the fact is
+# recorded here rather than left to be inferred from parentage afterwards.
+# `testflight_distribute.py:ship_commit` reads this trailer to write the
+# TestFlight note; see the long comment on the push for why it has to.
+BUILT_FROM="$(git rev-parse HEAD)"
+
 git add "${PBXPROJ}"
-if ! git diff --cached --quiet; then
-  git commit -m "bump to v${VERSION} (build ${NEW_BUILD})"
-  git push
-else
+if git diff --cached --quiet; then
   echo "  (no changes to commit)"
+else
+  git commit -m "bump to v${VERSION} (build ${NEW_BUILD})" -m "Built-From: ${BUILT_FROM}"
+
+  # **The push has to survive main moving underneath it.** A bare `git push`
+  # loses to anything that lands between this run's checkout and this moment,
+  # and on 2026-08-26 build 990 lost by one second: it archived from the tip,
+  # a commit was pushed 29 seconds into the run, and the bump was rejected with
+  # `fetch first` — killing the run before the upload under `set -e`. The
+  # preflight above cannot help, because that window opens after it.
+  #
+  # **Rebasing is only honest because of `Built-From:` above.** The bump commit
+  # used to say what it built by *being the child of it*, and a rebase quietly
+  # reparents it onto whatever landed meanwhile — which would have left the
+  # TestFlight note describing a commit that is not in the build. That is the
+  # same "confidently wrong" failure the clean-tree preflight exists to prevent,
+  # so the provenance was made explicit first and the rebase second. Do not
+  # reorder those.
+  #
+  # Three attempts, because losing the race twice in a row is a signal rather
+  # than bad luck. A conflict is not retried at all: the only file staged here
+  # is the project file, so a conflict means another run is bumping the same
+  # number, and guessing which wins is worse than stopping.
+  PUSHED=""
+  for ATTEMPT in 1 2 3; do
+    if git push; then
+      PUSHED="yes"
+      break
+    fi
+    echo ""
+    echo "==> Push rejected (attempt ${ATTEMPT} of 3); rebasing the bump onto the new tip..."
+    if ! git pull --rebase; then
+      git rebase --abort >/dev/null 2>&1 || true
+      echo "" >&2
+      echo "The version bump conflicts with work pushed during this run, which means" >&2
+      echo "something else is bumping ${PBXPROJ} at the same time. Nothing was uploaded." >&2
+      exit 1
+    fi
+  done
+
+  if [[ -z "$PUSHED" ]]; then
+    echo "" >&2
+    echo "Could not push the version bump after 3 attempts — main is moving faster than" >&2
+    echo "this run can follow. Nothing was uploaded." >&2
+    exit 1
+  fi
 fi
 
 # ── Channel: app-store ───────────────────────────────────────────────────────

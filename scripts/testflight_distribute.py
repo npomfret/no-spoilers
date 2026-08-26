@@ -284,6 +284,42 @@ def _git(*arguments: str) -> str:
     ).stdout
 
 
+def built_from_trailer(body: str) -> str | None:
+    """The commit a bump commit says it was built from, or None if it does not say.
+
+    **`release.sh` has recorded this since 2026-08-26 and every bump commit
+    before that lacks it**, so absence is an ordinary answer about an older ship
+    rather than a fault — `ship_commit` falls back to parentage for those. A
+    trailer that is present but unreadable is a different thing entirely and
+    stops the run: it means the one explicit record of what was built is
+    corrupt, and parentage cannot be substituted for it, because the whole
+    reason the trailer exists is that the bump commit may have been rebased and
+    its parent may therefore be a commit nothing built.
+    """
+    found = []
+    for line in body.splitlines():
+        key, separator, value = line.partition(":")
+        if separator and key.strip() == "Built-From":
+            found.append(value.strip())
+
+    if not found:
+        return None
+    if len(found) > 1:
+        raise SystemExit(
+            f"a bump commit carries {len(found)} Built-From trailers: {' '.join(found)}\n"
+            "One ship is one archive, so there is no honest way to pick between them."
+        )
+
+    sha = found[0]
+    if len(sha) != 40 or not all(character in "0123456789abcdef" for character in sha):
+        raise SystemExit(
+            f"a bump commit's Built-From trailer is not a commit id: {sha!r}\n"
+            "It is written by release.sh from `git rev-parse HEAD` and nothing else "
+            "should be editing it."
+        )
+    return sha
+
+
 def ship_commit(version: str) -> dict | None:
     """The commit a local `release.sh` ship built, or None if no ship built it.
 
@@ -294,15 +330,25 @@ def ship_commit(version: str) -> dict | None:
     number, so CI answers first and git is only asked about numbers no run
     claims.
 
-    **The commit returned is the bump commit's parent, not the bump commit.**
-    `release.sh` archives from the working tree and commits the version bump
-    afterwards, so the tree that was built is the parent's tree plus a build
-    number. The parent is therefore the tip of `main` at the moment of the ship,
-    which is exactly what Xcode Cloud's `sourceCommit` is for a run — the same
-    fact by a different route, rather than a second definition of it. The bump
-    commit is how it is found and nothing more; naming it in the note would give
-    every ship the subject `bump to vX (build N)`, which repeats the marker line
-    and tells a tester nothing.
+    **The commit returned is the one the bump commit was built from, never the
+    bump commit itself.** `release.sh` archives from the working tree and commits
+    the version bump afterwards, so the tree that was built is that commit's tree
+    plus a build number. It is the tip of `main` at the moment of the ship, which
+    is exactly what Xcode Cloud's `sourceCommit` is for a run — the same fact by a
+    different route, rather than a second definition of it. The bump commit is how
+    it is found and nothing more; naming it in the note would give every ship the
+    subject `bump to vX (build N)`, which repeats the marker line and tells a
+    tester nothing.
+
+    **It is read from the `Built-From:` trailer, and from parentage only when
+    there is none.** Parentage was the original definition and it was true right
+    up until `release.sh` learned to rebase the bump commit on 2026-08-26 — a
+    push that loses a race is now retried onto the new tip, which reparents the
+    bump onto a commit that was never archived. A note derived from that parent
+    would name work the build does not contain, so the ship now records what it
+    built explicitly and this reads what it recorded. The fallback is for the
+    bump commits already in history, which were never rebased and whose parent
+    is therefore still the honest answer.
 
     Two consequences worth knowing before reading a note:
 
@@ -334,7 +380,18 @@ def ship_commit(version: str) -> dict | None:
             "write is a guess about which."
         )
 
-    built = _git("log", "-1", "--format=%H%x00%s", f"{bumps[0]}^").strip()
+    recorded = built_from_trailer(_git("log", "-1", "--format=%B", bumps[0]))
+    source = recorded if recorded is not None else f"{bumps[0]}^"
+
+    try:
+        built = _git("log", "-1", "--format=%H%x00%s", source).strip()
+    except subprocess.CalledProcessError:
+        raise SystemExit(
+            f"build {version}'s bump commit names {source} as what it built, and this "
+            "clone does not have that commit.\n"
+            "A shallow checkout would do that; so would a force-push that dropped it."
+        ) from None
+
     sha, _, subject = built.partition("\0")
     return {"subject": subject, "sha": sha, "source": "the local ship commit"}
 
@@ -652,6 +709,36 @@ def _selftest() -> int:
         failures.append("note_state did not report another build's marker")
     if note_state({"id": "x", "whatsNew": "just a subject"}) != "has no build marker":
         failures.append("note_state did not report a note carrying no marker")
+
+    # `built_from_trailer` is exercised directly rather than through history,
+    # because the first bump commit carrying a trailer will be written by the
+    # next ship and there is nothing to read until then. A parser whose only
+    # test is "the repo happens to contain one" is untested for every case that
+    # matters, and the cases that matter here are the malformed ones.
+    SHA = "0123456789abcdef0123456789abcdef01234567"
+    if built_from_trailer(f"bump to v1.1.2 (build 10010)\n\nBuilt-From: {SHA}\n") != SHA:
+        failures.append("built_from_trailer did not read a well-formed trailer")
+    if built_from_trailer("bump to v1.1.1 (build 10001)\n") is not None:
+        failures.append("built_from_trailer invented a trailer for a commit without one")
+    # The pre-2026-08-26 bump commits are exactly this shape, and reading them as
+    # anything but "no trailer" would send ship_commit to a bogus revision
+    # instead of to the parent that is still correct for them.
+    if built_from_trailer("bump to v1.0.21 (build 4)") is not None:
+        failures.append("built_from_trailer found a trailer in a single-line message")
+    # Truncated, uppercased and non-hex all mean the same thing: the one explicit
+    # record of what was built cannot be trusted, and parentage is not a
+    # substitute for it once rebasing is possible.
+    for broken in ("Built-From: 0123456", f"Built-From: {SHA.upper()}", "Built-From: HEAD~1"):
+        try:
+            built_from_trailer(f"bump to v1.1.2 (build 10010)\n\n{broken}\n")
+            failures.append(f"built_from_trailer accepted {broken!r} as a commit id")
+        except SystemExit:
+            pass
+    try:
+        built_from_trailer(f"bump\n\nBuilt-From: {SHA}\nBuilt-From: {SHA}\n")
+        failures.append("built_from_trailer picked between two Built-From trailers")
+    except SystemExit:
+        pass
 
     # `ship_commit` against this repo's own history, which is the only place the
     # thing it parses exists. Build 10003 is the ship that made the gap concrete:
