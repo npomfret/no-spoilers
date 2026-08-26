@@ -8,6 +8,8 @@ The desktop app, which is largely a menu bar widget has been accepted by the App
 
 The iPhone iOS app has not been accepted in the Apple App Store yet. The review process is difficult to pass but it is being worked on.  This is our priority.
 
+We have a build on a shared teamcity instance, read about it (here)[https://github.com/npomfret/snowmonkey-proxy-common/blob/main/docs/TEAMCITY-AGENTS.md]. You have programitic admin access.
+
 ## Non-negotiables
 
 - This is a Formula 1 app. But we must never use that word of F1 or any "owned" or copyrights terms or images.
