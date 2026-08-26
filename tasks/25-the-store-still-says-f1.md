@@ -45,6 +45,14 @@ If for some reason iOS ships and the store still reads `No Spoilers F1`, the fal
 1.1.2 submission — build 10006 is already attached to that version record and `listing/macos/*.txt`
 is current. That is a real release and goes through `release-and-delivery`.
 
+**Whenever the next macOS build is made, photograph the popover first.** It has carried a bundled
+wordmark face since 2026-08-26 (task 24, `BrandTypeface`) that has never been seen on macOS: the
+build is green and the Core tests register the font in a macOS process, but no one has looked at the
+pixels. `mac_screenshots.py` quits whatever is in the menu bar and launches the app it is given, so
+it was not worth doing while the shipped app was live — which stops being true the moment a macOS
+release is on the table. If the face failed to load, the wordmark renders in the system font and
+nothing anywhere reports it.
+
 ## The report will be red until then, on purpose
 
 `scripts/appstore_status.py` reports it under NEEDS YOU, for both platforms:
