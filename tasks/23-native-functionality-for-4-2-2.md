@@ -248,9 +248,14 @@ since been observed, and what has not:
   It starts, it updates, it ends a superseded one, and both the Dynamic Island and the Lock Screen
   presentations render. Not on hardware, and it cannot be until a session is within eight hours,
   which is 4 September at the earliest.
-- **The Lock Screen widget families have still never been looked at anywhere.** `.accessoryRectangular`
-  and `.accessoryInline` have compile confidence and nothing more; they cannot be placed
-  programmatically (Phase H follow-on), so this needs a person adding one by hand once.
+- **A Lock Screen widget renders on real hardware — 2026-08-26**, on build `10008`, placed by hand
+  through Lock Screen customisation because they cannot be placed programmatically (Phase H
+  follow-on). That closes Phase H, which had compile confidence and nothing else since 2026-08-24,
+  and it settles the question the accessory families actually raised: they render in `.accessory`
+  vibrancy, which flattens every colour into one material, so the decision to say "in progress" in
+  words rather than in `stateLive` red was load-bearing rather than cautious. *(Which of the two
+  families was placed was not recorded at the time; the rectangular tile is the one the review
+  notes lead with.)*
 
 ## Open risks
 
@@ -400,7 +405,7 @@ right way to add a surface like that is to show fewer of the fields already audi
 ones. The spoiler exposure is unchanged.
 
 **Verification.** `verify-widget-build.sh`, `verify-ios-build.sh` and `verify-core-tests.sh` all
-pass (88 tests). **That is compile confidence only.** Nothing has looked at these families
+pass (88 tests). **That was compile confidence only until 2026-08-26**, when a Lock Screen widget was placed by hand on real hardware from build `10008` and rendered — see the verification note above. At the time of writing, nothing had looked at these families
 rendered:
 
 - Lock Screen widgets are placed through Lock Screen customisation, which `scripts/screenshots.py`
