@@ -154,7 +154,7 @@ and every token has a call site.
 
 ## 6. Typography
 
-**Swift-only.** Every role is a function of `Theme.Canvas`.
+**Swift-only, apart from the face.** Every role is a function of `Theme.Canvas`.
 
 `weekendTitle`, `rowLabel`, `rowDetail`, `weekendLocation`, `weekendDateRange`, `eyebrow`,
 `nextUpName`, `nextUpDetail`.
@@ -165,6 +165,27 @@ Prefer semantic fonts (`.caption`, `.subheadline`) over `.system(size:)`, which 
 Dynamic Type. Three absolute sizes remain and each says why in the source: the macOS popover's
 session row and detail, transcribed to keep it rendering exactly as it does, and the wordmark,
 which is sized against a 300pt row.
+
+### The wordmark's face — both sides
+
+**`BrandTypeface.wordmark(size:)` in Swift, `--wordmark` in `docs/styles.css`.** Chivo ExtraBold,
+SIL OFL 1.1, bundled — `Chivo.ttf` and `Chivo-OFL.txt` ship in
+`NoSpoilersCore/…/Resources/` and again in `docs/`, self-hosted rather than from a CDN.
+`tasks/24-wordmark-typeface.md` records why this face and not another; the short version is that
+this is the surface rejected three times under 4.1(a), so the face had to be distinctive without
+being sport-referential.
+
+**One face, one component, on both sides.** Swift applies it in `NoSpoilersWordmark` and nowhere
+else; CSS applies it to `.hero h1` and nowhere else — `privacy.html`'s heading stays in the system
+font on purpose. Spreading a display face into the reading surfaces is a separate decision and
+neither binding has made it.
+
+**Two things about it that are not obvious and will bite.** It is a variable font whose `wght` axis
+defaults to 500, so the PostScript name carries the weight (`Chivo-Medium_ExtraBold`) and asking
+for plain `"Chivo"` silently gets Medium. And a missing or misnamed face does not fail a build — it
+renders as the system font while every command still reports success. `BrandTypeface` therefore
+`precondition`s on the face resolving, and `BrandTypefaceTests` pins both the registration and the
+9pt measurement the 300pt popover row was sized against.
 
 ## 7. Motion
 

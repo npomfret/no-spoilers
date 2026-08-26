@@ -86,6 +86,29 @@
   --radius-xxl: 16px;
 
   --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* The product's own face. Applied to the wordmark and nothing else, exactly as
+   * `BrandTypeface.wordmark` is in Swift — spreading a display face into the
+   * reading surfaces is a separate decision that neither side has made. */
+  --wordmark: 'Chivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Self-hosted, deliberately. Google's CDN would serve this in a quarter of the
+ * bytes and would also be the only third-party request either page makes; a
+ * privacy policy one click away is a poor place to start making them. The file
+ * is the upstream variable TTF, so the weight range below is what drives the
+ * `wght` axis — there is no separate bold to load. `Chivo-OFL.txt` sits beside
+ * it because the licence travels with the font.
+ *
+ * A woff2 would be ~40KB against 160KB, but converting one needs tooling this
+ * repo does not have and a font nobody waits for is not worth a dependency:
+ * `font-display: swap` means the page never blocks on it. */
+@font-face {
+  font-family: 'Chivo';
+  src: url('Chivo.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 body {

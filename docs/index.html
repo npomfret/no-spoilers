@@ -22,10 +22,15 @@
       z-index: 1;
     }
 
+    /* The site's wordmark, and the one place the page uses the product's face.
+       Weight 800 to match `BrandTypeface`; the app sets the same face uppercase
+       in signal red, which is a header inside an app rather than a page title
+       and is not copied here. */
     .hero h1 {
+      font-family: var(--wordmark);
       font-size: 2.6rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
+      font-weight: 800;
+      letter-spacing: -0.02em;
       line-height: 1.1;
       margin-bottom: 16px;
     }

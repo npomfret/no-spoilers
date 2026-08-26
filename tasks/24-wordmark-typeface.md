@@ -1,7 +1,9 @@
 # Task 24: give the wordmark a typeface of its own
 
-**Status: FACE CHOSEN — Chivo Roman, 800. Decided 2026-08-26. Implementation deliberately not
-started; it must not land on main until 1.1.2 has a build cut and submitted (see Sequencing).**
+**Status: DONE — 2026-08-26.** Chivo ExtraBold ships in Core, in all three hosts and on the
+website. Verified by pixels on `NoSpoilers-iPhone`, by four green wrappers, and by four new tests.
+The sequencing worry below was resolved rather than waited out: TeamCity pins a queued build's
+revision at queue time, so build 10009 was already fixed to `27651d1` and could not pick this up.
 
 ## Why
 
@@ -83,16 +85,26 @@ Chivo is 6.3pt *narrower* than what ships, so the 300pt popover row gains room r
 it and the `.medium` size does not have to be re-decided. Archivo Expanded's +14.6pt is what
 disqualified it: the row has ~137pt for the centred Grand Prix name and it wanted 15 of them.
 
-### The trap found while pinning the file down
+### The trap found while pinning the file down — and how it was answered
 
 `Chivo[wght].ttf` is a **variable** font whose axis is 100–900 with a **default of 500**, and its
 named instances carry PostScript names of the form `Chivo-Medium_ExtraBold`. Google Fonts publishes
 no static instances for this family — the directory holds only the two variable files. So
-`Font.custom("Chivo", size:)` on its own resolves to Medium, not 800, and whether
-`.fontWeight(.heavy)` drives the `wght` axis on a registered variable font is an empirical question
-that has not been answered here. **Answer it before writing the view**, and expect the fallback to
-be building the font from a `CTFontDescriptor` carrying `kCTFontVariationAttribute` — which is what
-the measurement harness did, and what produced every number in the table above.
+`Font.custom("Chivo", size:)` on its own resolves to Medium, not 800.
+
+**Answered empirically on 2026-08-26, before the view was written.** Registering the file and asking
+CoreText for each spelling of the name, measuring "NO SPOILERS" at 15pt with 1.4 tracking:
+
+| asked for | measured | resolved to |
+| --- | --- | --- |
+| family `"Chivo"` | 111.4pt | `Chivo-Medium_Regular` |
+| `"Chivo-Medium_ExtraBold"` | **113.1pt** | `Chivo-Medium_ExtraBold` |
+| `CTFontDescriptor` with `wght` 800 | 113.1pt | `Chivo-Medium_ExtraBold` |
+
+The named instance and the descriptor agree exactly, so **the descriptor was not needed** — which
+is what keeps `BrandTypeface` free of a `UIFont`/`NSFont` conditional and lets the view stay on
+plain `Font.custom`. The 1.7pt gap between Medium and ExtraBold is the whole hazard: invisible in a
+screenshot, and enough to make every measurement in `NoSpoilersWordmarkSize` wrong.
 
 ## What it touches
 
@@ -131,21 +143,61 @@ the measurement harness did, and what produced every number in the table above.
   here.** Look at the pixels, on the device and in the widget.
 - Re-measure the macOS popover row.
 
-## Sequencing — read before starting
+## Sequencing — resolved 2026-08-26, not waited out
 
-**This must not be in build 10009.** 10009 is the binary for the 1.1.2 resubmission, which is a
-clean single-variable answer to 4.2.2: new device capabilities, nothing else moved. The wordmark is
-the surface with 4.1(a) history. If both change in one submission and the answer is bad, neither
-change is attributable.
+The worry was real: 10009 is the binary for the 1.1.2 resubmission, a clean single-variable answer
+to 4.2.2, and the wordmark is the surface with 4.1(a) history. Two changes in one submission and
+neither answer is attributable. Because the repo works on main only, starting the implementation
+looked like the same act as shipping it.
 
-So the order is: cut 10009 → attach it → submit 1.1.2 → *then* implement this on main. Because the
-repo works on main only, starting the implementation early is the same thing as shipping it early.
+**It is not, and the queue proves it.** TeamCity pins a queued build's revisions when the build
+enters the queue, not when an agent picks it up. Build 944 (`Publish iOS`) and its gating Verdict
+943 both reported `27651d1`, and `8a29a3f` — committed *after* they queued — was already excluded.
+So anything committed from that point cannot reach 10009, and this work went ahead the same day.
 
-## Open
+**It still ships in 1.1.3, not 1.1.2.** Nothing here changes that; it changes only when the code
+could safely be written.
 
-- The `wght`-axis question above — whether `.fontWeight()` reaches a registered variable font, or
-  whether a `CTFontDescriptor` is required. This decides what the view looks like.
-- Whether the widget process needs its own registration call or inherits nothing. The task assumes
-  it needs its own; that has not been proven.
+## What was built
+
+- **`BrandTypeface.swift`** in Core — the face, the licence reasoning, and the only registration.
+  Lazy `static let`, so each host process registers once on the first wordmark it draws and no
+  entry point has to remember. `preconditionFailure` if the face is missing or resolves to
+  something else, because `Font.custom` substitutes silently and every build still goes green.
+- **`Chivo.ttf` + `Chivo-OFL.txt`** in `Resources/`, reaching every host through the package's
+  existing `.process("Resources")` rule — the same door `Flags.xcassets` uses. No `UIAppFonts`
+  entry anywhere, and no per-target registration.
+- **`NoSpoilersWordmark`** now asks `BrandTypeface`. It is the only Swift call site.
+- **A Typeface row in About**, beside schedule data, session data and flag icons. The OFL asks for
+  no attribution; it is there because the other three borrowed things are.
+- **The website**: `--wordmark` token and a self-hosted `@font-face` in `docs/styles.css`, applied
+  to `.hero h1` only. `privacy.html`'s heading stays in the system font — one face, one component,
+  on both sides. Self-hosted rather than Google's CDN because it would otherwise be the only
+  third-party request either page makes.
+- **`docs/guides/brand.md` §6**, which said "Swift-only" and is now a two-sided binding.
+
+## Verification — 2026-08-26
+
+- `scripts/verify-core-tests.sh` — 102 tests, up from 98. Four are new `BrandTypefaceTests`, and
+  they exist because this is the one change whose failure mode is invisible: they pin that asking
+  for the wordmark registers the face, that the name resolves heavier than the family default, that
+  9pt still measures 65.2pt, and that both the font and its licence reach the bundle.
+- `scripts/verify-ios-build.sh`, `verify-widget-build.sh`, `verify-mac-build.sh` — all pass.
+- **Pixels on `NoSpoilers-iPhone`** — the app header photographed on the simulator, Chivo rendering
+  beside an SF label for comparison. This was the check the task insisted on, and it needed the app
+  built *without* `CODE_SIGNING_ALLOWED=NO`: that flag strips the entitlements, the App Group
+  container then never exists, and `screenshots.py` fails at `get_app_container` with exit 117.
+
+## Still open
+
+- **The macOS popover has not been photographed.** It is proven by a green build and by the Core
+  tests, which run in a macOS process and register the font from the same bundle — but not by
+  pixels. `mac_screenshots.py` quits whatever is in the menu bar and launches the app it is given,
+  so it takes the machine's menu bar over for the duration; that was not worth doing unasked while
+  the shipped macOS app is live. The fit risk it would check is the one direction that cannot hurt:
+  Chivo is 6.3pt narrower than what the row already tolerated.
+- **The widget never draws the wordmark**, so it never registers the face — the two call sites are
+  the iOS and macOS content views. The lazy registration makes that automatically correct rather
+  than something to remember. The task had assumed the widget would need its own call; it does not.
 - One last check for motorsport-brand use of Chivo before it ships. Nothing was found, but a search
   is not a proof, and this is the surface where that distinction has already cost three rejections.

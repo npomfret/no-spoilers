@@ -67,6 +67,15 @@ public struct AboutView<Extra: View>: View {
                     detail: "flag-icons by Lipis",
                     url: URL(string: "https://github.com/lipis/flag-icons")!
                 )
+                Divider().padding(.leading, Theme.Space.xxl)
+                // The OFL asks for no in-app attribution — this row is here because
+                // the other three are, and a bundled typeface is the same kind of
+                // borrowed thing as a bundled flag set.
+                acknowledgementRow(
+                    title: Strings.About.typeface,
+                    detail: "Chivo by Omnibus-Type",
+                    url: URL(string: "https://github.com/Omnibus-Type/Chivo")!
+                )
             }
 
             Divider()

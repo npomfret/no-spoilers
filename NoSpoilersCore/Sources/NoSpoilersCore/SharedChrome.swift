@@ -12,10 +12,17 @@ public enum NoSpoilersWordmarkSize {
 
     /// `.medium` is deliberately small. It shares a 300pt-wide row in the macOS
     /// popover with the centred Grand Prix name, and type is wider than the
-    /// image it replaced: at 9pt the wordmark measures 71.5pt against the old
-    /// logo's 48pt, which keeps every calendar name except
+    /// image it replaced: at 9pt it measured 71.5pt in the system font against
+    /// the old logo's 48pt, which kept every calendar name except
     /// "Barcelona-Catalunya Grand Prix" on one line. That one wrapped before
     /// this change too.
+    ///
+    /// **Chivo is narrower, so this size stays.** Re-measured on 2026-08-26 when
+    /// the face changed: 9pt Chivo 800 comes out at 65.2pt, 6.3pt inside what
+    /// the row already tolerated, so the budget for the Grand Prix name grows
+    /// rather than shrinks and nothing here has to be re-decided. Had it gone
+    /// the other way — Archivo Expanded wanted 86.1pt — this number would have
+    /// been the thing that moved.
     var fontSize: CGFloat {
         switch self {
         case .large:
@@ -94,6 +101,11 @@ public struct NoSpoilersCard<Content: View>: View {
 /// It is type rather than an image so that there is no mark to license, and so
 /// that the name in the header is the same string as the name everywhere else —
 /// `Strings.AppInfo.name`, uppercased for display only.
+///
+/// The face is `BrandTypeface.wordmark`, which is where the decision, the
+/// licence and the reason it is not the system font are written down. This view
+/// deliberately knows none of that: it is the only place the wordmark is drawn,
+/// and the only thing it should have an opinion about is size and tracking.
 public struct NoSpoilersWordmark: View {
     private let size: NoSpoilersWordmarkSize
 
@@ -104,7 +116,7 @@ public struct NoSpoilersWordmark: View {
     public var body: some View {
         Text(Strings.AppInfo.name)
             .textCase(.uppercase)
-            .font(.system(size: size.fontSize, weight: .heavy))
+            .font(BrandTypeface.wordmark(size: size.fontSize))
             .tracking(size.tracking)
             .foregroundStyle(BrandPalette.signalRed)
             .fixedSize()
