@@ -25,11 +25,24 @@ cd ../appstoreconnect-bot && npm install && npm run build
 node dist/cli.js report          # submissions -> thread -> messages + rejections + draft
 ```
 
-It authenticates by capturing a browser request (`pbpaste | npx asc login`), so the session lasts
-hours and `asc status` shows what is left. **It writes**: `set-build`, `upload-screenshot`,
-`delete-screenshot` and a raw `patch <resource>/<id> '<json:api body>'`, which covers screenshots
-and every metadata field. **Replying in the Resolution Center is still unmapped**, so Phase 4 below
-goes through the browser unless someone captures that write.
+It authenticates by capturing a browser request, so the session lasts hours and `asc status` shows
+what is left. Paste a "Copy as cURL" of any `/iris/v1` request over
+`appstoreconnect-bot/tmp/curl.txt`; there is no login step, and that file is a live credential.
+
+**Re-measured 2026-08-26, and the split has moved the other way since this was written.** The bot no
+longer carries `set-build`, `upload-screenshot`, `delete-screenshot` or the raw `patch` this
+paragraph used to name — that work came home to key-authenticated repo scripts, which is the right
+place for it, and `scripts/appstore_listing.py --build` and `scripts/appstore_screenshots.py` are
+where to reach for it now. **What the bot does write, and nothing else can, is the Resolution Center
+reply**: `save-draft`, `delete-attachment`, `delete-draft`, and `send-reply`. So Phase 4 no longer
+goes through the browser.
+
+**A Resolution Center message must be under 4000 characters.** Apple answers a longer one
+`409 ENTITY_ERROR.ATTRIBUTE.INVALID` — *"Message must be less than 4000 characters"* — and nothing
+local checks first, so it is found by the write bouncing. Learned twice: v4 was 5152 and became a
+3900-character v5, and on 2026-08-26 v8 was 4798 and had to be cut to a 3980-character v9 with the
+reply otherwise finished. Write to the limit rather than trimming to it afterwards; every version
+from v5 on hugs 3900-4000 for this reason and not by taste.
 
 The two tools do not overlap and neither should grow the other's job: `scripts/appstore_status.py`
 is the public API, key-authenticated and GET-only, and can see the review *state* but never the
@@ -453,6 +466,22 @@ The reply should:
 
 Then ship: `scripts/ship.sh <version>` covers all three channels version-locked, and Xcode Cloud
 delivers TestFlight builds per push. Both pipelines are working and proven as of 2026-08-13.
+
+**The bullets above describe the 2026-08-13 reply, which was sent.** The thread was rejected again
+on 08-21 under 4.2.2 alone, so the next reply answers a different accusation and its argument lives
+in `tasks/23-native-functionality-for-4-2-2.md`. As of 2026-08-26 it is written and **staged in the
+draft box, not sent** — `tmp/app-review-reply-v10.md`, on thread
+`74533c00-b29e-3041-826a-1a221f522ecc`, read back intact. `asc send-reply` is a person's to press:
+there is no unsend and no edit.
+
+**It is 1949 characters, and the shortness is the point.** v9 was a compliant 3980 and was cut in
+half deliberately: four long prose replies have now been answered with boilerplate that engaged with
+nothing, which is evidence about how much of one gets read. The reply carries the list and the
+argument; the App Review notes carry the steps, which is where a reviewer looks for them anyway.
+Do not grow it back to fill the limit.
+
+Build `10011` is attached to iOS 1.1.2 and the reply names that number, so a re-bump before
+submitting makes the reply wrong. Check it against `appstore_status.py` rather than assuming.
 
 ---
 
