@@ -235,12 +235,22 @@ entry with all three phrase templates and `${applicationName}` substitution in p
 **All five wrappers pass as of 2026-08-25** — `verify-core-tests` (98 tests, up from 88),
 `verify-mac-build`, `verify-widget-build`, `verify-ios-build`, `verify-python-selftests`.
 
-**That is compile confidence, and for Phase F metadata confidence. It is not behaviour.** Nothing
-has seen a Live Activity on a Lock Screen or heard Siri answer. Both are foreground-started features
-on a real device and neither is reachable from `alerts_check.py` or `screenshots.py`. **This is the
-open item that stands between the code and the submission**, and the honest way to close it is ten
-minutes on a device: open the app inside 8 hours of a session and look at the Lock Screen, then ask
-Siri "what is on next in No Spoilers".
+**That was compile confidence, and for Phase F metadata confidence. It was not behaviour.** What has
+since been observed, and what has not:
+
+- **Siri answers, on real hardware — 2026-08-25**, on TestFlight build `10008`. Asked "what is on
+  next in No Spoilers" and it named the Italian Grand Prix. That is the whole of Phase F proven end
+  to end: the metadata reached the device, `AppShortcutsProvider` made it findable, the intent ran
+  in a process the system started, `ScheduleSnapshotLoader` found a schedule, and
+  `FeaturedSessionPlanner` picked the right session. It is also the first thing in this task ever
+  confirmed anywhere other than a build log.
+- **The Live Activity is proven on the simulator only** — see "The prompt nobody knew about" below.
+  It starts, it updates, it ends a superseded one, and both the Dynamic Island and the Lock Screen
+  presentations render. Not on hardware, and it cannot be until a session is within eight hours,
+  which is 4 September at the earliest.
+- **The Lock Screen widget families have still never been looked at anywhere.** `.accessoryRectangular`
+  and `.accessoryInline` have compile confidence and nothing more; they cannot be placed
+  programmatically (Phase H follow-on), so this needs a person adding one by hand once.
 
 ## Open risks
 
@@ -502,7 +512,7 @@ a lot of conditions on the useful outcome. **Log the fire time**, and consider w
   against `.claude/rules/spoiler-safety.md` directly rather than by the agent — see the audit
   section below. Clean, with one inherent timing channel recorded and deliberately kept.
 - ~~Phase E — a Live Activity for the next session~~ **DONE 2026-08-25.** Not yet seen on a device.
-- ~~Phase F — App Intents / Shortcuts / Siri~~ **DONE 2026-08-25.** Not yet heard on a device.
+- ~~Phase F — App Intents / Shortcuts / Siri~~ **DONE 2026-08-25, and heard on a device the same day** on build `10008`: "what is on next in No Spoilers" named the Italian Grand Prix.
 - **The safe-to-watch alert's fire time is now recorded.** `SessionAlertScheduler.logDelivered()`
   reads `deliveredNotifications` on every reschedule and writes each alert's id and arrival instant
   to the `alerts` channel. That is the only route to it — nothing wakes the app when a notification
