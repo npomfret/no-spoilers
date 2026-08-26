@@ -1,6 +1,13 @@
 # Task 16: Get the iOS app through App Review
 
-**Status: OPEN. Two live rejection reasons, and the harder one is not about branding.**
+**Status: OPEN — but down to one rejection reason, not two. Corrected 2026-08-26.**
+
+**4.1(a) Copycats has not been cited since the logo came out on 2026-08-13.** The 2026-08-21
+rejection of `1.1.2` was **4.2.2 alone** — the first time it has ever arrived without 4.1(a) beside
+it, which is what makes Phase 1 below provably the right call rather than merely plausible. The
+history from here on is `tasks/23-native-functionality-for-4-2-2.md`, which owns the 4.2.2 answer;
+this file remains the record of the branding half and of the thread itself. The narrative below is
+written as it stood in August and is not re-dated.
 
 iOS `1.0.21` has been `REJECTED` since 2026-04-27. Four review rounds, four rejections, and the
 thread has sat unanswered in `UNRESOLVED_ISSUES` since 2026-05-17. macOS is unaffected and on sale.
