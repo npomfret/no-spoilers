@@ -490,8 +490,9 @@ the one reviewed; check it against `appstore_status.py` rather than assuming.
 build with no next-weekend block in any widget family and three sessions in the medium one
 (`ed1951b`), published from TeamCity `Publish iOS` build 11. Six fresh listing screenshots
 (`APP_IPHONE_65` and `APP_IPAD_PRO_3GEN_129`, three each) went up the same afternoon. The version
-reads `READY_FOR_REVIEW`; the 2026-08-19 submission record still read `UNRESOLVED_ISSUES` minutes
-after Submit, so do not read that line as a failed submit until it has had time to move.
+and the submission both read `WAITING_FOR_REVIEW` within a few minutes; the old 2026-08-19
+submission record showed `UNRESOLVED_ISSUES` for a minute or two after Submit before it moved, so
+give that line time before reading it as a failed submit.
 
 ---
 
