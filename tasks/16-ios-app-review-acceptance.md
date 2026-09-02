@@ -480,8 +480,10 @@ nothing, which is evidence about how much of one gets read. The reply carries th
 argument; the App Review notes carry the steps, which is where a reviewer looks for them anyway.
 Do not grow it back to fill the limit.
 
-Build `10011` is attached to iOS 1.1.2 and the reply names that number, so a re-bump before
-submitting makes the reply wrong. Check it against `appstore_status.py` rather than assuming.
+**The reply names no build number** — v11, saved 2026-09-02, says "this one" where v10 said
+"Build 10011". Apple sees the build on the submission itself, and a number in the text is one more
+thing a re-bump makes wrong. Whichever build is attached to iOS 1.1.2 when Submit is pressed is
+the one reviewed; check it against `appstore_status.py` rather than assuming.
 
 ---
 
