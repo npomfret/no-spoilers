@@ -58,7 +58,8 @@ public enum Strings {
         /// A session happening now. Was in all three targets.
         public static let inProgress: LocalizedStringKey = "In Progress"
 
-        /// Heading over the next weekend. Was in all three targets.
+        /// Heading over the next weekend. Was in all three targets; the widget
+        /// stopped drawing it on 2026-09-02, so only the two apps say it now.
         public static let comingUp: LocalizedStringKey = "Next up"
 
         /// One unit of elapsed or remaining time, e.g. `2h` / `45m`.

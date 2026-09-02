@@ -8,7 +8,6 @@ struct NoSpoilersEntry: TimelineEntry {
     let date: Date
     let weekend: RaceWeekend?
     let sessions: [SessionViewModel]
-    let nextWeekend: UpcomingWeekendViewModel?
     /// True only when the loaded schedule is exhausted — no upcoming sessions at all.
     let isOffSeason: Bool
 }
@@ -20,14 +19,6 @@ struct SessionViewModel: Identifiable {
     let name: String
     let shortName: String
     let state: SessionState
-}
-
-struct UpcomingWeekendViewModel {
-    let round: Int
-    let countryCode: String?
-    let name: String
-    let location: String
-    let startsAt: Date
 }
 
 enum SessionState {
@@ -99,13 +90,6 @@ private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
             SessionViewModel(id: "placeholder-quali", name: SessionKind.qualifying.displayName, shortName: SessionKind.qualifying.shortName, state: .upcoming(startsAt: now.addingTimeInterval(29 * 3600))),
             SessionViewModel(id: "placeholder-race", name: SessionKind.race.displayName, shortName: SessionKind.race.shortName, state: .upcoming(startsAt: now.addingTimeInterval(52 * 3600)))
         ],
-        nextWeekend: UpcomingWeekendViewModel(
-            round: 17,
-            countryCode: "QA",
-            name: "Qatar Grand Prix",
-            location: "Lusail",
-            startsAt: now.addingTimeInterval(7 * 86_400)
-        ),
         isOffSeason: false
     )
 }
@@ -130,19 +114,14 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
                 return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                         state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
             }
-            let upcoming = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates)
-            let nextWeekend = upcoming.flatMap { w -> UpcomingWeekendViewModel? in
-                guard let first = w.allSessions.first else { return nil }
-                return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, location: w.location, startsAt: first.startsAt)
-            }
-            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, nextWeekend: nextWeekend, isOffSeason: false)
+            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, isOffSeason: false)
         }
     }
 
     // Show the next upcoming weekend — no distance threshold.
     guard let upcoming = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates) else {
         // Schedule exhausted: genuine off-season if we have data, no-data view otherwise.
-        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], nextWeekend: nil, isOffSeason: !weekends.isEmpty)
+        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], isOffSeason: !weekends.isEmpty)
     }
 
     let sorted = upcoming.allSessions
@@ -152,11 +131,7 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
         return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                 state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
     }
-    let nextWeekend = RaceWeekendResolver.nextWeekend(after: upcoming, in: weekends).flatMap { w -> UpcomingWeekendViewModel? in
-        guard let first = w.allSessions.first else { return nil }
-        return UpcomingWeekendViewModel(round: w.round, countryCode: w.countryCode, name: w.grandPrixName, location: w.location, startsAt: first.startsAt)
-    }
-    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, nextWeekend: nextWeekend, isOffSeason: false)
+    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, isOffSeason: false)
 }
 
 /// How far ahead a timeline is built.
@@ -257,7 +232,7 @@ struct NoSpoilersWidgetEntryView: View {
     ///
     /// **`systemExtraLarge` shares `widgetLarge`'s scale** — that is what the
     /// canvas axis says and what `extraLargeView` already did by passing
-    /// `.widgetLarge` to every component in its left-hand column.
+    /// `.widgetLarge` to every component it draws.
     ///
     /// The `default` branch mirrors `systemFamilyView`'s: `systemMedium` is the
     /// fallback family, so anything WidgetKit adds later renders at medium until
@@ -370,7 +345,7 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    /// systemMedium — header + up to 2 sessions + optional next-weekend footer.
+    /// systemMedium — header + up to 2 sessions.
     @ViewBuilder
     private func mediumView(_ weekend: RaceWeekend) -> some View {
         let sessions = prioritizedSessions(limit: 2)
@@ -382,15 +357,11 @@ struct NoSpoilersWidgetEntryView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let upcoming = entry.nextWeekend {
-                Divider()
-                widgetComingUp(upcoming, canvas: .widgetMedium)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// systemLarge — expanded header, full session list, next-weekend footer.
+    /// systemLarge — expanded header, full session list.
     @ViewBuilder
     private func largeView(_ weekend: RaceWeekend) -> some View {
         let visibleSessions = Array(entry.sessions.prefix(5))
@@ -410,71 +381,30 @@ struct NoSpoilersWidgetEntryView: View {
                 }
             }
             Spacer(minLength: 0)
-            if let upcoming = entry.nextWeekend {
-                Divider()
-                widgetComingUp(upcoming, canvas: .widgetLarge)
-            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// systemExtraLarge — two-zone: left = full current weekend, right = next weekend.
+    /// systemExtraLarge — the large header and every session, with nothing
+    /// capped.
+    ///
+    /// **This was a two-zone layout** — the weekend on the left, a 140pt
+    /// "Next up" sidebar naming the weekend after it on the right — until
+    /// 2026-09-02, when the next-weekend block was removed from every widget
+    /// family. What remains is the left column at full width. It is not
+    /// `largeView` because that one caps the list at five and says "+N more"
+    /// for the rest; this family has the height for a sprint weekend's six.
     @ViewBuilder
     private func extraLargeView(_ weekend: RaceWeekend) -> some View {
-        HStack(alignment: .top, spacing: Theme.Space.xxl) {
-            VStack(alignment: .leading, spacing: Theme.Space.md) {
-                widgetHeader(weekend, canvas: .widgetLarge)
-                Divider()
-                VStack(spacing: Theme.Space.xs) {
-                    ForEach(entry.sessions) { session in
-                        widgetSessionRow(session, canvas: .widgetLarge)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity)
-
+        VStack(alignment: .leading, spacing: Theme.Space.md) {
+            widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
-
-            if let upcoming = entry.nextWeekend {
-                VStack(alignment: .leading, spacing: Theme.Space.md) {
-                    // This column is not `NoSpoilersNextUpFooter` — it is a
-                    // 140pt sidebar, not a footer — but its eyebrow is the same
-                    // eyebrow, so it moves off `signalRed` with the others
-                    // rather than leaving the widget disagreeing with itself.
-                    Text(NoSpoilersCore.Strings.Schedule.comingUp)
-                        .font(Theme.Typography.eyebrow)
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                        .textCase(.uppercase)
-                    // **Not `Theme.Header.flagHeight`.** This flag is on its own
-                    // line rather than beside a name, and at 24pt it is larger
-                    // than any header's — the sidebar has the width for it and
-                    // nothing else to share the row with. One site, no ladder,
-                    // so it stays a number here rather than becoming a token
-                    // with four canvases that would have to trap.
-                    FlagImage(countryCode: upcoming.countryCode, height: 24)
-                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                        Text(upcoming.name)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.Palette.textPrimary)
-                            .lineLimit(2)
-                        HStack(spacing: Theme.Space.xs) {
-                            NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(upcoming.round))
-                            Text(upcoming.location)
-                                .font(.caption2)
-                                .foregroundStyle(Theme.Palette.textSecondary)
-                                .lineLimit(1)
-                        }
-                        Text(upcoming.startsAt, style: .relative)
-                            .font(.caption)
-                            .foregroundStyle(Theme.Palette.textSecondary)
-                    }
-                    Spacer(minLength: 0)
+            VStack(spacing: Theme.Space.xs) {
+                ForEach(entry.sessions) { session in
+                    widgetSessionRow(session, canvas: .widgetLarge)
                 }
-                .frame(width: 140)
-            } else {
-                Spacer().frame(width: 140)
             }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -640,36 +570,6 @@ struct NoSpoilersWidgetEntryView: View {
             detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil
         ) {
             stateLabel(session.state, canvas: canvas)
-        }
-    }
-
-    /// **The two families differ in where the countdown goes**, which is why
-    /// this takes a canvas rather than the `compact: Bool` it used to. The
-    /// medium family has one line and puts the countdown trailing; the large
-    /// family has three and puts it under the name, with a round pill trailing
-    /// instead.
-    @ViewBuilder
-    private func widgetComingUp(_ weekend: UpcomingWeekendViewModel, canvas: Theme.Canvas) -> some View {
-        if canvas == .widgetMedium {
-            NoSpoilersNextUpFooter(
-                canvas: canvas,
-                countryCode: weekend.countryCode,
-                name: Text(weekend.name)
-            ) {
-                Text(weekend.startsAt, style: .relative)
-                    .font(Theme.Typography.nextUpDetail(canvas))
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .lineLimit(1)
-            }
-        } else {
-            NoSpoilersNextUpFooter(
-                canvas: canvas,
-                countryCode: weekend.countryCode,
-                name: Text(weekend.name),
-                detail: Text(weekend.startsAt, style: .relative)
-            ) {
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
-            }
         }
     }
 

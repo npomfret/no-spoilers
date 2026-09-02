@@ -110,7 +110,7 @@ second axis beside it, which is what `NoSpoilersCardDensity` and a `compact: Boo
 
 **A role is only added once every canvas that draws it has a real call site to transcribe.** Roles
 that genuinely do not exist on a canvas `preconditionFailure` there rather than returning an
-invented value or an optional — the small widget has no next-up footer, the large one has no second
+invented value or an optional — no widget family has a next-up footer, the large one has no second
 line in its session row.
 
 ## 4. Space

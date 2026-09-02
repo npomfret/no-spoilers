@@ -388,11 +388,11 @@ public struct NoSpoilersScreenHeader: View {
 /// both branches of the widget's `widgetComingUp`. All four drew the same row:
 /// flag, name stack, spacer, one trailing element.
 ///
-/// **The extra-large widget's version was not one of them and stays where it
-/// is.** That one is a 140pt sidebar column — eyebrow, then the flag on its own
-/// line, then the name over a pill-and-location row over the countdown. Sharing
-/// a component with it would mean a second body inside this one, which is the
-/// thing the convergence is trying to remove.
+/// **Two callers remain: the iOS app and the macOS popover.** The widget
+/// stopped naming the next weekend on 2026-09-02 — its two footers and the
+/// extra-large family's 140pt sidebar all went together — and every widget
+/// canvas of `Theme.NextUp` now traps, so this cannot be drawn on one by
+/// accident.
 ///
 /// **Two disagreements had to be settled to get here.** The large widget drew
 /// its eyebrow *inside* the name stack, to the right of the flag, where iOS and
