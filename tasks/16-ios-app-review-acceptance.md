@@ -485,6 +485,14 @@ Do not grow it back to fill the limit.
 thing a re-bump makes wrong. Whichever build is attached to iOS 1.1.2 when Submit is pressed is
 the one reviewed; check it against `appstore_status.py` rather than assuming.
 
+**Sent and submitted 2026-09-02.** The reply went at 15:03Z on thread
+`74533c00-b29e-3041-826a-1a221f522ecc` and iOS 1.1.2 was submitted on build `10012` — the first
+build with no next-weekend block in any widget family and three sessions in the medium one
+(`ed1951b`), published from TeamCity `Publish iOS` build 11. Six fresh listing screenshots
+(`APP_IPHONE_65` and `APP_IPAD_PRO_3GEN_129`, three each) went up the same afternoon. The version
+reads `READY_FOR_REVIEW`; the 2026-08-19 submission record still read `UNRESOLVED_ISSUES` minutes
+after Submit, so do not read that line as a failed submit until it has had time to move.
+
 ---
 
 ## Verification
