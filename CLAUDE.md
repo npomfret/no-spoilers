@@ -10,7 +10,7 @@ The iPhone iOS app has not been accepted in the Apple App Store yet. The review 
 
 We have a build on a shared teamcity instance, read about it (here)[https://github.com/npomfret/snowmonkey-proxy-common/blob/main/docs/TEAMCITY-AGENTS.md]. You have programitic admin access.
 
-App Review state (Resolution Center threads, rejections, the draft reply and sending it) is reachable only through the sibling repo [appstoreconnect-bot](/Users/nickpomfret/projects/appstoreconnect-bot) — `node dist/cli.js report` there, authenticated by a browser capture in its `tmp/curl.txt`. `scripts/appstore_status.py` is the public-API half and cannot read the conversation; attaching a build or writing listing copy stays with `scripts/appstore_listing.py`.
+App Review state (Resolution Center threads, rejections, the draft reply and sending it) is reachable only through the sibling repo [appstoreconnect-bot](/Users/nickpomfret/projects/appstoreconnect-bot) — `node dist/cli.js report 6761343835` there. Its `tmp/curl.txt` is a request copied from the browser purely as a way of getting the session cookie into a file; nothing else is read from it, so the app id is always passed, and ours is `6761343835` (`OURS` in `scripts/appstore_status.py`). `appstore_status.py` is the public-API half and cannot read the conversation; attaching a build or writing listing copy stays with `scripts/appstore_listing.py`.
 
 ## Non-negotiables
 
