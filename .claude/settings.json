@@ -1,5 +1,4 @@
 {
-  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Read",
@@ -20,8 +19,7 @@
     ]
   },
   "hooks": {
-    "PreToolUse": [
-    ],
+    "PreToolUse": [],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
@@ -56,5 +54,10 @@
         ]
       }
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
