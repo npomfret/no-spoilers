@@ -15,9 +15,9 @@ c. Search for "No Spoilers" and pick a size.
 
 Four Home Screen sizes, each showing a different amount of the weekend:
 - Small: the Grand Prix, the next session, and a live countdown to it.
-- Medium: the next session with its countdown, the last session that finished, and the weekend after this one.
-- Large: every session of the weekend with its status, plus what is coming next.
-- Extra large (iPad only): the full weekend in one column and what is coming next in the other.
+- Medium: the next session with its countdown, and the last session that finished.
+- Large: every session of the weekend with its status.
+- Extra large (iPad only): the full weekend, with room for every session of a sprint weekend.
 
 Two Lock Screen sizes, added through Customise: a tile with the Grand Prix, the session and the countdown, and a single line beside the clock with the session and the countdown. Both also appear in StandBy.
 

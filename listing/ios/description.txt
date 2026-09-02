@@ -5,7 +5,7 @@ If you watch on replay, you know the problem. Search for a start time and you ge
 This is that place.
 
 THE WIDGET
-Add it in small, medium, large — or extra large on iPad — and the weekend sits on your Home Screen: which sessions have finished and are safe to watch, and a live countdown to the next one. Check your phone all weekend without going near anything that could ruin it. The small size gives you the next session at a glance; the larger sizes show the full weekend and what is coming after it.
+Add it in small, medium, large — or extra large on iPad — and the weekend sits on your Home Screen: which sessions have finished and are safe to watch, and a live countdown to the next one. Check your phone all weekend without going near anything that could ruin it. The small size gives you the next session at a glance; the larger sizes show the full weekend.
 
 ON YOUR LOCK SCREEN
 There is a Lock Screen widget too — a tile, or a single line beside the clock — and it turns up in StandBy as well. When a session is close, open the app once and the countdown moves to your Lock Screen as a Live Activity, and to the Dynamic Island on iPhone. No unlocking, no opening anything.
