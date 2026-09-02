@@ -345,10 +345,14 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    /// systemMedium — header + up to 2 sessions.
+    /// systemMedium — header + up to 3 sessions.
+    ///
+    /// **Three, not two, since 2026-09-02.** The third row sits where the
+    /// next-weekend footer used to; with the footer gone, two rows left the
+    /// bottom third of the family empty.
     @ViewBuilder
     private func mediumView(_ weekend: RaceWeekend) -> some View {
-        let sessions = prioritizedSessions(limit: 2)
+        let sessions = prioritizedSessions(limit: 3)
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             widgetHeader(weekend, canvas: .widgetMedium)
             VStack(spacing: Theme.Space.xs) {
