@@ -10,6 +10,8 @@ The iPhone iOS app has not been accepted in the Apple App Store yet. The review 
 
 We have a build on a shared teamcity instance, read about it (here)[https://github.com/npomfret/snowmonkey-proxy-common/blob/main/docs/TEAMCITY-AGENTS.md]. You have programitic admin access.
 
+App Review state (Resolution Center threads, rejections, the draft reply and sending it) is reachable only through the sibling repo [appstoreconnect-bot](/Users/nickpomfret/projects/appstoreconnect-bot) — `node dist/cli.js report` there, authenticated by a browser capture in its `tmp/curl.txt`. `scripts/appstore_status.py` is the public-API half and cannot read the conversation; attaching a build or writing listing copy stays with `scripts/appstore_listing.py`.
+
 ## Non-negotiables
 
 - This is a Formula 1 app. But we must never use that word of F1 or any "owned" or copyrights terms or images.
