@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 import NoSpoilersCore
 
 @main
@@ -13,7 +14,18 @@ struct NoSpoilersApp: App {
     /// it could live.
     @StateObject private var activities = SessionActivityController()
 
-    init() { AppLog.launched(process: "ios") }
+    init() {
+        AppLog.launched(process: "ios")
+        // WidgetKit keeps showing the previous build's archived timeline after an update until
+        // something asks for a reload, and `ScheduleStore` only asks when the schedule changes.
+        // So the first launch on a new build asks once, here, before any view exists. Placement
+        // does not matter: `reloadAllTimelines` on a device with no widget is a no-op. See
+        // `InstalledBuild`.
+        if InstalledBuild.changed(to: AppVersion.build) {
+            WidgetCenter.shared.reloadAllTimelines()
+            AppLog.widget.notice("reload requested for new build", ["build": AppVersion.build])
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
