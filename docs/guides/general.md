@@ -27,8 +27,6 @@ Canonical cross-cutting policy for this repo.
 
 ## Workflow conventions
 
-- Use task files in `tasks/` for substantial multi-step work.
-- Keep task files current as plans and verification change.
 - Prefer project skills and agents for repeatable workflows instead of ad-hoc prompting.
 - For non-trivial implementation work, follow `feature-workflow`: inspect first, identify the approved pattern, refactor for readiness when needed, implement, then verify.
 - For Claude Code setup changes, follow `claude-setup-maintenance` and keep root memory concise.

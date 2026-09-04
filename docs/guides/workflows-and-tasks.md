@@ -1,6 +1,6 @@
 # Workflows And Tasks Guide
 
-Canonical workflow routing and task-tracking policy for this repo.
+Canonical workflow routing for this repo.
 
 ## Preferred workflows
 
@@ -58,11 +58,3 @@ For non-trivial implementation work, Claude must:
 - Use `pattern-compliance-reviewer` for read-only checks focused on duplicate implementations, pattern drift, and boundary violations.
 - Parallelize only when file ownership is cleanly disjoint.
 
-## Tasks
-
-Track substantial multi-step work in `tasks/*.md`.
-
-- Create a task file when work is more than a minor one-off change.
-- Capture the goal, constraints, approved pattern, plan, verification, and open risks.
-- Update the task file as implementation progresses.
-- Keep it concise and current.
