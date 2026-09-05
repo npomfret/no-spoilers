@@ -41,3 +41,25 @@ wrongly-scored experiments on 2026-08-17.
   to the log when they disagree. The two mis-scored experiments both rested on an absent log line
   while the widget was visibly doing the right thing; `LogChannel` does not offer `.info` any more,
   which is what stops that particular version of it recurring.
+
+## Watching a Live Activity go stale
+
+The phase a Live Activity draws is decided twice: once by `FeaturedSessionPlanner` when the app
+pushes the content state, and again in the extension by `SessionActivityDisplay` when the content's
+`staleDate` passes. The first half is unit-tested. The second rests on ActivityKit re-rendering the
+view at the stale date with `context.isStale` set — behaviour the documentation promises, that the
+simulator does not exercise (it hosts activities but never leaves them alone for an hour), and that
+this project has not yet watched on a device. Until it has, the fix for a Lock Screen that said
+*In Progress* an hour after the session (task 29, 2026-09-05) is verified by build and by test, not
+by observation.
+
+- **Use a session whose stale date is minutes away.** For the upcoming phase that is the start;
+  for the live phase it is the grace end. Either a real feed on a race day timed so a session's
+  grace window closes shortly, or a fixture in the App Group cache with a session starting in a few
+  minutes. Open the app so the activity starts, then lock the phone and do not open the app again.
+- **Read the card, not the log.** At the stale date the card should change on its own: the
+  countdown becomes *In Progress* in red, or *In Progress* becomes *Finished* in the secondary
+  text colour. If it does, the only thing that can have changed it is a re-render with `isStale`
+  set, because nothing else in the product can reach a running activity from the background.
+- **Opening the app scores nothing.** Every foreground moment calls `refresh`, which pushes a fresh
+  content state; a card that changed after that proves only the half that is already tested.

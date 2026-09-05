@@ -1,6 +1,50 @@
+import Foundation
+
+/// Which half of the session's life a Live Activity is in.
+///
+/// Part of the activity's *content* state rather than its attributes because it changes while one
+/// activity runs: a session that was upcoming when the app was last open is live when it is next
+/// opened, and that is an update to the same activity rather than a different one.
+///
+/// **Outside the `os(iOS)` guard, and a top-level type, on purpose.** The package's tests run on
+/// macOS, where ActivityKit does not exist, and `SessionActivityDisplay` below is the one decision
+/// in this feature that a test can reach. Encoded as its raw string either way, so an activity
+/// started by a build that nested this in `SessionActivityAttributes` still decodes.
+public enum SessionActivityPhase: String, Codable, Hashable {
+    case upcoming
+    case live
+}
+
+/// What the extension draws for an activity: the phase the app last pushed, advanced by one step
+/// when the clock has passed the content's `staleDate`.
+///
+/// **This is the half of the stale date that was never built.** A Live Activity is updated by the
+/// app from the foreground and by nothing else — no push, no background task — so the phase in the
+/// content state is only true until the instant it names. ActivityKit does not relabel or dim a
+/// stale activity on its own; it re-renders the view with `context.isStale` set and leaves the
+/// drawing to us. Until 2026-09-05 nothing read it, and a Lock Screen said *In Progress* an hour
+/// after the session's grace window closed.
+///
+/// A stale upcoming activity is a session that has started; a stale live one is a session that
+/// has ended. Both are exactly what the Home Screen widget and the safe-to-watch alert say at the
+/// same instants, so drawing them here is consistency rather than a new claim.
+public enum SessionActivityDisplay: Hashable {
+    case upcoming
+    case live
+    case finished
+
+    public init(phase: SessionActivityPhase, isStale: Bool) {
+        switch (phase, isStale) {
+        case (.upcoming, false): self = .upcoming
+        case (.upcoming, true):  self = .live
+        case (.live, false):     self = .live
+        case (.live, true):      self = .finished
+        }
+    }
+}
+
 #if os(iOS)
 import ActivityKit
-import Foundation
 
 /// What a Live Activity for a session carries, shared by the app that starts it and the extension
 /// that draws it.
@@ -22,18 +66,8 @@ import Foundation
 /// the planner now names or for one it has outlived.
 public struct SessionActivityAttributes: ActivityAttributes, Hashable {
 
-    /// Which half of the session's life the activity is in.
-    ///
-    /// In the *content* state rather than the attributes because it changes while one activity
-    /// runs: a session that was upcoming when the app was last open is live when it is next
-    /// opened, and that is an update to the same activity rather than a different one.
-    public enum Phase: String, Codable, Hashable {
-        case upcoming
-        case live
-    }
-
     public struct ContentState: Codable, Hashable {
-        public let phase: Phase
+        public let phase: SessionActivityPhase
 
         /// Both instants travel, whichever phase we are in. `Text(timerInterval:)` takes a range,
         /// and a range needs both ends even when only one of them is being counted to.
@@ -44,7 +78,7 @@ public struct SessionActivityAttributes: ActivityAttributes, Hashable {
         /// moment anything else in the product calls it over.
         public let endsAt: Date
 
-        public init(phase: Phase, startsAt: Date, endsAt: Date) {
+        public init(phase: SessionActivityPhase, startsAt: Date, endsAt: Date) {
             self.phase = phase
             self.startsAt = startsAt
             self.endsAt = endsAt
@@ -56,8 +90,13 @@ public struct SessionActivityAttributes: ActivityAttributes, Hashable {
         /// the one thing this feature cannot do on its own. **A Live Activity does not re-render
         /// with the clock** — the system redraws it when the app pushes an update, and the app
         /// cannot push one from the background without a server. So an activity that says "starts
-        /// in" is still saying it a minute after the session began, and the system dimming it as
-        /// stale is what stops that reading as a live claim.
+        /// in" is still saying it a minute after the session began, unless the extension does
+        /// something with the fact that it is stale.
+        ///
+        /// It does: when this instant passes, ActivityKit re-renders the view with
+        /// `context.isStale` set, and `SessionActivityDisplay` turns that into the next phase —
+        /// upcoming becomes live, live becomes finished. The system itself neither dims nor
+        /// relabels anything; a stale activity that reads only `phase` keeps saying what it said.
         public var staleDate: Date {
             switch phase {
             case .upcoming: return startsAt

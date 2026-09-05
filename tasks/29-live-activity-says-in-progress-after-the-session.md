@@ -1,6 +1,6 @@
 # Task 29: the Live Activity keeps saying "In Progress" after the session is over
 
-**Status: FILED, 2026-09-05.**
+**Status: BUILT, 2026-09-05. Awaiting the device observation in phase 3.**
 
 ## The issue
 
@@ -81,12 +81,22 @@ Decisions taken at filing:
   - `SessionEndConfirmer.onChange` only fires `objectWillChange`; it never asks WidgetKit to
     reload, so a confirmed end reaches the app and not the widget. Bounded by the grace period.
     Separate task.
+- Phases 1, 2 and 4 done on 2026-09-05. `SessionActivityPhase` came out of
+  `SessionActivityAttributes` and above the `os(iOS)` guard, because the package's tests run on
+  macOS and a helper nested inside the guard could never be tested there. Same raw strings, so an
+  activity started by build 10011 still decodes. `SessionActivityDisplay(phase:isStale:)` is the
+  pure function; the extension reads `context.isStale` in exactly one place, a private
+  `ActivityViewContext.display`, and every presentation draws from that.
+- Phase 3 is **not** done. The re-render at the stale date is what the fix rests on, and it has
+  been checked by build and by test only. It needs a phone, a session minutes from its stale date,
+  and an hour of not opening the app; the method is in `docs/guides/testing.md`. The next Italian
+  GP session is qualifying at 15:00 BST today, grace end 16:30 BST.
 - The finished state stays neutral. A finished Live Activity is still content on a locked
   screen the reader cannot decline; it says the session is over and nothing more.
 
 Verification:
 
-- [ ] Core tests for the drawn-state function, all four combinations
-- [ ] `scripts/verify-core-tests.sh`, `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh`
+- [x] Core tests for the drawn-state function, all four combinations (`SessionActivityDisplayTests`, 2026-09-05)
+- [x] `scripts/verify-core-tests.sh` (115 tests, 0 failures), `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh`, `scripts/verify-mac-build.sh` — all passed 2026-09-05
 - [ ] Seen on a device: an activity left alone changes at its stale date without the app opening
-- [ ] `docs/guides/testing.md` carries the method
+- [x] `docs/guides/testing.md` carries the method

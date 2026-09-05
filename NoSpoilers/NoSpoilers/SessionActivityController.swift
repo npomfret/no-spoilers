@@ -29,9 +29,14 @@ import NoSpoilersCore
 /// `NoSpoilersApp.entitlements` carries only the App Group and does not change — only
 /// push-to-start would need more, and that needs a server this product does not have.
 ///
-/// **Started only from the foreground.** ActivityKit permits `request` nowhere else without push,
-/// so the shape of the feature is "open the app, and the countdown moves to your Lock Screen".
-/// Every call site is a foreground moment `ContentView` already owns.
+/// **Started and updated only from the foreground.** ActivityKit permits `request` nowhere else
+/// without push, so the shape of the feature is "open the app, and the countdown moves to your
+/// Lock Screen". Every call site is a foreground moment `ContentView` already owns. What moves
+/// the card on after that, with the app closed, is the content's `staleDate` and nothing here:
+/// ActivityKit re-renders the extension's view at that instant with `isStale` set, and
+/// `SessionActivityDisplay` advances the drawn phase. The system does not dim, relabel or end a
+/// stale activity by itself — until 2026-09-05 this comment implied it did, and the extension
+/// never read `isStale`, so a Lock Screen said *In Progress* an hour after the session was over.
 ///
 /// `ObservableObject` with nothing published, and owned by `NoSpoilersApp` for the same reason
 /// `SessionAlertScheduler` is: it must survive the view being rebuilt. There is no state to

@@ -15,6 +15,13 @@ import NoSpoilersCore
 /// opened, not by itself, and it is one activity for the *next* session rather than one for the
 /// weekend — see `SessionActivityController.lookAhead`.
 ///
+/// **What is drawn comes from `SessionActivityDisplay`, never from `context.state.phase` alone.**
+/// The app cannot update this view from the background, so the phase it last pushed goes out of
+/// date at the content's stale date — and until 2026-09-05 the view kept drawing it anyway, which
+/// is how a Lock Screen came to say *In Progress* an hour after a session's grace window closed.
+/// ActivityKit re-renders at the stale date with `context.isStale` set; every presentation below
+/// folds that in before deciding what to show.
+///
 /// **The same three fields as every other family** — the Grand Prix, the session, a clock. This is
 /// content on a locked screen the reader cannot decline to look at, so it is deliberately a
 /// different arrangement of what is already audited rather than a new place to put something.
@@ -23,7 +30,8 @@ struct SessionActivityWidget: Widget {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in
             SessionActivityLockScreenView(
                 attributes: context.attributes,
-                state: context.state
+                state: context.state,
+                display: context.display
             )
             // A flat tint rather than `NoSpoilersBackground`: this is the one surface where the
             // system owns the container and takes a colour, not a view. `surface` is the same
@@ -40,7 +48,7 @@ struct SessionActivityWidget: Widget {
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    SessionActivityClock(state: context.state)
+                    SessionActivityClock(state: context.state, display: context.display)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                 }
@@ -51,21 +59,28 @@ struct SessionActivityWidget: Widget {
                         .lineLimit(1)
                 }
             } compactLeading: {
-                SessionActivityGlyph(state: context.state)
+                SessionActivityGlyph(display: context.display)
             } compactTrailing: {
-                // Nothing while the session is running. The compact slot is a few points wide and
-                // "In Progress" does not fit in it; the glyph is already red, and the words are
-                // one long-press away in the expanded view.
-                if context.state.phase == .upcoming {
+                // Nothing once the session has started. The compact slot is a few points wide and
+                // neither "In Progress" nor "Finished" fits in it; the glyph carries the state,
+                // and the words are one long-press away in the expanded view.
+                if context.display == .upcoming {
                     Text(context.state.startsAt, style: .relative)
                         .font(.caption2)
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .lineLimit(1)
                 }
             } minimal: {
-                SessionActivityGlyph(state: context.state)
+                SessionActivityGlyph(display: context.display)
             }
         }
+    }
+}
+
+private extension ActivityViewContext<SessionActivityAttributes> {
+    /// The pushed phase, advanced past the stale date. The one place `isStale` is read.
+    var display: SessionActivityDisplay {
+        SessionActivityDisplay(phase: state.phase, isStale: isStale)
     }
 }
 
@@ -75,6 +90,7 @@ struct SessionActivityWidget: Widget {
 private struct SessionActivityLockScreenView: View {
     let attributes: SessionActivityAttributes
     let state: SessionActivityAttributes.ContentState
+    let display: SessionActivityDisplay
 
     var body: some View {
         HStack(alignment: .center, spacing: Theme.Space.xl) {
@@ -89,7 +105,7 @@ private struct SessionActivityLockScreenView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: Theme.Space.md)
-            SessionActivityClock(state: state)
+            SessionActivityClock(state: state, display: display)
                 .font(.title3.weight(.semibold))
                 .lineLimit(1)
         }
@@ -106,17 +122,25 @@ private struct SessionActivityLockScreenView: View {
 /// down to a guess would read as "nearly over", which is a claim about the session this product
 /// has no business making. `Strings.Schedule.inProgress` is what the app, the widget and the
 /// accessory families all say instead, and this says it too.
+///
+/// **Finished is neutral and says nothing more.** It is the medium widget family's word, in
+/// `textSecondary` rather than a state colour, because a finished activity is still content on a
+/// locked screen the reader cannot decline: it says the session is over, and that is all.
 private struct SessionActivityClock: View {
     let state: SessionActivityAttributes.ContentState
+    let display: SessionActivityDisplay
 
     var body: some View {
-        switch state.phase {
+        switch display {
         case .upcoming:
             Text(state.startsAt, style: .relative)
                 .foregroundStyle(Theme.Palette.textPrimary)
         case .live:
             Text(NoSpoilersCore.Strings.Schedule.inProgress)
                 .foregroundStyle(Theme.Palette.stateLive)
+        case .finished:
+            Text(Strings.Sessions.finished)
+                .foregroundStyle(Theme.Palette.textSecondary)
         }
     }
 }
@@ -124,15 +148,16 @@ private struct SessionActivityClock: View {
 /// The one glyph the Dynamic Island's small presentations have room for.
 ///
 /// Red while the session is running, which is the same signal `smallSessionTime` gives on the Home
-/// Screen. The accessory widget families cannot do this — they render in `.accessory` vibrancy
-/// mode, which flattens every colour into one material — but a Live Activity keeps its colours.
+/// Screen, and back to `textSecondary` once it is over. The accessory widget families cannot do
+/// this — they render in `.accessory` vibrancy mode, which flattens every colour into one material
+/// — but a Live Activity keeps its colours.
 private struct SessionActivityGlyph: View {
-    let state: SessionActivityAttributes.ContentState
+    let display: SessionActivityDisplay
 
     var body: some View {
         Image(systemName: Theme.Icon.sessionCountdown)
             .foregroundStyle(
-                state.phase == .live ? Theme.Palette.stateLive : Theme.Palette.textSecondary
+                display == .live ? Theme.Palette.stateLive : Theme.Palette.textSecondary
             )
     }
 }
