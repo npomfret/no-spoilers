@@ -1,8 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Skill(browse)",
-      "mcp__ide__getDiagnostics"
+      "Edit",
+      "WebFetch",
+      "WebSearch",
+      "Bash(scripts/verify-core-tests.sh)",
+      "Bash(scripts/verify-python-selftests.sh)",
+      "Bash(scripts/verify-mac-build.sh)",
+      "Bash(scripts/verify-ios-build.sh)",
+      "Bash(scripts/verify-widget-build.sh)"
     ]
   }
 }

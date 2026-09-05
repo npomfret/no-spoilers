@@ -5,7 +5,8 @@ tools:
   - Read
   - Grep
   - Glob
-  - Bash
+permissionMode: plan
+maxTurns: 20
 ---
 
 # Spoiler Safety Reviewer

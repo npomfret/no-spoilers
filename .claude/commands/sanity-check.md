@@ -4,7 +4,11 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Bash(git *)
+  - Bash(git status *)
+  - Bash(git diff *)
+  - Bash(git log *)
+  - Bash(git show *)
+  - Bash(git rev-parse *)
 disable-model-invocation: true
 ---
 

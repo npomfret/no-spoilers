@@ -7,7 +7,7 @@ paths:
   - "NoSpoilers/**/*.json"
   - "scripts/**/*.py"
   - "docs/**/*.html"
-  - "docs/**/*.md"
+  - "listing/**/*.txt"
   - "README.md"
 ---
 

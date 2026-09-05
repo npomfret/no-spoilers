@@ -155,9 +155,17 @@ estate, and a `--check` run waits behind everything.
   - **It also repairs the *What to Test* note**, since the hook's file is only sometimes picked up. It asks the Xcode Cloud run for the commit — a build's version is its run number — and writes `whatsNew` over the API. The test is not "is there a note" but "does the note name *this* build": the failure mode is a well-formed note about somebody else's commit, which reads as correct and describes changes the tester does not have.
   - **A locally shipped build has no run to ask, and until 2026-08-22 that meant no note at all.** Every 10000-band build reached the testers blank, `10003` included — invisible until Xcode Cloud ran out of quota and the local path stopped being the exception. The commit is knowable without the API: `release.sh` commits `bump to vX.Y.Z (build N)` immediately after the archive succeeds, so `ship_commit` finds that commit by message and names the commit it was built from — the tip of `main` that was actually archived, since the bump is committed afterwards. **It reads that from a `Built-From:` trailer, and from the bump commit's parent only when there is none.** Parentage was the whole definition until 2026-08-26, when the push learned to rebase: a reparented bump commit sits on top of whatever landed during the run, so its parent is a commit that was never archived and a note derived from it would name work the build does not contain. That is the same *confidently wrong* failure the dirty-tree refusal exists to prevent, so the provenance was made explicit before the rebase was allowed. The fallback is for the bump commits already in history, which were never rebased and whose parent is still the honest answer. That is the same fact Xcode Cloud's `sourceCommit` reports for a run, by a different route. Xcode Cloud is asked first and git only about numbers no run claims, because the bands collide in the low numbers: `bump to v1.0.21 (build 4)` sits in git while Xcode Cloud has its own iOS build 4. The output names which of the two answered, every time.
 - **The App Store listing lives in `listing/<platform>/*.txt` and is written by `scripts/appstore_listing.py`.** Before 2026-08-22 it lived nowhere but App Store Connect, and that is the whole reason the macOS keywords kept `F1,Formula 1` for nine days after the sweep meant to remove them: the sweep edited four surfaces by hand and there was no fifth place to look. Plain text, because a description change should read as a prose diff in a commit. The tool refuses to write copy carrying the owned terms, using the same `trademark_hits` the report runs under NEEDS YOU, so a listing cannot pass one and be flagged by the other. It creates the version record, writes the four localized fields and the review detail, and attaches a build. **It never submits**, and a `READY_FOR_SALE` version is not a candidate at all, so it cannot rewrite words already on the store.
-- `scripts/appstore_status.py` reads what App Store Connect holds for both platforms and writes nothing. Keep it that way: `release.sh` and `testflight_distribute.py` are the only things here that write, and the split is what makes the report safe to run at any time. It is stdlib-only Python and needs no venv or install, and it owns the shared token signing, app lookup and build selection that the distribute script imports.
+- `scripts/appstore_status.py` reads what App Store Connect holds for both platforms and writes
+  nothing. Keep it that way: every API writer goes through `asc_write.Session` and requires
+  `--apply`, while the report remains safe to run at any time. It is stdlib-only Python and needs no
+  venv or install, and it owns the shared token signing, app lookup and build selection imported by
+  the writers.
   - **Its `TESTFLIGHT` section answers "what can a tester install right now", not "does a build exist".** It walks the unexpired iOS builds newest-first asking each `?include=betaGroups` until one is in a group, and prints how far behind that has fallen — `testers can install build 4, 5 builds behind build 11`. **Being behind is never a warning.** Delivery is a manual command, so the newest build reaches nobody after every push; warning about it would leave the report permanently red and take the exit code with it. Only installing *nothing* is reported under NEEDS YOU.
-- **The reader and the writers hold different App Store Connect keys, and that is the point.** The report runs on the Developer-level key `S394C74APG`; the App Manager key `ASC6H3SL2D` lives in `scripts/asc_write.py`, spelled once, and is used by `testflight_distribute.py` and `appstore_listing.py` — the only two things here that write. A Developer key reads every endpoint involved and is then refused the write with an empty `403` that looks like a malformed request.
+- **The reader and the writers hold different App Store Connect keys, and that is the point.** The
+  report runs on the Developer-level key `S394C74APG`; the App Manager key `ASC6H3SL2D` lives in
+  `scripts/asc_write.py`, spelled once, and is used by `testflight_distribute.py`,
+  `appstore_listing.py`, and `appstore_screenshots.py`. A Developer key reads every endpoint
+  involved and is then refused the write with an empty `403` that looks like a malformed request.
 
 ## TestFlight
 
@@ -272,28 +280,40 @@ the popover hanging off it, and whatever is behind them. Set a plain desktop pic
 1280x800 point region lands as 2560x1600 on a Retina Mac, and App Store Connect accepts both.
 
 ```
-scripts/screenshots.py --device "NoSpoilers-iPhone-11-Pro-Max" --expect 1242x2688 --widget-size large
+scripts/screenshots.py --device "NoSpoilers-iPhone-65" --expect 1242x2688 --widget-size large
 ```
 
-`--device` takes a simulator name or a UDID and is repeatable. **A name matching more than one
-simulator is refused**, not guessed at — the script prints the candidate UDIDs and stops, which is
-the common case on a machine carrying several runtimes. `--dry-run` prints the plan and touches
-nothing.
+`--device` is repeatable. Project work always passes one of the owned names below, never a stock
+device name or raw UDID. A name matching more than one simulator is refused rather than guessed;
+`--dry-run` prints the plan and touches nothing.
 
 - **Always name a simulator this project owns, never a stock one.** Other projects run on this
   machine and share the stock devices, and a capture is not read-only: it writes an App Group
   fixture, reinstalls the app, rewrites SpringBoard's layout, and reboots. Doing that to a shared
   `iPhone 11 Pro Max` corrupts whatever else was relying on it, and their runs corrupt ours. Own one
-  simulator per device size the work needs — `NoSpoilers-iPhone` for verification captures,
-  `NoSpoilers-iPhone-11-Pro-Max` for listing assets — and create them with
-  `xcrun simctl create "<name>" <device-type-id> <runtime-id>`. This is a `CLAUDE.md` non-negotiable,
-  not a preference.
+  simulator per device size the work needs:
+  - `NoSpoilers-iPhone` and `NoSpoilers-iPad` for ordinary verification
+  - `NoSpoilers-iPhone-65` for the 1242x2688 iPhone listing slot
+  - `NoSpoilers-iPad-129` for the 2048x2732 iPad listing slot
+
+  Recreate a missing device with the current runtime id:
+
+  ```sh
+  xcrun simctl create "NoSpoilers-iPhone" com.apple.CoreSimulator.SimDeviceType.iPhone-17 <runtime>
+  xcrun simctl create "NoSpoilers-iPad" com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB <runtime>
+  xcrun simctl create "NoSpoilers-iPhone-65" com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro-Max <runtime>
+  xcrun simctl create "NoSpoilers-iPad-129" com.apple.CoreSimulator.SimDeviceType.iPad-Air-13-inch-M4 <runtime>
+  ```
 
 - **Screenshots are taken against a fixture, never the live calendar**, so the same command produces
   the same picture in March and in August. Out of season the widget correctly renders its off-season
   state, and mid-season it renders whichever race happens to be next; neither is a listing asset.
   The fixture offsets are relative to run time and must stay that way.
-- **Never launch the app to make it pick up the fixture.** `ScheduleStore.refresh()` saves the
+- **Bootstrap a newly created simulator before its first capture.** Launch the app once, let it
+  settle, then terminate it so WidgetKit registers the extension. Without that one launch,
+  SpringBoard drops the widget and the script's supported-family diagnosis is misleading. The
+  capture script re-seeds afterwards, so the bootstrap cannot leave live data in the image.
+- **After bootstrap, never launch the app to make it pick up the fixture.** `ScheduleStore.refresh()` saves the
   network result unconditionally, so launching replaces the fixture with the real calendar. The
   script seeds, reboots and captures without ever opening the app, and that sequence is not
   incidental.
@@ -304,9 +324,8 @@ nothing.
   is silently dropped, so `WIDGET_SIZES` and the widget's declared families must stay in step.
 - **`--install` is the only thing that invalidates a stored timeline.** WidgetKit keeps it in
   `chronod/chrono.sql` until its own reload date — hours away for this widget. Rebooting, restarting
-  `chronod`, and deleting `chrono.sql` were all tried and none of them work. The first capture after
-  an install is blank because the extension is not registered yet, so the sequence for a device that
-  has been captured before is `--install` once, then capture again.
+  `chronod`, and deleting `chrono.sql` were all tried and none of them work. If this is a fresh
+  simulator, complete the one-time app-launch bootstrap before the install-and-capture run.
 - **Pick the device *type* by the pixel size the listing slot accepts, not by what is newest**, and
   pass `--expect` so a wrong one fails in seconds rather than at upload. An `iPhone 11 Pro Max` is
   natively 1242 × 2688 and accepted; an `iPhone 17 Pro Max` at 1320 × 2868 is refused. Create the

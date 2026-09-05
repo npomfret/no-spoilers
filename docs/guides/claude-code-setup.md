@@ -1,47 +1,71 @@
-# Claude Code Setup Guide
+# Claude Code Setup
 
-Canonical guide for maintaining this repo's Claude Code control plane.
+This is the design reference for the repository's Claude Code control plane. It explains ownership;
+the components themselves provide routing through their native metadata and scope.
 
-## Layer model
+## Layer ownership
 
-- `CLAUDE.md` is the short root operating contract: non-negotiables, routing, and pointers to deeper guidance.
-- `.claude/rules/` contains always-on and path-scoped rules.
-- `.claude/skills/` contains repeatable workflows and subsystem conventions that Claude should route to from user intent.
-- `.claude/agents/` contains reusable specialists, especially read-only discovery and drift review.
-- `.claude/commands/` contains manual slash-command affordances.
-- `.claude/hooks/` contains fast deterministic reminders and side effects.
-- `docs/guides/` contains longer reference material that should not live in always-on memory.
-- `scripts/` contains canonical command wrappers for repeated verification.
+- `CLAUDE.md` contains only crucial repository-wide facts, invariants, approval boundaries, and
+  non-obvious verification entry points. It is loaded in full on every turn and must not index the
+  rest of the configuration.
+- Unscoped rules contain standing policy worth loading in every session. Path-scoped rules contain
+  standing policy that becomes relevant only after Claude reads a matching file.
+- Skills own repeatable task-shaped workflows. Their descriptions use ordinary request language,
+  name likely exclusions, and make safe workflows automatically model-invocable.
+- Agents own bounded delegated jobs. Discovery and review agents run with `permissionMode: plan`;
+  a prose request to stay read-only is not an enforcement boundary.
+- Commands are manual affordances when invocation itself is a user decision.
+- References contain nuance needed by one or more owning skills or scoped rules. They are not a
+  parallel instruction system and are not force-loaded as a startup ritual.
+- Hooks are reserved for deterministic event-shaped side effects that cannot be expressed through
+  native routing or ordinary verification. A hook must not repeat skill or rule prose on every
+  prompt.
+- Shared settings contain team policy, not personal speed preferences. Keep convenience allows in
+  `.claude/settings.local.json`; keep sensitive-path and destructive-command denies shared.
 
-## Maintenance rules
+## Routing standard
 
-- Keep root memory concise. Do not add long conventions, troubleshooting playbooks, or subsystem manuals to `CLAUDE.md`.
-- Add or update a skill when a workflow should be repeatable and discoverable from user intent.
-- Add or update a rule when an instruction is always-on or path-scoped.
-- Add or update a guide when the content is explanatory reference material.
-- Add or update a wrapper script when a command becomes canonical or needs environment setup.
-- Update `docs/guides/important-code.md` when the control plane changes.
+Claude Code loads root memory and unscoped rules at startup, path-scoped rules when matching files
+are read, and skill descriptions so the model can select a skill from normal task language. Design
+for that behavior directly:
 
-## Feature-work posture
+1. Put common trigger phrases and exclusions in skill and agent descriptions.
+2. Put file- or subtree-specific standing policy in a scoped rule.
+3. Preload a skill into an agent only when every invocation needs its full content.
+4. Give broad references one clear owning skill or rule; load only the relevant section.
+5. Treat repeated missed routing as a metadata or scope defect. Do not compensate with a root index
+   or prompt-injection hook.
 
-- Audit before implementing.
-- Identify the approved local pattern before editing.
-- Refactor for readiness when the current shape cannot cleanly host the requested change.
-- Implement against the approved pattern.
-- Verify with the smallest meaningful command.
-- Treat duplicate helpers, variant architectures, and silent pattern drift as correctness issues.
+Model-invocable release guidance may load only after an explicit release-shaped user request. Skill
+selection is not permission to perform an external write: the workflow must still classify the
+requested effect and resolve material ambiguity before acting.
 
-## Tool and ecosystem policy
+## Context and parallelism
 
-- Prefer code, tests, project files, and docs before external tools.
-- Use `WebFetch` and `WebSearch` when browsing is required; do not use `mcp__claude-in-chrome__*`.
-- External Claude Code plugins or specialist skills are optional user-level overlays unless explicitly adopted as project policy.
-- Use multiple sibling clones for genuinely independent parallel sessions; do not make worktrees the default interactive model.
+Use direct compiler, test, and repository-search evidence first. Delegate only when a bounded
+discovery or review result would keep a large amount of disposable detail out of the main context,
+or when genuinely independent ownership makes parallel work cheaper. Subagents do not share live
+reasoning. Writers need isolated checkouts and non-overlapping ownership; read-only reviewers use
+plan mode.
 
-## Permissions and hooks
+Auto memory is machine-local and can retain useful repository learnings, but it is not team policy.
+Durable conventions belong in version-controlled rules, skills, tests, scripts, or references.
 
-- Keep checked-in `.claude/settings.json` safe for shared use.
-- Keep personal speed settings in `.claude/settings.local.json` or user-level Claude config.
-- Do not check bypass-permissions settings into shared project config.
-- Use hooks for fast deterministic reminders, formatting, summaries, or audit support.
-- Do not use hooks as the main access-control system.
+## Maintenance and verification
+
+For every control-plane change:
+
+1. Check repository evidence and recent configuration history before deciding policy.
+2. Update one authoritative owner; remove stale duplicates.
+3. Validate JSON, YAML frontmatter, referenced paths, hook syntax, and executable bits as applicable.
+4. Run `claude doctor` against the project settings.
+5. Use `/skill-doctor` in an authenticated interactive session to find unused or context-expensive
+   skills; use `/context`, `/memory`, `/permissions`, and `/hooks` to inspect what actually loaded.
+6. Review the diff for accidental policy changes and record exact evidence in the task file.
+
+Claude Code changes quickly. Verify behavior against the current official documentation for
+[memory and rules](https://code.claude.com/docs/en/memory),
+[skills](https://code.claude.com/docs/en/skills),
+[subagents](https://code.claude.com/docs/en/sub-agents),
+[permissions](https://code.claude.com/docs/en/permissions), and
+[hooks](https://code.claude.com/docs/en/hooks) rather than preserving a version-specific workaround.

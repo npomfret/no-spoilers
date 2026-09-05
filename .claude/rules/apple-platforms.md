@@ -25,4 +25,7 @@ paths:
 - Current canonical wrappers are `scripts/verify-core-tests.sh`, `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, and `scripts/verify-widget-build.sh`.
 - Avoid hand-editing generated project artifacts if the repo uses a generator or managed workflow. Update the source-of-truth files instead.
 - Simulator or device assumptions must be explicit. When a destination matters, name the exact scheme and destination rather than relying on defaults.
+- Use only this project's named simulators: `NoSpoilers-iPhone` and `NoSpoilers-iPad` for ordinary
+  work; `NoSpoilers-iPhone-65` and `NoSpoilers-iPad-129` for App Store listing dimensions. Never
+  mutate a stock simulator or pass a raw UDID where a project-owned device name is accepted.
 - Never hardcode a user-visible string in view or model code. Every displayed string must go through the target's `Strings.swift`. See `docs/guides/swift-patterns.md` for the full rule and the distinction between shared-core strings and target-private strings.

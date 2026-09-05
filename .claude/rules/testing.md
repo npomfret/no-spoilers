@@ -1,10 +1,14 @@
 ---
 description: Verification rules for build, test, and evidence reporting.
+paths:
+  - "NoSpoilersCore/Tests/**/*.swift"
+  - "scripts/verify-*.sh"
+  - "scripts/**/*test*.py"
 ---
 
 # Testing Rules
 
-- Use the repo's approved verification commands or scripts. If the project has not standardized them yet, verify the real build and test entry points before running anything.
+- Use the repo's approved verification commands or scripts.
 - Prefer the canonical wrappers in `scripts/` for current Swift and Xcode verification.
 - Choose the smallest meaningful build, compile, test, or behavior-risk scope first.
 - Distinguish compile or build confidence from changed-behavior confidence. Do not run broader tests when a narrower check answers the question.

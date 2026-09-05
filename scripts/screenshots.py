@@ -12,7 +12,12 @@ What it does, per device:
 
 Two of those steps look redundant and are not.
 
-**The app is never launched.** `ScheduleStore.refresh()` fetches from the network
+**One bootstrap launch is required on a newly created simulator.** WidgetKit has not registered the
+extension until its containing app has launched once; without it, SpringBoard drops the widget and
+the script's supported-family error points at the wrong cause. Launch the app once, let it settle,
+terminate it, then run this script. The script seeds the fixture after that launch.
+
+**The app is never launched during capture.** `ScheduleStore.refresh()` fetches from the network
 and then calls `cache.save(...)` unconditionally — it does not consult
 `isFresh` — so the first refresh replaces the fixture with the real calendar.
 Launching the app to "make it pick up the data" destroys the data.
@@ -76,20 +81,18 @@ newest. As of 2026-08-13 the iPhone slot on this listing accepts 1242x2688 or
 the device, and `iPhone 17 Pro Max` at 1320x2868 is refused. Pass `--expect` and
 find out in seconds rather than at upload.
 
-**The first capture after `--install` is blank.** WidgetKit has not registered
-the extension yet, so the Home Screen draws an empty rounded rectangle — a
-correct screenshot of a widget with no timeline. Run it a second time; the
-capture is cheap and the second one is right. Installing can also leave the
-device on whichever page the new icon landed on rather than page 1, which looks
-exactly like a missing widget.
+**A fresh simulator without the bootstrap launch drops the widget.** Do not respond by changing
+`supportedFamilies`; launch the app once, terminate it, and rerun the capture. Installing can also
+leave the device on whichever page the new icon landed on rather than page 1, which looks exactly
+like a missing widget.
 
 Usage:
-    scripts/screenshots.py --device "iPhone 11 Pro Max" --expect 1242x2688
-    scripts/screenshots.py --device "iPhone 11 Pro Max" --device "iPad Pro 13-inch (M5)"
-    scripts/screenshots.py --device "iPhone 11 Pro Max" --widget-size small
+    scripts/screenshots.py --device "NoSpoilers-iPhone-65" --expect 1242x2688
+    scripts/screenshots.py --device "NoSpoilers-iPhone" --device "NoSpoilers-iPad"
+    scripts/screenshots.py --device "NoSpoilers-iPhone" --widget-size small
     scripts/screenshots.py --device "NoSpoilers-iPad" --widget-size extraLarge
-    scripts/screenshots.py --device "iPhone 11 Pro Max" --install path/to/NoSpoilersApp.app
-    scripts/screenshots.py --device "iPhone 11 Pro Max" --dry-run
+    scripts/screenshots.py --device "NoSpoilers-iPhone" --install path/to/NoSpoilersApp.app
+    scripts/screenshots.py --device "NoSpoilers-iPhone" --dry-run
 
 `--dry-run` is not the default, unlike testflight_distribute.py. That script
 defaults to dry-run because it writes to App Store Connect, where a mistake is
