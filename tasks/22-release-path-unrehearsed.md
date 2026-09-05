@@ -131,3 +131,13 @@ channel of `release.sh` is now exercised twice over — locally on 2026-08-22 an
 - **The installed distribution profiles expire.** Roughly a year, and the failure reads as a cloud
   signing permission error rather than an expiry. Admin role on `ASC6H3SL2D` is the durable fix.
 
+
+## Carried from task 25 when it closed — 2026-09-05
+
+**Whenever the next macOS build is made, photograph the popover first.** It has carried a bundled
+wordmark face since 2026-08-26 (`BrandTypeface`) that has never been seen on macOS: the build is
+green and the Core tests register the font in a macOS process, but no one has looked at the pixels.
+`mac_screenshots.py` quits whatever is in the menu bar and launches the app it is given, so it was
+not worth doing while the shipped app was live — which stops being true the moment a macOS release
+is on the table. If the face failed to load, the wordmark renders in the system font and nothing
+anywhere reports it.
