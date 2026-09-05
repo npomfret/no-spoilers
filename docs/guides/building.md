@@ -277,6 +277,13 @@ Both apps follow the system appearance (task 28), and the listing stays light. T
 side: `xcrun simctl ui <udid> appearance dark` before an iOS run, and `--appearance dark` on the Mac
 script, which flips the desktop for the capture and puts it back.
 
+What the dark side's first look (2026-09-05) did and did not cover: the macOS popover, Settings and
+About, the iOS main screen and the Home Screen widgets were captured and read in both appearances.
+The iOS About, Help and Alerts sheets, the Lock Screen widget families and the Live Activity were not,
+because the sheets need a tap the simulator cannot be given from a script and the other two are the
+manual cases in `screenshots.py`. They share every role with surfaces that were seen, and nobody has
+yet looked at them dark on a phone.
+
 **macOS had no tooling at all until 2026-08-22, and the listing shows it**: the only Mac image is a
 1280x800 file called `Gemini_Generated_Image_utojutojutojutoj.jpg` — a picture of an idea of the
 app, not the app. Guideline 2.3.3 wants screenshots of the app in use.

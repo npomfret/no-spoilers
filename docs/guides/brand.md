@@ -31,8 +31,9 @@ widget, the Live Activity and the app all read the same static constant and each
 host, and nothing reads `\.colorScheme`. The three state colours, `attention`, `confirmation` and
 `hoverFill` do not change: the first three were measured on charcoal and clear the same bar they
 clear on ivory, the other three are already system colours. Nothing forces `.preferredColorScheme`
-any more, and `tasks/28-dark-mode-follows-the-system.md` is why it took a Guideline 4 rejection to
-get here.
+any more. It took a Guideline 4 rejection to get here: in April 2026 (`398258c`) the reviewer ran
+the macOS popover in dark mode and its system text went white on the light gradient, the fix was to
+pin the subtree light, and the pins came off on 2026-09-05 once every surface had a dark value.
 
 ---
 

@@ -33,3 +33,5 @@ nothing anywhere reports it.
       commit — this is the first run to exercise that reuse path
 - [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
 - [ ] Popover photographed with the Chivo wordmark before the archive
+- [ ] Popover photographed dark as well, and the release note says the app now follows the
+      system appearance (task 28, 2026-09-05, asked for both)
