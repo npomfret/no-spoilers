@@ -1,6 +1,6 @@
 # Task 30: refuse to ship a version App Store Connect has already approved
 
-**Status: FILED, 2026-09-05. Not started.**
+**Status: DONE, 2026-09-05. All four phases built and verified; see Tracking.**
 
 ## The issue
 
@@ -87,11 +87,21 @@ reached the store.
 - Filed from the TeamCity logs of builds 3082, 3091 and 3106 (`NoSpoilers_PublishIos` #18–#20),
   read over the SSH tunnel on 2026-09-05. Each failed in `altool --validate-app` inside
   `release.sh`; the TeamCity side is healthy.
+- Built as the recommended option. `closed_train(get, app_id, platform, version)` sits beside
+  `train_builds` and takes the same `get` callable, so the selftests feed it dicts the way they
+  feed its sibling. It asks `/v1/apps/{id}/appStoreVersions` filtered by platform and version
+  string, then filters the answer again, so a version shipped on the Mac only leaves the iOS train
+  open and a server that ignored the filter could not read every shipped version as this one.
+  `--spent` asks it before `train_builds`, since a closed train refuses every number.
+- Real record, 2026-09-05, read-only:
+  `--spent ios 1.1.2 10022` printed `ios 1.1.2 is closed to new builds: it is READY_FOR_SALE`,
+  exit 3. `--spent ios 1.1.3 1` printed `ios 1.1.3 holds 0 build(s), none of them 1`, exit 0.
+  `--spent macos 1.1.2 99` exit 0 with 39 builds held: the Mac train of the same number is open.
 - The immediate release is not this task: `Publish iOS` with `publish.args = 1.1.3` opens the new
   train and ships the Live Activity fix and dark mode.
 
 Verification:
 
-- [ ] `scripts/verify-python-selftests.sh` passes with the new cases
-- [ ] `--spent ios 1.1.2 <free number>` exits 3 naming the state; `--spent ios 1.1.3 1` exits 0
-- [ ] `docs/guides/building.md` and the `ci-publish-ios.sh` comment carry the case
+- [x] `scripts/verify-python-selftests.sh` — appstore_status 112 cases, 0 failures, plus the other four scripts clean (2026-09-05)
+- [x] `--spent ios 1.1.2 10022` exits 3 naming READY_FOR_SALE; `--spent ios 1.1.3 1` exits 0 (2026-09-05)
+- [x] `docs/guides/building.md` release-engine bullet and the `ci-publish-ios.sh` usage comment carry the case

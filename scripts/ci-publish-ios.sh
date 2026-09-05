@@ -21,6 +21,12 @@ set -euo pipefail
 #   scripts/ci-publish-ios.sh 1.1.3    # opens a new version train
 #   scripts/ci-publish-ios.sh --check  # run the assertions and stop
 #
+# The first form is right while the project's version is still taking builds.
+# Once Apple has approved it the train is closed, and `release.sh` refuses
+# before the archive — on 2026-09-05 three runs with `publish.args` empty
+# reached altool before that check existed. After an approval, pass the next
+# version.
+#
 # **`--check` exists because the assertions are the only part of this that can
 # be tested without shipping something.** Whether a build agent's login keychain
 # is unlocked in its own session cannot be answered from an SSH shell, from a

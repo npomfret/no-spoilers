@@ -558,6 +558,40 @@ def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> di
     return spent
 
 
+def closed_train(get: "Callable[[str], dict]", app_id: str, platform: str, version: str) -> str | None:
+    """The `appStoreState` that has closed this marketing version to new builds, or None.
+
+    The other half of the question `train_builds` answers. **A free build number
+    in an approved version does not fail the build either.** Once a version is
+    on the store its train is closed, and `altool` refuses the package with
+    `90186 Invalid Pre-Release Train` — after the tests, the archive, the export
+    and the bump commit. Publish iOS builds 18, 19 and 20 on 2026-09-05 each
+    learned this the expensive way, shipping 1.1.2 the day after 1.1.2 was
+    approved, and left three bump commits on `main` for builds Apple never saw.
+
+    That state is a property of the `appStoreVersions` record, not of the
+    builds in the train, which is why `train_builds` cannot see it. `SHIPPED`
+    is the set of states that mean the version reached the store; a version
+    still in review or preparing for submission keeps taking builds.
+
+    The server filters by platform and version string, and the answer is
+    filtered again here: a version shipped on the *other* platform only is not
+    closed on this one, and a filter the server quietly ignored would otherwise
+    read every shipped version as this one.
+    """
+    response = get(
+        f"/v1/apps/{app_id}/appStoreVersions"
+        f"?filter[platform]={platform}&filter[versionString]={version}&limit=10"
+    )
+    for record in response["data"]:
+        attributes = record["attributes"]
+        if attributes.get("platform") != platform or attributes.get("versionString") != version:
+            continue
+        if attributes.get("appStoreState") in SHIPPED:
+            return attributes["appStoreState"]
+    return None
+
+
 def live_builds(builds: list[dict]) -> list[dict]:
     """The builds a tester could install, most recently uploaded first.
 
@@ -1172,7 +1206,8 @@ def main() -> int:
         "--spent",
         nargs=3,
         metavar=("PLATFORM", "VERSION", "BUILD"),
-        help="ask whether one (version, build) pair is already used on this platform, "
+        help="ask whether App Store Connect would refuse one (version, build) pair on this "
+        "platform — the number already used, or the version approved and its train closed — "
         f"and report nothing else. Exit 0 free, {SPENT_EXIT} spent, 1 the check failed.",
     )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
@@ -1187,7 +1222,14 @@ def main() -> int:
                 f"unknown platform {platform!r} (expected one of {', '.join(sorted(PLATFORM_FLAGS))})"
             )
         client = Client()
-        held = train_builds(client.get, find_app(client.get)["id"], PLATFORM_FLAGS[platform])
+        app_id = find_app(client.get)["id"]
+        # The train first: a closed train refuses every build number, so there
+        # is nothing to compare when it is.
+        state = closed_train(client.get, app_id, PLATFORM_FLAGS[platform], version)
+        if state:
+            print(f"{platform} {version} is closed to new builds: it is {state}")
+            return SPENT_EXIT
+        held = train_builds(client.get, app_id, PLATFORM_FLAGS[platform])
         train = held.get(version, set())
         if build in train:
             print(f"{platform} {version} already holds build {build}")
@@ -1679,6 +1721,33 @@ def _selftest() -> int:
     if orphan != {}:
         failures.append(f"train_builds placed a build with no train: {orphan}")
 
+    # `closed_train` is the other half of the same question, and the half that
+    # was missing when three Publish iOS runs shipped an approved 1.1.2. The
+    # payload is checked again after the server's filter, so the fixture mixes
+    # rows the filter should have removed.
+    def _store(*rows: tuple[str, str, str]) -> dict:
+        return {
+            "data": [
+                {
+                    "id": f"v{i}",
+                    "attributes": {"platform": platform, "versionString": string, "appStoreState": state},
+                }
+                for i, (platform, string, state) in enumerate(rows)
+            ]
+        }
+
+    if closed_train(lambda _: _store(("IOS", "1.1.2", "READY_FOR_SALE")), "123", "IOS", "1.1.2") != "READY_FOR_SALE":
+        failures.append("closed_train did not see an approved version as closed")
+    if closed_train(lambda _: _store(("IOS", "1.1.1", "REPLACED_WITH_NEW_VERSION")), "123", "IOS", "1.1.1") != "REPLACED_WITH_NEW_VERSION":
+        failures.append("closed_train reopened a version a newer one replaced")
+    if closed_train(lambda _: _store(("IOS", "1.1.3", "PREPARE_FOR_SUBMISSION")), "123", "IOS", "1.1.3") is not None:
+        failures.append("closed_train closed a version that is still taking builds")
+    if closed_train(lambda _: _store(), "123", "IOS", "1.1.3") is not None:
+        failures.append("closed_train closed a version App Store Connect has never heard of")
+    # Shipped on the Mac only: the iOS train of the same number is open.
+    if closed_train(lambda _: _store(("MAC_OS", "1.1.2", "READY_FOR_SALE")), "123", "IOS", "1.1.2") is not None:
+        failures.append("closed_train closed an iOS train because the Mac shipped that number")
+
     # argparse exits 2 on a usage error of its own, so the spent answer cannot
     # also be 2 — a mistyped flag would reach a release script wearing the
     # answer "that build number is taken".
@@ -1893,7 +1962,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 107 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 112 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

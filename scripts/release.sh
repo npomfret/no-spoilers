@@ -262,7 +262,10 @@ fi
 # **A spent (version, build) pair does not fail the build.** It compiles,
 # archives, exports, uploads, goes green, and dies minutes later by email at
 # "Preparing build for App Store Connect failed" — after every expensive step
-# has already succeeded. One GET answers it beforehand.
+# has already succeeded. Nor does an approved version: its train is closed,
+# and altool refuses the package at validation, after the archive and after
+# the bump commit below has been pushed — three times on 2026-09-05. Two GETs
+# answer both beforehand.
 #
 # The exit codes are read rather than the output: 0 free, 3 taken, anything else
 # means the check itself did not run. Collapsing those would let a missing key
@@ -279,9 +282,10 @@ if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
     0) ;;
     3)
       echo "" >&2
-      echo "That build number is already used in this version, and Apple would refuse the" >&2
-      echo "upload after the archive rather than before it. Pick another with --build," >&2
-      echo "or open a new train by shipping a different version. Nothing was built." >&2
+      echo "Apple would refuse that upload after the archive rather than before it — the line" >&2
+      echo "above says whether the build number is taken or the version is already approved." >&2
+      echo "Pick another number with --build, or open a new train by shipping a different" >&2
+      echo "version. Nothing was built." >&2
       exit 1
       ;;
     *)
