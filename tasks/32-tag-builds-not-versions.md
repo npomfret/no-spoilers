@@ -131,9 +131,15 @@ Verification:
       tag ios/v1.1.2 there"
 - [x] `tag_approved.py ios 1.1.2 --apply` wrote `ios/v1.1.2` on ed1951b (build 10012's Built-From
       commit) and pushed it, 2026-09-05; a second run reported it already there
-- [ ] One `Publish iOS` press with `publish.args` empty: no new commit on `main` (the version is
-      unchanged), `build/10023` on origin pointing at the archived commit, the archive log
-      showing both bundles at 10023, the TestFlight note naming that commit
+- [x] One `Publish iOS` press with `publish.args` empty — build 23, 2026-09-05 19:46–19:49 UTC,
+      green: `--next-build` chose 10023, the version was unchanged and nothing was committed,
+      the log shows `NoSpoilersApp.app: 10023` and its widget extension at 10023, `build/10023`
+      is on origin pointing at `bf44f3d` (the archived commit, still `origin/main`), and once
+      Apple had processed the build the note reader's dry run said *Would set 'Build 10023 from
+      bf44f3d22e31', from the build/10023 tag*. The note itself is written by
+      `testflight_distribute.py --apply`, which is the delivery step and a separate decision.
+      Xcode Cloud is uploading again — iOS build 100 landed ten minutes before this one — so
+      both bands are live on the record at once, as documented.
 - [ ] A `ship.sh` run (task 26) with one number on both platforms, taken from `next_build_number`
 
 Residual risk: a rewritten history moves what `build/` tags point at, exactly as it moved what
