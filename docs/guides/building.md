@@ -28,6 +28,8 @@ each cancelled 5–8 seconds after creation with `startedDate: None` and no `can
 `POST /v1/ciBuildRuns` answers `500`. Nothing announces this: a push produces a run that goes away,
 and the app record simply stops gaining builds. Until it resets, **a release is a local
 `scripts/ship-ios.sh` run**, which is the path the rest of this section treats as the exception.
+**It reset**: on 2026-09-05 run 102 archived and uploaded both platforms from `b34615d`, so pushes
+to `main` produce builds again and every one of them still needs handing over (see below).
 `1.1.2 build 10003` went out that way on 2026-08-22. Two things follow, and both are handled rather
 than merely known: the build lands in the 10000 band (see the train-ordering note below), and its
 *What to Test* note comes from git rather than from a run.
@@ -126,6 +128,22 @@ Whether 10008's failure recurs on a tagged build is the first thing to look at a
 three minutes once an agent was free. Queueing is the real cost — three agents serve the whole
 estate, and a `--check` run waits behind everything.
 
+**`Distribute iOS` and `Distribute macOS` hand an uploaded build to the Internal testers.** Added
+2026-09-05, the afternoon a macOS build sat processed on App Store Connect and in no group while
+the iOS build from the same Xcode Cloud run was already on a phone: the step that was always a
+command somebody runs is now also a button somebody presses. Each is one step, `python3
+scripts/testflight_distribute.py --platform <p> --apply %distribute.args%`, on the same VCS root as
+`Publish iOS`; `distribute.args` is empty by default and is where `--submit` or `--group <name>`
+goes. Deliberately unlike `Publish iOS` in three ways: no snapshot dependency on `Verdict`, because
+the build being handed over was archived by Xcode Cloud or by an earlier press and the revision
+checked out only supplies the script; no lock, because nothing compiles; and one per platform
+rather than one for both, because the script delivers one platform per run and a Mac build is a
+separate decision from the iOS one. The script fetches tags itself, and the two App Store Connect
+keys `ci-publish-ios.sh` asserts are the ones it needs — it fails loudly without the App Manager
+key rather than reading as done. A run is red when a group refuses the build (the script exits 1),
+and a press with nothing to deliver is green and says "already there". Neither had been pressed at
+the time of writing.
+
 - Xcode Cloud archives **both** schemes on every push to `main` and uploads both: `NoSpoilersApp` for iOS and `NoSpoilers` for macOS, two ARCHIVE actions in one workflow. **The build arrives attached to no tester group and nobody can install it until it is put in one** — that is a command somebody runs, deliberately, not a post-action. The argument for that, and the rest of what handing a build over involves, is under **TestFlight** below. Its hook lives in `NoSpoilers/ci_scripts/`, beside the Xcode project — Xcode Cloud ignores a `ci_scripts` directory at the repository root.
   - **The macOS action was added 2026-08-14.** Before it, macOS had no CI, no test gate and no beta channel, so Homebrew was the only fast way to get a Mac build to anyone — which is why it read as the core product however often the docs called it an add-on. One workflow rather than two, deliberately: actions in a workflow share the run number, so one commit produces iOS build N and macOS build N. Two workflows would have made the platforms drift apart by build number for no gain, which is the same defect `ship.sh` was just fixed for.
   - Actions run concurrently and the distribution audience belongs to each archive action alone, so a macOS signing failure does not stop the iOS build being delivered. That is the same property that makes the pre-build hook the only real gate.
@@ -174,7 +192,7 @@ estate, and a `--check` run waits behind everything.
 - **What does fix it is opening a new train**: bump `MARKETING_VERSION`. A fresh train contains no `10000`-band build, so the next Xcode Cloud run is top of its own group. Done on 2026-08-17, 1.1.1 → 1.1.2, with `CURRENT_PROJECT_VERSION` left at `10002`. The catch: shipping that train with `release.sh` puts `10003` into it and the problem returns — which is what happened on 2026-08-22, Xcode Cloud having no quota left to put anything above it. Tidying an existing train means expiring the `10000`-band builds in App Store Connect, which is a browser action — `scripts/appstore_status.py` is GET-only by design.
 - No CI script can influence the build number that reaches App Store Connect: Xcode Cloud rewrites `CFBundleVersion` to `CI_BUILD_NUMBER` when it exports the IPA, after the hook and after the archive. The stamp exists so the archive agrees with the upload, not to control it. Measured on run 3, which stamped `1003`: the xcarchive read `1003` and the uploaded IPA read `3`. An earlier `BUILD_OFFSET=1000` in the hook was built on the assumption that it could, and run 3 is what disproved it.
 - Xcode Cloud does not gate delivery on its TEST action, so the `verify-core-tests.sh` call in `ci_pre_xcodebuild.sh` is the only test gate on TestFlight builds. Removing it leaves runs green and the gate gone.
-- **An Xcode Cloud build reaches no tester group on its own.** `scripts/testflight_distribute.py` is the step that hands it over — dry-run by default, `--apply` to act, `--apply --submit` to send an external build for Beta App Review. Nothing runs it for you; that is Phase 1 step 6's deliberate choice, and forgetting it looks exactly like success.
+- **An Xcode Cloud build reaches no tester group on its own.** `scripts/testflight_distribute.py` is the step that hands it over — dry-run by default, `--apply` to act, `--apply --submit` to send an external build for Beta App Review. Nothing runs it for you; that is Phase 1 step 6's deliberate choice, and forgetting it looks exactly like success. Since 2026-09-05 it is also two buttons, `Distribute iOS` and `Distribute macOS` on `ci.snowmonkey.co.uk`, one per platform because the script delivers one platform per run; see *Publishing from TeamCity*. A button is still a person pressing it.
   - **Newest means most recently uploaded, not the highest build number.** The two upload bands above make numeric order meaningless: a fresh CI build is `5` while last month's manual upload is `10001`.
   - It touches internal groups only unless `--group` names one, so no default can ever feed the public link.
   - **It also repairs the *What to Test* note**, since the hook's file is only sometimes picked up. It asks the Xcode Cloud run for the commit — a build's version is its run number — and writes `whatsNew` over the API. The test is not "is there a note" but "does the note name *this* build": the failure mode is a well-formed note about somebody else's commit, which reads as correct and describes changes the tester does not have.
