@@ -13,7 +13,7 @@ Deliver non-trivial product or code changes without introducing pattern drift, d
 ## Required flow
 
 1. Load applicable path rules and `pattern-governance-reference` before writing.
-2. Use `task-workflow` to create or update the task file required for planned or complex work.
+2. Use `task-files` to create or update the task file required for planned or complex work.
 3. Define the observable outcome and the checks that will prove it.
 4. Inspect the current implementation before planning edits:
    - upstream callers and entry points

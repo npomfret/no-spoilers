@@ -14,7 +14,7 @@ This guide maps the current control plane and the places that define repo standa
 8. `.claude/skills/build-verify/SKILL.md` — compile, build, and toolchain verification workflow.
 9. `.claude/skills/test-changes/SKILL.md` — targeted behavior-risk verification workflow.
 10. `.claude/skills/review-working-tree/SKILL.md` — read-only correctness and pattern-drift review workflow.
-11. `.claude/skills/task-workflow/SKILL.md` — task-file lifecycle for planned and complex work.
+11. `task-files` (the `task-files@npomfret` plugin, enabled in `.claude/settings.json`) — task-file lifecycle for planned and complex work. The wording is shared with every other project and is edited in `npomfret/agent-standards`, not here.
 12. `.claude/skills/bug-investigation/SKILL.md` — controlled, reversible diagnosis for observed failures.
 13. `.claude/skills/claude-setup-maintenance/SKILL.md` — workflow for maintaining Claude Code instructions and automation.
 14. `.claude/agents/codebase-explorer.md` — plan-mode discovery and pattern lookup specialist.

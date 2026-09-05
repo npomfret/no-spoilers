@@ -18,7 +18,8 @@ acceptance is the current product priority.
 - Preserve unrelated changes. Do not take destructive actions without approval, and do not claim
   completion without executed command evidence.
 - Work on `main`; do not create branches unless explicitly asked.
-- Planned work and complex unplanned work require one current task file under `tasks/`.
+- Planned work and complex unplanned work require one current task file under `tasks/`; the
+  lifecycle is the `task-files` skill.
 - Releases, App Store Connect writes, review replies, and simulator mutation require explicit user
   intent. Inspect the owning script and current remote state immediately before acting.
 
