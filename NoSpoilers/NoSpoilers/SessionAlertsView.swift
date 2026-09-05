@@ -62,9 +62,6 @@ struct SessionAlertsView: View {
             .padding(.vertical, Theme.Space.lg)
         }
         .background(NoSpoilersBackground())
-        // Matches AboutView: NoSpoilersBackground is a hardcoded light gradient, so the subtree
-        // has to resolve system colours light or the text goes unreadable on a dark-mode device.
-        .preferredColorScheme(.light)
     }
 
     /// Says so when iOS is holding the countdown back.

@@ -660,7 +660,7 @@ struct NoSpoilersWidgetEntryView: View {
 /// The container background, and which families get one.
 ///
 /// **Only the system families do.** `NoSpoilersBackground` is the app's own
-/// dark surface; on the Lock Screen the system supplies the material and draws
+/// opaque surface; on the Lock Screen the system supplies the material and draws
 /// the widget over the wallpaper, so a filled background there is at best
 /// ignored and at worst a plate over someone's photo — and which of those you
 /// get differs between the Lock Screen, StandBy and the tinted Home Screen.
@@ -716,7 +716,7 @@ struct NoSpoilersWidget_Previews: PreviewProvider {
     /// itself uses.
     ///
     /// **The background moved off the `Group` to get here.** Applying it once
-    /// to all six would draw the accessory families over the app's own dark
+    /// to all six would draw the accessory families over the app's own opaque
     /// surface, which is the one thing they are never drawn on — and a Lock
     /// Screen tile that looks right in a preview and wrong on a phone is worse
     /// than no preview.

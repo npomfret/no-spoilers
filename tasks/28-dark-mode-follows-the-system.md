@@ -1,6 +1,6 @@
 # Task 28: dark mode on iOS and macOS, following the system
 
-**Status: IN PROGRESS. Raised 2026-09-05; phases 1 and 2 landed the same day.**
+**Status: IN PROGRESS. Raised 2026-09-05; phases 1 to 3 landed the same day. Phase 4, the pixels, is what is left.**
 
 ## The issue
 
@@ -88,6 +88,12 @@ Decisions taken at filing:
 - App Store screenshots stay light; re-shooting the listing in dark is a separate decision.
 - The website (`docs/styles.css` has no `prefers-color-scheme`) is out of scope.
 
+Findings from phase 3 (2026-09-05): the widget backdrop and the menu bar label needed no
+change, as hoped — the backdrop is `NoSpoilersBackground`, which is three roles now, and the
+label draws system text on `Color.clear` with an orange dot, all of which already followed the
+menu bar. The Live Activity tint moved from `BrandPalette.ivory` to `Theme.Palette.surface` in
+phase 2, since that edit had to happen anyway once ivory stopped being a role.
+
 Decisions taken in phases 1 and 2 (2026-09-05):
 
 - **The pairing lives in `Theme.Palette`, not `BrandPalette`.** The brainstorm said "inside
@@ -116,8 +122,9 @@ Verification:
 - [x] `scripts/verify-core-tests.sh` (111 tests), `scripts/verify-mac-build.sh`,
       `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh` — all green after phase 2
 - [x] `docs/guides/brand.md` dark column with measured contrast ratios
-- [ ] No `preferredColorScheme` and no colour literal outside `BrandPalette.swift` in the tree
-      (phase 2 half done: the only literals left are the `surfaceFinished` pair)
+- [x] No `preferredColorScheme` and no colour literal outside `BrandPalette.swift` in the tree
+      (the only literals left are the `surfaceFinished` pair; the four pins came off in phase 3
+      and all four verify scripts passed again afterwards)
 - [ ] Dark and light captures of every surface listed in phase 4, looked at, not just taken
 
 Residual risk: this is the surface that has already been rejected once. Ship it as its own

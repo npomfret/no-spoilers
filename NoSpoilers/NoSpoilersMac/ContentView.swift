@@ -333,11 +333,11 @@ struct MenuBarPopoverRootView: View {
             }
         }
         .frame(width: 300)
-        // Popover uses a hardcoded light gradient brand aesthetic; force the
-        // SwiftUI subtree to resolve `.primary`/`.secondary`/`.tertiary` via
-        // the light colour palette so text stays readable regardless of the
-        // user's system appearance. See Guideline 4 rejection, April 2026.
-        .preferredColorScheme(.light)
+        // Not pinned light any more. This subtree was `.preferredColorScheme(.light)` from the
+        // Guideline 4 rejection of April 2026 until 2026-09-05, because the ground was a
+        // hardcoded light gradient and the text was system colours. Both now come from
+        // `Theme.Palette` roles with a value per appearance, so the popover follows the system
+        // and the system controls in Settings follow it too.
     }
 }
 
