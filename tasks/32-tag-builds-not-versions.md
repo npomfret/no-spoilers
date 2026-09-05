@@ -1,7 +1,7 @@
 # Task 32: tag builds and approvals, and stop committing the build number
 
-**Status: BUILT, 2026-09-05. Steps 1–5 landed; awaiting the first `Publish iOS` press and the
-`tag_approved.py ios 1.1.2 --apply` run, both of which push to origin.**
+**Status: BUILT, 2026-09-05. Steps 1–5 landed and `ios/v1.1.2` is on origin; awaiting the first
+`Publish iOS` press and a `ship.sh` run.**
 
 ## The issue
 
@@ -129,7 +129,8 @@ Verification:
       exited 3 (not submitted)
 - [x] `tag_approved.py ios 1.1.2` dry run: "build 10012 was archived from ed1951b612c9 … would
       tag ios/v1.1.2 there"
-- [ ] `tag_approved.py ios 1.1.2 --apply` — pushes a tag; a person runs it
+- [x] `tag_approved.py ios 1.1.2 --apply` wrote `ios/v1.1.2` on ed1951b (build 10012's Built-From
+      commit) and pushed it, 2026-09-05; a second run reported it already there
 - [ ] One `Publish iOS` press with `publish.args` empty: no new commit on `main` (the version is
       unchanged), `build/10023` on origin pointing at the archived commit, the archive log
       showing both bundles at 10023, the TestFlight note naming that commit
