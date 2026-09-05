@@ -17,15 +17,23 @@ set -euo pipefail
 # build queue or die ten minutes in.
 #
 # Usage:
-#   scripts/ci-publish-ios.sh          # ships the version the project holds
-#   scripts/ci-publish-ios.sh 1.1.3    # opens a new version train
+#   scripts/ci-publish-ios.sh          # ships the project's version, or the next one
+#   scripts/ci-publish-ios.sh 1.2.0    # ships exactly this version
 #   scripts/ci-publish-ios.sh --check  # run the assertions and stop
 #
-# The first form is right while the project's version is still taking builds.
-# Once Apple has approved it the train is closed, and `release.sh` refuses
-# before the archive — on 2026-09-05 three runs with `publish.args` empty
-# reached altool before that check existed. After an approval, pass the next
-# version.
+# **The first form has to just work, every time the button is pressed.** While
+# the project's version is still taking builds it ships that version, so a
+# train fills up with TestFlight builds the ordinary way. Once Apple has
+# approved it the train is closed and every further upload of it is refused,
+# so this asks App Store Connect first and, when the train is closed, ships
+# the next patch version instead — `suggest_next_version`, the same answer
+# `ship.sh` offers at its prompt. On 2026-09-05 four runs were pressed with
+# `publish.args` empty the day after 1.1.2 was approved: three reached altool
+# before `release.sh` learned to refuse a closed train, and the fourth was
+# refused in two seconds and was still a red build for pressing a button.
+# The decision is here and not in `release.sh` on purpose: the engine ships
+# the version it is told and never guesses, and this is the one caller that
+# is not a person who can be asked.
 #
 # **`--check` exists because the assertions are the only part of this that can
 # be tested without shipping something.** Whether a build agent's login keychain
@@ -62,7 +70,9 @@ if [[ "${1:-}" == "--check" ]]; then
   CHECK_ONLY="yes"
   shift
 fi
-VERSION="${1:-$(current_marketing_version)}"
+# The version is decided below, after the preflight: choosing it can need the
+# App Store Connect key, which step 2 asserts.
+REQUESTED_VERSION="${1:-}"
 
 fail() {
   echo "" >&2
@@ -151,9 +161,42 @@ esac
 git config user.name  >/dev/null || fail "no git user.name on this agent, so the bump commit has no author"
 git config user.email >/dev/null || fail "no git user.email on this agent, so the bump commit has no author"
 
+# ── 4. Which version ─────────────────────────────────────────────────────────
+#
+# Told one, ship it; `release.sh` still refuses it if Apple would. Told
+# nothing, ship the project's version while its train is open and the next
+# patch version once it is closed. The question is `appstore_status.py
+# --train`, and its exit codes are read the same way `release.sh` reads
+# `--spent`: 0 open, 3 closed, anything else means the question was not
+# answered and the run stops rather than guessing. Tags are fetched first
+# because `suggest_next_version` skips versions that are already tagged, and
+# a TeamCity checkout does not carry them on its own.
+
+if [[ -n "$REQUESTED_VERSION" ]]; then
+  VERSION="$REQUESTED_VERSION"
+else
+  PROJECT_VERSION="$(current_marketing_version)"
+  echo "==> Asking App Store Connect whether ios ${PROJECT_VERSION} is still taking builds..."
+  set +e
+  python3 "${SCRIPT_DIR}/appstore_status.py" --train ios "${PROJECT_VERSION}"
+  TRAIN_STATUS=$?
+  set -e
+  case "$TRAIN_STATUS" in
+    0) VERSION="$PROJECT_VERSION" ;;
+    3)
+      git fetch --quiet --tags origin
+      VERSION="$(suggest_next_version)"
+      echo "  ${PROJECT_VERSION} is closed, so this run opens ${VERSION}."
+      ;;
+    *) fail "could not find out whether ${PROJECT_VERSION} is still taking builds (exit ${TRAIN_STATUS}), so no version was chosen" ;;
+  esac
+fi
+
 # ── Hand over ────────────────────────────────────────────────────────────────
 
 if [[ -n "$CHECK_ONLY" ]]; then
+  echo ""
+  echo "This run would ship iOS ${VERSION}."
   echo ""
   echo "Preflight passed. This agent can sign, can upload and can push."
   echo "Nothing was built and nothing was shipped: --check was passed."

@@ -1184,8 +1184,8 @@ def render(report: dict) -> str:
     return "\n".join(lines)
 
 
-# What `--spent` means to a shell caller, which cannot tell one non-zero exit
-# from another. `SystemExit("message")` exits 1 for a missing key, an HTTP
+# What `--spent` and `--train` mean to a shell caller, which cannot tell one
+# non-zero exit from another. `SystemExit("message")` exits 1 for a missing key, an HTTP
 # error or an unreadable answer, so 1 has to mean "the check did not run" and
 # the answer needs a code of its own. A release script that read a network
 # failure as "the number is free" would build for ten minutes and be refused at
@@ -1210,10 +1210,21 @@ def main() -> int:
         "platform — the number already used, or the version approved and its train closed — "
         f"and report nothing else. Exit 0 free, {SPENT_EXIT} spent, 1 the check failed.",
     )
+    parser.add_argument(
+        "--train",
+        nargs=2,
+        metavar=("PLATFORM", "VERSION"),
+        help="ask only whether this version is still taking builds on this platform. "
+        f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. `ci-publish-ios.sh` asks this "
+        "to decide which version to ship when it was not told one.",
+    )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
 
-    if arguments.spent:
-        platform, version, build = arguments.spent
+    if arguments.spent and arguments.train:
+        raise SystemExit("--spent and --train are two questions; ask one")
+
+    if arguments.spent or arguments.train:
+        platform, version = (arguments.spent or arguments.train)[:2]
         # `platform_flag` runs the other way — API spelling to flag — and the
         # names differ by more than case, so the wrong direction resolves to a
         # hard stop rather than to a wrong query.
@@ -1224,11 +1235,15 @@ def main() -> int:
         client = Client()
         app_id = find_app(client.get)["id"]
         # The train first: a closed train refuses every build number, so there
-        # is nothing to compare when it is.
+        # is nothing to compare when it is. `--train` stops here either way.
         state = closed_train(client.get, app_id, PLATFORM_FLAGS[platform], version)
         if state:
             print(f"{platform} {version} is closed to new builds: it is {state}")
             return SPENT_EXIT
+        if arguments.train:
+            print(f"{platform} {version} is still taking builds")
+            return 0
+        build = arguments.spent[2]
         held = train_builds(client.get, app_id, PLATFORM_FLAGS[platform])
         train = held.get(version, set())
         if build in train:
