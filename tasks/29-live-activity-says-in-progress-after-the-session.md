@@ -89,8 +89,9 @@ Decisions taken at filing:
   `ActivityViewContext.display`, and every presentation draws from that.
 - Phase 3 is **not** done. The re-render at the stale date is what the fix rests on, and it has
   been checked by build and by test only. It needs a phone, a session minutes from its stale date,
-  and an hour of not opening the app; the method is in `docs/guides/testing.md`. The next Italian
-  GP session is qualifying at 15:00 BST today, grace end 16:30 BST.
+  and an hour of not opening the app; the method is in `docs/guides/testing.md`. Planned for the race on
+  2026-09-06: install a build with the fix, open the app once after the 14:00 BST start so the
+  activity is pushed as live, lock the phone, and read the card after the 17:30 BST grace end.
 - The finished state stays neutral. A finished Live Activity is still content on a locked
   screen the reader cannot decline; it says the session is over and nothing more.
 
