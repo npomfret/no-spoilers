@@ -58,31 +58,45 @@ app target is `NoSpoilersApp` and lives in `NoSpoilers/NoSpoilers/`.
 
 ### Data Flow
 
-1. iOS app fetches `https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json` on launch
-2. Decoded `[Session]` written to App Group shared container
-3. Widget extension reads from shared container, generates WidgetKit timeline
-4. Timeline reloads at `min(nextSession.startsAt, currentSession.endsAt)` — whichever comes first
-5. macOS app fetches independently, caches in its own container
+1. `ScheduleFetcher` reads the feed's `config.json` for `calendarOutputYear`, then fetches
+   `<feed root>/<year>.json`. The year is never hard-coded and never taken from the clock; the feed
+   says which season it is publishing, and that is the only signal that is actually about the data.
+2. Decoded `[RaceWeekend]` is written to the App Group shared container by `ScheduleStore`
+3. Widget extension reads from the shared container and builds a WidgetKit timeline
+4. `TimelinePlanner` decides the entry dates and the `.after(_:)` reload date from the session
+   boundaries ahead — it is a pure function of `now` so the arithmetic is testable
+5. macOS app fetches independently through the same `ScheduleStore`, into its own container
 
-Fallback: a bundled copy of the season JSON ships inside the app binary. If the network fetch fails, the bundled JSON ensures the widget never shows a blank state.
+There is no bundled copy of the season. If a refresh fails, `ScheduleStore` keeps whatever it has
+already published, or loads the last successful fetch from the cache when it has nothing. A first
+launch with no network shows the empty state rather than a guess.
 
 ### Domain Model
 
 ```swift
-struct Session: Codable, Identifiable, Hashable {
+struct RaceWeekend: Codable, Identifiable, Hashable {   // what the feed decodes into
+    let round: Int
+    let name: String                                    // "Australian"
+    let location: String
+    let sessions: [SessionKind: Date]
+    // No result fields. Not optional. Not ignored. They don't exist.
+}
+
+struct Session: Identifiable, Hashable {                // derived per session for the views
     var id: String { "\(round)-\(kind.rawValue)" }
     let round: Int
     let grandPrixName: String
-    let circuitName: String
     let location: String
     let kind: SessionKind
     let startsAt: Date
-    let endsAt: Date
-    // No result fields. Not optional. Not ignored. They don't exist.
+    var endsAt: Date { startsAt.addingTimeInterval(kind.defaultDuration) }
 }
 ```
 
-A session is "watchable" when `endsAt < Date.now`.
+A session is "watchable" once it has ended. The scheduled end is `startsAt` plus the kind's default
+duration; during the overrun grace window after that, `SessionEndConfirmer` asks OpenF1 whether the
+session has actually finished and stores the confirmed end in the App Group, so a red-flagged race
+is not called safe while it is still running.
 
 ## Platform Requirements
 
@@ -97,31 +111,43 @@ Both app targets set a deployment target of 26.2. The `NoSpoilersCore` package d
 
 **f1calendar.com** — community-maintained, schedule-only JSON feed. Ergast API is deprecated as of late 2024; do not use it.
 
-Feed URL: `https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json`
+Feed root: `https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/`. The season file is
+`<calendarOutputYear>.json`, with the year read from `config.json` at the same root.
 
 The feed schema has been verified to contain no result data.
 
+**OpenF1** is the only other network source. It is queried for one thing — whether a session has
+finished — and only during the grace window after a session's scheduled end. Nothing else from it
+enters the model.
+
 ## Install
+
+Both apps are on the App Store under one listing:
+[apps.apple.com/gb/app/id6761343835](https://apps.apple.com/gb/app/id6761343835). The iPhone app
+went live on 2026-09-02.
+
+The macOS menu bar app is also on Homebrew:
 
 ```bash
 brew install --cask npomfret/tap/no-spoilers
 ```
 
-This installs the macOS menu bar app. Updates via `brew upgrade`.
+Updates via `brew upgrade`.
 
 ## Development
 
 Open in Xcode. No dependencies beyond the Swift standard library and Apple frameworks.
 
-Required entitlements (iOS):
-- `com.apple.security.network.client`
-- `com.apple.security.application-groups` (shared between app and widget extension)
+Required entitlement (iOS app and widget extension):
+- `com.apple.security.application-groups` — the shared container the widget reads
 
 ### Releasing
 
 Four wrapper scripts handle distribution, all over the one engine `scripts/release.sh`. Each
-suggests the next version, commits the bump, and pushes before building. **Releases run on your
-machine — there is no CI release path.**
+suggests the next version, runs the Core tests as a gate, archives, and only then commits and pushes
+the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or for
+iOS from the manual `Publish iOS` configuration on TeamCity, which runs the same script on a
+verified revision; see *Publishing from TeamCity* in `docs/guides/building.md`.
 
 | Script | What it does |
 |--------|-------------|
@@ -291,7 +317,9 @@ only `--install` clears a stored timeline: `docs/guides/building.md`.
 
 `docs/guides/` is the design and architecture reference. `important-code.md` maps the control
 plane and the files that define repo standards; `brand.md` is the cross-platform token spec
-covering the three app targets and the GitHub Pages marketing surface.
+covering the three app targets and the GitHub Pages marketing surface; `building.md` is the
+long-form account of every build, CI and delivery path; `testing.md` and `swift-patterns.md` hold
+the conventions the code is expected to follow.
 
 ## Tasks
 
