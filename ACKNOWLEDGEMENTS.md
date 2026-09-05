@@ -25,14 +25,6 @@ SVG country flag icons.
 
 MIT License — Copyright (c) 2013 Panayiotis Lipiridis
 
-## F1 Logo
-
-**Wikimedia Commons** — https://commons.wikimedia.org/wiki/File:Formula_One_logo.svg
-
-Vector version of the classic Formula 1 "flying one" wordmark, tagged as
-`{{PD-textlogo}}` on Wikimedia Commons (considered ineligible for copyright
-protection in the United States as a simple text-and-shape mark).
-
 ## Trademarks
 
 Formula 1, F1, and related marks are trademarks of Formula One Licensing BV.
