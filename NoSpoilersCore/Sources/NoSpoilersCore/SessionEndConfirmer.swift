@@ -15,6 +15,11 @@ public final class SessionEndConfirmer {
     public private(set) var confirmedEndDates: [String: Date] = [:]
 
     /// Called on the main actor whenever a new confirmed end date is stored.
+    ///
+    /// Known gap, noted 2026-09-05 and not closed: `ScheduleStore` forwards this to
+    /// `objectWillChange` and nothing more, so a confirmed end reaches the app's views and never
+    /// asks WidgetKit to reload. The widget catches up at its next timeline boundary, which the
+    /// grace window bounds. Separate task if it is ever seen to matter.
     var onChange: (() -> Void)?
 
     private let appGroupID: String?

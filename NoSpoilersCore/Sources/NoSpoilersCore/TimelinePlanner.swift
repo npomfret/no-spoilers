@@ -89,6 +89,11 @@ public enum TimelinePlanner {
         // whatever the feed contains — including the off-season, where the only entry is `now`.
         // If the cap truncated the list, come back at the last boundary kept instead, so the widget
         // is never left showing state it has already outlived.
+        //
+        // Known gap, noted 2026-09-05 and not closed: the reload is asked for at the same instant
+        // the last entry is due, and `.after(_:)` is "not before". A late reload leaves that last
+        // entry on screen for however late WidgetKit is. Planning entries past the reload date
+        // would close it; nobody has yet seen it in the wild, so it is not built.
         let truncated = kept.count < boundaries.count
 
         return TimelinePlan(
