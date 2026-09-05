@@ -1,6 +1,7 @@
 # Task 32: tag builds and approvals, and stop committing the build number
 
-**Status: FILED, 2026-09-05. Not started.**
+**Status: BUILT, 2026-09-05. Steps 1–5 landed; awaiting the first `Publish iOS` press and the
+`tag_approved.py ios 1.1.2 --apply` run, both of which push to origin.**
 
 ## The issue
 
@@ -85,7 +86,7 @@ Each step leaves every current caller working; the bump-commit history stays rea
 
 ## Tracking
 
-Decisions taken at filing, open to being overruled before step 2 starts:
+Decisions taken at filing and kept:
 
 - The bare `vX.Y.Z` keeps one meaning going forward, the Developer ID release, because the
   Homebrew cask URL is built from it. The 26 existing bare tags mean "first upload of the train"
@@ -93,22 +94,49 @@ Decisions taken at filing, open to being overruled before step 2 starts:
 - A second press on an unchanged commit gets a new number and a second `build/` tag on the same
   commit. That is the honest record, and it is the same case the TestFlight note already handles
   as "a re-ship with no work in between".
-- `git fetch --tags` is required wherever `build/` tags are read; the TeamCity checkout does not
-  carry tags (task 31 fetches them already). `testflight_distribute.py` runs on the laptop.
+- `git fetch --tags` is required wherever `build/` tags are read; `next_build_number`,
+  `release.sh`'s preflight, `testflight_distribute.py` and `tag_approved.py` each fetch first.
 
-Verification, to be ticked as each lands:
+Where the build departed from the plan, and why (2026-09-05):
 
-- [ ] `scripts/verify-python-selftests.sh` green with the new `--next-build`, `--approved` and
-      `ship_commit` cases
-- [ ] `--next-build` against the real record prints 10023
-- [ ] `--approved ios 1.1.2` against the real record prints 10012
-- [ ] One `Publish iOS` press with `publish.args` empty: no new commit on `main`, `build/10023`
-      on origin pointing at the archived commit, the app and extension plists both reading 10023,
-      the TestFlight note naming that commit
-- [ ] `scripts/tag-approved.sh ios 1.1.2` writes `ios/v1.1.2` on `bump to v1.1.2 (build 10012)`'s
-      Built-From commit
-- [ ] A `ship.sh` run (task 26) with one number on both platforms, taken from `--next-build`
+- **The `open vX.Y.Z` commit is pushed before the archive, not after.** The plan kept the
+  bump commit's slot. Moving it first is what makes `ship.sh` work: the macOS run commits the
+  version and tags `build/N`, and the iOS run has to find that tag on its own `HEAD`, which it
+  cannot if the version commit lands after the tag. It also retires the `Built-From:` reasoning
+  entirely — a rebase can now only reorder what is about to be built — and a failed archive
+  leaving `open v1.1.4` on `main` is an honest statement about the project.
+- **The archive is checked, not the exported package.** The export re-signs what the archive
+  holds and rewrites nothing, and checking the archive catches a wrong number before the tag as
+  well as before the upload. Every `.app` and `.appex` under `Products/Applications` must read N;
+  iOS must hold two bundles, macOS holds one (the Mac target embeds no extension).
+- **The next number is the higher of App Store Connect's and the `build/` tags', plus one.**
+  A tagged number that never reached the record — a Developer ID release, or an upload that
+  failed after the tag — would otherwise come back and be refused at `git tag`, after the
+  archive. `next_build_number` in `_version.sh` holds that rule for `release.sh` and `ship.sh`.
+- **`scripts/tag_approved.py`, not `tag-approved.sh`.** The lookup it needs — tag first, bump
+  commit and trailer for 10001–10022 — is `ship_commit` in `testflight_distribute.py`, and a
+  shell copy of it would be the second implementation the rules forbid. It imports that and
+  `approved_build`, dry-runs by default, and `ci-publish-ios.sh --check` dry-runs it too.
+- `--approved` exits 3 for a version not on the store, alongside `--spent` and `--train`'s 3.
 
-Residual risk: a rewritten history moves what `build/` tags point at, exactly as it moves what
-bump commits point at today; nothing new. The `--next-build` question adds one GET to a run that
-already makes two.
+Verification:
+
+- [x] `scripts/verify-python-selftests.sh` green: appstore_status 123 cases (11 new, for
+      `approved_build` and `highest_build`), testflight_distribute 38 (4 new, `ship_commit`
+      against a throwaway repository: tag alone, bump alone, both, neither), tag_approved 7
+- [x] `--next-build` against the real record printed 10023
+- [x] `--approved ios 1.1.2` against the real record printed 10012; `--approved macos 1.1.2`
+      exited 3 (not submitted)
+- [x] `tag_approved.py ios 1.1.2` dry run: "build 10012 was archived from ed1951b612c9 … would
+      tag ios/v1.1.2 there"
+- [ ] `tag_approved.py ios 1.1.2 --apply` — pushes a tag; a person runs it
+- [ ] One `Publish iOS` press with `publish.args` empty: no new commit on `main` (the version is
+      unchanged), `build/10023` on origin pointing at the archived commit, the archive log
+      showing both bundles at 10023, the TestFlight note naming that commit
+- [ ] A `ship.sh` run (task 26) with one number on both platforms, taken from `next_build_number`
+
+Residual risk: a rewritten history moves what `build/` tags point at, exactly as it moved what
+bump commits pointed at; nothing new. The `--next-build` question adds one GET to a run that
+already makes two. `ci-publish-ios.sh --check` was not run from this laptop because it rewrites
+`origin`'s push URL; the shell is syntax-checked and the branch it changed is the closed-train
+one, which the next press after an approval will exercise.

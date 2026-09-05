@@ -3,14 +3,15 @@
 #
 # Provides:
 #   suggest_next_version  Print the next patch version after the highest version
-#                         this repo has already claimed, skipping any tag that is
-#                         already taken. Falls back to 1.0.0 for a repo with
-#                         neither a version tag nor a project version.
+#                         this repo has already claimed, skipping any version
+#                         that is already tagged. Falls back to 1.0.0 for a
+#                         repo with neither a version tag nor a project version.
+#   next_build_number     Print the build number the next upload should carry.
 #   current_build_number  Print the CURRENT_PROJECT_VERSION the project holds.
 #
 # "Already claimed" is the higher of two sources, and it needs both:
 #
-#   the newest vX.Y.Z tag        what release.sh last shipped
+#   the newest version tag       v*, ios/v* or macos/v* — see below
 #   MARKETING_VERSION            what the project will build right now
 #
 # They come apart whenever a version train is opened without shipping it, which
@@ -20,6 +21,23 @@
 # by tagging. Reading tags alone would then suggest a version *below* the one in
 # the project, and release.sh seds MARKETING_VERSION to whatever it is given, so
 # the suggestion silently walks the project backwards.
+#
+# **Three tag families, since task 32 (2026-09-05), and each means one thing.**
+#
+#   build/N       this commit was archived as build N — one per upload, written
+#                 by release.sh on the commit it archived, annotated
+#   ios/vX.Y.Z    the build of X.Y.Z Apple approved for iOS, on that build's
+#   macos/vX.Y.Z  commit — written by scripts/tag_approved.py once App Store
+#                 Connect says the version is on the store
+#   vX.Y.Z        the macOS Developer ID release — written by release.sh on
+#                 that channel only, because the Homebrew cask downloads
+#                 `releases/download/vX.Y.Z/…` and the name cannot change
+#
+# The 26 bare `vX.Y.Z` tags up to and including v1.1.3 predate this and mean
+# "the first upload of that train", which is not the build users got: v1.1.2
+# marks build 10003 while 10012 is the one on sale. They are left where they
+# are — the cask and the GitHub releases point at them — and are history.
+# See docs/guides/building.md.
 
 pbxproj_path() {
   local PBXPROJ
@@ -31,9 +49,12 @@ pbxproj_path() {
   printf '%s' "$PBXPROJ"
 }
 
-# The build number the project currently holds. Shared because ship.sh has to
-# know it before it calls release.sh: one ship run is one build number across
-# every platform, and two readers of the same line would drift.
+# The build number the project currently holds. **Not the next upload's
+# number**: since task 32 the committed CURRENT_PROJECT_VERSION is frozen at
+# 10022, the last upload recorded by a bump commit, and every upload since is
+# a build/N tag whose number came from App Store Connect (`next_build_number`
+# below). What is left of this is what a local Xcode build stamps into a
+# bundle, which is what `mac_screenshots.py` reads it for.
 current_build_number() {
   local PBXPROJ BUILD
   PBXPROJ="$(pbxproj_path)" || return 1
@@ -60,15 +81,30 @@ current_marketing_version() {
   printf '%s' "$VERSION"
 }
 
+# Every version this repository has tagged, under any of the three version
+# families, one bare X.Y.Z per line. `|| true` because grep exits 1 on zero
+# matches, which under a caller's `set -e -o pipefail` would kill it one line
+# before the "nothing tagged yet" case is handled.
+tagged_versions() {
+  git tag -l 'v*' 'ios/v*' 'macos/v*' \
+    | sed -E 's#^(ios/|macos/)?v##' \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true
+}
+
+# Whether any of the three families already claims this version.
+version_tagged() {
+  tagged_versions | grep -qx "$1"
+}
+
 suggest_next_version() {
   local PBXPROJ TAGGED PROJECT BASE MAJOR MINOR PATCH SUGGESTED
   PBXPROJ="$(pbxproj_path)" || return 1
 
-  TAGGED=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+  # sort -V rather than string order: 1.0.9 must lose to 1.0.22.
+  TAGGED=$(tagged_versions | sort -V | tail -1)
   PROJECT=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 
-  # sort -V rather than string order: 1.0.9 must lose to 1.0.22.
-  BASE=$(printf '%s\n%s\n' "${TAGGED#v}" "${PROJECT}" \
+  BASE=$(printf '%s\n%s\n' "${TAGGED}" "${PROJECT}" \
     | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
 
   if [[ -z "$BASE" ]]; then
@@ -79,11 +115,48 @@ suggest_next_version() {
   IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
   PATCH=$((PATCH + 1))
   SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
-  while git tag | grep -qx "v${SUGGESTED}"; do
+  while version_tagged "${SUGGESTED}"; do
     PATCH=$((PATCH + 1))
     SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
   done
   printf '%s' "$SUGGESTED"
+}
+
+# ── The next build number ───────────────────────────────────────────────────
+#
+# **App Store Connect is the authority, because it is the thing that enforces
+# the rule.** CFBundleVersion must increase across every upload of the app on
+# either platform, and `appstore_status.py --next-build` reads every build the
+# record holds and adds one. Until task 32 the counter was the committed
+# CURRENT_PROJECT_VERSION and every upload was a commit on `main` whose only
+# job was to remember it.
+#
+# **The build/ tags are the second source, and it needs both.** A number is
+# tagged here the moment the archive exists and reaches App Store Connect only
+# if the upload then succeeds — a Developer ID release never uploads at all —
+# so a number the record has not seen may still be taken. The higher of the
+# two, plus one, is free by both accounts. Tags are fetched first because a
+# TeamCity checkout does not carry them, and a stale answer here costs an
+# archive: the number would be refused at `git tag`, after the build.
+
+highest_tagged_build() {
+  git tag -l 'build/*' | sed 's|^build/||' | grep -E '^[0-9]+$' | sort -n | tail -1 || true
+}
+
+next_build_number() {
+  local SCRIPTS NEXT TAGGED
+  SCRIPTS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  git fetch --quiet --tags origin || return 1
+  NEXT="$(python3 "${SCRIPTS}/appstore_status.py" --next-build)" || return 1
+  if [[ ! "$NEXT" =~ ^[0-9]+$ ]]; then
+    echo "appstore_status.py --next-build printed '${NEXT}', not a build number" >&2
+    return 1
+  fi
+  TAGGED="$(highest_tagged_build)"
+  if [[ -n "$TAGGED" && "$TAGGED" -ge "$NEXT" ]]; then
+    NEXT=$((TAGGED + 1))
+  fi
+  printf '%s' "$NEXT"
 }
 
 # ── Writing the version into the project ────────────────────────────────────
@@ -98,13 +171,15 @@ suggest_next_version() {
 
 # Set CURRENT_PROJECT_VERSION in every build configuration.
 #
-# One implementation, two callers: scripts/release.sh on a laptop and
-# NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh in Xcode Cloud. It was two until
-# 2026-08-22 and only the CI one counted its work — release.sh used a `sed`
-# keyed on whichever CURRENT_PROJECT_VERSION it read first, which silently
-# stamps a subset the moment the configurations disagree. That is the only case
-# where the stamp matters at all, so the careful half was missing from exactly
-# the path that now ships everything.
+# One caller since task 32: NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh, which
+# stamps the Xcode Cloud run number into the project before that path
+# archives. scripts/release.sh used to be the second — it wrote the next
+# number here and committed the file — and now stamps its number on the
+# `xcodebuild archive` command line instead, leaving the committed value
+# alone. It stays here rather than moving into the hook because it is the
+# careful implementation: a second copy in release.sh had drifted into a
+# `sed` that silently stamped a subset of the configurations, which is the
+# one case where the stamp matters at all.
 set_build_number() {
   local BUILD="$1" PBXPROJ TOTAL STAMPED
   if [[ ! "$BUILD" =~ ^[0-9]+$ ]]; then

@@ -51,13 +51,15 @@ echo "ci_pre_xcodebuild: core tests passed"
 
 # ── The stamp ────────────────────────────────────────────────────────────────
 #
-# `set_build_number` is shared with `scripts/release.sh` rather than repeated
-# here. It was repeated until 2026-08-22, and the two copies had drifted in the
-# way that matters: this one used `agvtool -all` and then counted the
+# `set_build_number` lives in `scripts/_version.sh` rather than here, and
+# since task 32 this is its only caller: `scripts/release.sh` stamps its
+# number on the `xcodebuild archive` command line and records it as a
+# `build/N` tag, leaving the committed CURRENT_PROJECT_VERSION alone. It was
+# repeated in both until 2026-08-22, and the two copies had drifted in the way
+# that matters: this one used `agvtool -all` and then counted the
 # configurations that took the value, and release.sh used a `sed` keyed on
-# whichever value it read first and counted nothing. Same job, one careful
-# implementation and one that would silently stamp a subset — and the careless
-# one was in the path that ships to the App Store.
+# whichever value it read first and counted nothing. It stays shared so that
+# the careful implementation is the only one.
 
 # shellcheck disable=SC1091
 source "${CI_PRIMARY_REPOSITORY_PATH}/scripts/_version.sh"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Every offline selftest the Python here carries, in one command.
 #
-# There are five and there was no way to run them together, so "did I break the
+# There are six and there was no way to run them together, so "did I break the
 # other one" was answered by remembering which scripts have a `--selftest` —
 # which stopped being a reasonable thing to remember when `asc_write.py` was
 # split out of `testflight_distribute.py` and the two started sharing a key,
@@ -17,7 +17,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 status=0
-for script in appstore_status testflight_distribute appstore_listing appstore_screenshots ci_health; do
+for script in appstore_status testflight_distribute tag_approved appstore_listing appstore_screenshots ci_health; do
   if ! python3 "scripts/${script}.py" --selftest; then
     status=1
   fi

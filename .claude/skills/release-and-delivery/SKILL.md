@@ -18,15 +18,22 @@ user-invocable: true
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
    - TestFlight distribution: `scripts/testflight_distribute.py --apply`
    - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
-   - Store or Homebrew release: one of `scripts/ship*.sh`
+   - Store or Homebrew release: one of `scripts/ship*.sh`. A run leaves an `open vX.Y.Z` commit
+     only when the version changed and a `build/N` tag on the archived commit; the build number
+     comes from App Store Connect, never from the project file
    - TeamCity iPhone publish: `scripts/ci-publish-ios.sh` is the checked-in preflight over the same
      `scripts/ship-ios.sh` release engine, not a second release implementation
+   - Recording an approval: `scripts/tag_approved.py PLATFORM VERSION --apply` writes
+     `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit; the iOS one is run by
+     `ci-publish-ios.sh` when it finds the train closed, the macOS one by a person. Never move a
+     version tag by hand; the bare `vX.Y.Z` belongs to the Developer ID channel
    - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
 5. Preserve existing boundaries: `appstore_status.py` and `ci_health.py` remain read-only;
    `testflight_distribute.py` owns TestFlight metadata and groups; `appstore_listing.py` owns listing
-   copy and build attachment; `appstore_screenshots.py` owns listing images; the sibling bot owns
-   Resolution Center conversation. Never edit listing copy in the App Store Connect web form.
+   copy and build attachment; `appstore_screenshots.py` owns listing images; `tag_approved.py` owns
+   the approval tags and writes only to git; the sibling bot owns Resolution Center conversation.
+   Never edit listing copy in the App Store Connect web form.
 6. Never submit anything for App Review. No tool here does it and none should: it is a person pressing Submit.
 7. For screenshots, use only the project-owned simulator names in `docs/guides/building.md`. A new
    simulator must launch the app once to register WidgetKit before capture; after that launch, the

@@ -52,8 +52,9 @@ those numbers, and every one of them reached the testers blank. Build 10003 went
 out that way on the day Xcode Cloud ran out of compute quota, which is when a
 gap that had always been there stopped being theoretical — a local ship is now
 the ordinary path, not the fallback. The commit is knowable without the API:
-`release.sh` commits `bump to vX.Y.Z (build N)` immediately after the archive
-succeeds, so git holds the same answer Xcode Cloud would have given. See
+`release.sh` tags the archived commit `build/N` the moment the archive exists
+(and, for builds 10001–10022, committed `bump to vX.Y.Z (build N)` on top of
+it), so git holds the same answer Xcode Cloud would have given. See
 `ship_commit`.
 
 The trade is that a build **nobody distributes now has no note at all**, and may
@@ -269,15 +270,18 @@ def source_commit(session: Session, product_id: str, version: str) -> dict | Non
     }
 
 
-def _git(*arguments: str) -> str:
+def git(*arguments: str, repo: Path = REPO) -> str:
     """One git command against this checkout, or a hard stop.
 
     `-C REPO` rather than the working directory: this is run from wherever the
     caller happens to be, and a git answer about somebody else's checkout would
-    be a confidently wrong note rather than a missing one.
+    be a confidently wrong note rather than a missing one. `repo` exists for
+    the selftest, which builds a throwaway repository to exercise
+    `ship_commit` against tags this one will only carry after the next ship.
+    Shared with `tag_approved.py`, which writes the approval tag.
     """
     return subprocess.run(
-        ("git", "-C", str(REPO), *arguments),
+        ("git", "-C", str(repo), *arguments),
         capture_output=True,
         text=True,
         check=True,
@@ -320,7 +324,7 @@ def built_from_trailer(body: str) -> str | None:
     return sha
 
 
-def ship_commit(version: str) -> dict | None:
+def ship_commit(version: str, repo: Path = REPO) -> dict | None:
     """The commit a local `release.sh` ship built, or None if no ship built it.
 
     **Asked only after Xcode Cloud has said no, and the order is load-bearing.**
@@ -330,36 +334,34 @@ def ship_commit(version: str) -> dict | None:
     number, so CI answers first and git is only asked about numbers no run
     claims.
 
-    **The commit returned is the one the bump commit was built from, never the
-    bump commit itself.** `release.sh` archives from the working tree and commits
-    the version bump afterwards, so the tree that was built is that commit's tree
-    plus a build number. It is the tip of `main` at the moment of the ship, which
-    is exactly what Xcode Cloud's `sourceCommit` is for a run — the same fact by a
-    different route, rather than a second definition of it. The bump commit is how
-    it is found and nothing more; naming it in the note would give every ship the
-    subject `bump to vX (build N)`, which repeats the marker line and tells a
-    tester nothing.
+    **Since task 32 the record is the `build/N` tag, on the commit that was
+    archived, and it is read first.** `release.sh` writes it the moment the
+    archive exists, on HEAD, which nothing moves after the archive — so the
+    tag says what was built directly and there is nothing to infer. It is the
+    tip of `main` at the moment of the ship, which is exactly what Xcode
+    Cloud's `sourceCommit` is for a run: the same fact by a different route.
 
-    **It is read from the `Built-From:` trailer, and from parentage only when
-    there is none.** Parentage was the original definition and it was true right
-    up until `release.sh` learned to rebase the bump commit on 2026-08-26 — a
-    push that loses a race is now retried onto the new tip, which reparents the
-    bump onto a commit that was never archived. A note derived from that parent
-    would name work the build does not contain, so the ship now records what it
-    built explicitly and this reads what it recorded. The fallback is for the
-    bump commits already in history, which were never rebased and whose parent
-    is therefore still the honest answer.
+    **Builds 10001 through 10022 have no tag and never will**, so for them the
+    record is the `bump to vX.Y.Z (build N)` commit `release.sh` used to write
+    after the archive, and the commit returned is the one that bump was built
+    from, never the bump itself. Naming the bump in the note would give every
+    ship the subject `bump to vX (build N)`, which repeats the marker line and
+    tells a tester nothing. It is read from the bump's `Built-From:` trailer,
+    and from parentage only when there is none: parentage was the original
+    definition and it was true right up until `release.sh` learned to rebase
+    the bump commit on 2026-08-26, after which a bump could sit on top of a
+    commit that was never archived. Bumps before that date were never rebased
+    and their parent is still the honest answer.
 
     Two consequences worth knowing before reading a note:
 
-    - **A re-ship with no work in between names the previous bump.** Build 10002
-      followed 10001 with nothing between them, so its note reads `bump to
-      v1.1.1 (build 10001)`. That is the honest answer — the build carries no
-      change beyond its number — and inventing prose for the case would be a
-      second note format for one build in twenty.
+    - **A re-ship with no work in between names the same commit twice.** Build
+      10002 followed 10001 with nothing between them, so its note reads `bump
+      to v1.1.1 (build 10001)`; a second press today puts a second `build/`
+      tag on the same commit and names it again. That is the honest answer —
+      the build carries no change beyond its number.
     - **Anything uncommitted at ship time is in the build and not in the note.**
-      `release.sh` stages only the project file, and nothing anywhere requires a
-      clean tree before archiving.
+      `release.sh` refuses a dirty tree unless told `--allow-dirty`.
 
     Two ships claiming one build number is contradiction rather than absence, so
     it stops here instead of picking one.
@@ -367,10 +369,18 @@ def ship_commit(version: str) -> dict | None:
     if not version.isdigit():
         return None
 
+    tag = f"build/{version}"
+    if git("tag", "-l", tag, repo=repo).strip():
+        # `rev-list -n1` looks through the annotation to the commit; `rev-parse`
+        # of an annotated tag names the tag object.
+        built = git("log", "-1", "--format=%H%x00%s", f"{tag}^{{commit}}", repo=repo).strip()
+        sha, _, subject = built.partition("\0")
+        return {"subject": subject, "sha": sha, "source": f"the {tag} tag"}
+
     # Anchored at both ends. Without the `$`, build 1000 matches the commit for
     # build 10001 — the same failure `note_names_build` guards on the way out.
     pattern = rf"^bump to v[0-9]+\.[0-9]+\.[0-9]+ \(build {version}\)$"
-    bumps = _git("log", "--format=%H", "--extended-regexp", f"--grep={pattern}").split()
+    bumps = git("log", "--format=%H", "--extended-regexp", f"--grep={pattern}", repo=repo).split()
     if not bumps:
         return None
     if len(bumps) > 1:
@@ -380,11 +390,11 @@ def ship_commit(version: str) -> dict | None:
             "write is a guess about which."
         )
 
-    recorded = built_from_trailer(_git("log", "-1", "--format=%B", bumps[0]))
+    recorded = built_from_trailer(git("log", "-1", "--format=%B", bumps[0], repo=repo))
     source = recorded if recorded is not None else f"{bumps[0]}^"
 
     try:
-        built = _git("log", "-1", "--format=%H%x00%s", source).strip()
+        built = git("log", "-1", "--format=%H%x00%s", source, repo=repo).strip()
     except subprocess.CalledProcessError:
         raise SystemExit(
             f"build {version}'s bump commit names {source} as what it built, and this "
@@ -592,6 +602,12 @@ def main() -> int:
     # here rather than per group. It is also worth repairing on a build that is
     # already distributed: the testers have it, and what they were told about it
     # may still be describing somebody else's commit.
+    #
+    # The `build/N` tag that names the commit was pushed by whichever machine
+    # shipped — a TeamCity agent, ordinarily — and this one may not have seen
+    # it. Without the fetch a stale clone reads as "nothing names the commit
+    # behind build N" and leaves the note blank, silently.
+    git("fetch", "--quiet", "--tags", "origin")
     repair_note(session, product_id, build, arguments.apply)
     print()
 
@@ -762,6 +778,49 @@ def _selftest() -> int:
     if ship_commit("1000") is not None:
         failures.append("ship_commit matched a build number by prefix")
 
+    # The `build/N` tag, against a throwaway repository: this one carries no
+    # such tag until the first ship after task 32, and a reader whose only
+    # test is "the repo happens to contain one" is untested until then. Three
+    # shapes — tag alone, bump alone, and both on one build — and the two
+    # records have to agree when both are present, because the tag is written
+    # on the commit the bump used to name in its trailer.
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as scratch:
+        throwaway = Path(scratch)
+        git("init", "--quiet", "--initial-branch=main", repo=throwaway)
+        git("config", "user.email", "selftest@example.invalid", repo=throwaway)
+        git("config", "user.name", "selftest", repo=throwaway)
+        git("commit", "--quiet", "--allow-empty", "-m", "the work", repo=throwaway)
+        work = git("rev-parse", "HEAD", repo=throwaway).strip()
+        git("tag", "-a", "build/10023", "-m", "v1.1.3 build 10023", repo=throwaway)
+        git("commit", "--quiet", "--allow-empty", "-m", "bump to v1.1.3 (build 10023)",
+            "-m", f"Built-From: {work}", repo=throwaway)
+        git("commit", "--quiet", "--allow-empty", "-m", "bump to v1.1.3 (build 10024)",
+            "-m", f"Built-From: {work}", repo=throwaway)
+        git("commit", "--quiet", "--allow-empty", "-m", "later work", repo=throwaway)
+        later = git("rev-parse", "HEAD", repo=throwaway).strip()
+        git("tag", "-a", "build/10025", "-m", "v1.1.3 build 10025", repo=throwaway)
+
+        tagged = ship_commit("10025", repo=throwaway)
+        if tagged is None or tagged["sha"] != later or tagged["subject"] != "later work":
+            failures.append(f"ship_commit did not read the build/ tag: {tagged}")
+        elif "build/10025" not in tagged["source"]:
+            failures.append("ship_commit read the tag and did not say so")
+
+        bumped = ship_commit("10024", repo=throwaway)
+        if bumped is None or bumped["sha"] != work:
+            failures.append(f"ship_commit lost the bump-commit path for an untagged build: {bumped}")
+
+        both = ship_commit("10023", repo=throwaway)
+        if both is None or both["sha"] != work:
+            failures.append(f"ship_commit gave a different answer with both records present: {both}")
+        elif "build/10023" not in both["source"]:
+            failures.append("ship_commit preferred the bump commit to the tag")
+
+        if ship_commit("10026", repo=throwaway) is not None:
+            failures.append("ship_commit invented a ship in a repository holding neither record")
+
     # Absence is an answer here: every Xcode Cloud build reaches this function
     # having already been refused by `source_commit`, and none of them has a
     # ship commit. Returning something would be inventing one.
@@ -803,7 +862,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 34 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 38 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

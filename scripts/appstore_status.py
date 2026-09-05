@@ -54,6 +54,10 @@ with nothing installed. It uses the same key, issuer and app as
 Usage:
     scripts/appstore_status.py
     scripts/appstore_status.py --json
+    scripts/appstore_status.py --spent ios 1.1.3 10023
+    scripts/appstore_status.py --train ios 1.1.3
+    scripts/appstore_status.py --next-build
+    scripts/appstore_status.py --approved ios 1.1.2
     scripts/appstore_status.py --selftest
 """
 
@@ -558,38 +562,123 @@ def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> di
     return spent
 
 
+def highest_build(get: "Callable[[str], dict]", app_id: str) -> int:
+    """The highest build number App Store Connect holds for this app, on either platform.
+
+    **The next build number is this plus one, and App Store Connect is the
+    authority because it is the thing that enforces the rule.** CFBundleVersion
+    has to increase across every upload of the app, both platforms together
+    under Universal Purchase, and until task 32 the counter lived in the
+    project file: every upload was a commit on `main` whose only job was to
+    remember the last number. Twenty of those since 2026-08-22, three for
+    builds Apple never received. Asking the record instead costs one GET per
+    platform and cannot drift from what Apple will accept.
+
+    Every build counts, on both platforms and in every train, expired ones
+    included — an expired build stops launching, it does not free its number.
+    The Xcode Cloud band (run numbers, 1 through 99) sits beside the 10000
+    band `release.sh` uses, and the maximum is the maximum; nothing here knows
+    or cares which path produced it.
+
+    An app record with no builds at all is refused rather than answered with
+    zero: the first number of a fresh app is a decision, and this app's bands
+    are already spoken for. See docs/guides/building.md.
+    """
+    numbers: list[int] = []
+    for flag in PLATFORM_FLAGS.values():
+        for build in platform_builds(get, app_id, flag):
+            number = build["version"]
+            if not number.isdigit():
+                raise SystemExit(
+                    f"build {number!r} on {flag} is not a whole number, so nothing follows it"
+                )
+            numbers.append(int(number))
+    if not numbers:
+        raise SystemExit("App Store Connect holds no builds at all; refusing to guess a first number")
+    return max(numbers)
+
+
+def store_version(get: "Callable[[str], dict]", app_id: str, platform: str, version: str) -> dict | None:
+    """This marketing version's store record on this platform once it has reached the store, else None.
+
+    Two questions share this read. `closed_train` asks whether the version is
+    still taking builds; `approved_build` asks which build the users got. Both
+    are properties of the `appStoreVersions` record, not of the builds in the
+    train, which is why `train_builds` cannot answer either. `SHIPPED` is the
+    set of states that mean the version reached the store; a version still in
+    review or preparing for submission keeps taking builds and has given
+    nobody anything yet.
+
+    The server filters by platform and version string, and the answer is
+    filtered again here: a version shipped on the *other* platform only is
+    not shipped on this one, and a filter the server quietly ignored would
+    otherwise read every shipped version as this one.
+
+    The answer carries `state` and `build` — the build number the version was
+    submitted with, joined through `include=build`, or None when the record
+    carries no build at all.
+    """
+    response = get(
+        f"/v1/apps/{app_id}/appStoreVersions"
+        f"?filter[platform]={platform}&filter[versionString]={version}&include=build&limit=10"
+    )
+    builds = {
+        item["id"]: item["attributes"]["version"]
+        for item in response.get("included") or []
+        if item["type"] == "builds"
+    }
+    for record in response["data"]:
+        attributes = record["attributes"]
+        if attributes.get("platform") != platform or attributes.get("versionString") != version:
+            continue
+        if attributes.get("appStoreState") not in SHIPPED:
+            continue
+        linked = ((record.get("relationships") or {}).get("build") or {}).get("data")
+        return {
+            "state": attributes["appStoreState"],
+            "build": builds.get(linked["id"]) if linked else None,
+        }
+    return None
+
+
 def closed_train(get: "Callable[[str], dict]", app_id: str, platform: str, version: str) -> str | None:
     """The `appStoreState` that has closed this marketing version to new builds, or None.
 
     The other half of the question `train_builds` answers. **A free build number
     in an approved version does not fail the build either.** Once a version is
     on the store its train is closed, and `altool` refuses the package with
-    `90186 Invalid Pre-Release Train` — after the tests, the archive, the export
-    and the bump commit. Publish iOS builds 18, 19 and 20 on 2026-09-05 each
-    learned this the expensive way, shipping 1.1.2 the day after 1.1.2 was
-    approved, and left three bump commits on `main` for builds Apple never saw.
-
-    That state is a property of the `appStoreVersions` record, not of the
-    builds in the train, which is why `train_builds` cannot see it. `SHIPPED`
-    is the set of states that mean the version reached the store; a version
-    still in review or preparing for submission keeps taking builds.
-
-    The server filters by platform and version string, and the answer is
-    filtered again here: a version shipped on the *other* platform only is not
-    closed on this one, and a filter the server quietly ignored would otherwise
-    read every shipped version as this one.
+    `90186 Invalid Pre-Release Train` — after the tests, the archive and the
+    export. Publish iOS builds 18, 19 and 20 on 2026-09-05 each learned this
+    the expensive way, shipping 1.1.2 the day after 1.1.2 was approved, and
+    left three bump commits on `main` for builds Apple never saw.
     """
-    response = get(
-        f"/v1/apps/{app_id}/appStoreVersions"
-        f"?filter[platform]={platform}&filter[versionString]={version}&limit=10"
-    )
-    for record in response["data"]:
-        attributes = record["attributes"]
-        if attributes.get("platform") != platform or attributes.get("versionString") != version:
-            continue
-        if attributes.get("appStoreState") in SHIPPED:
-            return attributes["appStoreState"]
-    return None
+    shipped = store_version(get, app_id, platform, version)
+    return shipped["state"] if shipped else None
+
+
+def approved_build(get: "Callable[[str], dict]", app_id: str, platform: str, version: str) -> str | None:
+    """The build number this version reached the store with, or None if it has not reached it.
+
+    This is what the `PLATFORM/vX.Y.Z` tag marks — the commit users actually
+    got — and the fact only App Store Connect knows. The bare `vX.Y.Z` tags up
+    to 1.1.3 mark the *first* upload of a train, which is a different commit
+    whenever a train held more than one build: `v1.1.2` points at build 10003
+    and the build on sale is 10012. `scripts/tag_approved.py` asks this and
+    writes the tag on `build/N`'s commit.
+
+    A shipped version that carries no build is a contradiction, not an
+    absence — nothing reaches the store without one — so it stops here rather
+    than reporting the version as unshipped.
+    """
+    shipped = store_version(get, app_id, platform, version)
+    if shipped is None:
+        return None
+    if shipped["build"] is None:
+        raise SystemExit(
+            f"{platform} {version} is {shipped['state']} and carries no build, which cannot be; "
+            "the record is not one this can tag from"
+        )
+    return shipped["build"]
 
 
 def live_builds(builds: list[dict]) -> list[dict]:
@@ -1184,12 +1273,14 @@ def render(report: dict) -> str:
     return "\n".join(lines)
 
 
-# What `--spent` and `--train` mean to a shell caller, which cannot tell one
-# non-zero exit from another. `SystemExit("message")` exits 1 for a missing key, an HTTP
-# error or an unreadable answer, so 1 has to mean "the check did not run" and
-# the answer needs a code of its own. A release script that read a network
-# failure as "the number is free" would build for ten minutes and be refused at
-# upload, which is the exact outcome this check exists to prevent.
+# What `--spent`, `--train` and `--approved` mean to a shell caller, which
+# cannot tell one non-zero exit from another. `SystemExit("message")` exits 1
+# for a missing key, an HTTP error or an unreadable answer, so 1 has to mean
+# "the check did not run" and the answer "no" needs a code of its own. A
+# release script that read a network failure as "the number is free" would
+# build for ten minutes and be refused at upload, which is the exact outcome
+# this check exists to prevent. `--next-build` has no "no": it prints a number
+# and exits 0, or exits 1 having printed nothing a caller should use.
 #
 # **3 rather than 2, because argparse owns 2**: it exits 2 on a usage error of
 # its own, so a mistyped flag would have arrived at the caller wearing the
@@ -1197,6 +1288,20 @@ def render(report: dict) -> str:
 # direction to be wrong in, which is exactly why it would never have been
 # noticed.
 SPENT_EXIT = 3
+
+
+def _platform_flag_or_stop(platform: str) -> str:
+    """The API spelling of a `--platform` flag, or a hard stop.
+
+    `platform_flag` runs the other way — API spelling to flag — and the names
+    differ by more than case, so the wrong direction resolves to a hard stop
+    rather than to a wrong query.
+    """
+    if platform not in PLATFORM_FLAGS:
+        raise SystemExit(
+            f"unknown platform {platform!r} (expected one of {', '.join(sorted(PLATFORM_FLAGS))})"
+        )
+    return PLATFORM_FLAGS[platform]
 
 
 def main() -> int:
@@ -1218,25 +1323,62 @@ def main() -> int:
         f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. `ci-publish-ios.sh` asks this "
         "to decide which version to ship when it was not told one.",
     )
+    parser.add_argument(
+        "--next-build",
+        action="store_true",
+        help="print the next build number: the highest App Store Connect holds on either "
+        "platform, in any train, expired builds included, plus one. Exit 0 with the number "
+        "on stdout, 1 the check failed. `release.sh` takes its build number from this.",
+    )
+    parser.add_argument(
+        "--approved",
+        nargs=2,
+        metavar=("PLATFORM", "VERSION"),
+        help="print the build number this version reached the store with. Exit 0 with the "
+        f"number on stdout, {SPENT_EXIT} the version has not reached the store, 1 the check "
+        "failed. `tag_approved.py` asks this to mark the commit users got.",
+    )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
 
-    if arguments.spent and arguments.train:
-        raise SystemExit("--spent and --train are two questions; ask one")
+    questions = [
+        name
+        for name, asked in (
+            ("--spent", arguments.spent),
+            ("--train", arguments.train),
+            ("--next-build", arguments.next_build),
+            ("--approved", arguments.approved),
+        )
+        if asked
+    ]
+    if len(questions) > 1:
+        raise SystemExit(f"{' and '.join(questions)} are {len(questions)} questions; ask one")
+
+    if arguments.next_build:
+        client = Client()
+        app_id = find_app(client.get)["id"]
+        print(highest_build(client.get, app_id) + 1)
+        return 0
+
+    if arguments.approved:
+        platform, version = arguments.approved
+        flag = _platform_flag_or_stop(platform)
+        client = Client()
+        app_id = find_app(client.get)["id"]
+        build = approved_build(client.get, app_id, flag, version)
+        if build is None:
+            print(f"{platform} {version} has not reached the store")
+            return SPENT_EXIT
+        print(build)
+        return 0
 
     if arguments.spent or arguments.train:
         platform, version = (arguments.spent or arguments.train)[:2]
-        # `platform_flag` runs the other way — API spelling to flag — and the
-        # names differ by more than case, so the wrong direction resolves to a
-        # hard stop rather than to a wrong query.
-        if platform not in PLATFORM_FLAGS:
-            raise SystemExit(
-                f"unknown platform {platform!r} (expected one of {', '.join(sorted(PLATFORM_FLAGS))})"
-            )
+        flag = _platform_flag_or_stop(platform)
         client = Client()
         app_id = find_app(client.get)["id"]
         # The train first: a closed train refuses every build number, so there
         # is nothing to compare when it is. `--train` stops here either way.
-        state = closed_train(client.get, app_id, PLATFORM_FLAGS[platform], version)
+        state = closed_train(client.get, app_id, flag, version)
         if state:
             print(f"{platform} {version} is closed to new builds: it is {state}")
             return SPENT_EXIT
@@ -1244,7 +1386,7 @@ def main() -> int:
             print(f"{platform} {version} is still taking builds")
             return 0
         build = arguments.spent[2]
-        held = train_builds(client.get, app_id, PLATFORM_FLAGS[platform])
+        held = train_builds(client.get, app_id, flag)
         train = held.get(version, set())
         if build in train:
             print(f"{platform} {version} already holds build {build}")
@@ -1763,6 +1905,78 @@ def _selftest() -> int:
     if closed_train(lambda _: _store(("MAC_OS", "1.1.2", "READY_FOR_SALE")), "123", "IOS", "1.1.2") is not None:
         failures.append("closed_train closed an iOS train because the Mac shipped that number")
 
+    # `approved_build` reads the same record for the other fact it carries:
+    # which build the users got. That is the commit `PLATFORM/vX.Y.Z` marks,
+    # and the bare `v1.1.2` tag is the wrong one — it marks build 10003, the
+    # first upload of a train whose approved build was 10012.
+    def _store_with_builds(*rows: tuple[str, str, str, str | None]) -> dict:
+        return {
+            "data": [
+                {
+                    "id": f"v{i}",
+                    "attributes": {"platform": platform, "versionString": string, "appStoreState": state},
+                    "relationships": {"build": {"data": {"type": "builds", "id": f"b{i}"} if build else None}},
+                }
+                for i, (platform, string, state, build) in enumerate(rows)
+            ],
+            "included": [
+                {"type": "builds", "id": f"b{i}", "attributes": {"version": build}}
+                for i, (_, _, _, build) in enumerate(rows)
+                if build
+            ],
+        }
+
+    if approved_build(lambda _: _store_with_builds(("IOS", "1.1.2", "READY_FOR_SALE", "10012")), "123", "IOS", "1.1.2") != "10012":
+        failures.append("approved_build did not name the build an approved version carries")
+    if approved_build(lambda _: _store_with_builds(("IOS", "1.1.1", "REPLACED_WITH_NEW_VERSION", "10001")), "123", "IOS", "1.1.1") != "10001":
+        failures.append("approved_build forgot the build a replaced version shipped with")
+    # Submitted with a build attached, not yet on the store: nobody has it.
+    if approved_build(lambda _: _store_with_builds(("IOS", "1.1.3", "WAITING_FOR_REVIEW", "10023")), "123", "IOS", "1.1.3") is not None:
+        failures.append("approved_build named a build for a version still in review")
+    if approved_build(lambda _: _store_with_builds(), "123", "IOS", "1.1.3") is not None:
+        failures.append("approved_build invented a build for a version App Store Connect has never heard of")
+    if approved_build(lambda _: _store_with_builds(("MAC_OS", "1.1.2", "READY_FOR_SALE", "10006")), "123", "IOS", "1.1.2") is not None:
+        failures.append("approved_build answered for iOS with the Mac's build")
+    # On the store with no build is a record this cannot reason about, and
+    # "not shipped" would send the caller to tag nothing while users have it.
+    try:
+        approved_build(lambda _: _store_with_builds(("IOS", "1.1.2", "READY_FOR_SALE", None)), "123", "IOS", "1.1.2")
+        failures.append("approved_build reported a shipped version with no build as unshipped")
+    except SystemExit:
+        pass
+
+    # `highest_build` is where the build number comes from since task 32, so
+    # the two ways it could undercount are the two that would be refused at
+    # upload: an expired build read as freeing its number, and the other
+    # platform's builds not counted at all. The low Xcode Cloud band beside
+    # the 10000 band is the ordinary shape of this app's record.
+    def _record(ios: list[tuple[str, bool]], mac: list[tuple[str, bool]]):
+        def get(path: str) -> dict:
+            rows = mac if "MAC_OS" in path else ios
+            return {
+                "data": [
+                    {"id": f"b{number}", "attributes": {"version": number, "expired": expired, "uploadedDate": "2026-09-01T00:00:00Z"}}
+                    for number, expired in rows
+                ]
+            }
+        return get
+
+    if highest_build(_record([("10012", False), ("99", False), ("10022", True)], [("10006", False)]), "123") != 10022:
+        failures.append("highest_build did not count an expired build as holding its number")
+    if highest_build(_record([("10012", False)], [("10030", False)]), "123") != 10030:
+        failures.append("highest_build ignored the other platform")
+    if highest_build(_record([("99", False)], []), "123") != 99:
+        failures.append("highest_build could not read a record holding one platform's builds")
+    for name, record in (
+        ("an empty record", _record([], [])),
+        ("a build number that is not a number", _record([("1.2", False)], [])),
+    ):
+        try:
+            highest_build(record, "123")
+            failures.append(f"highest_build answered for {name}")
+        except SystemExit:
+            pass
+
     # argparse exits 2 on a usage error of its own, so the spent answer cannot
     # also be 2 — a mistyped flag would reach a release script wearing the
     # answer "that build number is taken".
@@ -1977,7 +2191,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 112 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 123 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

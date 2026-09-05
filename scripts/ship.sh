@@ -8,10 +8,11 @@ set -euo pipefail
 #
 # Every platform is shipped on every run, even when it has no source changes,
 # so all distribution channels stay version-locked — build number included. The
-# number is chosen here, once, and passed to both invocations. Left to itself
-# each invocation bumps the project again, which is how 1.1.1 came to be build
-# 10001 on macOS and 10002 on iOS: one version, two builds, and the claim above
-# quietly untrue.
+# number is chosen here, once, from App Store Connect via `next_build_number`,
+# and passed to both invocations. Left to itself each invocation asks for the
+# next number again, which is how 1.1.1 came to be build 10001 on macOS and
+# 10002 on iOS: one version, two builds, and the claim above quietly untrue.
+# The macOS run writes `build/N` on the commit and the iOS run finds it there.
 #
 # Usage:
 #   scripts/ship.sh          # auto-increments version
@@ -29,7 +30,8 @@ else
   VERSION="${INPUT:-$SUGGESTED}"
 fi
 
-BUILD=$(( $(current_build_number) + 1 ))
+echo "==> Asking App Store Connect for the next build number..."
+BUILD="$(next_build_number)"
 
 API_KEY="${HOME}/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8"
 API_KEY_ID="S394C74APG"

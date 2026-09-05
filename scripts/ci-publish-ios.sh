@@ -4,10 +4,10 @@ set -euo pipefail
 # The CI entry point for an iOS TestFlight upload. Runs on a TeamCity agent.
 #
 # **Deliberately thin.** Everything worth arguing about — the clean-tree refusal,
-# the spent-build-number GET, the `verify-core-tests.sh` gate, the archive, the
-# upload, the bump commit and the tag — is in `release.sh`, which has shipped
-# real builds and must stay the one release engine. There is no second one here
-# and there must never be.
+# the build number from App Store Connect, the `verify-core-tests.sh` gate, the
+# archive, the `build/N` tag and the upload — is in `release.sh`, which has
+# shipped real builds and must stay the one release engine. There is no second
+# one here and there must never be.
 #
 # What is left is the three things `release.sh` reasonably assumes about the
 # machine it runs on, and which are all false by default on a build agent. Each
@@ -127,9 +127,10 @@ KEYS="${HOME}/.appstoreconnect/private_keys"
 #
 # TeamCity checks out the public GitHub remote anonymously and read-only, which
 # is right for the five verification configurations and wrong for this one:
-# `release.sh` commits the version bump and pushes it, then pushes a tag, and it
-# does both *after* the archive exists. A push that fails there leaves an
-# uploaded build whose number is recorded nowhere.
+# `release.sh` pushes `main` before the archive and the `build/N` tag the
+# moment the archive exists, and `tag_approved.py` below pushes an approval
+# tag. A tag push that fails leaves an uploaded build whose number is recorded
+# nowhere.
 #
 # Rewritten to SSH rather than carrying a credential, because the agent account
 # already holds a key GitHub accepts. That is also the weakness: it is the
@@ -158,8 +159,8 @@ case "${GITHUB_SAYS}" in
 GitHub said: ${GITHUB_SAYS}" ;;
 esac
 
-git config user.name  >/dev/null || fail "no git user.name on this agent, so the bump commit has no author"
-git config user.email >/dev/null || fail "no git user.email on this agent, so the bump commit has no author"
+git config user.name  >/dev/null || fail "no git user.name on this agent, so nothing this run commits or tags has an author"
+git config user.email >/dev/null || fail "no git user.email on this agent, so nothing this run commits or tags has an author"
 
 # ── 4. Which version ─────────────────────────────────────────────────────────
 #
@@ -171,6 +172,15 @@ git config user.email >/dev/null || fail "no git user.email on this agent, so th
 # answered and the run stops rather than guessing. Tags are fetched first
 # because `suggest_next_version` skips versions that are already tagged, and
 # a TeamCity checkout does not carry them on its own.
+#
+# **A closed train is also the moment the approval is recorded.** The
+# version is closed because users can get one of its builds, and this is the
+# first thing that runs after learning so — the same run, before the next
+# train opens. `tag_approved.py` writes `ios/vX.Y.Z` on that build's commit,
+# and is idempotent, so a version tagged by an earlier press costs a GET. It
+# is allowed to stop the run: it fails only when App Store Connect and git
+# disagree about which build shipped, and shipping the next version on top
+# of that is not the answer.
 
 if [[ -n "$REQUESTED_VERSION" ]]; then
   VERSION="$REQUESTED_VERSION"
@@ -185,6 +195,12 @@ else
     0) VERSION="$PROJECT_VERSION" ;;
     3)
       git fetch --quiet --tags origin
+      echo "==> Recording which build of ${PROJECT_VERSION} users got..."
+      if [[ -n "$CHECK_ONLY" ]]; then
+        python3 "${SCRIPT_DIR}/tag_approved.py" ios "${PROJECT_VERSION}"
+      else
+        python3 "${SCRIPT_DIR}/tag_approved.py" ios "${PROJECT_VERSION}" --apply
+      fi
       VERSION="$(suggest_next_version)"
       echo "  ${PROJECT_VERSION} is closed, so this run opens ${VERSION}."
       ;;

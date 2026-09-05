@@ -48,8 +48,24 @@ export PATH="/usr/bin:/bin:${PATH}"
 #
 # Build number (--build, optional):
 #
-#   Use the given CURRENT_PROJECT_VERSION instead of bumping the project's own.
-#   ship.sh passes it so one ship run is one build number on every platform.
+#   Use this CFBundleVersion instead of asking for the next one. ship.sh passes
+#   it so one ship run is one build number on every platform. Left out, the
+#   number is `next_build_number` from _version.sh: the highest App Store
+#   Connect holds on either platform, or the highest build/ tag, plus one.
+#
+# What a run leaves in git, since task 32 (2026-09-05):
+#
+#   open vX.Y.Z      a commit, only when MARKETING_VERSION changed, pushed
+#                    before the archive
+#   build/N          an annotated tag on the archived commit, pushed the moment
+#                    the archive exists — this is the record of the upload
+#   vX.Y.Z           an annotated tag, Developer ID channel only: the Homebrew
+#                    cask downloads by that name
+#
+#   The App Store channels tag no version. `scripts/tag_approved.py` writes
+#   `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit once App
+#   Store Connect says users can get it. The committed CURRENT_PROJECT_VERSION
+#   is frozen at 10022 and is not a build setting the archive reads.
 #
 # Dirty tree (--allow-dirty, optional):
 #
@@ -208,40 +224,41 @@ fi
 
 # ── Preflight: the branch tip ───────────────────────────────────────────────
 #
-# **A checkout that is behind its upstream cannot finish this run**, because the
-# bump commit below is pushed with a bare `git push` and a non-fast-forward is
-# rejected. Build 958 found that out the expensive way on 2026-08-26: queued at
-# the same revision as the run before it, it archived for four minutes and then
-# died on the push, having built a number nothing recorded.
+# **A checkout that is behind its upstream cannot finish this run**, because
+# the branch is pushed below with a bare `git push` and a non-fast-forward is
+# rejected. Build 958 found that out the expensive way on 2026-08-26, when the
+# push came after the archive: queued at the same revision as the run before
+# it, it archived for four minutes and then died on the push, having built a
+# number nothing recorded. The push now comes first, so the cost of arriving
+# here is a fetch rather than an archive — but it is still refused, because
+# the tag below has to land on a commit that is on `main`.
 #
 # TeamCity pins a revision when a build is *queued*, not when it starts, so a
 # publish sitting behind another one in the queue is the ordinary way to arrive
-# here rather than an exotic one. Asked now, it costs a fetch; asked implicitly
-# by the push, it costs the archive.
+# here rather than an exotic one.
 #
 # **Behind or diverged is refused; ahead is fine.** Shipping local commits that
-# are not on the remote yet is the normal laptop flow — the push at the end
-# carries them up with the bump. Only an upstream this checkout has not seen is
-# a problem, so the question is whether the upstream is an ancestor of HEAD and
-# not whether the two are equal.
+# are not on the remote yet is the normal laptop flow — the push below carries
+# them up. Only an upstream this checkout has not seen is a problem, so the
+# question is whether the upstream is an ancestor of HEAD and not whether the
+# two are equal.
 #
-# There is deliberately no flag to skip it. An override would not let the run
-# finish, it would only move the same failure to the far side of the archive,
-# which is the thing being fixed.
+# `--tags` because `next_build_number` and the `build/` guard below read tags,
+# and a TeamCity checkout carries none of its own.
 
 UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
 if [[ -z "$UPSTREAM" ]]; then
-  echo "This checkout's branch has no upstream, so the version bump could not be pushed." >&2
+  echo "This checkout's branch has no upstream, so nothing this run records could be pushed." >&2
   echo "Set one with: git branch --set-upstream-to origin/main" >&2
   exit 1
 fi
 
 echo "==> Checking ${UPSTREAM} has nothing this checkout is missing..."
-git fetch --quiet "${UPSTREAM%%/*}"
+git fetch --quiet --tags "${UPSTREAM%%/*}"
 if ! git merge-base --is-ancestor "$UPSTREAM" HEAD; then
   echo "" >&2
-  echo "${UPSTREAM} holds work this checkout does not, so the version bump could not be" >&2
-  echo "pushed and the run would die after the archive:" >&2
+  echo "${UPSTREAM} holds work this checkout does not, so the build would not be from" >&2
+  echo "the tip of main and could not be recorded there:" >&2
   git --no-pager log --oneline "HEAD..${UPSTREAM}" >&2
   echo "" >&2
   echo "Rebase onto it and start again. Nothing was built." >&2
@@ -250,22 +267,54 @@ fi
 
 # ── Preflight: the build number ─────────────────────────────────────────────
 #
-# Read before anything is edited or built, because the next check needs it.
+# **From App Store Connect, not from the project file.** CFBundleVersion is a
+# counter Apple enforces across every upload of the app, so the record Apple
+# keeps is the counter, and `next_build_number` reads it — plus the build/
+# tags, for a number this repository tagged that never reached the record. The
+# project file's CURRENT_PROJECT_VERSION stopped being edited by this script
+# in task 32; the archive is stamped from the command line below, as it always
+# was, and the committed value was only ever a ledger of the last upload.
+#
+# `--build` pins the number instead, for ship.sh: one ship run is one build
+# number on every platform. A pinned number that is already tagged is fine
+# only if the tag is on the commit about to be archived — which is the second
+# platform of a ship run — and refused otherwise, here, before the archive
+# rather than at `git tag` after it.
 
-CURRENT_BUILD=$(current_build_number)
 if [[ -n "$FORCED_BUILD" ]]; then
   NEW_BUILD="$FORCED_BUILD"
 else
-  NEW_BUILD=$((CURRENT_BUILD + 1))
+  echo "==> Asking App Store Connect for the next build number..."
+  NEW_BUILD="$(next_build_number)"
+fi
+echo "  build ${NEW_BUILD}"
+
+if TAGGED_AT="$(git rev-list -n1 "build/${NEW_BUILD}" 2>/dev/null)"; then
+  if [[ "$TAGGED_AT" != "$(git rev-parse HEAD)" ]]; then
+    echo "" >&2
+    echo "build/${NEW_BUILD} already marks $(git log -1 --format='%h %s' "$TAGGED_AT"), which is not" >&2
+    echo "this commit. That number was archived once already; pass a different --build or" >&2
+    echo "none at all. Nothing was built." >&2
+    exit 1
+  fi
+  if [[ "$(current_marketing_version)" != "$VERSION" ]]; then
+    echo "" >&2
+    echo "build/${NEW_BUILD} already marks this commit as $(git tag -l --format='%(subject)' "build/${NEW_BUILD}")," >&2
+    echo "and shipping ${VERSION} would first commit the version change and archive a" >&2
+    echo "different commit under the same number. Nothing was built." >&2
+    exit 1
+  fi
+  echo "  build/${NEW_BUILD} already marks this commit; this run archives it for ${PLATFORM} under the same number."
 fi
 
 # **A spent (version, build) pair does not fail the build.** It compiles,
 # archives, exports, uploads, goes green, and dies minutes later by email at
 # "Preparing build for App Store Connect failed" — after every expensive step
 # has already succeeded. Nor does an approved version: its train is closed,
-# and altool refuses the package at validation, after the archive and after
-# the bump commit below has been pushed — three times on 2026-09-05. Two GETs
-# answer both beforehand.
+# and altool refuses the package at validation, after the archive — three
+# times on 2026-09-05. Two GETs answer both beforehand. The number above is
+# free by construction when it was not pinned; the closed-train half is the
+# one that still bites.
 #
 # The exit codes are read rather than the output: 0 free, 3 taken, anything else
 # means the check itself did not run. Collapsing those would let a missing key
@@ -313,42 +362,123 @@ fi
 echo "==> Running the release gate: scripts/verify-core-tests.sh..."
 "${SCRIPT_DIR}/verify-core-tests.sh"
 
-# ── Helper: idempotent tag ────────────────────────────────────────────────────
+# ── Helpers: the two tags this engine writes ─────────────────────────────────
+#
+# Both annotated, so `git for-each-ref --format='%(taggerdate)'` says when, and
+# both idempotent, so a re-run after a partial failure finishes instead of
+# dying here. Both are pushed the moment they exist: a tag that only lives on
+# the machine that shipped is a record nobody else can read.
 
+# vX.Y.Z — the Developer ID release, and that channel only. The Homebrew cask
+# downloads `releases/download/v#{version}/…`, so this is the one tag whose
+# name cannot change. The App Store channels do not tag a version: which build
+# of a version users get is decided by App Review, after this run, and
+# `scripts/tag_approved.py` writes `ios/vX.Y.Z` or `macos/vX.Y.Z` then.
 tag_version() {
-  if ! git tag | grep -qx "v${VERSION}"; then
-    echo "==> Tagging v${VERSION}..."
-    git tag "v${VERSION}"
-    git push origin "v${VERSION}"
-  else
+  if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
     echo "==> v${VERSION} already tagged, skipping."
+  else
+    echo "==> Tagging v${VERSION}..."
+    git tag -a "v${VERSION}" -m "v${VERSION}: macOS Developer ID release, build ${NEW_BUILD}"
   fi
+  git push origin "v${VERSION}"
 }
 
-# ── Shared: version bump ────────────────────────────────────────────────────
+# build/N — this commit was archived as build N. Written on HEAD, which is the
+# commit `xcodebuild` just compiled: the version commit below is pushed before
+# the archive and nothing moves HEAD after it, so the tag says what was built
+# directly and no trailer has to. The preflight has already established that
+# an existing build/N is on this commit, so finding one here is a ship.sh run
+# on its second platform and not a collision.
+tag_build() {
+  local TAG="build/${NEW_BUILD}"
+  if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+    echo "==> ${TAG} already marks this commit."
+  else
+    echo "==> Tagging ${TAG}..."
+    git tag -a "${TAG}" -m "v${VERSION} build ${NEW_BUILD}" \
+      -m "Archived from this commit by release.sh --platform ${PLATFORM} --channel ${CHANNEL}."
+  fi
+  git push origin "${TAG}"
+}
+
+# ── Shared: open the version ────────────────────────────────────────────────
 #
-# Apple requires CFBundleVersion (CURRENT_PROJECT_VERSION) to monotonically
-# increase across every upload to App Store Connect, so we always bump it,
-# regardless of whether MARKETING_VERSION changed. `--build` pins the number
-# instead: ship.sh passes one number to every platform so a single ship run
-# produces one build, not one per invocation.
+# **MARKETING_VERSION is the one thing this run still commits, and only when
+# it changed.** It is what `ci-publish-ios.sh` reads to know which train to
+# ask about and what `suggest_next_version` reads to offer the next one, so a
+# new version has to reach `main`. The build number does not: it is stamped on
+# the archive command line below and recorded by the build/ tag, which is why
+# the "bump to vX (build N)" commit — twenty of them since 2026-08-22, three
+# for builds Apple never received — is gone.
+#
+# **Committed and pushed before the archive, not after.** The bump commit was
+# pushed afterwards on the reasoning that the archive is what makes a build
+# number real, and the tag inherits that reasoning; an opened version is real
+# the moment somebody asks for it, and a failed archive leaving `open v1.1.4`
+# on `main` is an honest statement that the project now builds 1.1.4. Pushing
+# first also means HEAD is final before `xcodebuild` reads the tree: the
+# rebase below can only ever reorder what is about to be built, never what
+# was built, which is what the `Built-From:` trailer used to have to guard.
+#
+# The tree is left dirty on failure on purpose — nothing here reverts a file
+# the user may also have been editing.
 
-echo "==> Setting CURRENT_PROJECT_VERSION ${CURRENT_BUILD} → ${NEW_BUILD}..."
-set_build_number "${NEW_BUILD}"
+trap 'echo "" >&2; echo "Release failed before v${VERSION} was opened. ${PBXPROJ} is modified and unpushed; nothing was built." >&2' ERR
 
-echo "==> Bumping MARKETING_VERSION to ${VERSION} in project..."
+echo "==> Setting MARKETING_VERSION to ${VERSION} in project..."
 set_marketing_version "${VERSION}"
 
-# ── Shared: clean → archive ──────────────────────────────────────────────────
-#
-# The bump is edited into the working tree above but is NOT committed or pushed
-# until the archive exists. A build failure used to leave a pushed
-# "bump to vX (build N)" commit describing an artifact that was never produced,
-# and ship.sh calls this engine twice, so one failure could leave two of them.
-# The working tree is left dirty on failure on purpose — nothing here reverts a
-# file the user may also have been editing.
+git add "${PBXPROJ}"
+if git diff --cached --quiet; then
+  echo "  (${VERSION} is already the project's version; nothing to commit)"
+else
+  git commit -q -m "open v${VERSION}" \
+    -m "MARKETING_VERSION moves to ${VERSION}. Every upload of it is a build/N tag on the commit it was archived from."
+  echo "  committed: $(git log -1 --format='%h %s')"
+fi
 
-trap 'echo "" >&2; echo "Release failed before the version bump was committed. ${PBXPROJ} is modified and unpushed; nothing was published." >&2' ERR
+# **The push has to survive main moving underneath it.** A bare `git push`
+# loses to anything that lands between this run's checkout and this moment,
+# and on 2026-08-26 build 990 lost by one second: a commit was pushed 29
+# seconds into the run and the rejected push killed it under `set -e`. The
+# preflight above cannot help, because that window opens after it. Rebasing
+# is honest here because nothing has been built yet: whatever the rebase puts
+# under HEAD is what the archive below compiles.
+#
+# It runs whether or not anything was committed, because a laptop ship may be
+# carrying local commits, and the build/ tag has to land on a commit that is
+# on `main` — a tag on a commit only this machine holds is a record nobody
+# else can read.
+#
+# Three attempts, because losing the race twice in a row is a signal rather
+# than bad luck. A conflict is not retried at all: the only file this run
+# touches is the project file, so a conflict means another run is opening a
+# version at the same time, and guessing which wins is worse than stopping.
+echo "==> Pushing ${UPSTREAM%%/*}..."
+PUSHED=""
+for ATTEMPT in 1 2 3; do
+  if git push --quiet; then
+    PUSHED="yes"
+    break
+  fi
+  echo ""
+  echo "==> Push rejected (attempt ${ATTEMPT} of 3); rebasing onto the new tip..."
+  if ! git pull --rebase --quiet; then
+    git rebase --abort >/dev/null 2>&1 || true
+    echo "" >&2
+    echo "This run's commit conflicts with work pushed meanwhile, which means something" >&2
+    echo "else is editing ${PBXPROJ} at the same time. Nothing was built." >&2
+    exit 1
+  fi
+done
+
+if [[ -z "$PUSHED" ]]; then
+  echo "" >&2
+  echo "Could not push after 3 attempts — main is moving faster than this run can" >&2
+  echo "follow. Nothing was built." >&2
+  exit 1
+fi
 
 # ── Shared: signing authentication ──────────────────────────────────────────
 #
@@ -368,12 +498,21 @@ if [[ -n "$SIGNING_KEY" ]]; then
   echo "==> Signing will authenticate to App Store Connect as ${SIGNING_KEY_ID}."
 fi
 
+# ── Shared: clean → archive ──────────────────────────────────────────────────
+#
+# Nothing below this line edits the repository until the archive exists. A
+# failure here leaves `main` exactly as the push above left it and consumes
+# no build number: the number is recorded by the tag, and the tag is written
+# only once there is an archive for it to describe.
+
+trap 'echo "" >&2; echo "Release failed before build ${NEW_BUILD} was tagged. The number is unused and nothing was published." >&2' ERR
+
 echo "==> Cleaning ${SCHEME}..."
 xcodebuild clean \
   -project "${PROJECT}" \
   -scheme "${SCHEME}"
 
-echo "==> Archiving ${SCHEME} v${VERSION} (${PLATFORM})..."
+echo "==> Archiving ${SCHEME} v${VERSION} (${PLATFORM}) as build ${NEW_BUILD}..."
 xcodebuild archive \
   -project "${PROJECT}" \
   -scheme "${SCHEME}" \
@@ -386,73 +525,55 @@ xcodebuild archive \
   MARKETING_VERSION="${VERSION}" \
   CURRENT_PROJECT_VERSION="${NEW_BUILD}"
 
-trap - ERR
-
-# ── Shared: commit → push ────────────────────────────────────────────────────
+# ── Shared: the archive carries the number it was asked to ──────────────────
 #
-# The archive exists, so the build number is now real and the commit describes
-# something. The tag is pushed later by whichever channel runs, and it has to
-# point at this commit, so this cannot move any further down.
+# **Every bundle in the archive has to read the same build number, and the
+# archive is the thing to ask.** The number reaches the build from the command
+# line above and nothing else, now that the project file is not stamped, and
+# an app whose embedded widget extension disagrees with it is refused at
+# upload — after the export and the wait. The export re-signs what is here and
+# rewrites nothing, so a wrong number in the archive is a wrong number in the
+# package, and asking here catches it before the tag as well as before the
+# upload. iOS carries the app and the extension; macOS the app alone.
 
-echo "==> Committing and pushing version bump..."
-
-# **The commit this archive was actually built from, named before it can move.**
-# HEAD is still the tip the preflight checked and `xcodebuild` compiled, and the
-# rebase below may give the bump commit a different parent, so the fact is
-# recorded here rather than left to be inferred from parentage afterwards.
-# `testflight_distribute.py:ship_commit` reads this trailer to write the
-# TestFlight note; see the long comment on the push for why it has to.
-BUILT_FROM="$(git rev-parse HEAD)"
-
-git add "${PBXPROJ}"
-if git diff --cached --quiet; then
-  echo "  (no changes to commit)"
-else
-  git commit -m "bump to v${VERSION} (build ${NEW_BUILD})" -m "Built-From: ${BUILT_FROM}"
-
-  # **The push has to survive main moving underneath it.** A bare `git push`
-  # loses to anything that lands between this run's checkout and this moment,
-  # and on 2026-08-26 build 990 lost by one second: it archived from the tip,
-  # a commit was pushed 29 seconds into the run, and the bump was rejected with
-  # `fetch first` — killing the run before the upload under `set -e`. The
-  # preflight above cannot help, because that window opens after it.
-  #
-  # **Rebasing is only honest because of `Built-From:` above.** The bump commit
-  # used to say what it built by *being the child of it*, and a rebase quietly
-  # reparents it onto whatever landed meanwhile — which would have left the
-  # TestFlight note describing a commit that is not in the build. That is the
-  # same "confidently wrong" failure the clean-tree preflight exists to prevent,
-  # so the provenance was made explicit first and the rebase second. Do not
-  # reorder those.
-  #
-  # Three attempts, because losing the race twice in a row is a signal rather
-  # than bad luck. A conflict is not retried at all: the only file staged here
-  # is the project file, so a conflict means another run is bumping the same
-  # number, and guessing which wins is worse than stopping.
-  PUSHED=""
-  for ATTEMPT in 1 2 3; do
-    if git push; then
-      PUSHED="yes"
-      break
-    fi
-    echo ""
-    echo "==> Push rejected (attempt ${ATTEMPT} of 3); rebasing the bump onto the new tip..."
-    if ! git pull --rebase; then
-      git rebase --abort >/dev/null 2>&1 || true
-      echo "" >&2
-      echo "The version bump conflicts with work pushed during this run, which means" >&2
-      echo "something else is bumping ${PBXPROJ} at the same time. Nothing was uploaded." >&2
-      exit 1
-    fi
-  done
-
-  if [[ -z "$PUSHED" ]]; then
+echo "==> Checking every bundle in the archive reads build ${NEW_BUILD}..."
+BUNDLES=0
+while IFS= read -r BUNDLE; do
+  if [[ -f "${BUNDLE}/Contents/Info.plist" ]]; then
+    PLIST="${BUNDLE}/Contents/Info.plist"
+  else
+    PLIST="${BUNDLE}/Info.plist"
+  fi
+  STAMPED="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${PLIST}")"
+  if [[ "$STAMPED" != "$NEW_BUILD" ]]; then
     echo "" >&2
-    echo "Could not push the version bump after 3 attempts — main is moving faster than" >&2
-    echo "this run can follow. Nothing was uploaded." >&2
+    echo "${BUNDLE#"${ARCHIVE_PATH}/Products/Applications/"} reads CFBundleVersion ${STAMPED}, not ${NEW_BUILD}." >&2
+    echo "The archive does not carry the number it was asked to; nothing was tagged or uploaded." >&2
     exit 1
   fi
+  echo "  ${BUNDLE#"${ARCHIVE_PATH}/Products/Applications/"}: ${STAMPED}"
+  BUNDLES=$((BUNDLES + 1))
+done < <(find "${ARCHIVE_PATH}/Products/Applications" -type d \( -name '*.app' -o -name '*.appex' \))
+if [[ "$BUNDLES" -eq 0 ]]; then
+  echo "No app bundle under ${ARCHIVE_PATH}/Products/Applications; the archive layout is not what this expects." >&2
+  exit 1
 fi
+if [[ "$PLATFORM" == "ios" && "$BUNDLES" -lt 2 ]]; then
+  echo "The iOS archive holds ${BUNDLES} bundle(s); the app and its widget extension make two." >&2
+  exit 1
+fi
+
+trap - ERR
+
+# ── Shared: record the build ────────────────────────────────────────────────
+#
+# The archive exists, so the number is spent and the record is written now,
+# before the export and the upload — for the same reason the bump commit was
+# committed here: an uploaded build must be recorded even if the upload then
+# fails, and a number that is tagged and never uploaded is harmless where the
+# reverse is a build on Apple's servers that nothing can name.
+
+tag_build
 
 # ── Channel: app-store ───────────────────────────────────────────────────────
 #
@@ -502,10 +623,8 @@ if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
       --apiKey "${API_KEY_ID}" \
       --apiIssuer "${API_ISSUER}"
 
-    tag_version
-
     echo ""
-    echo "Done (app-store / ${PLATFORM})! v${VERSION} uploaded."
+    echo "Done (app-store / ${PLATFORM})! v${VERSION} build ${NEW_BUILD} uploaded; build/${NEW_BUILD} marks the commit."
     echo ""
     # The upload reaches nobody on its own. A build sits in no tester group
     # until somebody puts it in one — internal groups included — and every
@@ -515,17 +634,16 @@ if [[ "$CHANNEL" == "app-store" || "$CHANNEL" == "both" ]]; then
     echo "It is uploaded, not delivered. Processing takes a few minutes, then:"
     echo "  scripts/testflight_distribute.py --platform ${PLATFORM} --apply"
     echo ""
-    echo "Then submit for review in App Store Connect."
+    echo "Then submit for review in App Store Connect. Once it is on the store:"
+    echo "  scripts/tag_approved.py ${PLATFORM} ${VERSION} --apply"
   else
-    tag_version
-
     echo ""
     echo "No API key provided. Upload the package manually:"
     echo "  xcrun altool --upload-app -f '${PACKAGE_PATH}' --type ${ALTOOL_TYPE} \\"
     echo "    --apiKey KEY_ID --apiIssuer ISSUER_ID"
     echo "  Or drag '${PACKAGE_PATH}' into Transporter.app"
     echo ""
-    echo "Then submit for review in App Store Connect."
+    echo "build/${NEW_BUILD} already marks the commit. Then submit for review in App Store Connect."
   fi
 fi
 
