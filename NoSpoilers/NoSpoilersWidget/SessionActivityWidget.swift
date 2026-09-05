@@ -26,10 +26,10 @@ struct SessionActivityWidget: Widget {
                 state: context.state
             )
             // A flat tint rather than `NoSpoilersBackground`: this is the one surface where the
-            // system owns the container and takes a colour, not a view. Ivory is the same ground
-            // the gradient starts from, so the activity reads as the app's without pretending to
-            // be a card.
-            .activityBackgroundTint(BrandPalette.ivory)
+            // system owns the container and takes a colour, not a view. `surface` is the same
+            // ground the gradient starts from — ivory or charcoal, as the Lock Screen decides —
+            // so the activity reads as the app's without pretending to be a card.
+            .activityBackgroundTint(Theme.Palette.surface)
             .activitySystemActionForegroundColor(Theme.Palette.textPrimary)
         } dynamicIsland: { context in
             DynamicIsland {

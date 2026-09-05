@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// The design tokens every target draws from, so that a reskin is an edit here
 /// rather than a search across four files.
@@ -21,14 +26,21 @@ public enum Theme {
     /// or a literal already on screen — the palette stays the source of truth
     /// and nothing here introduces a new colour.
     ///
-    /// **One value per role, and no variant mechanism.** Dark mode is not being
-    /// built: both hosted surfaces force `.preferredColorScheme(.light)` and the
-    /// widget's container background is a hardcoded light gradient. The roles
-    /// exist anyway because they are a reskin blocker on their own — a system
-    /// colour does not move when the palette moves, which is the entire problem.
-    /// Naming them now is what makes adding dark mode later "give each role a
-    /// second value" instead of "find every colour decision again". Do not build
-    /// machinery here to hold values nobody has chosen.
+    /// **Two values per role, chosen by the host, and still no plumbing.** Dark
+    /// mode follows the system appearance on both platforms and there is no
+    /// in-app toggle. A role that changes with the appearance is built by
+    /// `adaptive(light:dark:)` below, which hands the pair to a platform dynamic
+    /// colour; that colour resolves against whatever appearance is current when
+    /// it is *drawn*, which is how the menu bar label, the widget and the Live
+    /// Activity each follow their own host without anything being injected at
+    /// three roots. Every call site keeps reading a static constant. The roles
+    /// that do not change — the three session states, `attention`,
+    /// `confirmation`, `hoverFill` — are the ones that were measured and found
+    /// to clear the same contrast bar on charcoal as on ivory, or are already
+    /// system colours.
+    ///
+    /// The dark set was chosen on 2026-09-05; the figures are in
+    /// `docs/guides/brand.md` and `ThemePaletteContrastTests` pins them.
     ///
     /// **These roles are not a pure transcription, and the difference is
     /// macOS.** iOS and the shared components already draw text in `smoke`,
@@ -39,20 +51,30 @@ public enum Theme {
     /// onto these roles changes what is on screen, by a little, on macOS. That
     /// is a sweep-with-screenshots change, not a phase-1 one.
     ///
-    /// Those same 22 sites are why the two `.preferredColorScheme(.light)` calls
-    /// exist: the gradient behind them is hardcoded light, so the system colours
-    /// have to be pinned to match it. Naming the roles is what eventually lets
-    /// that pinning go.
+    /// Those same 22 sites are why four `.preferredColorScheme(.light)` pins
+    /// existed until 2026-09-05: the gradient behind them was hardcoded light,
+    /// so the system colours had to be pinned to match it. Naming the roles,
+    /// then giving each a dark value, is what let the pins go.
     public enum Palette {
-        public static let textPrimary = BrandPalette.smoke
-        public static let textSecondary = BrandPalette.secondaryText
-        public static let textTertiary = BrandPalette.tertiaryText
+        public static let textPrimary = adaptive(light: BrandPalette.smoke, dark: BrandPalette.ivory)
+        public static let textSecondary = adaptive(light: BrandPalette.secondaryText, dark: BrandPalette.secondaryTextDark)
+        public static let textTertiary = adaptive(light: BrandPalette.tertiaryText, dark: BrandPalette.tertiaryTextDark)
 
         /// Dividers and hairline structure.
-        public static let separator = BrandPalette.mistGrey
+        public static let separator = adaptive(light: BrandPalette.mistGrey, dark: BrandPalette.cinder)
 
         /// The page behind everything. `docs/guides/brand.md` prefers ivory over pure white.
-        public static let surface = BrandPalette.ivory
+        public static let surface = adaptive(light: BrandPalette.ivory, dark: BrandPalette.charcoal)
+
+        /// What a row or card is tinted with to sit above `surface`, and the
+        /// bright end of `NoSpoilersBackground`. Callers set the opacity: 0.65
+        /// for a row (`surfaceRaised`), 0.82/0.78/0.74 per canvas for a card
+        /// (`Theme.Card`). The one base is what keeps a card and a row the same
+        /// colour at two strengths rather than two colours.
+        ///
+        /// White in light, where a lift is brighter than the ground; graphite in
+        /// dark, where it is a shade lighter than charcoal for the same reason.
+        public static let surfaceLift = adaptive(light: BrandPalette.white, dark: BrandPalette.graphite)
 
         /// A row or panel lifted off `surface` — the session-row fill, at four
         /// sites across three targets.
@@ -61,7 +83,17 @@ public enum Theme {
         /// 0.82/0.78/0.74 per canvas, so a card sits slightly more opaque than a
         /// row and does so on purpose. Restating either here would give one
         /// surface two answers.
-        public static let surfaceRaised = Color.white.opacity(0.65)
+        public static let surfaceRaised = surfaceLift.opacity(0.65)
+
+        /// The soft brand wash behind a header or a round pill, and the middle
+        /// stop of `NoSpoilersBackground`. Callers set the opacity, and three
+        /// of them do so three different ways — 0.3, 0.5, 0.7 — which is what
+        /// was on screen when this was `BrandPalette.blush` at each site.
+        ///
+        /// Blush in light; oxblood in dark, a maroon-tinted charcoal rather
+        /// than blush dimmed, because a pale pink at low opacity over charcoal
+        /// reads as grey mud.
+        public static let surfaceTinted = adaptive(light: BrandPalette.blush, dark: BrandPalette.oxblood)
 
         /// The page behind a weekend that is over.
         ///
@@ -70,10 +102,14 @@ public enum Theme {
         /// into `NoSpoilers/ContentView.swift` — the one colour decision in the
         /// app that lived nowhere near the others.
         ///
-        /// It is not in `BrandPalette` — it is a desaturated warm grey a shade
-        /// off `surface`, which is the whole point of it — but it is in the
-        /// token spec, as a role with no palette entry behind it.
-        public static let surfaceFinished = Color(red: 0.96, green: 0.95, blue: 0.94)
+        /// It is not in `BrandPalette` — it is a desaturated grey a shade off
+        /// `surface` in either appearance, which is the whole point of it — but
+        /// it is in the token spec, as a role with no palette entry behind it.
+        /// `#F4F2EF` in light, `#1D1B1B` in dark.
+        public static let surfaceFinished = adaptive(
+            light: Color(red: 0.96, green: 0.95, blue: 0.94),
+            dark: Color(red: 0.1137, green: 0.1059, blue: 0.1059)
+        )
 
         /// "There is something new here" — the update banner and the dot on
         /// the menu bar that leads to it.
@@ -141,6 +177,32 @@ public enum Theme {
             case .inProgress: return stateLive
             case .upcoming:   return stateUpcoming
             }
+        }
+
+        /// One role, two answers, and the host decides which when it draws.
+        ///
+        /// A platform dynamic colour — `UIColor(dynamicProvider:)` or
+        /// `NSColor(name:dynamicProvider:)` — is asked for its value at draw
+        /// time against the trait collection or appearance in effect *there*,
+        /// so a widget on a dark Home Screen, a Live Activity on the Lock
+        /// Screen, an `NSHostingView` in the menu bar and a sheet in the app
+        /// each get the right answer from the same constant. That is what the
+        /// brand guide's "no environment plumbing" rule leaves room for, and
+        /// it is the whole mechanism: nothing reads `\.colorScheme`.
+        private static func adaptive(light: Color, dark: Color) -> Color {
+            #if canImport(UIKit)
+            let lightColor = UIColor(light)
+            let darkColor = UIColor(dark)
+            return Color(uiColor: UIColor { traits in
+                traits.userInterfaceStyle == .dark ? darkColor : lightColor
+            })
+            #else
+            let lightColor = NSColor(light)
+            let darkColor = NSColor(dark)
+            return Color(nsColor: NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? darkColor : lightColor
+            })
+            #endif
         }
     }
 

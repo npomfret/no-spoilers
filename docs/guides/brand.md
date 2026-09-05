@@ -23,10 +23,16 @@ the menu bar label — an `NSHostingView` built by an `AppDelegate` — and the 
 process with no app environment to inherit — get the same answer as the app without anything being
 injected at three roots. Revisiting that is a rewrite of the plumbing, not an extension of it.
 
-**No dark mode.** Both hosted surfaces force `.preferredColorScheme(.light)` and the widget's
-container background is a hardcoded light gradient. Every role below has one value. The roles exist
-anyway, because a system colour does not move when the palette moves; adding dark mode later is
-"give each role a second value" rather than "find every colour decision again".
+**Dark mode follows the system, on both platforms, with no in-app toggle.** Since 2026-09-05 every
+surface and text role in §2 has a light value and a dark one, and the host picks: the pairing is a
+platform dynamic colour (`Theme.Palette.adaptive`), which resolves against whatever appearance is
+current when it is drawn. That is what keeps this inside the rule above — the menu bar label, the
+widget, the Live Activity and the app all read the same static constant and each follows its own
+host, and nothing reads `\.colorScheme`. The three state colours, `attention`, `confirmation` and
+`hoverFill` do not change: the first three were measured on charcoal and clear the same bar they
+clear on ivory, the other three are already system colours. Nothing forces `.preferredColorScheme`
+any more, and `tasks/28-dark-mode-follows-the-system.md` is why it took a Guideline 4 rejection to
+get here.
 
 ---
 
@@ -46,6 +52,21 @@ The raw colours. Derived from the app icon in `docs/icon.png`.
 | Upcoming Blue | `#3D7FCC` | `BrandPalette.upcomingBlue` | — | Upcoming state only |
 | Secondary text | `#5F5754` | `BrandPalette.secondaryText` | `--text-secondary` | Supporting copy on ivory |
 | Tertiary text | `#827876` ³ | `BrandPalette.tertiaryText` | `--text-tertiary` | Quiet copy on ivory |
+| White | `#FFFFFF` | `BrandPalette.white` | — | The lift: rows, cards, the bright end of the gradient. Not a ground |
+
+The dark set, Swift-only — the website has no dark mode. Warm like the light set, so the two
+appearances read as one product; each is the dark answer to the light name beside it.
+
+| Name | Hex | Swift | Dark answer to | Purpose |
+| --- | --- | --- | --- | --- |
+| Charcoal | `#171313` | `BrandPalette.charcoal` | Ivory | The dark ground |
+| Oxblood | `#2F1516` | `BrandPalette.oxblood` | Blush | Tinted headers, gradients, pills |
+| Graphite | `#2C2626` | `BrandPalette.graphite` | White | The lift above charcoal |
+| Cinder | `#3B3333` | `BrandPalette.cinder` | Mist Grey | Borders and dividers |
+| Secondary text, dark | `#B9AEAA` | `BrandPalette.secondaryTextDark` | Secondary text | Supporting copy on charcoal |
+| Tertiary text, dark | `#8E8480` | `BrandPalette.tertiaryTextDark` | Tertiary text | Quiet copy on charcoal |
+
+Primary text on charcoal is ivory, which already had a name.
 
 ³ **Tertiary text is 4.05:1 on ivory, which is short of the 4.5:1 that normal-size text wants.**
 Holding the hue, `#79706E` is the value that clears it at 4.55:1. That is recorded rather than
@@ -60,31 +81,53 @@ seniority: the web pair is darker on both roles, so Swift adopted it. Supporting
 Use Signal Red sparingly — it should feel deliberate, not flood a layout. Prefer Ivory over pure
 white for grounds. Success Green marks a completed session and never replaces the brand accent.
 
-**Contrast, measured with the WCAG sRGB formula, not estimated.** Almost nothing in this palette
-clears 4.5:1 on ivory: `successGreen` is **3.31**, `signalRed` 3.93, `upcomingBlue` 3.89, and only
-`smoke` (16.25) really passes. That is why the state colours carry the accent bar and the badge —
-UI components, which need 3:1 — while session **names** stay on `textPrimary` in every state.
-**Do not draw `successGreen` on blush**: 2.60 there fails even the 3:1 bar.
+**Contrast, measured with the WCAG sRGB formula, not estimated**, and pinned to two decimal places
+by `ThemePaletteContrastTests` so that this table and the code cannot drift apart.
+
+| On the ground | Light (ivory) | Dark (charcoal) |
+| --- | --- | --- |
+| `textPrimary` | 16.25 | 17.42 |
+| `textSecondary` | 6.66 | 8.51 |
+| `textTertiary` | 4.05 ³ | 5.06 |
+| `stateFinished` (success green) | **3.31** | 5.25 |
+| `stateLive` (signal red) | 3.93 | 4.44 |
+| `stateUpcoming` (upcoming blue) | 3.89 | 4.48 |
+| `stateFinished` on a lifted row | 3.43 | 4.62 |
+
+Almost nothing in the light palette clears 4.5:1 on ivory, and only `smoke` really passes. That is
+why the state colours carry the accent bar and the badge — UI components, which need 3:1 — while
+session **names** stay on `textPrimary` in every state. The dark ground is kinder to all three, which
+is why the state colours did not need a dark value. **Do not draw `successGreen` on blush**: 2.60
+there fails even the 3:1 bar.
 
 ## 2. Semantic colour roles
 
-What a colour is *for*. One value each; the roles are the seam a dark variant would hang from.
+What a colour is *for*. Two values each where the appearance changes it, and the host picks; the
+roles are the seam dark mode hangs from, and the only place a light and a dark colour are paired.
 
-| Role | Swift | CSS | Resolves to |
-| --- | --- | --- | --- |
-| Primary text | `Theme.Palette.textPrimary` | `--text-primary` | smoke |
-| Supporting text | `Theme.Palette.textSecondary` | `--text-secondary` | secondary text |
-| Quiet text | `Theme.Palette.textTertiary` | `--text-tertiary` | tertiary text ³ |
-| Dividers | `Theme.Palette.separator` | `--border` ¹ | mist grey |
-| The ground | `Theme.Palette.surface` | `--bg` ¹ | ivory |
-| A lifted row or panel | `Theme.Palette.surfaceRaised` | `--card` ¹ | white at 65% |
-| A weekend that is over | `Theme.Palette.surfaceFinished` | — | `#F4F2EF` ² |
-| Finished session | `Theme.Palette.stateFinished` | `--success-green` | success green |
-| Live session | `Theme.Palette.stateLive` | — | signal red |
-| Upcoming session | `Theme.Palette.stateUpcoming` | — | upcoming blue |
-| The app talking about itself | `Theme.Palette.attention` | — | system orange ² |
-| A control confirming it acted | `Theme.Palette.confirmation` | — | system green ² |
-| Pointer over a menu row | `Theme.Palette.hoverFill` | — | system secondary at 10% ² |
+| Role | Swift | CSS | Light | Dark |
+| --- | --- | --- | --- | --- |
+| Primary text | `Theme.Palette.textPrimary` | `--text-primary` | smoke | ivory |
+| Supporting text | `Theme.Palette.textSecondary` | `--text-secondary` | secondary text | secondary text, dark |
+| Quiet text | `Theme.Palette.textTertiary` | `--text-tertiary` | tertiary text ³ | tertiary text, dark |
+| Dividers | `Theme.Palette.separator` | `--border` ¹ | mist grey | cinder |
+| The ground | `Theme.Palette.surface` | `--bg` ¹ | ivory | charcoal |
+| The lift, at a caller's opacity | `Theme.Palette.surfaceLift` | — | white | graphite |
+| A lifted row or panel | `Theme.Palette.surfaceRaised` | `--card` ¹ | lift at 65% | lift at 65% |
+| A soft wash, at a caller's opacity | `Theme.Palette.surfaceTinted` | — | blush | oxblood |
+| A weekend that is over | `Theme.Palette.surfaceFinished` | — | `#F4F2EF` ² | `#1D1B1B` ² |
+| Finished session | `Theme.Palette.stateFinished` | `--success-green` | success green | same |
+| Live session | `Theme.Palette.stateLive` | — | signal red | same |
+| Upcoming session | `Theme.Palette.stateUpcoming` | — | upcoming blue | same |
+| The app talking about itself | `Theme.Palette.attention` | — | system orange ² | system |
+| A control confirming it acted | `Theme.Palette.confirmation` | — | system green ² | system |
+| Pointer over a menu row | `Theme.Palette.hoverFill` | — | system secondary at 10% ² | system |
+
+`surfaceLift` and `surfaceTinted` are bases, not finished surfaces: the card multiplies the lift by
+0.82/0.78/0.74 per canvas, the row by 0.65, and the three tinted callers use 0.3, 0.5 and 0.7. Those
+are the opacities that were on screen when each site read `Color.white` or `BrandPalette.blush`;
+naming the base is what let one edit give all of them a dark value. `NoSpoilersBackground` is
+`surface` → `surfaceTinted` at 72% → `surfaceLift`, in both appearances.
 
 ¹ The web's surface names came first and are better; Swift has not adopted them. Values differ —
 `--card` is white at 88% where `surfaceRaised` is 65%, because a web card sits on a photograph.
@@ -228,8 +271,14 @@ forget; the app will simply tint itself with the old red.
   family needs a new member — with a call site on every canvas — or the number is a glyph size and
   belongs at the call site with a comment saying so.
 - **Do not use system colours** (`.primary`, `.secondary`, `.tertiary`) for product text. They do
-  not move when the palette moves, which is the whole problem. The one exception is anything drawn
-  outside a forced-light surface; there is currently none.
+  not move when the palette moves, which is the whole problem, and now that nothing is pinned light
+  they would also move when the palette does not. System controls — toggles, buttons, menus — keep
+  theirs; that is what following the appearance means.
+- **Do not force a colour scheme.** `.preferredColorScheme(.light)` was how four surfaces survived
+  the April 2026 rejection before the roles had dark values. A pin now hides a role that is missing
+  one; give it the value instead.
+- **A new role that changes with the appearance goes through `adaptive(light:dark:)`**, with both
+  hexes in `BrandPalette` under their own names. Do not read `\.colorScheme` to pick a colour.
 - **Every user-visible string goes through a `Strings.swift`.** Placeholder text inside a
   `.redacted` view is not user-visible copy — use `Text(verbatim:)`.
 - **Both bindings or neither.** A token with a web equivalent must be expressible as a CSS custom

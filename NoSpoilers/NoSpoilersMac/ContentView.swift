@@ -139,7 +139,7 @@ struct WeekendPopoverView: View {
         }
         .padding(.horizontal, Theme.Space.xxl)
         .padding(.vertical, Theme.Space.xl)
-        .background(BrandPalette.blush.opacity(0.3))
+        .background(Theme.Palette.surfaceTinted.opacity(0.3))
     }
 
     /// The span a weekend covers, or nil when it has no sessions to span.

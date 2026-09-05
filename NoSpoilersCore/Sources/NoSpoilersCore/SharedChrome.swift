@@ -42,12 +42,19 @@ public enum NoSpoilersWordmarkSize {
     }
 }
 
+/// The ground every surface sits on: the page, the popover, the four system
+/// widget families.
+///
+/// Three roles, so it follows the appearance with the rest of the palette:
+/// ivory into a blush wash into white by day, charcoal into an oxblood wash
+/// into graphite by night. The stops and the 0.72 are what the light gradient
+/// has always been; only the names moved.
 public struct NoSpoilersBackground: View {
     public init() {}
 
     public var body: some View {
         LinearGradient(
-            colors: [BrandPalette.ivory, BrandPalette.blush.opacity(0.72), Color.white],
+            colors: [Theme.Palette.surface, Theme.Palette.surfaceTinted.opacity(0.72), Theme.Palette.surfaceLift],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -81,7 +88,7 @@ public struct NoSpoilersCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(card.fillOpacity))
+                    .fill(Theme.Palette.surfaceLift.opacity(card.fillOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
@@ -145,7 +152,7 @@ public struct NoSpoilersRoundPill: View {
             // recorded. They round down, like every stray before them.
             .padding(.horizontal, Theme.Space.sm)
             .padding(.vertical, Theme.Space.xxs)
-            .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : BrandPalette.blush.opacity(0.7))
+            .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : Theme.Palette.surfaceTinted.opacity(0.7))
             .clipShape(Capsule())
     }
 }
@@ -376,7 +383,7 @@ public struct NoSpoilersScreenHeader: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.ScreenHeader.verticalPadding)
-        .background(BrandPalette.blush.opacity(0.5))
+        .background(Theme.Palette.surfaceTinted.opacity(0.5))
     }
 }
 

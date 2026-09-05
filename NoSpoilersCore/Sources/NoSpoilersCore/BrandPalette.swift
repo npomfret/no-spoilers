@@ -3,6 +3,11 @@ import SwiftUI
 // MARK: - BrandPalette
 // Single source of truth for all brand colours across macOS app, iOS app, and widget.
 // Hex values are the canonical spec from docs/guides/brand.md.
+//
+// **One hex per name, in either appearance.** Nothing here knows about dark mode: a name is
+// a colour, not a role, and a colour does not change when the room goes dark. The pairing —
+// "ivory in light, charcoal in dark" — is `Theme.Palette`'s job, which is why the dark
+// entries below have their own names rather than hiding behind the light ones.
 
 public enum BrandPalette {
     // Primary
@@ -35,4 +40,26 @@ public enum BrandPalette {
     // 6.66:1, tertiary 3.31:1 → 4.05:1. Nothing in this file gets lighter.
     public static let secondaryText = Color(red: 0.3725, green: 0.3412, blue: 0.3294) // #5F5754
     public static let tertiaryText  = Color(red: 0.5098, green: 0.4706, blue: 0.4627) // #827876
+
+    // The lift. Not a ground — `docs/guides/brand.md` prefers ivory for those — but the
+    // colour a row or card is tinted with to sit above one, and the bright end of the
+    // background gradient. It was `Color.white` at three call sites until it was named.
+    public static let white       = Color(red: 1.0000, green: 1.0000, blue: 1.0000) // #FFFFFF
+
+    // Dark appearance. Chosen on 2026-09-05 against the same WCAG sRGB formula the light
+    // set was measured with; the figures are in docs/guides/brand.md and pinned by
+    // `ThemePaletteContrastTests`. Warm like the light set: every one of these carries a
+    // little red, the way ivory and mist grey do, so the two appearances read as one product.
+    /// The dark ground. The dark answer to ivory.
+    public static let charcoal    = Color(red: 0.0902, green: 0.0745, blue: 0.0745) // #171313
+    /// A dark maroon wash for tinted headers, gradients and pills. The dark answer to blush.
+    public static let oxblood     = Color(red: 0.1843, green: 0.0824, blue: 0.0863) // #2F1516
+    /// The dark lift: what a row or card is tinted with above charcoal. The dark answer to white.
+    public static let graphite    = Color(red: 0.1725, green: 0.1490, blue: 0.1490) // #2C2626
+    /// Borders and dividers on charcoal. The dark answer to mist grey.
+    public static let cinder      = Color(red: 0.2314, green: 0.2000, blue: 0.2000) // #3B3333
+    /// Supporting copy on charcoal, 8.51:1. Primary text on charcoal is `ivory`.
+    public static let secondaryTextDark = Color(red: 0.7255, green: 0.6824, blue: 0.6667) // #B9AEAA
+    /// Quiet copy on charcoal, 5.06:1 — clears the 4.5:1 its light counterpart misses.
+    public static let tertiaryTextDark  = Color(red: 0.5569, green: 0.5176, blue: 0.5020) // #8E8480
 }

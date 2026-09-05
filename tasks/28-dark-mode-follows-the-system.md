@@ -1,6 +1,6 @@
 # Task 28: dark mode on iOS and macOS, following the system
 
-**Status: PLANNED. Raised 2026-09-05.**
+**Status: IN PROGRESS. Raised 2026-09-05; phases 1 and 2 landed the same day.**
 
 ## The issue
 
@@ -88,12 +88,36 @@ Decisions taken at filing:
 - App Store screenshots stay light; re-shooting the listing in dark is a separate decision.
 - The website (`docs/styles.css` has no `prefers-color-scheme`) is out of scope.
 
-Verification, none of it done yet:
+Decisions taken in phases 1 and 2 (2026-09-05):
 
-- [ ] `scripts/verify-core-tests.sh`, `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`,
-      `scripts/verify-widget-build.sh`
-- [ ] `docs/guides/brand.md` dark column with measured contrast ratios
+- **The pairing lives in `Theme.Palette`, not `BrandPalette`.** The brainstorm said "inside
+  `BrandPalette`", and the mechanism is as recommended — a platform dynamic colour, no
+  environment read — but the pair is made where the roles are. `BrandPalette` stays one hex per
+  name and gains the dark hexes under their own names (charcoal, oxblood, graphite, cinder, and
+  the two dark text neutrals), because `ivory` resolving to near-black in dark would make the
+  name a lie, and the brand guide already said the roles were the seam.
+- **Two new roles, because three call sites needed them.** `surfaceLift` (white / graphite) is
+  what the card fill, the row fill and the gradient's bright end multiply; `surfaceTinted` (blush
+  / oxblood) is what the mac header, the screen header and the round pill wash with. Each site
+  keeps the opacity it had, so light is pixel-identical.
+- **Oxblood rather than blush dimmed**, because blush at 30% over charcoal is grey mud. It is a
+  maroon-tinted charcoal, the same relationship blush has to ivory.
+- **The state colours keep one value.** Measured on charcoal: green 5.25, red 4.44, blue 4.48,
+  all clear of the 3:1 component bar with more room than they have on ivory.
+- **`surfaceFinished` keeps its literal in `Theme.swift`**, now as a pair (`#F4F2EF` / `#1D1B1B`).
+  The phase 2 grep criterion below is read with that one deliberate exception, which the role's
+  doc comment has always explained.
+- **`ThemePaletteContrastTests` pins every ratio in the guide's table** to two decimal places, in
+  both appearances, via `Color.resolve(in:)` with the scheme set. That both stops the table
+  drifting from the code and proves the dynamic colour actually answers dark when asked.
+
+Verification:
+
+- [x] `scripts/verify-core-tests.sh` (111 tests), `scripts/verify-mac-build.sh`,
+      `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh` — all green after phase 2
+- [x] `docs/guides/brand.md` dark column with measured contrast ratios
 - [ ] No `preferredColorScheme` and no colour literal outside `BrandPalette.swift` in the tree
+      (phase 2 half done: the only literals left are the `surfaceFinished` pair)
 - [ ] Dark and light captures of every surface listed in phase 4, looked at, not just taken
 
 Residual risk: this is the surface that has already been rejected once. Ship it as its own
