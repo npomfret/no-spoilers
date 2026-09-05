@@ -95,7 +95,7 @@ durable fix is Admin role on the signing key so it can mint its own.
 reasoning that the build number is then real, and 738 is the counter-example: archive succeeded,
 `bump to v1.1.2 (build 10007)` is on `main`, and nothing was ever uploaded. Build 10007 exists in
 this repository's history and nowhere else. Harmless — Apple only requires numbers to increase — but
-the commit is honest about the archive and misleading about the release.
+the commit is honest about the archive and misleading about the release. Committing after the upload instead would remove the stray commit for every failure mode at once, at the cost of the rebase-on-push reasoning built around the current order; not done, and worth doing if the closed-train check of 2026-09-05 turns out not to be the last way to reach the upload with a doomed package.
 
 **The *What to Test* note does not survive this path.** `testflight_distribute.py` finds the shipping
 commit by its `bump to vX.Y.Z (build N)` message and names its parent; on build 10008 it reported
