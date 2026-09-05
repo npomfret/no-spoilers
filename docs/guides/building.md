@@ -248,6 +248,10 @@ so it is safe to create early.
 `scripts/mac_screenshots.py` the macOS one from the real app on this machine. Both docstrings are
 the long-form reference and are kept current; what follows is the policy around them.
 
+Both apps follow the system appearance (task 28), and the listing stays light. To look at the dark
+side: `xcrun simctl ui <udid> appearance dark` before an iOS run, and `--appearance dark` on the Mac
+script, which flips the desktop for the capture and puts it back.
+
 **macOS had no tooling at all until 2026-08-22, and the listing shows it**: the only Mac image is a
 1280x800 file called `Gemini_Generated_Image_utojutojutojutoj.jpg` — a picture of an idea of the
 app, not the app. Guideline 2.3.3 wants screenshots of the app in use.

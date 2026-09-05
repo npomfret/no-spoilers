@@ -1,6 +1,6 @@
 # Task 28: dark mode on iOS and macOS, following the system
 
-**Status: IN PROGRESS. Raised 2026-09-05; phases 1 to 3 landed the same day. Phase 4, the pixels, is what is left.**
+**Status: BUILT AND LOOKED AT, 2026-09-05. Three captures need a hand on a device; see the end of Tracking.**
 
 ## The issue
 
@@ -125,7 +125,25 @@ Verification:
 - [x] No `preferredColorScheme` and no colour literal outside `BrandPalette.swift` in the tree
       (the only literals left are the `surfaceFinished` pair; the four pins came off in phase 3
       and all four verify scripts passed again afterwards)
-- [ ] Dark and light captures of every surface listed in phase 4, looked at, not just taken
+- [x] Dark and light captures, looked at, in `tmp/screenshots/dark-mode/` (not committed):
+      macOS popover, Settings and About in both appearances; iOS main screen in both (dark landed
+      on a finished weekend, light on the current one, so both grounds were seen); small, medium
+      and large Home Screen widgets dark, medium light. Every light capture is unchanged.
+- [ ] Not captured, and only a person with a device can: the iOS About, Help and Alerts sheets,
+      the Lock Screen families, and the Live Activity. The three sheets need a tap the simulator
+      cannot be given from a script — System Events refuses clicks into its window with
+      "not allowed assistive access" even though the same call opens the Mac popover — and the
+      Lock Screen and Live Activity are the documented manual cases in `screenshots.py`. What
+      covers them: About is the shared `AboutView`, captured dark on the Mac; Help and Alerts are
+      `NoSpoilersBackground` plus the text roles plus system controls, which is exactly the Mac
+      Settings screen, captured dark; the Live Activity tint is `Theme.Palette.surface`, the
+      same role the dark widgets drew their ground from. Look at the three sheets on a phone
+      before shipping, and add "dark mode" to what task 26's first release note says.
+
+Phase 4 tooling: `scripts/mac_screenshots.py --appearance {light,dark}` flips the desktop for the
+capture and restores it in a `finally`; it also now resolves a relative `--app` path, which
+`open -a` had been refusing. The iOS side needed nothing new — `xcrun simctl ui <udid> appearance
+dark` before `screenshots.py` was enough, and the setting survives the script's reboot.
 
 Residual risk: this is the surface that has already been rejected once. Ship it as its own
 release, and the first macOS release goes through task 26 anyway.

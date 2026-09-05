@@ -89,11 +89,23 @@ picture of the live calendar, because the fetch had not finished writing by the
 time it looked. A check that can be beaten by timing is worth having and is not
 worth believing.
 
+## `--appearance` flips the whole desktop, and puts it back
+
+The popover follows the system appearance since 2026-09-05 (task 28), and there is no
+per-app override for a menu bar app: the only way to see it dark is to make the Mac
+dark. `--appearance dark` does that through System Events' appearance preferences,
+relaunches the app so the popover draws fresh, captures, and restores whatever the
+appearance was before — in a `finally`, so a failed capture does not leave you in the
+wrong one. The capture is named for the appearance (`macos-menu-bar-dark.png`) so a
+light and a dark run sit side by side. Without the flag nothing is flipped and the
+file keeps its listing name.
+
 Usage:
     scripts/mac_screenshots.py --dry-run
     scripts/mac_screenshots.py
     scripts/mac_screenshots.py --expect 2560x1600
     scripts/mac_screenshots.py --region 1440x900 --out tmp/screenshots
+    scripts/mac_screenshots.py --appearance dark --allow-network
 
 Stdlib only. It borrows `check_size` from `screenshots.py` and nothing else:
 the two scripts share the App Store's pixel rules and no longer share a fixture,
@@ -240,6 +252,28 @@ def app_running() -> bool:
     return subprocess.run(("pgrep", "-x", PROCESS), capture_output=True).returncode == 0
 
 
+def system_appearance() -> str:
+    """`dark` or `light`, from the preference System Settings writes.
+
+    The key is absent in light mode rather than set to `Light`, so a failed read
+    is the ordinary answer and not an error.
+    """
+    result = subprocess.run(
+        ("defaults", "read", "-g", "AppleInterfaceStyle"), capture_output=True, text=True
+    )
+    return "dark" if result.returncode == 0 and result.stdout.strip() == "Dark" else "light"
+
+
+def set_system_appearance(appearance: str) -> None:
+    """Flip the Mac. Every app on screen follows, including the one this photographs."""
+    wanted = "true" if appearance == "dark" else "false"
+    osascript(
+        f'tell application "System Events" to tell appearance preferences '
+        f"to set dark mode to {wanted}"
+    )
+    print(f"appear   {appearance}")
+
+
 def quit_app() -> None:
     """Stop the running copy, so it cannot overwrite the fixture we are about to write.
 
@@ -384,6 +418,9 @@ def main() -> int:
     parser.add_argument("--allow-network", action="store_true",
                         help="capture with the feed reachable. The app will refetch and the "
                              "picture will show today's calendar rather than the fixture.")
+    parser.add_argument("--appearance", choices=("light", "dark"),
+                        help="flip the system appearance for the capture and restore it after; "
+                             "the file is named for it")
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
 
@@ -395,7 +432,8 @@ def main() -> int:
 
     region = pixels(arguments.region)
     expected = [pixels(value) for value in arguments.expect]
-    destination = arguments.out / "macos-menu-bar.png"
+    suffix = f"-{arguments.appearance}" if arguments.appearance else ""
+    destination = arguments.out / f"macos-menu-bar{suffix}.png"
 
     if not arguments.app.is_dir():
         raise SystemExit(f"no app at {arguments.app}. Install it, or pass --app.")
@@ -419,6 +457,8 @@ def main() -> int:
         print(f"offline  {FEED_HOST} unreachable, so the app will draw its own cache")
 
     if arguments.dry_run:
+        if arguments.appearance:
+            print(f"appear   {arguments.appearance}, then back to {system_appearance()}")
         print(f"quit     {PROCESS}" + ("" if app_running() else "  (not running)"))
         print(f"launch   {arguments.app.name}, wait for the status item")
         print(f"click    menu bar item, settle {SETTLE_SECONDS}s")
@@ -428,15 +468,27 @@ def main() -> int:
 
     quit_app()
 
-    stream = start_log()
-    subprocess.run(("open", "-a", str(arguments.app)), check=True)
-    wait_for_status_item()
-    open_popover()
-    time.sleep(SETTLE_SECONDS)
+    # The flip goes before the launch, so the popover's first draw is in the
+    # appearance being photographed rather than a transition out of the other.
+    previous_appearance = system_appearance()
+    if arguments.appearance and arguments.appearance != previous_appearance:
+        set_system_appearance(arguments.appearance)
 
-    capture(destination, region)
-    print(f"captured {destination}")
-    check_size(destination, expected)
+    try:
+        stream = start_log()
+        # `open -a` wants a name or an absolute path; a relative `--app` such as the
+        # DerivedData build fails with "unable to find application" otherwise.
+        subprocess.run(("open", "-a", str(arguments.app.resolve())), check=True)
+        wait_for_status_item()
+        open_popover()
+        time.sleep(SETTLE_SECONDS)
+
+        capture(destination, region)
+        print(f"captured {destination}")
+        check_size(destination, expected)
+    finally:
+        if arguments.appearance and arguments.appearance != previous_appearance:
+            set_system_appearance(previous_appearance)
 
     outcome = refresh_outcome(stream)
     if outcome is None:
