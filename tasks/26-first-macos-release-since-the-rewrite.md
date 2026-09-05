@@ -27,6 +27,9 @@ nothing anywhere reports it.
 
 ## Verification
 
-- [ ] `ship.sh` run: same version and build number on Mac App Store, Developer ID and iOS
+- [ ] `ship.sh` run: same version and build number on Mac App Store, Developer ID and iOS. Since
+      task 32 (2026-09-05) the number comes from `next_build_number` once, the macOS run writes
+      `build/N` and the annotated `vX.Y.Z`, and the iOS run finds `build/N` already on its
+      commit — this is the first run to exercise that reuse path
 - [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
 - [ ] Popover photographed with the Chivo wordmark before the archive
