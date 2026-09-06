@@ -87,6 +87,10 @@ private extension ActivityViewContext<SessionActivityAttributes> {
 /// the five surfaces the ladder was measured on. The macOS menu bar's 14pt flag is the precedent.
 private let flagHeight: CGFloat = 16
 
+/// Room for `H:MM:SS` at `.title2` semibold, and no more. See the clock's comment in
+/// `SessionActivityLockScreenView` for what happens when the timer text is left to size itself.
+private let clockMaxWidth: CGFloat = 104
+
 /// The Lock Screen and banner presentation.
 ///
 /// Three lines on the left, in the order every other family uses them — who we are, what weekend,
@@ -109,13 +113,26 @@ private struct SessionActivityLockScreenView: View {
                 SessionActivitySessionLine(attributes: attributes, display: display)
             }
             Spacer(minLength: Theme.Space.md)
+            // Bounded, because `Text(timerInterval:)` asks for the width of the widest string it
+            // could ever show and takes all of it: given priority it starved the left column to
+            // `Bel…` and wrapped *In Progress* one syllable per line, and given `fixedSize` it
+            // overflowed the card. The three lines on the left are the content; the clock gets
+            // what a clock needs.
             SessionActivityClock(state: state, display: display)
-                .font(.title.weight(.semibold).monospacedDigit())
+                .font(.title2.weight(.semibold).monospacedDigit())
                 .lineLimit(1)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: clockMaxWidth, alignment: .trailing)
         }
-        .padding(.horizontal, Theme.Space.xxl)
-        .padding(.vertical, Theme.Space.xl)
+        // The app's card insets, not a pair picked from the scale: this is a card at phone
+        // scale on the same device as the app's, and the first cut sat 16 by 12 inside its
+        // glass, visibly tighter than every card in the product. The corner and shadow are the
+        // system's; only the breathing room is ours.
+        .padding(.horizontal, card.horizontalPadding)
+        .padding(.vertical, card.verticalPadding)
     }
+
+    private var card: Theme.Card.Geometry { Theme.Card.geometry(.iosApp) }
 }
 
 /// Flag and Grand Prix, the way the medium widget's header puts them.
@@ -180,9 +197,12 @@ private struct SessionActivitySessionLine: View {
 /// has no business making. `SessionAlertPlanner` places the safe-to-watch alert on the same
 /// estimate for the same reason.
 ///
-/// `.timer` counts down to a future date and up from a past one, so one style serves both phases;
-/// the switch is on `display` rather than on the date because the stale-date re-render is what
-/// moves the phase on, and the clock has to agree with the line beside it.
+/// `Text(timerInterval:)` rather than `Text(_:style: .timer)`: on the Lock Screen the latter came
+/// out as *38 minutes* in words, at a width that truncated the Grand Prix beside it, where the
+/// interval form is digits the system keeps ticking without the extension's help. The range's
+/// far end is the phase's own instant — the start while upcoming, the effective end while live —
+/// and the switch is on `display` rather than on the date because the stale-date re-render is
+/// what moves the phase on, and the clock has to agree with the line beside it.
 ///
 /// **Finished shows nothing.** The elapsed time of a session that is over is a duration, and
 /// durations are where the finished badge went wrong before (`Finished 4166h`); the word is on the
@@ -193,8 +213,14 @@ private struct SessionActivityClock: View {
 
     var body: some View {
         switch display {
-        case .upcoming, .live:
-            Text(state.startsAt, style: .timer)
+        case .upcoming:
+            // The lower bound only shapes a progress view this never draws; it has to be in the
+            // past for the text to count, and the look-ahead is the furthest away a start can be.
+            Text(timerInterval: state.startsAt.addingTimeInterval(-SessionActivityAttributes.lookAhead)...state.startsAt,
+                 countsDown: true)
+                .foregroundStyle(.primary)
+        case .live:
+            Text(timerInterval: state.startsAt...state.endsAt, countsDown: false)
                 .foregroundStyle(.primary)
         case .finished:
             EmptyView()

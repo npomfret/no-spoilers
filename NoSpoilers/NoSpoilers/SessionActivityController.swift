@@ -56,14 +56,9 @@ final class SessionActivityController: ObservableObject {
     /// the macOS alerts sink fed itself several hundred times a second learning that.
     @Published private(set) var activitiesEnabled = true
 
-    /// How far ahead a session may start and still be worth an activity.
-    ///
-    /// **An activity runs 8 hours active** and stays visible up to 4 more in a stale state, so a
-    /// countdown started earlier than this would be ended by the system before the session it is
-    /// counting to. That is ActivityKit's budget rather than a domain fact, which is why the
-    /// planner takes it as a parameter and it is spelled here — the same split that puts the
-    /// widget's `maxEntries` in the widget and the 64-notification cap in the scheduler.
-    static let lookAhead: TimeInterval = 8 * 3600
+    /// How far ahead a session may start and still be worth an activity. ActivityKit's budget,
+    /// spelled once on the attributes because the extension's countdown needs the same number.
+    static let lookAhead = SessionActivityAttributes.lookAhead
 
     /// Brings what is on the Lock Screen into line with what the schedule now says.
     ///

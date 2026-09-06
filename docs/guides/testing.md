@@ -55,8 +55,23 @@ by observation.
 
 - **Use a session whose stale date is minutes away.** For the upcoming phase that is the start;
   for the live phase it is the grace end. Either a real feed on a race day timed so a session's
-  grace window closes shortly, or a fixture in the App Group cache with a session starting in a few
-  minutes. Open the app so the activity starts, then lock the phone and do not open the app again.
+  grace window closes shortly, or a feed of your own: since 2026-09-06 `NoSpoilersConfig.feedRoot`
+  reads `NO_SPOILERS_FEED_ROOT` from the process environment, so the app fetches a fixture served
+  from a directory instead of the calendar, and nothing has to be seeded under it or cut off from
+  the network. Three commands, from a directory holding `config.json` (`{"calendarOutputYear":
+  2026}`) and `2026.json` (`{"races": [...]}` in the feed's shape — `screenshots.py`'s
+  `fixture_json` makes the weekends):
+
+      python3 -m http.server 8765 --bind 127.0.0.1
+      SIMCTL_CHILD_NO_SPOILERS_FEED_ROOT=http://127.0.0.1:8765/ xcrun simctl launch <udid> pomocorp.NoSpoilers.NoSpoilersMac
+      xcrun simctl io <udid> screenshot out.png     # after Device > Lock in the Simulator
+
+  The app logs `feed redirected` on every fetch it makes this way, so a picture of the fixture
+  can never pass for one of the calendar. **Cold-launch before each lock.** The widget extension
+  does not inherit the environment, refetches the real calendar and writes it over the cache; an
+  app woken warm reads that cache before its own fetch returns and ends the activity as "nothing
+  within the look-ahead". Terminate and launch again and the fixture wins.
+  Open the app so the activity starts, then lock the phone and do not open the app again.
 - **Read the card, not the log.** At the stale date the card should change on its own: the
   countdown becomes *In Progress* in red, or *In Progress* becomes *Finished* in the secondary
   text colour. If it does, the only thing that can have changed it is a re-render with `isStale`

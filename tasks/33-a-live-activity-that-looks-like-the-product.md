@@ -47,3 +47,32 @@ Three things, in order of severity:
       then look at the Lock Screen in both appearances and the Dynamic Island expanded. The name
       must be legible on both, the wordmark must be Chivo (the face registers per process and
       traps if it cannot), and the clock must count.
+
+## 2026-09-06, evening: seen on the simulator
+
+Nothing was within eight hours on any device by the time the card was rebuilt, and the push route
+does not apply (the app never registers for push-to-start), so the feed was redirected instead:
+`NoSpoilersConfig.feedRoot` now reads `NO_SPOILERS_FEED_ROOT`, the seam `screenshots.py` declined
+on 2026-08-18 in the form of a "do not refresh" flag. The app still fetches — from a directory
+served on localhost, which ATS allowed without an exception — and logs `feed redirected` on every
+fetch so the picture cannot pass for the calendar.
+
+What the pictures taught, each fixed in `SessionActivityWidget.swift`:
+
+- `Text(_:style: .timer)` rendered as *38 minutes* in words, wide enough to truncate the Grand
+  Prix. `Text(timerInterval:)` gives digits, and on a locked simulator the seconds draw as `––`
+  the way an always-on display does; on a fresh lock they count.
+- `Text(timerInterval:)` asks for the width of its widest string. With `layoutPriority` it starved
+  the left column to *Bel…* and wrapped *In Progress* a syllable per line; with `fixedSize` the
+  row overflowed the card, clipping the wordmark on the left and pushing the clock off the right.
+  It is bounded to `clockMaxWidth` now.
+- 16 by 12 of padding read as tighter than every card in the product. The card takes the iOS
+  card geometry's insets, which is the standard rather than a pair picked from the scale.
+- The eight-hour look-ahead is `SessionActivityAttributes.lookAhead`, shared by the controller
+  and the extension's countdown range, rather than a number in each.
+- The widget extension does not inherit the environment and refetches the calendar into the
+  cache; an app woken warm then reads it and ends the activity before its own fetch lands. A
+  cold launch before each lock is the procedure, and the testing guide says so.
+
+- [x] Simulator, iPhone 17, iOS 26.5: upcoming and live, light and dark, all four read.
+- [ ] Device, on a real session: still worth the look — the Dynamic Island was not captured.

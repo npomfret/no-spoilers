@@ -68,6 +68,17 @@ import ActivityKit
 /// the planner now names or for one it has outlived.
 public struct SessionActivityAttributes: ActivityAttributes, Hashable {
 
+    /// How far ahead a session may start and still be worth an activity.
+    ///
+    /// **An activity runs 8 hours active** and stays visible up to 4 more in a stale state, so a
+    /// countdown started earlier than this would be ended by the system before the session it is
+    /// counting to. That is ActivityKit's budget rather than a domain fact, which is why the
+    /// planner takes it as a parameter — the same split that puts the widget's `maxEntries` in
+    /// the widget and the 64-notification cap in the scheduler. It lives on the attributes rather
+    /// than in the controller since 2026-09-06 because the extension needs it too: the countdown's
+    /// timer range has to begin before now, and this is the furthest away a start can be.
+    public static let lookAhead: TimeInterval = 8 * 3600
+
     public struct ContentState: Codable, Hashable {
         public let phase: SessionActivityPhase
 

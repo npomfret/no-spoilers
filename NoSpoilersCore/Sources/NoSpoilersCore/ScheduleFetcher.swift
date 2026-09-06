@@ -12,9 +12,11 @@ import Foundation
 /// yet. `calendarOutputYear` is maintained by the same people who publish the calendar files, so
 /// it changes when the data does, which is the only signal that is actually about the data.
 ///
-/// This is the single place either the URL or the year is decided. The widget calls it too.
+/// This is the single place the year is decided. The URL is `NoSpoilersConfig.feedRoot`, which
+/// is where a launch environment can redirect it at a fixture; this actor does not know whether
+/// it has been. The widget calls it too.
 public actor ScheduleFetcher {
-    private static let feedRoot = URL(string: "https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/")!
+    private static let feedRoot = NoSpoilersConfig.feedRoot
 
     /// The session this type used to configure privately now belongs to every fetch site — see
     /// `HTTPSession`, which carries the ephemeral-not-`.shared` reasoning and the widget's
@@ -23,6 +25,11 @@ public actor ScheduleFetcher {
     public init() {}
 
     public func fetch() async throws -> [RaceWeekend] {
+        if NoSpoilersConfig.feedRootIsOverridden {
+            // `.notice`, on every fetch: a picture of a fixture must never pass for the calendar,
+            // and this line beside `refresh complete` is what says which one it was.
+            AppLog.schedule.notice("feed redirected", ["root": Self.feedRoot.absoluteString])
+        }
         let year = try await currentSeasonYear()
         let (data, response) = try await HTTPSession.shared.data(from: Self.feedRoot.appending(path: "\(year).json"))
         // The feed is served by GitHub's raw host, which answers an outage or a rate limit with a

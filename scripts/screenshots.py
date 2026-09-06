@@ -35,15 +35,15 @@ race is usually won, which is exactly what makes it untrustworthy as a mode.
     xcrun simctl launch  <udid> <app bundle id>
     xcrun simctl io      <udid> screenshot out.png    # after ~8s
 
-**There is deliberately no `--app` flag over it.** Making it reliable means
-suppressing the fetch, and nothing outside the app can do that — it would take
-a launch-argument branch inside `ScheduleStore`, and product code currently
-reads no launch arguments anywhere. That trade was weighed on 2026-08-18 and
-declined: the listing screenshots are widget screenshots, the manual path
-covers the before/after diffing this is otherwise wanted for, and a flag whose
-job is "do not refresh" is a bad thing to have one typo away from shipping.
-Revisit it if app screenshots ever go on the listing, and read the seam as a
-product capability — an offline mode — rather than as test scaffolding.
+**There is still no `--app` flag over it, but the seam it needed now exists.**
+On 2026-08-18 this was declined because the only way to keep a fixture on
+screen was a flag meaning "do not refresh", one typo away from shipping. Since
+2026-09-06 the app instead fetches from wherever `NO_SPOILERS_FEED_ROOT` says
+(`NoSpoilersConfig.feedRoot`), so a fixture is a feed served from a directory
+and the app refreshes from it as it would from the calendar. The Live Activity
+captures were made that way; `docs/guides/testing.md` has the three commands.
+Folding it into this script is a separate change, if app screenshots ever go
+on the listing.
 
 **The reboot renders; it does not reload.** Booting makes the Home Screen draw
 every widget on it, and the widget reads the App Group cache directly rather
