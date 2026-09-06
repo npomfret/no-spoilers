@@ -21,11 +21,9 @@ user-invocable: true
    - Store or Homebrew release: one of `scripts/ship*.sh`. A run leaves an `open vX.Y.Z` commit
      only when the version changed and a `build/N` tag on the archived commit; the build number
      comes from App Store Connect, never from the project file
-   - TeamCity iPhone publish: `scripts/ci-publish-ios.sh` is the checked-in preflight over the same
-     `scripts/ship-ios.sh` release engine, not a second release implementation
    - Recording an approval: `scripts/tag_approved.py PLATFORM VERSION --apply` writes
-     `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit; the iOS one is run by
-     `ci-publish-ios.sh` when it finds the train closed, the macOS one by a person. Never move a
+     `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit, run by a person for either
+     platform once Apple approves. Never move a
      version tag by hand; the bare `vX.Y.Z` belongs to the Developer ID channel
    - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.

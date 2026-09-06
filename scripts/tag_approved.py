@@ -16,8 +16,8 @@ different builds — iOS 1.1.2 at 10012, macOS 1.1.2 not yet submitted — and o
 tag cannot point at both. The bare name stays with the macOS Developer ID
 release, whose Homebrew cask downloads by it.
 
-`ci-publish-ios.sh` runs this for iOS the moment `--train` reports a version
-closed, before it opens the next one; a person runs it for macOS. Idempotent:
+A person runs this for either platform once Apple approves; until 2026-09-06
+`ci-publish-ios.sh` ran it for iOS when it found a train closed. Idempotent:
 a tag already on the right commit is reported and left alone. A tag on a
 *different* commit is a contradiction and stops the run rather than being
 moved — a tag that moves is a tag nobody can trust, and nothing here has the

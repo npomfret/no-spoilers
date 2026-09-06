@@ -1320,8 +1320,8 @@ def main() -> int:
         nargs=2,
         metavar=("PLATFORM", "VERSION"),
         help="ask only whether this version is still taking builds on this platform. "
-        f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. `ci-publish-ios.sh` asks this "
-        "to decide which version to ship when it was not told one.",
+        f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. What ship.sh's version prompt "
+        "is answering; until 2026-09-06 ci-publish-ios.sh asked it to pick a version itself.",
     )
     parser.add_argument(
         "--next-build",

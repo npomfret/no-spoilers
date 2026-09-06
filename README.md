@@ -145,11 +145,11 @@ Required entitlement (iOS app and widget extension):
 
 Four wrapper scripts handle distribution, all over the one engine `scripts/release.sh`. Each
 suggests the next version, runs the Core tests as a gate, archives, and only then commits and pushes
-the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or for
-iOS from the manual `Publish iOS` configuration on TeamCity, which runs the same script on a
-verified revision. An uploaded build reaches no tester until it is handed over: locally with
-`scripts/testflight_distribute.py --apply`, or by pressing `TestFlight` on TeamCity, which runs it
-for both platforms. See *Publishing from TeamCity* in `docs/guides/building.md`.
+the version bump — so a failed archive leaves no bump behind. Releases run on your machine; day
+to day, Xcode Cloud archives both platforms on every push. An uploaded build reaches no tester
+until it is handed over: locally with `scripts/testflight_distribute.py --apply`, or by pressing
+`TestFlight` on TeamCity, which runs it for both platforms. See *TestFlight from TeamCity* in
+`docs/guides/building.md`.
 
 | Script | What it does |
 |--------|-------------|

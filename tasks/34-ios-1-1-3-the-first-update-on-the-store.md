@@ -50,5 +50,5 @@ All six are retaken from this checkout's build.
 - [x] Build 112 in the Internal group (`testflight_distribute.py --platform ios --build 112 --apply`,
       2026-09-06; the *What to Test* note names `bc04289`)
 - [x] `scripts/verify-python-selftests.sh` green, 2026-09-06 (206 cases across six scripts)
-- [ ] Submitted by a person. Afterwards `tag_approved.py ios 1.1.3 --apply` (or the next
-      `ci-publish-ios.sh` run, which does it when the train is closed)
+- [ ] Submitted by a person. Afterwards a person runs `tag_approved.py ios 1.1.3 --apply`;
+      nothing runs it for you since `Publish iOS` was deleted on 2026-09-06

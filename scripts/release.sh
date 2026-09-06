@@ -405,8 +405,8 @@ tag_build() {
 # ── Shared: open the version ────────────────────────────────────────────────
 #
 # **MARKETING_VERSION is the one thing this run still commits, and only when
-# it changed.** It is what `ci-publish-ios.sh` reads to know which train to
-# ask about and what `suggest_next_version` reads to offer the next one, so a
+# it changed.** It is what `suggest_next_version` reads to offer the next one
+# and what `appstore_status.py --train` is asked about, so a
 # new version has to reach `main`. The build number does not: it is stamped on
 # the archive command line below and recorded by the build/ tag, which is why
 # the "bump to vX (build N)" commit — twenty of them since 2026-08-22, three
