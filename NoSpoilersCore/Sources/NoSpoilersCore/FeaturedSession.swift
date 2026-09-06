@@ -21,15 +21,25 @@ public struct FeaturedSession: Equatable {
     public let session: Session
     public let phase: Phase
 
+    /// The weekend's flag, as `RaceWeekend.countryCode` gives it: nil when the feed names a Grand
+    /// Prix the mapping does not cover, which `FlagImage` draws as the chequered flag.
+    ///
+    /// **Here because a `Session` does not know its country.** The session carries the Grand
+    /// Prix's name and round, and the country is a fact about the weekend; every other surface
+    /// that draws a flag has the `RaceWeekend` in hand. The Live Activity does not — it is handed
+    /// this plan and nothing else — so the plan carries the one weekend fact it needs.
+    public let countryCode: String?
+
     public let startsAt: Date
 
     /// `SessionResolver.effectiveEndDate` — the confirmed end where OpenF1 has given us one, the
     /// end of the grace window otherwise. Never `Session.endsAt`, which is only the scheduled end.
     public let endsAt: Date
 
-    public init(session: Session, phase: Phase, startsAt: Date, endsAt: Date) {
+    public init(session: Session, phase: Phase, countryCode: String?, startsAt: Date, endsAt: Date) {
         self.session = session
         self.phase = phase
+        self.countryCode = countryCode
         self.startsAt = startsAt
         self.endsAt = endsAt
     }
@@ -101,6 +111,7 @@ public enum FeaturedSessionPlanner {
             return FeaturedSession(
                 session: session,
                 phase: .live,
+                countryCode: countryCode(of: session, in: weekends),
                 startsAt: session.startsAt,
                 endsAt: first.date
             )
@@ -110,6 +121,7 @@ public enum FeaturedSessionPlanner {
             return FeaturedSession(
                 session: session,
                 phase: .upcoming,
+                countryCode: countryCode(of: session, in: weekends),
                 startsAt: first.date,
                 endsAt: effectiveEnd(of: session, in: sessionEvents)
             )
@@ -117,6 +129,19 @@ public enum FeaturedSessionPlanner {
         case .weekendArchived:
             preconditionFailure("weekendArchived was filtered out above")
         }
+    }
+
+    /// The flag of the weekend `session` belongs to.
+    ///
+    /// Traps on a missing weekend for the same reason `effectiveEnd` does: the session was taken
+    /// from one of these weekends a moment ago, so its absence means the schedule changed
+    /// underneath this. A nil *code* is a different thing and passes through — that is the feed
+    /// naming a country the mapping does not know, which `RaceWeekend.countryCode` models.
+    private static func countryCode(of session: Session, in weekends: [RaceWeekend]) -> String? {
+        guard let weekend = weekends.first(where: { $0.round == session.round }) else {
+            preconditionFailure("no weekend for round \(session.round), which \(session.id) came from")
+        }
+        return weekend.countryCode
     }
 
     /// The end boundary belonging to `session`.

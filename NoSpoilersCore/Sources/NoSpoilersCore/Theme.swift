@@ -907,11 +907,13 @@ public enum Theme {
         /// `NextUp.flagHeight`, which is a different and smaller ladder for the
         /// footer.
         ///
-        /// **One flag is not on this ladder.** The macOS menu bar draws one
+        /// **Two flags are not on this ladder.** The macOS menu bar draws one
         /// at 14pt, and it is not on any canvas — it is an `NSHostingView`
-        /// sharing one line with the app icon. (The extra-large widget's
-        /// sidebar drew a second at 24pt until the sidebar went on
-        /// 2026-09-02.)
+        /// sharing one line with the app icon. The Live Activity draws one at
+        /// 16pt since 2026-09-06, and takes no canvas for the reason the
+        /// accessory families take none: the Lock Screen's type is the
+        /// system's to scale. (The extra-large widget's sidebar drew a third
+        /// at 24pt until the sidebar went on 2026-09-02.)
         public static func flagHeight(_ canvas: Canvas) -> CGFloat {
             switch canvas {
             case .iosApp:       return 28

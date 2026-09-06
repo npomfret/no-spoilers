@@ -57,10 +57,12 @@ import ActivityKit
 /// Guarded by `os(iOS)` rather than `canImport`: there is no ActivityKit on macOS and the package
 /// builds for both. `Strings` already branches this way.
 ///
-/// **Three fields, and never a fourth.** This is content pushed onto a locked screen that the
+/// **Schedule identity and nothing else.** This is content pushed onto a locked screen that the
 /// reader cannot decline to look at — the same class of surface as the alert copy — so it shows
-/// what every other family already leads with: the Grand Prix, the session, a clock. Nothing about
-/// a result has any way in here, and nothing about one is to be given one.
+/// what every other family already leads with: the Grand Prix, its flag and round, the session, a
+/// clock. The flag joined on 2026-09-06, when the card was put beside a broadcaster's and had no
+/// identity at all; it is the weekend's country, which every Home Screen family already draws.
+/// Nothing about a result has any way in here, and nothing about one is to be given one.
 /// `Hashable` is ours, not ActivityKit's: `ActivityAttributes` requires only `Codable`, and
 /// `SessionActivityController` has to be able to ask whether a running activity is for the session
 /// the planner now names or for one it has outlived.
@@ -110,10 +112,14 @@ public struct SessionActivityAttributes: ActivityAttributes, Hashable {
     public let grandPrixName: String
     public let sessionName: String
 
-    public init(round: Int, grandPrixName: String, sessionName: String) {
+    /// `RaceWeekend.countryCode`: nil is a country the mapping does not know, drawn chequered.
+    public let countryCode: String?
+
+    public init(round: Int, grandPrixName: String, sessionName: String, countryCode: String?) {
         self.round = round
         self.grandPrixName = grandPrixName
         self.sessionName = sessionName
+        self.countryCode = countryCode
     }
 }
 
@@ -123,7 +129,8 @@ public extension FeaturedSession {
         SessionActivityAttributes(
             round: session.round,
             grandPrixName: session.grandPrixName,
-            sessionName: session.kind.displayName
+            sessionName: session.kind.displayName,
+            countryCode: countryCode
         )
     }
 

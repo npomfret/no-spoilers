@@ -22,9 +22,21 @@ import NoSpoilersCore
 /// ActivityKit re-renders at the stale date with `context.isStale` set; every presentation below
 /// folds that in before deciding what to show.
 ///
-/// **The same three fields as every other family** — the Grand Prix, the session, a clock. This is
-/// content on a locked screen the reader cannot decline to look at, so it is deliberately a
-/// different arrangement of what is already audited rather than a new place to put something.
+/// **The system's material, not ours.** Until 2026-09-06 this tinted the card with
+/// `Theme.Palette.surface` and coloured its text with the palette too, and a Lock Screen showed the
+/// Grand Prix's name in ivory on an ivory card: the system resolved the tint in one appearance and
+/// the text in the other. A Live Activity is the one surface where the system owns the container,
+/// so this no longer paints it, and the text takes the system's own styles for the same reason the
+/// accessory families do. The brand red is the one fixed colour, on the wordmark and the live
+/// state, and it reads on the Lock Screen's glass in either appearance.
+///
+/// **Schedule identity and a clock, arranged the way a broadcaster's card is.** Put next to the
+/// BBC's football activity on the same Lock Screen, this had no identity and led with the words
+/// *In Progress* at title size — the loudest element and the least informative. It now leads with
+/// the wordmark and round, the flag and the Grand Prix, and a large clock: a countdown to the start
+/// while the session is upcoming, and the time since a known start while it runs. Everything on it
+/// is already on the Home Screen widget; this is a different arrangement of what is audited, not a
+/// new place to put something.
 struct SessionActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in
@@ -33,41 +45,27 @@ struct SessionActivityWidget: Widget {
                 state: context.state,
                 display: context.display
             )
-            // A flat tint rather than `NoSpoilersBackground`: this is the one surface where the
-            // system owns the container and takes a colour, not a view. `surface` is the same
-            // ground the gradient starts from — ivory or charcoal, as the Lock Screen decides —
-            // so the activity reads as the app's without pretending to be a card.
-            .activityBackgroundTint(Theme.Palette.surface)
-            .activitySystemActionForegroundColor(Theme.Palette.textPrimary)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(context.attributes.sessionName)
-                        .font(Theme.Typography.eyebrow)
-                        .foregroundStyle(Theme.Palette.textSecondary)
-                        .lineLimit(1)
+                    SessionActivitySessionLine(attributes: context.attributes, display: context.display)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     SessionActivityClock(state: context.state, display: context.display)
-                        .font(.caption.weight(.semibold))
+                        .font(.title3.weight(.semibold).monospacedDigit())
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(context.attributes.grandPrixName)
-                        .font(.headline)
-                        .foregroundStyle(Theme.Palette.textPrimary)
-                        .lineLimit(1)
+                    SessionActivityWeekendLine(attributes: context.attributes)
                 }
             } compactLeading: {
                 SessionActivityGlyph(display: context.display)
             } compactTrailing: {
-                // Nothing once the session has started. The compact slot is a few points wide and
-                // neither "In Progress" nor "Finished" fits in it; the glyph carries the state,
-                // and the words are one long-press away in the expanded view.
-                if context.display == .upcoming {
-                    Text(context.state.startsAt, style: .relative)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                // The compact slot is a few points wide. A clock fits it; "Finished" does not, and
+                // the glyph's colour carries the state until the words are one long-press away.
+                if context.display != .finished {
+                    SessionActivityClock(state: context.state, display: context.display)
+                        .font(.caption2.monospacedDigit())
                         .lineLimit(1)
                 }
             } minimal: {
@@ -84,9 +82,15 @@ private extension ActivityViewContext<SessionActivityAttributes> {
     }
 }
 
+/// The weekend's flag, off `Theme.Header`'s ladder for the same reason the accessory families
+/// take no `Canvas`: the Lock Screen's type is the system's to scale, and the card is not one of
+/// the five surfaces the ladder was measured on. The macOS menu bar's 14pt flag is the precedent.
+private let flagHeight: CGFloat = 16
+
 /// The Lock Screen and banner presentation.
 ///
-/// Three lines, in the order every other family uses them: what weekend, what session, when.
+/// Three lines on the left, in the order every other family uses them — who we are, what weekend,
+/// what session — and the clock on the right at a size that can be read from across a room.
 private struct SessionActivityLockScreenView: View {
     let attributes: SessionActivityAttributes
     let state: SessionActivityAttributes.ContentState
@@ -94,19 +98,19 @@ private struct SessionActivityLockScreenView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: Theme.Space.xl) {
-            VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-                Text(attributes.grandPrixName)
-                    .font(.headline)
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                    .lineLimit(1)
-                Text(attributes.sessionName)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.Palette.textSecondary)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                HStack(spacing: Theme.Space.sm) {
+                    NoSpoilersWordmark(size: .medium)
+                    Text(NoSpoilersCore.Strings.Schedule.roundLabel(attributes.round))
+                        .font(Theme.Typography.eyebrow)
+                        .foregroundStyle(.secondary)
+                }
+                SessionActivityWeekendLine(attributes: attributes)
+                SessionActivitySessionLine(attributes: attributes, display: display)
             }
             Spacer(minLength: Theme.Space.md)
             SessionActivityClock(state: state, display: display)
-                .font(.title3.weight(.semibold))
+                .font(.title.weight(.semibold).monospacedDigit())
                 .lineLimit(1)
         }
         .padding(.horizontal, Theme.Space.xxl)
@@ -114,33 +118,86 @@ private struct SessionActivityLockScreenView: View {
     }
 }
 
-/// When, in one line.
+/// Flag and Grand Prix, the way the medium widget's header puts them.
+private struct SessionActivityWeekendLine: View {
+    let attributes: SessionActivityAttributes
+
+    var body: some View {
+        HStack(spacing: Theme.Space.sm) {
+            FlagImage(countryCode: attributes.countryCode, height: flagHeight)
+            Text(attributes.grandPrixName)
+                .font(.headline)
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+        }
+    }
+}
+
+/// The session, with its state beside it where the state is worth a word.
 ///
-/// **Upcoming counts down; live does not count anything.** A running session's end is the grace
-/// window's estimate until OpenF1 confirms the real one — the same estimate `SessionAlertPlanner`
-/// places the safe-to-watch alert on, and roughly half an hour behind the fact. A clock ticking
+/// Live gets a red dot and `Strings.Schedule.inProgress`, which is what the app, the widget and
+/// the accessory families say too. Finished is muted and says only that, because a finished
+/// activity is still content on a locked screen the reader cannot decline. Upcoming says nothing
+/// here: the clock is counting down, and that is the whole message.
+private struct SessionActivitySessionLine: View {
+    let attributes: SessionActivityAttributes
+    let display: SessionActivityDisplay
+
+    var body: some View {
+        HStack(spacing: Theme.Space.sm) {
+            Text(attributes.sessionName)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            switch display {
+            case .upcoming:
+                EmptyView()
+            case .live:
+                HStack(spacing: Theme.Space.xs) {
+                    Circle()
+                        .fill(Theme.Palette.stateLive)
+                        .frame(width: Theme.Space.sm, height: Theme.Space.sm)
+                    Text(NoSpoilersCore.Strings.Schedule.inProgress)
+                        .font(Theme.Typography.eyebrow)
+                        .foregroundStyle(Theme.Palette.stateLive)
+                }
+            case .finished:
+                Text(Strings.Sessions.finished)
+                    .font(Theme.Typography.eyebrow)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// The clock, in one line.
+///
+/// **Upcoming counts down to the start; live counts up from it.** Both ends are known instants —
+/// the start is the calendar's, and the elapsed time is arithmetic on it. What this still does not
+/// do is count down to the *end* of a running session: that end is the grace window's estimate
+/// until OpenF1 confirms the real one, roughly half an hour behind the fact, and a clock ticking
 /// down to a guess would read as "nearly over", which is a claim about the session this product
-/// has no business making. `Strings.Schedule.inProgress` is what the app, the widget and the
-/// accessory families all say instead, and this says it too.
+/// has no business making. `SessionAlertPlanner` places the safe-to-watch alert on the same
+/// estimate for the same reason.
 ///
-/// **Finished is neutral and says nothing more.** It is the medium widget family's word, in
-/// `textSecondary` rather than a state colour, because a finished activity is still content on a
-/// locked screen the reader cannot decline: it says the session is over, and that is all.
+/// `.timer` counts down to a future date and up from a past one, so one style serves both phases;
+/// the switch is on `display` rather than on the date because the stale-date re-render is what
+/// moves the phase on, and the clock has to agree with the line beside it.
+///
+/// **Finished shows nothing.** The elapsed time of a session that is over is a duration, and
+/// durations are where the finished badge went wrong before (`Finished 4166h`); the word is on the
+/// session line and that is enough.
 private struct SessionActivityClock: View {
     let state: SessionActivityAttributes.ContentState
     let display: SessionActivityDisplay
 
     var body: some View {
         switch display {
-        case .upcoming:
-            Text(state.startsAt, style: .relative)
-                .foregroundStyle(Theme.Palette.textPrimary)
-        case .live:
-            Text(NoSpoilersCore.Strings.Schedule.inProgress)
-                .foregroundStyle(Theme.Palette.stateLive)
+        case .upcoming, .live:
+            Text(state.startsAt, style: .timer)
+                .foregroundStyle(.primary)
         case .finished:
-            Text(Strings.Sessions.finished)
-                .foregroundStyle(Theme.Palette.textSecondary)
+            EmptyView()
         }
     }
 }
@@ -148,16 +205,14 @@ private struct SessionActivityClock: View {
 /// The one glyph the Dynamic Island's small presentations have room for.
 ///
 /// Red while the session is running, which is the same signal `smallSessionTime` gives on the Home
-/// Screen, and back to `textSecondary` once it is over. The accessory widget families cannot do
-/// this — they render in `.accessory` vibrancy mode, which flattens every colour into one material
-/// — but a Live Activity keeps its colours.
+/// Screen, and back to the system's secondary colour once it is over. The accessory widget families
+/// cannot do this — they render in `.accessory` vibrancy mode, which flattens every colour into one
+/// material — but a Live Activity keeps its colours.
 private struct SessionActivityGlyph: View {
     let display: SessionActivityDisplay
 
     var body: some View {
         Image(systemName: Theme.Icon.sessionCountdown)
-            .foregroundStyle(
-                display == .live ? Theme.Palette.stateLive : Theme.Palette.textSecondary
-            )
+            .foregroundStyle(display == .live ? AnyShapeStyle(Theme.Palette.stateLive) : AnyShapeStyle(.secondary))
     }
 }

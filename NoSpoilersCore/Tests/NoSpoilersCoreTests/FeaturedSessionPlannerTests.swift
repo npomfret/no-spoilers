@@ -61,6 +61,31 @@ final class FeaturedSessionPlannerTests: XCTestCase {
         XCTAssertEqual(plan?.endsAt, at(7.5))
     }
 
+    // MARK: - The flag
+
+    func testThePlanCarriesTheWeekendsCountryCode() {
+        // Belgian → BE, whichever phase the session is in. The Live Activity has only this plan to
+        // draw from, and a session does not know its country.
+        XCTAssertEqual(plan([weekend([.race: at(4)])])?.countryCode, "BE")
+        XCTAssertEqual(plan([weekend([.race: at(-0.5)])])?.countryCode, "BE")
+    }
+
+    func testTheCountryCodeIsTheFeaturedSessionsWeekendNotAnotherOne() {
+        let belgium = weekend([.race: at(30)], round: 14)
+        let italy = RaceWeekend(round: 15, name: "Italian", location: "Monza", sessions: [.race: at(2)])
+        XCTAssertEqual(plan([belgium, italy])?.countryCode, "IT")
+    }
+
+    func testAWeekendTheMappingDoesNotKnowCarriesNoCountryCode() {
+        // The 2026 feed's round 16 is named in a way `RaceWeekend.countryCode` cannot place. That
+        // is modelled as nil, and it passes through here as nil rather than as a trap.
+        let unknown = RaceWeekend(round: 16, name: "Bahrain Grand Prix (Malaysia)", location: "Sepang",
+                                  sessions: [.race: at(2)])
+        let plan = plan([unknown])
+        XCTAssertNotNil(plan)
+        XCTAssertNil(plan?.countryCode)
+    }
+
     func testASessionStartingExactlyOnTheLookAheadIsStillShown() {
         // Inclusive, like the widget's horizon: excluding it would refuse an activity in the same
         // second the app decided to offer one.
