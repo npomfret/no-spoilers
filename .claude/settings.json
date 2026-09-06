@@ -20,6 +20,7 @@
     "sessionUrl": false
   },
   "enabledPlugins": {
-    "task-files@npomfret": true
+    "task-files@npomfret": true,
+    "teamcity@npomfret": true
   }
 }

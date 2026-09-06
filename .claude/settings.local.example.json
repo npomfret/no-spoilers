@@ -4,6 +4,7 @@
       "Edit",
       "WebFetch",
       "WebSearch",
+      "Bash(python3 scripts/teamcity.py *)",
       "Bash(scripts/verify-core-tests.sh)",
       "Bash(scripts/verify-python-selftests.sh)",
       "Bash(scripts/verify-mac-build.sh)",

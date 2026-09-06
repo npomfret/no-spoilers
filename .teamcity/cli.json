@@ -1,0 +1,15 @@
+{
+  "project": "NoSpoilers",
+  "composite": "Verdict",
+  "buildTypes": [
+    "Checks",
+    "Build",
+    "Tests",
+    "Verdict"
+  ],
+  "testLegs": [
+    "Checks",
+    "Tests"
+  ],
+  "logDir": "tmp/teamcity"
+}
