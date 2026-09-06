@@ -11,12 +11,38 @@ Set TEAMCITY_CLI to override the search.
 
 from __future__ import annotations
 
+import json
 import os
 import runpy
 import sys
 from pathlib import Path
 
 PLUGINS = Path.home() / ".claude" / "plugins"
+
+
+def version_of(path: Path) -> tuple:
+    """The cache directory's version, as something that sorts numerically."""
+    parts = path.parent.parent.name.split(".")
+    return tuple(int(p) if p.isdigit() else -1 for p in parts)
+
+
+def installed():
+    """Where this machine says the plugin is installed, newest record first.
+
+    This is the only authority on which copy is current. A cache directory
+    outlives the marketplace it came from, and an orphan from a retired
+    marketplace sorts ahead of the live one as readily as behind it.
+    """
+    try:
+        data = json.loads((PLUGINS / "installed_plugins.json").read_text())
+    except (OSError, ValueError):
+        return
+    for key, entries in (data.get("plugins") or {}).items():
+        if key.split("@")[0] != "teamcity":
+            continue
+        for entry in sorted(entries, key=lambda e: e.get("lastUpdated", ""), reverse=True):
+            if entry.get("installPath"):
+                yield Path(entry["installPath"]) / "scripts" / "teamcity.py"
 
 
 def candidates():
@@ -26,8 +52,13 @@ def candidates():
     root = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if root:
         yield Path(root) / "scripts" / "teamcity.py"
-    # Installed copies, newest version first, then the marketplace checkout.
-    yield from sorted(PLUGINS.glob("cache/*/teamcity/*/scripts/teamcity.py"), reverse=True)
+    yield from installed()
+    # Then whatever is cached, by version rather than by path: sorting the paths
+    # ranks the marketplace name ahead of the version, which is how a retired
+    # marketplace's 1.0.0 came to shadow the live 1.0.1.
+    yield from sorted(
+        PLUGINS.glob("cache/*/teamcity/*/scripts/teamcity.py"), key=version_of, reverse=True
+    )
     yield from sorted(PLUGINS.glob("marketplaces/*/plugins/teamcity/scripts/teamcity.py"))
 
 
