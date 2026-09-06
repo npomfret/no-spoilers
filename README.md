@@ -148,8 +148,8 @@ suggests the next version, runs the Core tests as a gate, archives, and only the
 the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or for
 iOS from the manual `Publish iOS` configuration on TeamCity, which runs the same script on a
 verified revision. An uploaded build reaches no tester until it is handed over: locally with
-`scripts/testflight_distribute.py --apply`, or from the `Distribute iOS` and `Distribute macOS`
-configurations, which run it. See *Publishing from TeamCity* in `docs/guides/building.md`.
+`scripts/testflight_distribute.py --apply`, or by pressing `TestFlight` on TeamCity, which runs it
+for both platforms. See *Publishing from TeamCity* in `docs/guides/building.md`.
 
 | Script | What it does |
 |--------|-------------|
