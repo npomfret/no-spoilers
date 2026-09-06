@@ -100,12 +100,36 @@ wrong one. The capture is named for the appearance (`macos-menu-bar-dark.png`) s
 light and a dark run sit side by side. Without the flag nothing is flipped and the
 file keeps its listing name.
 
+## `--mask` paints out everything that is not the app
+
+The capture is a region of the real screen, and the listing wants the app and
+nothing else. Setting a plain desktop first was the instruction until
+2026-09-06, when it turned out not to be something the machine could simply be
+asked for. So `--mask` keeps two things — the status item, and the popover
+hanging off it — and paints over the rest: a plain slate ground, the menu bar
+strip in its own sampled colour with only our item on it, and a drawn shadow
+under the popover. Both regions come from Accessibility, the same way the
+click does, so nothing is guessed about where the popover landed.
+
+**The popover's AX frame is its window, not its body.** The window carries the
+arrow at the top and about 13pt of shadow margin on every side, and the first
+composite pasted that margin back with the desktop still in it. The crop is
+inset to the visible body, with rounded corners a shade larger than the real
+ones so the real corner's edge is under the mask, and the arrow is a triangle
+from the item's centre to the body's top.
+
+The compositing is CoreGraphics, reached through `osascript -l JavaScript`,
+which this script already needs for the click. Pillow was the obvious tool and
+is not used: the Python here is stdlib-only, no venv, no install, and a
+screenshot script is not the place to end that.
+
 Usage:
     scripts/mac_screenshots.py --dry-run
     scripts/mac_screenshots.py
     scripts/mac_screenshots.py --expect 2560x1600
     scripts/mac_screenshots.py --region 1440x900 --out tmp/screenshots
     scripts/mac_screenshots.py --appearance dark --allow-network
+    scripts/mac_screenshots.py --mask --allow-network        # a listing image, any desktop
 
 Stdlib only. It borrows `check_size` from `screenshots.py` and nothing else:
 the two scripts share the App Store's pixel rules and no longer share a fixture,
@@ -117,6 +141,7 @@ import json
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -154,6 +179,78 @@ FEED_HOST = "raw.githubusercontent.com"
 # won and `refresh failed` when it did not, so the picture's provenance is a
 # fact the app states rather than something to infer from a file.
 LOG_PREDICATE = 'subsystem == "pomocorp.NoSpoilers" AND category == "store"'
+
+# The backing store is 2x on every Mac this runs on; `capture` says the same.
+SCALE = 2
+
+# What `--mask` keeps and draws, in points. The popover window frame from
+# Accessibility carries the arrow and a shadow margin outside the visible body;
+# these are the measurements that took it back to the body on 2026-09-06.
+MASK_INSET = 15          # window frame edge → visible body, left, right, bottom
+MASK_ARROW_HEIGHT = 13.5  # window frame top → visible body top
+MASK_RADIUS = 17         # a shade larger than the real corner, so its edge is under the mask
+MASK_ARROW_HALF = 11
+MASK_ITEM_MARGIN = 6     # bar pixels kept either side of the status item
+MASK_GROUND = ((92, 104, 122), (52, 60, 74))  # slate, top → bottom
+
+# CoreGraphics through the JavaScript bridge, so the composite needs nothing
+# that is not on every Mac. argv: source PNG, destination PNG, JSON spec in
+# pixels. The bridge will not turn a JS array into the C array a CGGradient
+# wants, hence the gradient painted as bands.
+MASK_SCRIPT = r"""
+ObjC.import('CoreGraphics'); ObjC.import('ImageIO'); ObjC.import('Foundation');
+function run(argv) {
+  const spec = JSON.parse(argv[2]);
+  const W = spec.width, H = spec.height;
+  const src = $.CGImageSourceCreateWithURL($.NSURL.fileURLWithPath(argv[0]), null);
+  const img = $.CGImageSourceCreateImageAtIndex(src, 0, null);
+  const cs = $.CGColorSpaceCreateDeviceRGB();
+  const ctx = $.CGBitmapContextCreate(null, W, H, 8, W * 4, cs, $.kCGImageAlphaPremultipliedLast);
+  // CoreGraphics has its origin at the bottom left; the spec is top-left pixels.
+  const R = (x, y, w, h) => $.CGRectMake(x, H - y - h, w, h);
+  const full = $.CGRectMake(0, 0, W, H);
+  const bands = 96;
+  for (let i = 0; i < bands; i++) {
+    const t = i / (bands - 1);
+    const c = [0, 1, 2].map(k => (spec.top[k] + (spec.bottom[k] - spec.top[k]) * t) / 255);
+    $.CGContextSetRGBFillColor(ctx, c[0], c[1], c[2], 1);
+    const y0 = Math.floor(H * i / bands), y1 = Math.ceil(H * (i + 1) / bands);
+    $.CGContextFillRect(ctx, R(0, y0, W, y1 - y0));
+  }
+  const b = spec.bar;
+  const column = $.CGImageCreateWithImageInRect(img, $.CGRectMake(b.sampleX, 0, 1, b.height));
+  $.CGContextDrawImage(ctx, R(0, 0, W, b.height), column);
+  $.CGContextSaveGState(ctx);
+  $.CGContextClipToRect(ctx, R(b.keepX, 0, b.keepWidth, b.height));
+  $.CGContextDrawImage(ctx, full, img);
+  $.CGContextRestoreGState(ctx);
+  const p = spec.popover;
+  const body = R(p.x, p.y, p.width, p.height);
+  const path = $.CGPathCreateWithRoundedRect(body, p.radius, p.radius, null);
+  $.CGContextSaveGState(ctx);
+  $.CGContextSetShadowWithColor(ctx, $.CGSizeMake(0, -p.shadowOffset), p.shadowBlur,
+                                $.CGColorCreateGenericGray(0, 0.45));
+  $.CGContextAddPath(ctx, path); $.CGContextSetRGBFillColor(ctx, 0.5, 0.5, 0.5, 1); $.CGContextFillPath(ctx);
+  $.CGContextRestoreGState(ctx);
+  $.CGContextSaveGState(ctx);
+  $.CGContextAddPath(ctx, path); $.CGContextClip(ctx);
+  $.CGContextDrawImage(ctx, full, img);
+  $.CGContextRestoreGState(ctx);
+  const a = spec.arrow;
+  $.CGContextSaveGState(ctx);
+  $.CGContextMoveToPoint(ctx, a.x - a.halfWidth, H - p.y - 1);
+  $.CGContextAddLineToPoint(ctx, a.x, H - a.tipY);
+  $.CGContextAddLineToPoint(ctx, a.x + a.halfWidth, H - p.y - 1);
+  $.CGContextClosePath(ctx); $.CGContextClip(ctx);
+  $.CGContextDrawImage(ctx, full, img);
+  $.CGContextRestoreGState(ctx);
+  const out = $.CGBitmapContextCreateImage(ctx);
+  const dest = $.CGImageDestinationCreateWithURL($.NSURL.fileURLWithPath(argv[1]), $('public.png'), 1, null);
+  $.CGImageDestinationAddImage(dest, out, null);
+  if (!$.CGImageDestinationFinalize(dest)) throw new Error('could not write ' + argv[1]);
+  return 'ok';
+}
+"""
 
 
 def osascript(script: str, timeout: int = 20) -> str:
@@ -346,6 +443,70 @@ def open_popover() -> None:
     )
 
 
+def frame(element: str) -> tuple[int, int, int, int]:
+    """Position and size of one of our process's AX elements, in screen points."""
+    raw = osascript(
+        f'tell application "System Events" to tell process "{PROCESS}" '
+        f"to get {{position, size}} of {element}"
+    )
+    parts = [p.strip() for p in raw.split(",")]
+    if len(parts) != 4 or not all(p.lstrip("-").isdigit() for p in parts):
+        raise SystemExit(f"could not read the frame of {element}, got {raw!r}")
+    x, y, w, h = (int(p) for p in parts)
+    return x, y, w, h
+
+
+def mask(raw: Path, destination: Path, region: tuple[int, int]) -> None:
+    """Keep the status item and the popover; paint over everything else.
+
+    Frames are read now, while the popover is open, and converted from screen
+    points to capture pixels: the capture is anchored to the top-right corner,
+    so its left edge is the screen width less the region width.
+    """
+    left = screen_width() - region[0]
+    ix, _, iw, _ = frame("menu bar item 1 of menu bar 2")
+    bar_height = frame("menu bar 1")[3]
+    px_, py, pw, ph = frame("pop over 1 of menu bar item 1 of menu bar 2")
+    ix -= left
+    px_ -= left
+
+    def px(value: float) -> int:
+        return int(round(value * SCALE))
+
+    spec = {
+        "width": px(region[0]),
+        "height": px(region[1]),
+        "top": MASK_GROUND[0],
+        "bottom": MASK_GROUND[1],
+        "bar": {
+            "height": px(bar_height),
+            # The column just outside the kept margin: the gap between status
+            # items, which is bar background and nothing else.
+            "sampleX": px(ix - MASK_ITEM_MARGIN - 1),
+            "keepX": px(ix - MASK_ITEM_MARGIN),
+            "keepWidth": px(iw + 2 * MASK_ITEM_MARGIN),
+        },
+        "popover": {
+            "x": px(px_ + MASK_INSET),
+            "y": px(py + MASK_ARROW_HEIGHT),
+            "width": px(pw - 2 * MASK_INSET),
+            "height": px(ph - MASK_ARROW_HEIGHT - MASK_INSET),
+            "radius": px(MASK_RADIUS),
+            "shadowOffset": px(6),
+            "shadowBlur": px(14),
+        },
+        "arrow": {"x": px(ix + iw / 2), "halfWidth": px(MASK_ARROW_HALF), "tipY": px(bar_height)},
+    }
+    result = subprocess.run(
+        ("osascript", "-l", "JavaScript", "-e", MASK_SCRIPT, str(raw), str(destination), json.dumps(spec)),
+        capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode != 0 or result.stdout.strip() != "ok":
+        raise SystemExit(f"masking failed: {(result.stderr or result.stdout).strip()}")
+    print(f"masked   kept the status item and the popover body ({pw - 2 * MASK_INSET}x"
+          f"{ph - MASK_ARROW_HEIGHT - MASK_INSET:g} pt), painted over the rest")
+
+
 def capture(destination: Path, region: tuple[int, int]) -> None:
     """A region of the real screen, anchored to the top-right corner.
 
@@ -421,6 +582,9 @@ def main() -> int:
     parser.add_argument("--appearance", choices=("light", "dark"),
                         help="flip the system appearance for the capture and restore it after; "
                              "the file is named for it")
+    parser.add_argument("--mask", action="store_true",
+                        help="keep only the status item and the popover, and paint a plain ground "
+                             "over the rest of the capture — a listing image from any desktop")
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
 
@@ -463,6 +627,8 @@ def main() -> int:
         print(f"launch   {arguments.app.name}, wait for the status item")
         print(f"click    menu bar item, settle {SETTLE_SECONDS}s")
         print(f"capture  {region[0]}x{region[1]} points, top-right -> {destination}")
+        if arguments.mask:
+            print("mask     keep the status item and the popover, paint over the rest")
         print("verify   which calendar the app says it drew")
         return 0
 
@@ -483,7 +649,15 @@ def main() -> int:
         open_popover()
         time.sleep(SETTLE_SECONDS)
 
-        capture(destination, region)
+        if arguments.mask:
+            # The raw capture is kept only long enough to be masked; the
+            # frames must be read now, while the popover is still up.
+            with tempfile.TemporaryDirectory() as scratch:
+                raw = Path(scratch) / "raw.png"
+                capture(raw, region)
+                mask(raw, destination, region)
+        else:
+            capture(destination, region)
         print(f"captured {destination}")
         check_size(destination, expected)
     finally:
@@ -504,10 +678,12 @@ def main() -> int:
     else:
         print(f"\nThe app reports `{outcome}`, so this is the fixture and it reproduces.")
 
+    behind = ("the ground behind the popover is painted, so look at its edges" if arguments.mask
+              else "the desktop behind the popover is in the shot")
     print(
         "\nThe app is still running and holding whatever is in the cache now; its next\n"
-        "successful fetch restores the real calendar. Look at the image before uploading —\n"
-        "the desktop behind the popover is in the shot."
+        f"successful fetch restores the real calendar. Look at the image before uploading —\n"
+        f"{behind}."
     )
     return 0
 

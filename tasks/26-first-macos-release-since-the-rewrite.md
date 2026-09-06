@@ -91,8 +91,8 @@ of the 1.1.3 build, light and dark, made without a plain desktop: the popover an
 were cut out of the capture by their Accessibility frames (the popover *window* frame carries
 about 13pt of shadow margin and the arrow, so the crop is inset to the visible body) and placed on
 a plain slate ground with a drawn shadow. `appstore_screenshots.py` learned the `APP_DESKTOP`
-slot (2560x1600). The composition script is session scratch, not in the repo; if it is wanted
-again it belongs in `mac_screenshots.py` as a `--mask` option.
+slot (2560x1600). The composition is now `mac_screenshots.py --mask`, CoreGraphics through the osascript
+JavaScript bridge so the script stays stdlib-only.
 
 Build 104 also went to Internal (`testflight_distribute.py --platform macos --build 104`).
 Everything Submit needs is now on the record; Submit itself is still a person.

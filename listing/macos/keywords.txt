@@ -1,1 +1,1 @@
-motorsport,racing,menu bar,schedule,qualifying,practice,sprint,countdown,timetable,replay,catch up
+grand prix,menu bar,schedule,qualifying,practice,sprint,countdown,timetable

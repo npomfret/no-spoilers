@@ -330,7 +330,7 @@ states rather than one to infer. Same pattern as `alerts_check.py`, attached bef
 same reason.
 
 The capture is a region of the real screen anchored to the top-right, so it contains the menu bar,
-the popover hanging off it, and whatever is behind them. Set a plain desktop picture first. A
+the popover hanging off it, and whatever is behind them. Set a plain desktop picture first. Or pass `--mask` (2026-09-06): it keeps the status item and the popover, both read from Accessibility, and paints a plain ground over the rest — a plain desktop turned out not to be something this machine could simply be given, and the 1.1.3 listing images were made this way. A
 1280x800 point region lands as 2560x1600 on a Retina Mac, and App Store Connect accepts both.
 
 ```
