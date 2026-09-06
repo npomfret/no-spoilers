@@ -5,5 +5,8 @@ It shows when the sessions of a Grand Prix weekend are, which of them have alrea
 
 It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
 
+ALERTS
+Settings (the gear button in the popover) has a Session alerts section. Turning a group on asks for notification permission once. The alerts are local notifications scheduled on the Mac from the published calendar: one before a session starts, and one when it has finished and is safe to watch. Nothing is sent from a server.
+
 NO ACCOUNT IS NEEDED
 There is no sign-in anywhere in the app, so the demo account previously attached to this app does not apply to anything. All functionality is available immediately on launch.

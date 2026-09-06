@@ -7,6 +7,8 @@ FEATURES
 - The whole Grand Prix weekend at a glance
 - A safe-to-watch marker on every session that has finished, using the time it actually ended
 - Live countdown to the next session
+- Optional alerts before a session starts, and when it is safe to watch
+- Light and dark, following the system appearance
 - Keeps itself up to date with the published calendar
 
 Whether you are watching live or catching up later, No Spoilers tells you exactly what you can watch — and nothing more.

@@ -1,6 +1,7 @@
-• Alerts before a session starts, and when one has finished and is safe to watch
-• Sessions are marked safe to watch using the time the session actually ended, rather than an estimate
-• Refreshed visual style throughout the popover
+• Alerts before a session starts, and when one has finished and is safe to watch. Turn them on in Settings
+• Dark mode. The popover now follows the system appearance
+• Refreshed visual style throughout the popover, with a new wordmark
 • A tidier menu bar item
 • The version and build number now appear in About
+• A session that finished days ago now says so in days, not hours
 • Fixes for unusual calendar entries that could stop the schedule loading

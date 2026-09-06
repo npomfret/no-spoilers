@@ -30,9 +30,18 @@ to find the marks already live is exactly what happened.
 ## Scope
 
 One version of one platform, prepared as far as it can be: create the version
-record if it is missing, write the four localized fields, write the review
-detail, attach a build. Anything to do with which build the *testers* get is
-`testflight_distribute.py` and does not belong here.
+record if it is missing, or rename the one in preparation, write the four
+localized fields, write the review detail, attach a build. Anything to do with
+which build the *testers* get is `testflight_distribute.py` and does not belong
+here.
+
+**`--rename` exists because App Store Connect allows one version in preparation
+per platform.** A record opened for a version that then never shipped — macOS
+1.1.2, created 2026-08-22 and still `PREPARE_FOR_SUBMISSION` on 2026-09-06 while
+the project had moved to 1.1.3 — cannot have a sibling created beside it; the
+POST is refused. The record's `versionString` is the one thing about it that
+moves, so this renames it and keeps everything already on it: the copy, the
+review detail, the screenshots and the attached build.
 
 en-GB only, because that is the app's only locale — `primaryLocale` on the app
 record. A second locale would be a directory level, not a rewrite.
@@ -41,6 +50,7 @@ Usage:
     scripts/appstore_listing.py --platform macos                  # what would change
     scripts/appstore_listing.py --platform macos --apply
     scripts/appstore_listing.py --platform ios --version 1.1.3 --create --apply
+    scripts/appstore_listing.py --platform macos --version 1.1.3 --rename --apply
     scripts/appstore_listing.py --platform macos --build 10004 --apply
     scripts/appstore_listing.py --selftest
 """
@@ -139,15 +149,22 @@ def refuse_marks(source: str, fields: dict[str, object]) -> list[str]:
     ]
 
 
+def editable_versions(versions: list[dict]) -> list[dict]:
+    """The versions App Store Connect will still take metadata for."""
+    return [v for v in versions if v["attributes"]["appStoreState"] in EDITABLE]
+
+
 def target_version(session: Session, app_id: str, platform: str,
-                   wanted: str | None, create: bool, apply: bool) -> dict | None:
+                   wanted: str | None, create: bool, rename: bool, apply: bool) -> dict | None:
     """The version to write to: the one asked for, or the only editable one.
 
     Defaulting to "the newest editable version" rather than to a version string
     is what keeps this from ever touching a shipped listing: a READY_FOR_SALE
     version is not a candidate, so the tool cannot rewrite the words that are on
     the store. If there is nothing editable, that is a decision — `--create` —
-    and not something to infer.
+    and not something to infer. If there is one and it carries the wrong name,
+    that is the other decision — `--rename` — and the record keeps everything
+    else already on it.
     """
     flag = asc.PLATFORM_FLAGS[platform]
     versions = [
@@ -165,9 +182,32 @@ def target_version(session: Session, app_id: str, platform: str,
                     "edit. A shipped listing changes by shipping another version."
                 )
             return found
+        if rename:
+            editable = editable_versions(versions)
+            if len(editable) != 1:
+                names = ", ".join(v["attributes"]["versionString"] for v in editable) or "none"
+                raise SystemExit(
+                    f"{platform} has {len(editable)} editable versions ({names}), so there is "
+                    f"no one record to rename to {wanted}."
+                )
+            current = editable[0]
+            was = current["attributes"]["versionString"]
+            if not apply:
+                # The dry run carries on against the record as it is named now, so
+                # the copy and build it would then receive are previewed in the same run.
+                print(f"would rename {platform} {was} -> {wanted}")
+                return current
+            renamed = session.patch(
+                f"/v1/appStoreVersions/{current['id']}",
+                {"data": {"type": "appStoreVersions", "id": current["id"],
+                          "attributes": {"versionString": wanted}}},
+            )
+            print(f"renamed {platform} {was} -> {wanted}")
+            return renamed["data"]
         if not create:
             raise SystemExit(
-                f"{platform} has no version {wanted}. Pass --create to make one."
+                f"{platform} has no version {wanted}. Pass --create to make one, or --rename to "
+                "move the version in preparation to that name."
             )
         if not apply:
             print(f"would create {platform} version {wanted}")
@@ -185,7 +225,7 @@ def target_version(session: Session, app_id: str, platform: str,
         print(f"created {platform} version {wanted}")
         return made["data"]
 
-    editable = [v for v in versions if v["attributes"]["appStoreState"] in EDITABLE]
+    editable = editable_versions(versions)
     if not editable:
         raise SystemExit(
             f"{platform} has no editable version. Name one with --version and --create."
@@ -307,11 +347,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--platform", choices=sorted(asc.PLATFORM_FLAGS), required=True)
     parser.add_argument("--version", help="version string. Default: the only editable one")
-    parser.add_argument("--create", action="store_true",
-                        help="with --version, create the version record if it is missing")
+    missing = parser.add_mutually_exclusive_group()
+    missing.add_argument("--create", action="store_true",
+                         help="with --version, create the version record if it is missing")
+    missing.add_argument("--rename", action="store_true",
+                         help="with --version, rename the platform's one version in preparation "
+                              "to it if no record by that name exists")
     parser.add_argument("--build", help="build number to attach to the version")
     parser.add_argument("--apply", action="store_true", help="actually write it")
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
+    if (arguments.create or arguments.rename) and not arguments.version:
+        parser.error("--create and --rename need --version to say which")
 
     wanted, notes = copy_for(arguments.platform)
     # The local files first and on their own: copy that carries the marks must
@@ -324,8 +370,8 @@ def main() -> int:
 
     session = Session()
     app_id = asc.find_app(session.get)["id"]
-    version = target_version(session, app_id, arguments.platform,
-                             arguments.version, arguments.create, arguments.apply)
+    version = target_version(session, app_id, arguments.platform, arguments.version,
+                             arguments.create, arguments.rename, arguments.apply)
     if version is None:
         print("\nNothing else can be done until the version exists. Re-run with --apply.")
         return 0
@@ -362,6 +408,16 @@ def _selftest() -> int:
     if "PREPARE_FOR_SUBMISSION" not in EDITABLE or "REJECTED" not in EDITABLE:
         failures.append("the states this tool exists to write to are not editable")
 
+    # The rename candidate is the one editable record and never the shipped one.
+    # This is the shape of the macOS record on 2026-09-06: 1.0.21 on sale, 1.1.2
+    # in preparation, and 1.1.3 wanted.
+    shaped = [
+        {"attributes": {"versionString": "1.0.21", "appStoreState": "READY_FOR_SALE"}},
+        {"attributes": {"versionString": "1.1.2", "appStoreState": "PREPARE_FOR_SUBMISSION"}},
+    ]
+    if [v["attributes"]["versionString"] for v in editable_versions(shaped)] != ["1.1.2"]:
+        failures.append("the rename candidate is not the one version in preparation")
+
     # The refusal, on the exact copy that was live on macOS.
     live = refuse_marks("live", {"keywords": "F1,Formula 1,schedule,menu bar"})
     if len(live) != 1 or "f1, formula 1" not in live[0]:
@@ -392,7 +448,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_listing selftest: 14 cases, {len(failures)} failure(s)")
+    print(f"appstore_listing selftest: 15 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

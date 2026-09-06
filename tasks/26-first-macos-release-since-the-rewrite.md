@@ -35,3 +35,50 @@ nothing anywhere reports it.
 - [ ] Popover photographed with the Chivo wordmark before the archive
 - [ ] Popover photographed dark as well, and the release note says the app now follows the
       system appearance (task 28, 2026-09-05, asked for both)
+
+## 2026-09-06: what the release is, measured
+
+- **On the store: macOS 1.0.21, build 2**, approved 2026-04-25 (`appstore_status.py --approved
+  macos 1.0.21`). `tag_approved.py macos 1.0.21` resolves it to `6991ff4` and has not been
+  applied. The Resolution Center is quiet (the one macOS thread is the April 1.0.13 rejection),
+  App Privacy is published, and the inbox is empty.
+- **The 1.1.2 macOS record is still `PREPARE_FOR_SUBMISSION` holding 10006**, created 2026-08-22,
+  never submitted. The project is at 1.1.3 and iOS 10023 is already uploaded on that train, so the
+  Mac ships 1.1.3. App Store Connect allows one version in preparation per platform, so the record
+  has to be **renamed** 1.1.2 → 1.1.3 (a `PATCH` of `versionString`, which `appstore_listing.py`
+  does not do yet) rather than created beside it.
+- **Not cosmetic.** Since 1.0.21 the Mac target and Core have taken 95 commits across 43 files:
+  session alerts (a new notification permission), the trademark sweep (the wordmark is gone from
+  the menu bar and the popover), the token palette and dark mode, the Chivo wordmark, the
+  finished-badge rollover into days, one URLSession policy, structured logging, and the unmapped-GP
+  crash fix. Entitlements are unchanged since 1.0.21 and the GitHub update check is already gated
+  off by the receipt in App Store builds. Relative to the never-submitted 10006 the increment *is*
+  cosmetic: the wordmark face, dark mode and the days rollover.
+- `listing/macos/{whats-new,description,review-notes}.txt` rewritten for 1.0.21 → 1.1.3. The
+  bullet "marked safe to watch using the time the session actually ended, rather than an
+  estimate" was dropped: 1.0.21's `ContentView` already read `store.confirmedEndDates`, so on the
+  Mac that is not new. Dry run against the record: keywords already correct, the other three
+  change, no trademark hits.
+
+## Order of work for 1.1.3
+
+1. `scripts/mac_screenshots.py` — photograph the popover light and dark (the precondition above).
+2. `scripts/release.sh 1.1.3 --platform macos --channel both` (or the full `ship.sh 1.1.3`, which
+   would upload iOS again beside 10023). Needs a clean tree: `.claude/settings.json` is modified.
+3. Rename the 1.1.2 record to 1.1.3, then `appstore_listing.py --platform macos --version 1.1.3
+   --build N --apply`, then `testflight_distribute.py --platform macos --apply`.
+4. Submit in the browser. Afterwards `tag_approved.py macos 1.1.3 --apply`.
+
+## 2026-09-06, later: done so far
+
+- `appstore_listing.py --rename` added (one `PATCH` of `versionString`, mutually exclusive with
+  `--create`; selftest 15 cases). Applied: the macOS record is now **1.1.3, `PREPARE_FOR_SUBMISSION`,
+  build 104** (Xcode Cloud, 1.1.3), with the rewritten description, what's new and review notes
+  written and the demo account cleared. Not submitted.
+- Popover photographed light and dark from a `verify-mac-build.sh` build of this checkout
+  (1.1.3, 10022) into `tmp/screenshots/1.1.3/`: the Chivo wordmark renders in both, dark draws
+  charcoal surfaces and ivory text. The desktop behind is an IDE, so they verify the build and are
+  not listing images; a listing shot needs a plain desktop first.
+- Still open: whether 104 or a `release.sh` build ships (the 10000 band has not been used for this
+  version on macOS), the Developer ID / Homebrew channel at 1.1.1, `tag_approved.py macos 1.0.21`,
+  and Submit.
