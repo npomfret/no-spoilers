@@ -82,3 +82,17 @@ nothing anywhere reports it.
 - Still open: whether 104 or a `release.sh` build ships (the 10000 band has not been used for this
   version on macOS), the Developer ID / Homebrew channel at 1.1.1, `tag_approved.py macos 1.0.21`,
   and Submit.
+
+## 2026-09-06, later still: the screenshot
+
+The record's one desktop image was the Gemini mock-up carried over from 1.0.21 — the owned logo in
+the menu bar and the popover header, plus a Homebrew update banner. Replaced with two real captures
+of the 1.1.3 build, light and dark, made without a plain desktop: the popover and the status item
+were cut out of the capture by their Accessibility frames (the popover *window* frame carries
+about 13pt of shadow margin and the arrow, so the crop is inset to the visible body) and placed on
+a plain slate ground with a drawn shadow. `appstore_screenshots.py` learned the `APP_DESKTOP`
+slot (2560x1600). The composition script is session scratch, not in the repo; if it is wanted
+again it belongs in `mac_screenshots.py` as a `--mask` option.
+
+Build 104 also went to Internal (`testflight_distribute.py --platform macos --build 104`).
+Everything Submit needs is now on the record; Submit itself is still a person.

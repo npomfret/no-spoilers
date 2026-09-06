@@ -62,6 +62,9 @@ DISPLAY_TYPES = {
     (1320, 2868): "APP_IPHONE_69",
     (2048, 2732): "APP_IPAD_PRO_3GEN_129",
     (2064, 2752): "APP_IPAD_13",
+    # Read off the macOS 1.1.3 record on 2026-09-06: its one set is APP_DESKTOP, and
+    # `mac_screenshots.py` captures a 1280x800 point region at 2x.
+    (2560, 1600): "APP_DESKTOP",
 }
 
 # The states whose screenshots App Store Connect will still accept. Same list as
