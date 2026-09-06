@@ -3,7 +3,7 @@ No Spoilers shows when the sessions of a Grand Prix weekend are, which of them h
 It never shows a result. This is not a setting: there are no result fields anywhere in the app's data model, so there is nothing to hide, collapse, or fetch on demand.
 
 WHAT THE APP DOES ON THE DEVICE
-This version was previously returned under 4.2.2. Everything below runs on the device and cannot be reached by a web page. None of it needs an account, a network connection, or a purchase.
+Everything below runs on the device and cannot be reached by a web page. None of it needs an account, a network connection, or a purchase.
 
 1. HOME SCREEN AND LOCK SCREEN WIDGETS
 The widget is the product. Please add it before reviewing — a widget is not visible until someone places it, so a review that only launches the app does not see what the app is for.
@@ -42,7 +42,4 @@ Ask Siri "When is the next session in No Spoilers" and the app answers out loud,
 The schedule is cached on the device in a shared App Group container, which the widget and the Siri action read directly. Turn off Wi-Fi and mobile data and the app, the widget and the countdown all keep working.
 
 NO ACCOUNT IS NEEDED
-There is no sign-in anywhere in the app, so the demo account previously attached to this submission does not apply to anything. All functionality is available immediately on launch.
-
-CORRECTION TO EARLIER REVIEW NOTES
-Notes on an earlier submission said "This is a menu bar app". That was wrong - there is no menu bar on iPhone or iPad - and we are sorry for the confusion it caused.
+There is no sign-in anywhere in the app. All functionality is available immediately on launch.

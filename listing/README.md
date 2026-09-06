@@ -46,7 +46,7 @@ directory is that place.
 `scripts/screenshots.py` from a seeded fixture and uploaded by `scripts/appstore_screenshots.py`,
 which reads the slot from each PNG's own dimensions. What is on the listing is therefore knowable
 from the app record and reproducible from the repo, but the images themselves are build output
-rather than source. The six on iOS 1.1.2 were taken on 2026-08-25.
+rather than source. The six on iOS 1.1.3 were taken on 2026-09-06, after the medium widget went to three sessions; the 1.1.2 set was from 2026-08-25.
 
 **Two fields are still not in it: the app name and the subtitle.** They belong to the app record
 rather than to a version, App Store Connect edits them on a different page, and no API this

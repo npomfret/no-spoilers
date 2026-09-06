@@ -1,0 +1,4 @@
+• Dark mode. The app, the widgets and the Live Activity now follow the system appearance
+• A Live Activity you can read: the round, the flag and the Grand Prix, the session, and a clock that counts down to the start and up from it — on the Lock Screen and in the Dynamic Island
+• The Live Activity now moves on by itself when a session starts or finishes, instead of saying In Progress for hours after the app was last opened
+• The widget refreshes itself after an update, rather than drawing the previous version until the next session
