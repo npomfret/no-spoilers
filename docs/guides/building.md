@@ -71,7 +71,7 @@ button, two steps: `python3 scripts/testflight_distribute.py --platform ios --ap
 goes; note it is handed to both steps. The macOS step runs even when the iOS one fails, so a Mac
 build is never left stranded by an iPhone refusal, and the run is red if either group refused
 (the script exits 1). A press with nothing to deliver is green and says "already there".
-No snapshot dependency on `Verdict`, because the build being handed over was archived by Xcode
+No snapshot dependency on `Verify`, because the build being handed over was archived by Xcode
 Cloud and the revision checked out only supplies the script; and no lock, because nothing
 compiles. The script fetches tags itself and needs both App Store Connect keys — it fails loudly
 without the App Manager key rather than reading as done.

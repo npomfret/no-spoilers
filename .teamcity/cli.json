@@ -1,15 +1,15 @@
 {
   "project": "NoSpoilers",
-  "composite": "Verdict",
+  "composite": "Verify",
   "buildTypes": [
-    "Checks",
-    "Build",
-    "Tests",
-    "Verdict"
+    "VerifyPython",
+    "VerifyXcode",
+    "VerifySwiftTests",
+    "Verify"
   ],
   "testLegs": [
-    "Checks",
-    "Tests"
+    "VerifyPython",
+    "VerifySwiftTests"
   ],
   "logDir": "tmp/teamcity"
 }

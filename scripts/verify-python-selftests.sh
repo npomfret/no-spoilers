@@ -16,7 +16,7 @@ set -euo pipefail
 # `scripts/teamcity.py` is deliberately not in the list. It has no selftest of
 # its own: it finds the shared TeamCity plugin on the machine and runs that
 # plugin's selftest, which checks code kept in npomfret/agent-standards, not
-# here. Listing it turned `Checks` red on every agent without the plugin
+# here. Listing it turned `Verify: Python` red on every agent without the plugin
 # installed (2026-09-06, builds 74 to 76), which is a dependency on
 # machine state the CI chain is built to be free of.
 
