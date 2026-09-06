@@ -82,11 +82,19 @@ submission cannot.
 Internal groups only, unless `--group` names one. The public link is never fed
 by accident.
 
+**`--build N` names a build instead of taking the newest.** The newest upload is
+the right default and stays the default; a named build is the other case, since
+2026-09-06: the build attached to the App Store version was 104, two Xcode Cloud
+runs had landed since, and the testers were meant to try the one Apple would be
+reviewing. Same answer set as the default — unexpired builds of the platform —
+so an expired number is refused rather than delivered.
+
 Usage:
     scripts/testflight_distribute.py                          # what would happen
     scripts/testflight_distribute.py --apply
     scripts/testflight_distribute.py --group Friends --apply --submit
     scripts/testflight_distribute.py --platform macos --apply
+    scripts/testflight_distribute.py --platform macos --build 104 --apply
     scripts/testflight_distribute.py --selftest
 """
 
@@ -480,7 +488,28 @@ def testers(session: Session, group_id: str) -> list[dict]:
     ]
 
 
-def gather(session: Session, only: str | None, platform: str) -> dict:
+def choose_build(builds: list[dict], number: str | None, platform: str) -> dict:
+    """The build to hand over: the one named, or the newest upload.
+
+    Both come from the same unexpired list, so a named build that has expired is
+    refused the same way it would never have been chosen by default.
+    """
+    if number is None:
+        target = asc.newest_build(builds)
+        if target is None:
+            raise SystemExit(f"no unexpired {platform} builds on App Store Connect at all")
+        return target
+    live = asc.live_builds(builds)
+    target = next((b for b in live if b["version"] == number), None)
+    if target is None:
+        held = ", ".join(b["version"] for b in live[:8]) or "none"
+        raise SystemExit(
+            f"{platform} has no unexpired build {number} on App Store Connect (newest: {held})"
+        )
+    return target
+
+
+def gather(session: Session, only: str | None, platform: str, number: str | None) -> dict:
     app_id = asc.find_app(session.get)["id"]
 
     groups = session.get(f"/v1/apps/{app_id}/betaGroups?limit=50")["data"]
@@ -496,10 +525,7 @@ def gather(session: Session, only: str | None, platform: str) -> dict:
     if not groups:
         raise SystemExit("this app has no tester groups, so there is nobody to deliver to")
 
-    builds = asc.platform_builds(session.get, app_id, platform)
-    target = asc.newest_build(builds)
-    if target is None:
-        raise SystemExit(f"no unexpired {platform} builds on App Store Connect at all")
+    target = choose_build(asc.platform_builds(session.get, app_id, platform), number, platform)
 
     detail = session.get(f"/v1/builds/{target['id']}/buildBetaDetail")["data"]["attributes"]
     holding = asc.groups_holding(session.get, target["id"])
@@ -585,13 +611,20 @@ def main() -> int:
         "is a second, separate delivery decision and not a side effect of the "
         "iOS one.",
     )
+    parser.add_argument(
+        "--build",
+        metavar="N",
+        help="hand over this build number instead of the newest upload — the one "
+        "attached to the App Store version, ordinarily.",
+    )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
 
     platform = PLATFORMS[arguments.platform]
     session = Session()
-    state = gather(session, arguments.group, platform)
+    state = gather(session, arguments.group, platform, arguments.build)
     build = state["build"]
-    print(f"newest {platform} build {build['version']}, uploaded {build['uploaded'][:16]}")
+    chosen = "named" if arguments.build else "newest"
+    print(f"{chosen} {platform} build {build['version']}, uploaded {build['uploaded'][:16]}")
 
     # Found by the app it builds, never by its name — a hijacked product wears
     # the other project's name, so the name is the one field that lies. See
@@ -643,7 +676,29 @@ def _selftest() -> int:
 
     # Choosing the build — `newest_build`, `live_builds`, `builds_path` — is
     # covered by `appstore_status --selftest`, which is where those live now
-    # that the report walks the same list.
+    # that the report walks the same list. What is decided here is only the
+    # `--build` case: a named build comes from the same unexpired list, so a
+    # number that has expired is refused and the newest is not silently taken.
+    shaped = [
+        {"id": "new", "version": "106", "uploaded": "2026-09-06T03:20:00", "expired": False,
+         "processingState": "VALID"},
+        {"id": "old", "version": "104", "uploaded": "2026-09-05T13:11:00", "expired": False,
+         "processingState": "VALID"},
+        {"id": "gone", "version": "15", "uploaded": "2026-08-14T10:00:00", "expired": True,
+         "processingState": "VALID"},
+    ]
+    try:
+        if choose_build(shaped, None, "MAC_OS")["id"] != "new":
+            failures.append("without --build the newest upload was not chosen")
+        if choose_build(shaped, "104", "MAC_OS")["id"] != "old":
+            failures.append("--build 104 did not choose build 104")
+    except SystemExit as error:
+        failures.append(f"choosing from a live list refused: {error}")
+    try:
+        choose_build(shaped, "15", "MAC_OS")
+        failures.append("an expired build was chosen by number")
+    except SystemExit:
+        pass
 
     # The pair that matters: one build, two states, opposite answers. Every
     # build archived before the workflow was given an audience looks like this,
@@ -862,7 +917,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 38 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 41 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
