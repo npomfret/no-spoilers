@@ -1,5 +1,10 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm run *)"
+    ],
     "deny": [
       "Read(~/.appstoreconnect/private_keys/**)",
       "Read(//Users/nickpomfret/projects/appstoreconnect-bot/tmp/curl.txt)",
