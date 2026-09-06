@@ -96,3 +96,9 @@ JavaScript bridge so the script stays stdlib-only.
 
 Build 104 also went to Internal (`testflight_distribute.py --platform macos --build 104`).
 Everything Submit needs is now on the record; Submit itself is still a person.
+
+## 2026-09-06: submitted
+
+macOS 1.1.3 build 104 went to App Review at 2026-09-06, `WAITING_FOR_REVIEW`. When it is
+approved: `tag_approved.py macos 1.1.3 --apply`, and decide the Developer ID / Homebrew channel,
+which is still at 1.1.1.
