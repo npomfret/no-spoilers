@@ -345,14 +345,14 @@ struct NoSpoilersWidgetEntryView: View {
         }
     }
 
-    /// systemMedium — header + up to 3 sessions.
+    /// systemMedium — header + the weekend's closing 3 sessions.
     ///
     /// **Three, not two, since 2026-09-02.** The third row sits where the
     /// next-weekend footer used to; with the footer gone, two rows left the
     /// bottom third of the family empty.
     @ViewBuilder
     private func mediumView(_ weekend: RaceWeekend) -> some View {
-        let sessions = prioritizedSessions(limit: 3)
+        let sessions = closingSessions(limit: 3)
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             widgetHeader(weekend, canvas: .widgetMedium)
             VStack(spacing: Theme.Space.xs) {
@@ -598,20 +598,21 @@ struct NoSpoilersWidgetEntryView: View {
         } ?? entry.sessions.last  // all finished: show most recent (Race), not oldest (FP1)
     }
 
-    private func prioritizedSessions(limit: Int) -> [SessionViewModel] {
-        let active = entry.sessions.filter {
-            if case .finished = $0.state { return false }
-            return true
-        }
-        if active.count >= limit {
-            return Array(active.prefix(limit))
-        }
-        // Pad with most recently finished first (reverse chronological), not oldest first
-        let recentFinished = entry.sessions.filter {
-            if case .finished = $0.state { return true }
-            return false
-        }.reversed()
-        return Array((active + recentFinished).prefix(limit))
+    /// The last `limit` sessions of the weekend, in chronological order.
+    ///
+    /// **The end of the weekend, not the start of what is left.** This used to
+    /// take the first three sessions still to come, which on a Monday is FP1,
+    /// FP2 and FP3 — three practice sessions and no sign of the Grand Prix the
+    /// widget is named after. A `systemMedium` tile has room for three rows out
+    /// of five or six, and the three worth spending them on are the ones the
+    /// weekend builds to: qualifying, the sprint where there is one, the race.
+    ///
+    /// The window is fixed to the weekend rather than to `now`, so the rows do
+    /// not reshuffle as sessions finish — the race stays on the bottom line
+    /// from Monday until the weekend is archived, and a finished session inside
+    /// the window keeps its place and says so in its badge.
+    private func closingSessions(limit: Int) -> [SessionViewModel] {
+        Array(entry.sessions.suffix(limit))
     }
 
     private func shouldShowSecondaryName(for session: SessionViewModel) -> Bool {
