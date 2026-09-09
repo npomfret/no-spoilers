@@ -4,7 +4,7 @@
 done — 1.1.3 is on the store and tagged — but it shipped from an Xcode Cloud build, so neither
 of the two things this task exists to exercise has run. What remains is the Developer ID /
 Homebrew channel, still at 1.1.1 since 2026-08-12, and the one-build-number path through
-`ship.sh`.**
+`ship.sh`. Both are now owed at 1.1.4, not 1.1.3.**
 
 `scripts/release.sh` was rewritten on 2026-08-13 and 2026-08-14. Since then the iOS App Store
 channel has shipped fifteen builds (locally and from TeamCity) and the macOS App Store channel
@@ -67,7 +67,11 @@ nothing anywhere reports it.
   Mac that is not new. Dry run against the record: keywords already correct, the other three
   change, no trademark hits.
 
-## Order of work for 1.1.3
+## Order of work for 1.1.3 — spent
+
+All four steps ran, but step 2 did not: the build that shipped was Xcode Cloud's 104, not a
+`release.sh` archive. **Do not follow this list.** The project is at 1.1.4 (`MARKETING_VERSION`,
+`dee65fc`), so the release still owed here is 1.1.4 — see the last section.
 
 1. `scripts/mac_screenshots.py` — photograph the popover light and dark (the precondition above).
 2. `scripts/release.sh 1.1.3 --platform macos --channel both` (or the full `ship.sh 1.1.3`, which
@@ -171,3 +175,36 @@ them.
 a GitHub release of the same name, and every release has its tag — 22 of each, checked both
 directions on 2026-09-09 with no orphan either way. A bare tag with nothing behind it is from
 here a defect rather than history, which is what makes `tag_version`'s skip safe again.
+
+## 2026-09-09: what App Store Connect actually holds, and the version this task now owes
+
+Read from `appstore_status.py`, not from git, because the two disagree about what is newest.
+
+- **macOS 1.1.3 build 104 and iOS 1.1.3 build 112 are both `READY_FOR_SALE`.** Those are the only
+  two version records on the app; there is no 1.1.4 record in preparation on either platform, and
+  `--train macos 1.1.4` says the train is still taking builds. The report's own verdict is
+  "Nothing this report can see is waiting on you."
+- **`--approved macos 1.0.21` resolves to build 2**, so the outstanding
+  `tag_approved.py macos 1.0.21 --apply` still has something to name. It has not been applied.
+
+**The newest upload is not the highest build number, and here that gap is four digits wide.**
+TestFlight reports the newest build as **131 on both platforms**, with testers on **118**, four
+builds back in a five-build search window. `--next-build` is **10024** — it takes the highest
+number App Store Connect holds in any train, which is still `build/10023` from 2026-09-05. So
+Xcode Cloud went on uploading to both platforms after that tag, in its own low-numbered band,
+and those builds are the most recent things the store has. They carry no `build/N` tag, so
+**nothing in this repository can name the commit behind any of them**, and the CI that made them
+no longer exists. Four of them, macOS included, have never been distributed to the Internal group.
+
+Which build numbers those are is not visible here: the report searches only the newest five and
+build numbers are not contiguous, so the range cannot be inferred from 118 and 131.
+
+Nothing about this rescues the task. An Xcode Cloud upload is exactly what task 26 exists not to
+be satisfied by, and none of these are Developer ID builds. It changes two practical things:
+
+- **The release still owed is 1.1.4**, at build 10024 from `--next-build`. The macOS App Store
+  half would be exercised again by the same run, because 1.1.4 has no record yet — so a `ship.sh`
+  run now covers all three channels and both of the things this task was raised to test.
+- **Undecided: whether the orphan builds are expired or left.** Leaving them means the newest
+  thing on the store stays a build no commit can be named for. Expiring them is an App Store
+  Connect write and needs the owner.
