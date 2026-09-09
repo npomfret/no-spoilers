@@ -5,8 +5,9 @@ TeamCity button and the certificate it needs are outstanding, and until they exi
 `scripts/ship.sh` run on a laptop.**
 
 Xcode Cloud is to stop being a delivery path, and TeamCity is to become the one that ships.
-Decided 2026-09-09 after task 35 found Xcode Cloud archiving every push to `main` against an
-approved version and being refused by email each time.
+Decided 2026-09-09, after Xcode Cloud was found archiving every push to `main` against an
+approved version — 1.1.3, closed since 2026-09-07 — and being refused by email each time,
+`ITMS-90186` and `ITMS-90062`, up to run 125.
 
 The owner presses a button per release rather than shipping every push.
 
@@ -14,9 +15,9 @@ The owner presses a button per release rather than shipping every push.
 
 - **Xcode Cloud** — **disabled 2026-09-09**, `PATCH /v1/ciWorkflows/7A43B70B…` with
   `isEnabled: false`, confirmed by `ci_health.py` reading `DISABLED`. It built on every push,
-  archived both platforms and uploaded, and asked none of the four questions `release.sh` asks;
-  that is task 35. The workflow record and both its ARCHIVE actions are intact, so re-enabling it
-  is the same PATCH with `true`.
+  archived both platforms and uploaded, and asked none of the four questions `release.sh` asks —
+  which is how it spent four days uploading a closed train. The workflow record and both its
+  ARCHIVE actions are intact, so re-enabling it is the same PATCH with `true`.
 - **`scripts/release.sh` on a laptop** — the single release engine, with all four safeguards.
   Stays exactly as it is. Nothing in this task adds a second engine.
 - **TeamCity `TestFlight` button** — hands an already-uploaded build to the Internal group.
