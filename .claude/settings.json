@@ -3,15 +3,13 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
-      "Skill(browse)",
-      "mcp__ide__getDiagnostics",
       "Bash(*)",
       "WebSearch",
       "WebFetch"
     ],
     "deny": [
       "Read(~/.appstoreconnect/private_keys/**)",
-      "Read(//Users/nickpomfret/projects/appstoreconnect-bot/tmp/curl.txt)",
+      "Read(~/projects/appstoreconnect-bot/tmp/curl.txt)",
       "Bash(git reset --hard *)",
       "Bash(git checkout -- *)",
       "Bash(git clean *)",
@@ -30,12 +28,10 @@
       "git clone *",
       "gh *",
       "python3 scripts/teamcity.py *",
-      "python3 scripts/appstore_status.py *",
       "ssh *",
       "scp *",
       "rsync *",
-      "npm run deploy*",
-      "node /Users/nickpomfret/projects/appstoreconnect-bot/dist/cli.js *"
+      "npm run deploy*"
     ],
     "network": {
       "allowedDomains": [
@@ -50,6 +46,10 @@
         "~/Library/Caches",
         "~/Library/Developer/Xcode/DerivedData",
         "/var/folders"
+      ],
+      "allowRead": [
+        "~/.appstoreconnect/private_keys",
+        "~/projects/appstoreconnect-bot/tmp/curl.txt"
       ]
     }
   },
