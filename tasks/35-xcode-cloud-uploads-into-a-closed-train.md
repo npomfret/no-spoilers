@@ -1,6 +1,10 @@
 # Task 35: Xcode Cloud uploads into a closed train
 
-**Status: IN PROGRESS. Raised 2026-09-09.**
+**Status: DONE. Raised and closed 2026-09-09. Delete this file.**
+
+Closed two ways, and the second makes the first permanent: 1.1.4 opened a train so the refusals
+stopped, and task 36 then disabled the Xcode Cloud workflow and removed the path, so nothing can
+upload without going through `release.sh`'s four preflight questions again.
 
 1.1.3 reached the store on both platforms (macOS 2026-09-07, iOS 2026-09-07; task 34). The
 checkout still holds `MARKETING_VERSION = 1.1.3`, so every Xcode Cloud run since has archived,
@@ -42,9 +46,10 @@ uploaded, which is already how the core-tests gate works.
   `docs/guides/building.md:50` records that this repository has no CI secrets at all.
   Configuring one is a change in Xcode Cloud's settings, not in this repository.
 - **Ask git for an approved-version tag** (`ios/vX.Y.Z`, `macos/vX.Y.Z`) — no credential
-  needed. Rejected as the primary check: `tag_approved.py` has never run, there are no such
-  tags in the repository today, and the tag only appears when a person remembers to write it.
-  A guard that depends on the step after the one that went wrong is not a guard.
+  needed. Rejected as the primary check: the tag only appears when a person remembers to run
+  `tag_approved.py`, and a guard that depends on the step after the one that went wrong is not
+  a guard. (Written here first as "it has never run, there are no such tags", which was wrong:
+  `ios/v1.1.2` existed and a `tail -10` hid it. The reasoning does not depend on the count.)
 - **Ask TeamCity to fail `main` instead** — the agent runs on the developer's own machine and
   can reach the key. This moves the failure earlier than the archive, which is better, but it
   is a `.teamcity/settings.kts` change and that file is not in this repository.
@@ -54,24 +59,11 @@ uploaded, which is already how the core-tests gate works.
 1. **Open the 1.1.4 train.** Bump `MARKETING_VERSION` to 1.1.4 with `set_marketing_version`,
    which proves the stamp against every configuration. Unblocks the next Xcode Cloud run on
    its own. — DONE, see Verification.
-2. **Guard the Xcode Cloud path.** Decided 2026-09-09: the hook asks App Store Connect, with
-   the key supplied as Xcode Cloud secret environment variables. This is the documented
-   shape for calling the API from a build script — Apple encrypts secret variables, decrypts
-   them only into the temporary action environment, and masks them in logs.
-
-   - **Owner, in Xcode Cloud's workflow settings** (this cannot be done from the repository):
-     add `ASC_ISSUER_ID`, `ASC_KEY_ID` and `ASC_KEY_P8_BASE64`, each with **Secret** ticked.
-     The third is `base64 < AuthKey_S394C74APG.p8`. The `.p8` itself is never committed.
-   - **Here:** `appstore_status.py` hardcodes `KEY_ID`, `ISSUER_ID` and `KEY_PATH`. Give the
-     three an environment override so a caller can supply them without a file on disk, then
-     have the hook decode `ASC_KEY_P8_BASE64` into a `mktemp` file, run `--train` for the
-     platform being archived, and remove the file on exit. Refuse on exit 3 and on any exit
-     that is not 0 or 3, exactly as `release.sh:327` does — a missing key must not read as
-     "the train is open".
-   - **Not negotiable in the implementation:** nothing echoes the decoded key or the base64,
-     and the temp file is removed by a trap rather than a final line that a failure skips.
-
-   Blocked until the three variables exist; the hook cannot be written blind against them.
+2. **Guard the Xcode Cloud path.** ~~The hook asks App Store Connect, with the key supplied as
+   Xcode Cloud secret environment variables.~~ **Dropped 2026-09-09, unbuilt.** The guard existed
+   to stop an unwatched path uploading; task 36 removed the path instead, which is the stronger
+   answer — there is nothing left to guard, and no secret had to be put on a build machine to do
+   it. The three secret variables were never created.
 
 ## Verification
 
@@ -84,9 +76,10 @@ uploaded, which is already how the core-tests gate works.
 - [x] All four build entry points green at 1.1.4, 2026-09-09: `verify-ios-build.sh`,
       `verify-mac-build.sh`, `verify-widget-build.sh` all `** BUILD SUCCEEDED **`, and
       `verify-core-tests.sh` 118 tests, 0 failures
-- [ ] Step 2 not started: waiting on the three Xcode Cloud secret variables above
+- [x] Step 2 dropped rather than built, see above
 
 ## Residual risk
 
-Until step 2 lands, nothing stops the next run archiving a version the store already has.
-The bump in step 1 buys exactly one train: when 1.1.4 is approved, the same failure returns.
+None from this task. The bump buys one train, but nothing uploads automatically any more: when
+1.1.4 is approved, the next release is a person running `scripts/ship.sh`, and `release.sh`
+refuses a closed train in preflight — which is the check that was missing all along.

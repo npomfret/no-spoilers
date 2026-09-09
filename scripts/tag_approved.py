@@ -7,9 +7,13 @@ upload of a train, so `v1.1.2` marks build 10003 while the build on sale is
 10012. Which build of a version reaches the store is decided by App Review,
 after every upload, and only App Store Connect knows it — so this asks
 (`appstore_status.approved_build`), finds the commit that build was archived
-from (`testflight_distribute.ship_commit`: the `build/N` tag, or the `bump to`
-commit for builds 10001–10022, which predate the tags), and writes an
-annotated `ios/vX.Y.Z` or `macos/vX.Y.Z` there.
+from — `testflight_distribute.ship_commit`, which is the `build/N` tag or the
+`bump to` commit for builds 10001–10022 that predate the tags, and failing both
+`note_commit`, the build's own tester note for the Xcode Cloud builds that have
+nothing in git — and writes an annotated `ios/vX.Y.Z` or `macos/vX.Y.Z` there.
+The line it prints says which of the three answered, because they are not
+equally strong: the first two are records of the archive, the third is a record
+of what the archive was reported to be.
 
 Two names rather than one bare `vX.Y.Z`, because the platforms are approved at
 different builds — iOS 1.1.2 at 10012, macOS 1.1.2 not yet submitted — and one
@@ -38,7 +42,7 @@ import argparse
 import sys
 
 import appstore_status as asc
-from testflight_distribute import git, ship_commit
+from testflight_distribute import git, note_commit, ship_commit
 
 
 def tag_name(platform: str, version: str) -> str:
@@ -102,15 +106,20 @@ def main() -> int:
     # The build/ tag was pushed by whichever machine shipped, and this one may
     # not have seen it; a stale answer here is "nothing records build N".
     git("fetch", "--quiet", "--tags", "origin")
-    commit = ship_commit(number)
+    # git first, then the build's own note. The two git sources are records of
+    # the archive; the note is a record of what the archive was reported to be,
+    # which is weaker and is why it is asked last. For anything shipped since
+    # task 32 the `build/N` tag answers and this never runs.
+    commit = ship_commit(number) or note_commit(client, app_id, arguments.platform, number)
     if commit is None:
         raise SystemExit(
-            f"nothing in this repository records which commit build {number} was archived "
-            f"from: no build/{number} tag and no `bump to` commit.\n"
-            "Every release.sh upload leaves one or the other, so either this is one of the "
-            "builds Xcode Cloud uploaded before that path was removed — whose commit was its "
-            "run's sourceCommit and was never in git — or the record is incomplete. Neither "
-            "is something to tag over."
+            f"nothing records which commit build {number} was archived from: no build/{number} "
+            f"tag, no `bump to` commit, and no usable `Build {number} from <sha>` in its "
+            "TestFlight note.\n"
+            "Every release.sh upload leaves one of the first two. A build Xcode Cloud uploaded "
+            "before task 36 has only the note, and that note is missing, about a different "
+            "build, or names a commit this checkout cannot reach. None of those is something "
+            "to tag over."
         )
     print(f"build {number} was archived from {commit['sha'][:12]} {commit['subject']} ({commit['source']})")
 

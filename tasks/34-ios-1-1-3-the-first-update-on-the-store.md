@@ -50,5 +50,8 @@ All six are retaken from this checkout's build.
 - [x] Build 112 in the Internal group (`testflight_distribute.py --platform ios --build 112 --apply`,
       2026-09-06; the *What to Test* note names `bc04289`)
 - [x] `scripts/verify-python-selftests.sh` green, 2026-09-06 (206 cases across six scripts)
-- [ ] Submitted by a person. Afterwards a person runs `tag_approved.py ios 1.1.3 --apply`;
-      nothing runs it for you since `Publish iOS` was deleted on 2026-09-06
+- [x] Submitted, approved, and `READY_FOR_SALE` on both platforms 2026-09-07
+- [x] `tag_approved.py ios 1.1.3 --apply` and `macos 1.1.3 --apply`, 2026-09-09:
+      `ios/v1.1.3` on `bc0428933c11` (build 112) and `macos/v1.1.3` on `dc2f283919d3`
+      (build 104). Neither had a `build/N` tag — both were Xcode Cloud builds — so the commit
+      came from each build's own TestFlight note, which is what `note_commit` was added for

@@ -42,20 +42,23 @@ that file on some runs and not others: builds 3 and 9 carried their own note,
 builds 4, 5 and 6 all carried build 3's. Every one of those runs logged the file
 written correctly, the log bundles are indistinguishable, and no artifact Apple
 exposes records whether the file was read, so there is nothing to debug and no
-way to tell a working run from a broken one. This script asks the Xcode Cloud
-run for the commit and writes `whatsNew` over the API instead, where the result
-is visible and a failure is an HTTP error rather than silence.
+way to tell a working run from a broken one. This script writes `whatsNew` over
+the API instead, where the result is visible and a failure is an HTTP error
+rather than silence.
 
-**A locally shipped build has no Xcode Cloud run to ask**, and until 2026-08-22
-that meant no note: `release.sh` uploads from the 10000 band, no run produced
-those numbers, and every one of them reached the testers blank. Build 10003 went
-out that way on the day Xcode Cloud ran out of compute quota, which is when a
-gap that had always been there stopped being theoretical — a local ship is now
-the ordinary path, not the fallback. The commit is knowable without the API:
+**The commit comes from git**, since task 36 took the Xcode Cloud path away:
 `release.sh` tags the archived commit `build/N` the moment the archive exists
 (and, for builds 10001–10022, committed `bump to vX.Y.Z (build N)` on top of
-it), so git holds the same answer Xcode Cloud would have given. See
-`ship_commit`.
+it). Until 2026-08-22 the commit came from the run instead, and every 10000-band
+build reached the testers blank because no run produced those numbers — build
+10003 went out that way on the day the quota ran out. See `ship_commit`.
+
+**The note is now the only record of the Xcode Cloud era.** Builds 1 to 125
+carried their commit in a run's `sourceCommit` and nowhere else, and the runs are
+no longer reachable — but the note this script wrote at the time still names it,
+in `note_text`'s format. `note_commit` reads it back, and `tag_approved.py` asks
+it last, after both git records. See `note_commit` for the three ways a note
+lies and how each is refused.
 
 The trade is that a build **nobody distributes now has no note at all**, and may
 show a previous build's if App Store Connect carries one forward. That is the
@@ -247,6 +250,60 @@ def note_state(existing: dict | None) -> str:
 # `release.sh` carrying a `build/N` tag on the commit it archived, and the
 # fallback is the whole answer. Builds 10001–10022 still have no tag and never
 # will; `ship_commit` finds those by their bump commit, as it always did.
+
+
+def note_commit(
+    session: Session, app_id: str, platform: str, version: str, repo: Path = REPO
+) -> dict | None:
+    """The commit a build's own tester note names, or None if nothing usable.
+
+    **The last record of the Xcode Cloud era, and the reason it is not lost.**
+    Those builds carried their commit in the run's `sourceCommit` and nothing
+    else; git never saw it, and task 36 removed the API that could ask. What
+    survives is the note this script wrote at the time, in `note_text`'s
+    format — `Build N from <sha>` — which is a machine-written primary record
+    rather than somebody's recollection.
+
+    Asked last, after the `build/N` tag and the bump commit, because it is a
+    record of a record: the two git sources are the archive itself, and this is
+    what the archive was reported to be. For any build shipped since task 32 the
+    tag answers first and this is never reached.
+
+    Three things have to hold before the answer is usable, and each is a way the
+    note lies rather than a theoretical one:
+
+    - **The note must name *this* build.** App Store Connect carries a previous
+      build's note forward onto a build that has none, so a well-formed note
+      about somebody else's commit is the ordinary failure here — the same one
+      `repair_note` exists for. `note_names_build` is that check.
+    - **The commit must exist in this checkout.** A note can outlive a
+      force-push, and a sha that resolves to nothing is not a commit to tag.
+    - **It must be on `main`.** A tag on a commit no branch contains is a tag
+      nobody can reach.
+    """
+    builds = session.get(asc.builds_path(app_id, PLATFORMS[platform]))["data"]
+    build = next((b for b in builds if b["attributes"]["version"] == version), None)
+    if build is None:
+        return None
+
+    note = note_on(session, build["id"])
+    whats_new = note["whatsNew"] if note else None
+    if not note_names_build(whats_new, version):
+        return None
+
+    marker = note_claims(whats_new)
+    sha = marker.split(" from ", 1)[1].strip() if marker else ""
+    if not sha:
+        return None
+
+    try:
+        full = git("rev-parse", "--verify", f"{sha}^{{commit}}", repo=repo).strip()
+        git("merge-base", "--is-ancestor", full, "origin/main", repo=repo)
+        subject = git("log", "-1", "--format=%s", full, repo=repo).strip()
+    except subprocess.CalledProcessError:
+        return None
+
+    return {"subject": subject, "sha": full, "source": "the TestFlight note"}
 
 
 def git(*arguments: str, repo: Path = REPO) -> str:
@@ -843,6 +900,44 @@ def _selftest() -> int:
         if ship_commit("10026", repo=throwaway) is not None:
             failures.append("ship_commit invented a ship in a repository holding neither record")
 
+        # `note_commit` reads back what `note_text` wrote, so the two are tested
+        # against each other rather than against a hand-typed marker line: a
+        # change to the format that forgets the reader fails here.
+        #
+        # The guards matter more than the happy path. A note carried forward
+        # onto a build that has none is App Store Connect's ordinary behaviour,
+        # so "well-formed note about a different build" is the case that must
+        # answer None rather than a plausible wrong commit. A sha that no longer
+        # resolves is the other: notes outlive force-pushes.
+        git("branch", "--force", "origin/main", "HEAD", repo=throwaway)
+
+        class _Notes:
+            """Enough of a Session to answer the two GETs `note_commit` makes."""
+
+            def __init__(self, whats_new: str | None) -> None:
+                self.whats_new = whats_new
+
+            def get(self, path: str) -> dict:
+                if "betaBuildLocalizations" in path:
+                    return {"data": [{"id": "loc", "attributes": {
+                        "locale": NOTE_LOCALE, "whatsNew": self.whats_new}}]}
+                return {"data": [{"id": "b", "attributes": {"version": "104"}}]}
+
+        honest = _Notes(note_text("later work", later, "104"))
+        found = note_commit(honest, "6761343835", "macos", "104", repo=throwaway)
+        if found is None or found["sha"] != later:
+            failures.append(f"note_commit did not read back what note_text wrote: {found}")
+        elif found["source"] != "the TestFlight note":
+            failures.append("note_commit did not say the note answered")
+
+        stale = _Notes(note_text("the work", work, "103"))
+        if note_commit(stale, "6761343835", "macos", "104", repo=throwaway) is not None:
+            failures.append("note_commit trusted a note about a different build")
+
+        for unusable in (None, "", "no marker line here", "Build 104 from cafebabecafe"):
+            if note_commit(_Notes(unusable), "6761343835", "macos", "104", repo=throwaway):
+                failures.append(f"note_commit accepted an unusable note: {unusable!r}")
+
     # Absence is an answer here: every Xcode Cloud build reaches this function
     # having already been refused by `source_commit`, and none of them has a
     # ship commit. Returning something would be inventing one.
@@ -884,7 +979,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 41 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 48 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
