@@ -240,42 +240,13 @@ def note_state(existing: dict | None) -> str:
     return f"claims {claim!r}" if claim else "has no build marker"
 
 
-def source_commit(session: Session, product_id: str, version: str) -> dict | None:
-    """The commit that produced this build, or None if Xcode Cloud did not.
-
-    A build's version *is* its run number: Xcode Cloud rewrites CFBundleVersion
-    to CI_BUILD_NUMBER when it exports the IPA, so the two cannot disagree. See
-    docs/guides/building.md.
-
-    None is a valid answer, not a swallowed error. `release.sh` uploads from
-    10000 up and no run produced them, and a run started from Xcode by hand can
-    carry no source commit at all. Neither has a run to name; the first of those
-    two has a ship commit instead, and `ship_commit` is the caller's next
-    question rather than this one's business.
-
-    A product that does not exist is *not* one of those cases, which is why the
-    id is found by `asc.find_ci_product` and passed in rather than looked up
-    here. It was a constant until the product it named was deleted, and then
-    every path through this script raised a bare 404 — including the dry run,
-    which is the one that is supposed to be safe to run when things look wrong.
-
-    `sort=-number` is required here — this endpoint answers oldest-first without
-    it, so the newest runs fall off the end of the page.
-    """
-    if not version.isdigit():
-        return None
-    runs = session.get(f"/v1/ciProducts/{product_id}/buildRuns?limit=200&sort=-number")["data"]
-    run = next((r for r in runs if r["attributes"]["number"] == int(version)), None)
-    if run is None:
-        return None
-    commit = run["attributes"].get("sourceCommit")
-    if not commit:
-        return None
-    return {
-        "subject": commit["message"].split("\n")[0],
-        "sha": commit["commitSha"],
-        "source": "the Xcode Cloud run",
-    }
+# There was a `source_commit` here, asking `/v1/ciProducts/{id}/buildRuns` which
+# commit an Xcode Cloud run built. It was the first of two answers, and
+# `ship_commit` below was the fallback for builds no run produced. Task 36
+# removed the Xcode Cloud delivery path, so every build now arrives from
+# `release.sh` carrying a `build/N` tag on the commit it archived, and the
+# fallback is the whole answer. Builds 10001–10022 still have no tag and never
+# will; `ship_commit` finds those by their bump commit, as it always did.
 
 
 def git(*arguments: str, repo: Path = REPO) -> str:
@@ -451,7 +422,7 @@ def write_note(session: Session, build_id: str, existing: dict | None, text: str
     )
 
 
-def repair_note(session: Session, product_id: str, build: dict, apply: bool) -> None:
+def repair_note(session: Session, build: dict, apply: bool) -> None:
     """Make the note describe this build, or say why it cannot."""
     existing = note_on(session, build["id"])
     current = existing["whatsNew"] if existing else None
@@ -460,11 +431,11 @@ def repair_note(session: Session, product_id: str, build: dict, apply: bool) -> 
         return
 
     seen = note_state(existing)
-    commit = source_commit(session, product_id, build["version"]) or ship_commit(build["version"])
+    commit = ship_commit(build["version"])
     if commit is None:
         print(
             f"what to test: {seen}, and nothing names the commit behind build "
-            f"{build['version']} — no Xcode Cloud run and no ship commit — so leaving it"
+            f"{build['version']} — no build/ tag and no ship commit — so leaving it"
         )
         return
 
@@ -626,11 +597,6 @@ def main() -> int:
     chosen = "named" if arguments.build else "newest"
     print(f"{chosen} {platform} build {build['version']}, uploaded {build['uploaded'][:16]}")
 
-    # Found by the app it builds, never by its name — a hijacked product wears
-    # the other project's name, so the name is the one field that lies. See
-    # `asc.select_ci_product`.
-    product_id = asc.find_ci_product(session.get, state["appId"])
-
     # The note belongs to the build, not to any group, so it is settled once
     # here rather than per group. It is also worth repairing on a build that is
     # already distributed: the testers have it, and what they were told about it
@@ -639,9 +605,10 @@ def main() -> int:
     # The `build/N` tag that names the commit was pushed by whichever machine
     # shipped — a TeamCity agent, ordinarily — and this one may not have seen
     # it. Without the fetch a stale clone reads as "nothing names the commit
-    # behind build N" and leaves the note blank, silently.
+    # behind build N" and leaves the note blank, silently. Since task 36 that
+    # tag is the only answer, so the fetch is the whole of the lookup.
     git("fetch", "--quiet", "--tags", "origin")
-    repair_note(session, product_id, build, arguments.apply)
+    repair_note(session, build, arguments.apply)
     print()
 
     blocked = 0

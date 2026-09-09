@@ -17,9 +17,9 @@ reaching nobody is the ordinary state after every push, and
 warning about it would leave this permanently red. Being *behind* is reported
 and never chased; only being able to install nothing at all is a problem.
 
-**Both platforms, since every Xcode Cloud run archives both.** The tester groups
-are app-wide and printed once; the walk that finds the installable build is per
-platform and runs twice.
+**Both platforms, because a release ships both.** The tester groups are app-wide
+and printed once; the walk that finds the installable build is per platform and
+runs twice.
 
 It issues `GET`s and nothing else. `scripts/release.sh` remains the only thing
 here that uploads or submits anything, and `scripts/testflight_distribute.py`
@@ -200,10 +200,10 @@ REVIEW_FIELDS = tuple(key for key, _ in CONTACT) + ("demoAccountName", "demoAcco
 # its `--platform` choices from this same dict, so the two cannot drift the way
 # two constants in two files could.
 #
-# **Apple spells this platform two ways and both appear in this repo.** These
-# are the `filter[preReleaseVersion.platform]` values that `/v1/builds` wants;
-# the Xcode Cloud action's `CiPlatform` calls the same platform `MACOS`. Only
-# one is ever right in a given call.
+# These are the `filter[preReleaseVersion.platform]` values that `/v1/builds`
+# wants. Apple spelled the same platform `MACOS` in the Xcode Cloud action's
+# `CiPlatform`, which is gone from this repo with the rest of that path; the
+# two spellings are why anything here says which call a value belongs to.
 PLATFORM_FLAGS = {"ios": "IOS", "macos": "MAC_OS"}
 TESTFLIGHT_PLATFORMS = tuple(PLATFORM_FLAGS.values())
 
@@ -407,121 +407,15 @@ def find_app(get: "Callable[[str], dict]") -> dict:
     return app
 
 
-def ci_products(get: "Callable[[str], dict]") -> list[dict]:
-    """Every Xcode Cloud product on the team, each with the app it builds.
-
-    `include=app` is what makes this worth having in one place. Without it the
-    list carries links and no ids, so answering "whose product is this" costs a
-    call per product — and on an orphaned product that call is an HTTP 500,
-    which turns a question into a crash. With it, an orphan is simply a product
-    whose `app` relationship has a type and no id, which is a value to test
-    rather than an error to survive. See docs/guides/building.md.
-
-    Every id is then re-fetched, because **being in this list is not evidence of
-    existing.** The list is a cache and it has lied in both directions: it read
-    `0` for ten minutes while two products still resolved, and it went on
-    serving a deleted product for eighteen hours after a `DELETE` that answered
-    `204`. A listed record that `404`s by id is a *ghost*, and it still carries
-    its `app` relationship — so a ghost of this repo's own product looks exactly
-    like a second claimant to `select_ci_product` below, which is a hard stop.
-    That is not hypothetical: it killed `testflight_distribute.py` outright on
-    2026-08-13 until the probe was added here.
-
-    One call per product, and it belongs here rather than in each caller: the
-    ghost lesson learned in one function and not another is the shape of the bug
-    itself.
-    """
-    products = get("/v1/ciProducts?limit=200&include=app")["data"]
-    return [
-        {
-            "id": product["id"],
-            "name": product["attributes"]["name"],
-            "created": product["attributes"].get("createdDate"),
-            "appId": (product["relationships"]["app"].get("data") or {}).get("id"),
-            "ghost": not _resolves(get, product["id"]),
-        }
-        for product in products
-    ]
-
-
-def _resolves(get: "Callable[[str], dict]", product_id: str) -> bool:
-    """Does this product still exist, asked of the one endpoint that answers."""
-    try:
-        get(f"/v1/ciProducts/{product_id}")
-        return True
-    except SystemExit:
-        return False
-
-
-def select_ci_product(products: list[dict], app_id: str) -> str:
-    """The one product that builds `app_id`, or a hard stop naming why not.
-
-    **Matched on the app it builds, never on its name.** This is the safety
-    property, not a style choice. The Create Workflow fault renames a product to the
-    project that ran the wizard, so after a hijack the record called
-    `NoSpoilersApp` was the sibling project's and the record called
-    `FunMaxMusic` was this repo's. Name-matching would have picked precisely the
-    wrong one and pointed this repo's tooling at another team member's project.
-    The `app` relationship is the field the fault does not forge: it strips it
-    to nothing rather than repointing it, so a seized product fails to match
-    anything instead of matching the wrong thing.
-
-    Two products claiming one app is not a tie to break. It means a record is
-    mid-hijack, and choosing either could act on a sibling's product, so it
-    stops.
-
-    Ghosts are excluded before any of that. A deleted product keeps its `app`
-    relationship in the listing, so its ghost claims this app as loudly as the
-    live record does — and the stop above would then fire on a team that is
-    perfectly healthy.
-    """
-    ours = [p for p in products if p["appId"] == app_id and not p["ghost"]]
-    if len(ours) == 1:
-        return ours[0]["id"]
-    if not ours:
-        seen = ", ".join(
-            "{} -> app {}{}".format(
-                p["name"],
-                p["appId"] or "NONE (orphaned)",
-                " [GHOST: listed but 404 by id]" if p["ghost"] else "",
-            )
-            for p in products
-        )
-        raise SystemExit(
-            "no Xcode Cloud product builds this app.\n"
-            f"{len(products)} product(s) on the team: {seen or 'none'}\n"
-            "Recreate it with Integrate > Create Workflow in Xcode, then run "
-            "scripts/ci_health.py. Read the Xcode Cloud bullets in "
-            "docs/guides/building.md first — retrying that wizard while the list "
-            "is empty seizes another "
-            "project's product instead of creating one."
-        )
-    raise SystemExit(
-        f"{len(ours)} Xcode Cloud products claim this app: "
-        f"{', '.join(p['id'] for p in ours)}\n"
-        "One of them is building something else. Do not guess which; see "
-        "docs/guides/building.md."
-    )
-
-
-def find_ci_product(get: "Callable[[str], dict]", app_id: str) -> str:
-    """This app's Xcode Cloud product id, discovered, or a hard stop.
-
-    Discovered rather than recorded, because the id does not survive. This was
-    a constant until 2026-08-12, on the reasoning that `GET /v1/ciProducts`
-    could not be trusted — it was answering `total: 0` while products resolved
-    by id. That was never an API quirk to route around: it was the fault in
-    the Create Workflow fault, where an orphaned product makes the list
-    unlistable. The
-    orphans were deleted, and the constant they left behind pointed at a record
-    that no longer existed, which took `testflight_distribute.py` down with it,
-    dry run included. A recorded id survives exactly until the next deletion.
-
-    Absence is a hard stop rather than `None`. Every caller here is asking
-    about a build Xcode Cloud produced, so a missing product means the question
-    is unanswerable, not that the answer is nothing.
-    """
-    return select_ci_product(ci_products(get), app_id)
+# The Xcode Cloud product lookup lived here: `ci_products`, `select_ci_product`
+# and `find_ci_product`, which found this app's product id by the app it builds
+# rather than by its name, because a product seized by the Create Workflow
+# wizard wears the other project's name. Task 36 removed the Xcode Cloud
+# delivery path and `scripts/ci_health.py` with it, and `testflight_distribute`
+# stopped asking a run which commit it built, so nothing called them. What they
+# knew — that `GET /v1/ciProducts` is a cache that lies in both directions, and
+# that a listed id which 404s is a ghost indistinguishable from a second
+# claimant — is in `docs/guides/building.md` and in the history of this file.
 
 
 def builds_path(app_id: str, platform: str) -> str:
@@ -559,9 +453,10 @@ def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> di
     Two things make "what is spent" different from "what is the highest number".
     **An expired build still occupies its number** — it stops launching, it does
     not free anything — so this reads every build rather than the live ones.
-    And **a CANCELED Xcode Cloud run consumes its number exactly as a delivered
-    one does**, which is why trains have holes and why "next number" and "next
-    free number" are different questions.
+    And **a cancelled run consumed its number exactly as a delivered one did** —
+    the holes in this app's trains were made that way, by Xcode Cloud, before
+    task 36 removed it — which is why "next number" and "next free number" are
+    different questions.
 
     `include=preReleaseVersion` is what joins a build to its train. The filtered
     collection accepts that include; `/v1/apps/{id}/builds` answers HTTP 400 for
@@ -602,9 +497,9 @@ def highest_build(get: "Callable[[str], dict]", app_id: str) -> int:
 
     Every build counts, on both platforms and in every train, expired ones
     included — an expired build stops launching, it does not free its number.
-    The Xcode Cloud band (run numbers, 1 through 99) sits beside the 10000
-    band `release.sh` uses, and the maximum is the maximum; nothing here knows
-    or cares which path produced it.
+    The record still holds two bands: the run numbers Xcode Cloud uploaded
+    before task 36, 1 through 125, beside the 10000 band `release.sh` uses. The
+    maximum is the maximum; nothing here knows or cares which path produced it.
 
     An app record with no builds at all is refused rather than answered with
     zero: the first number of a fresh app is a decision, and this app's bands
@@ -1680,75 +1575,10 @@ def _selftest() -> int:
     if asked != ["/v1/reviewSubmissions/sub-1/items?limit=50"]:
         failures.append(f"submission_items asked for {asked}")
 
-    # Picking the Xcode Cloud product, replayed against the real state of
-    # 2026-08-12, when two projects' products were crossed. Every case
-    # here is one this team has actually been in, and the cost of getting one
-    # wrong is this repo's tooling driving another project's product.
-    OURS, THEIRS = "6761343835", "6770023782"
-
-    # The hijack, exactly as it stood: the record *named* NoSpoilersApp belonged
-    # to the sibling, and the record named FunMaxMusic was ours. Anything that
-    # reads the name picks the sibling's product here.
-    def ci(id_, name, app, ghost=False):
-        return {"id": id_, "name": name, "appId": app, "ghost": ghost}
-
-    hijacked = [
-        ci("EDF20772", "NoSpoilersApp", THEIRS),
-        ci("1F3A0BBD", "FunMaxMusic", OURS),
-    ]
-    if select_ci_product(hijacked, OURS) != "1F3A0BBD":
-        failures.append("select_ci_product followed the name instead of the app")
-
-    # A sibling's product must never be selected, whatever it is called and
-    # however alone it is in the list. Today's real state: one product, theirs.
-    for lonely in ("FunMaxMusic", "NoSpoilersApp"):
-        try:
-            chosen = select_ci_product([ci("CADFB659", lonely, THEIRS)], OURS)
-            failures.append(f"select_ci_product chose a sibling product named {lonely}: {chosen}")
-        except SystemExit:
-            pass
-
-    # An orphan — the seized record, stripped of its app — must not be adopted
-    # just because it is the only thing left.
-    try:
-        chosen = select_ci_product([ci("EDF20772", "NoSpoilersApp", None)], OURS)
-        failures.append(f"select_ci_product adopted an orphan: {chosen}")
-    except SystemExit:
-        pass
-
-    # Mid-hijack: two records claiming our app is not a tie to break.
-    try:
-        chosen = select_ci_product([ci("a", "x", OURS), ci("b", "y", OURS)], OURS)
-        failures.append(f"select_ci_product guessed between two claimants: {chosen}")
-    except SystemExit:
-        pass
-
-    # And the ordinary case still works, with a sibling sitting beside us.
-    healthy = [
-        ci("CADFB659", "FunMaxMusic", THEIRS),
-        ci("NEW", "NoSpoilersApp", OURS),
-    ]
-    if select_ci_product(healthy, OURS) != "NEW":
-        failures.append("select_ci_product missed the healthy product")
-
-    # 2026-08-13, and the reason this exists: our own deleted product was still
-    # being listed eighteen hours later, carrying our app id. It claims this app
-    # exactly as loudly as the live record, so counting it turns a healthy team
-    # into "2 products claim this app" and stops the tool dead. It did.
-    with_ghost = [
-        ci("F6A2F0EB", "NoSpoilersApp", OURS, ghost=True),
-        ci("9C40B27D", "NoSpoilersApp", OURS),
-    ]
-    if select_ci_product(with_ghost, OURS) != "9C40B27D":
-        failures.append("select_ci_product counted a ghost as a second claimant")
-
-    # A ghost must not be selectable even when it is the only thing claiming us:
-    # acting on a deleted product is not better than stopping.
-    try:
-        chosen = select_ci_product([ci("F6A2F0EB", "NoSpoilersApp", OURS, ghost=True)], OURS)
-        failures.append(f"select_ci_product selected a ghost: {chosen}")
-    except SystemExit:
-        pass
+    # Eight cases picking the Xcode Cloud product stood here, replaying the
+    # crossed products of 2026-08-12. They went with `select_ci_product` in
+    # task 36; the lookup they guarded has no callers now that nothing in this
+    # repository talks to Xcode Cloud.
 
     # Screenshot families are per platform: a macOS version has desktop shots and
     # no iPhone ones, and asking it for iPhone screenshots would report a gap
@@ -2245,7 +2075,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 126 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 118 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

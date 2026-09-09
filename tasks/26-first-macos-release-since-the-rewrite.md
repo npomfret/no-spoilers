@@ -31,7 +31,8 @@ nothing anywhere reports it.
       task 32 (2026-09-05) the number comes from `next_build_number` once, the macOS run writes
       `build/N` and the annotated `vX.Y.Z`, and the iOS run finds `build/N` already on its
       commit — this is the first run to exercise that reuse path
-- [ ] `scripts/ci_health.py` still PASS afterwards, both products resolving by id
+- [x] Dropped: `scripts/ci_health.py` was deleted with the Xcode Cloud path (task 36), so there
+      are no products left to resolve
 - [ ] Popover photographed with the Chivo wordmark before the archive
 - [ ] Popover photographed dark as well, and the release note says the app now follows the
       system appearance (task 28, 2026-09-05, asked for both)
