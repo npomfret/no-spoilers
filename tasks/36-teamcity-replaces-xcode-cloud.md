@@ -318,7 +318,8 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   was. Prints steps, triggers, locks, agent requirements and dependency flags, plus the
   project's features and VCS roots; `--json` for a before-and-after diff. Same GET path as
   every other query, so the token still arrives on stdin; the selftest that asserts that still
-  passes. **Uncommitted in that repo** — this sandbox cannot write outside this checkout.
+  passes. Committed there as `80bc31c`; the conversion lessons above are in that plugin's
+  `teamcity-builds` skill as `21f6f1d`, so the next project does not repay them.
 
 ## Verification
 
