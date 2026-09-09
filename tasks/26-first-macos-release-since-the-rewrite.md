@@ -129,23 +129,36 @@ task therefore narrows rather than closes:
 - **`tag_approved.py macos 1.0.21`** was never applied. `6991ff4` is what is on the store for
   users who have not updated.
 
-### A trap in front of the Developer ID run
+### A trap in front of the Developer ID run, now cleared
 
 `release.sh:377 tag_version` writes the bare `vX.Y.Z` for the Developer ID channel and *skips*
-when the name already exists, then pushes what is there. But `v1.1.2` and `v1.1.3` already exist
-— written by the pre-task-32 `release.sh`, which tagged the bare name at the first upload of a
+when the name already exists, then pushes what is there. `v1.1.2` and `v1.1.3` already existed —
+written by the pre-task-32 `release.sh`, which tagged the bare name at the first upload of a
 train whatever the channel:
 
     v1.1.2  6c304c611de8  "bump to v1.1.2 (build 10003)"   2026-08-22
     v1.1.3  a5017d8ac464  "bump to v1.1.3 (build 10022)"   2026-09-05
 
-So a Developer ID release of 1.1.3 will silently reuse a tag that marks the *bump* commit rather
-than the notarised one — the same defect on the Homebrew channel that task 32 fixed on the App
-Store channels. The cask still downloads the right asset, because it downloads by name from the
-GitHub release; it is the record of what shipped that would be wrong.
+So a Developer ID release of 1.1.3 would have silently reused a tag marking the *bump* commit
+rather than the notarised one — the same defect on the Homebrew channel that task 32 fixed on
+the App Store channels.
 
-Nothing here moves that tag. Moving a published tag is what `tag_approved.py` refuses to do and
-this should not do it either. The choice belongs to whoever makes the Developer ID release:
-accept the stale bare tag as a name the cask needs and record the truth in the release, or
-decide `v1.1.3` was never a Developer ID tag and remove it before the run. Decide it *before*
-the run, not during.
+**Both were deleted 2026-09-09**, from this checkout and from `origin`, because neither was ever
+a Developer ID release: there is no GitHub release on either name (the newest is `v1.1.1`,
+2026-08-12) and the cask has never pointed at them. Deleting rather than moving, because moving
+a published tag is what `tag_approved.py` refuses to do and this should not do either. Both
+commits are on `main` and nothing was orphaned; the SHAs above restore either tag.
+
+Checked before deleting, and each of these is why it was safe:
+
+- No GitHub release on `v1.1.2` or `v1.1.3`; `../homebrew-tap` is at `1.1.1`.
+- `_version.sh:tagged_versions` unions all three families, and `ios/v1.1.2`, `ios/v1.1.3` and
+  `macos/v1.1.3` still cover both versions — so `suggest_next_version` and `version_tagged`
+  answer exactly as before.
+- The only other reader of a bare name is `release.sh:378`, and its skip is the behaviour being
+  removed. `testflight_distribute.py:418` matches the *commit subject* `bump to vX.Y.Z`, not a
+  tag, so `ship_commit` still resolves builds 10001–10022.
+
+`v1.0.10` and `v1.0.11` are also bare tags with no GitHub release behind them. They were not
+touched — they predate all of this, and whether a release was deleted or never made cannot be
+told from here.
