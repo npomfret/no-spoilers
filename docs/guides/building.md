@@ -109,16 +109,19 @@ that script.
 **The five verification configurations still hold no credential and must not gain one.** `Ship`
 is separate and holds them.
 
-**`Ship` is defined in `.teamcity/settings.kts`, and that file declares nothing else.** Versioned
-settings are authoritative — a project synchronised against a DSL that omits a configuration
-*deletes* it — and nothing outside the server can read the verification chain's triggers, timeouts,
-agent requirements or features to reproduce them faithfully. So the DSL names none of them, and
-**must be attached to a new, empty project rather than to the one holding the chain**. Two things
-follow: `Ship` has no snapshot dependency, because a dependency would mean naming a configuration
-the file must not name — the release gate is `verify-core-tests.sh` inside `release.sh`, which has
-no skip flag — and it has no trigger, which is the decision rather than an omission. If the UI-owned
-configurations should become code, let TeamCity generate their DSL (enable versioned settings with
-no `settings.kts` present and it commits an exact representation) and merge that with this file.
+**`Ship` is defined in `.teamcity/settings.kts`, and so is every other configuration this
+project has.** Versioned settings are authoritative: a project synchronised against a DSL that
+omits a configuration *deletes* that configuration, so the file has to describe the whole project
+or none of it. The four verification configurations and `TestFlight` existed in the UI first and
+were **read back over the REST API before the DSL was written** — steps, triggers, shared-resource
+locks, agent requirements and every snapshot-dependency flag — rather than reconstructed from what
+they look like from outside. `scripts/teamcity.py settings` is that read, and
+`snowmonkey-proxy-common`'s `TEAMCITY-AGENTS.md` §10 is the access it needs.
+
+`Ship` takes the **write** lock on `no-spoilers-xcode` where the two Xcode verification legs take
+read locks, so no compile runs beside a release; it depends on `Verify` with
+`reuseBuilds = SUCCESSFUL`, because unlike `TestFlight` it archives and must build a revision that
+passed; and it has **no trigger**, which is the decision rather than an omission.
 
 **`TestFlight` pushes the newest uploaded build on each platform to the Internal testers.** One
 button, two steps: `python3 scripts/testflight_distribute.py --platform ios --apply

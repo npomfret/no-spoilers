@@ -81,51 +81,81 @@ settles them; its failure output gives the real spelling.
 2. **Add the macOS assertion** — the installer identity — so the macOS button fails in
    seconds with what is missing rather than after an archive.
 3. **Remove Xcode Cloud from the repository** (detail below).
-4. **TeamCity configuration**, as code — `.teamcity/settings.kts` and `.teamcity/pom.xml`,
-   the shape FunMax uses. It declares a single `Ship` configuration:
+4. **TeamCity configuration**, in the existing `NoSpoilers` project, as versioned settings —
+   `.teamcity/settings.kts` and `.teamcity/pom.xml`, the shape FunMax uses.
 
-   - **One Command Line step**: `scripts/ci-publish.sh --platform all %ship.args%`.
-     `ship.args` empty by default, as `distribute.args` is on `TestFlight`; it is where a
-     `--check` or an explicit `X.Y.Z` goes. **Put it back empty afterwards**: `publish.args`
-     left holding a stale value is how four presses uploaded a closed train on 2026-09-05.
-   - **No trigger**, which is the decision at the top of this task rather than an omission.
-     FunMax's `Ship` fires on every green `Verdict`; an automatic ship here is Xcode Cloud
-     again with a different logo.
-   - **`maxRunningBuilds = 1`.** A second press during a run would take the next build number
-     from App Store Connect and race the first one's tag push.
-   - **Timeout 120 minutes**: two archives, two uploads, and an unbounded notary wait inside
-     the second of them.
-
-   **The five verification configurations still hold no credential and must not gain one**;
-   `Ship` is separate and holds them.
-
-   ### The constraint the DSL is written around
+   ### The whole project, because it has to be
 
    **Versioned settings are authoritative: a project synchronised against a DSL that omits a
-   configuration deletes that configuration.** The four verification configurations and
-   `TestFlight` are UI-owned, and nothing outside the server can see their triggers, timeouts,
-   agent requirements or features — `scripts/teamcity.py` is GET-only by design and its
-   commands do not reach build-type settings, the REST API is behind Google SSO, and a build
-   log shows the steps and nothing else. So `settings.kts` **names none of them**, and the
-   file says so at the top.
+   configuration loses that configuration.** So the file describes the whole project or none
+   of it — the four verification configurations, `TestFlight`, and `Ship`.
 
-   That has two consequences, both deliberate:
+   **It was written from the server's own record, not from inference.** An earlier draft of
+   this section claimed the existing configurations could not be read from outside and that
+   `Ship` therefore needed a project of its own. That was wrong, and the thing that made it
+   wrong is documented: `TEAMCITY-AGENTS.md` §10 in `snowmonkey-proxy-common` gives an
+   authenticated REST path to the server, and the shared CLI already uses it. What was missing
+   was a query for what a configuration *is* rather than how its last build went — a build log
+   shows the steps, and steps are the smallest part of it. That query now exists as
+   `scripts/teamcity.py settings`, added to the plugin in `npomfret/agent-standards`.
 
-   - **It must be attached to a new, empty project, never to the one holding the chain.**
-     Enabling synchronisation on that project against this file would destroy it.
-   - **`Ship` has no snapshot dependency**, because a dependency would mean naming a
-     configuration this file must not name. It costs less than it looks: `release.sh` runs
-     `verify-core-tests.sh` itself as the release gate, before anything is archived, with no
-     flag to skip it. The gate is in the engine rather than the pipeline — which is where it
-     has been since 2026-08-22, the day it was found to have left the release path entirely
-     when the CI that held it stopped.
+   Read back before the DSL was written, and reproduced in it exactly:
 
-   If the UI-owned configurations should become code too, the way is to let **TeamCity
-   generate their DSL** — enable versioned settings on that project with no
-   `.teamcity/settings.kts` present and it commits an exact representation of what exists —
-   and then merge that generated file with this one. Writing them by hand from the outside
-   would mean guessing, and a guess that compiles is indistinguishable from the truth until
-   it has overwritten the thing it was guessing at.
+   | | |
+   |---|---|
+   | VCS root | `NoSpoilers_Main`, anonymous HTTPS on `refs/heads/main`; referenced as `DslContext.settingsRoot` rather than declared, since turning versioned settings on makes it read-only |
+   | Project feature | SharedResources `no-spoilers-xcode`, quoted, quota 3, id `PROJECT_EXT_4` kept so the resource is not deleted and recreated |
+   | `Verify: Python` | `./scripts/verify-python-selftests.sh`; requires `python3.executable`; no lock |
+   | `Verify: Xcode` | three steps, mac/ios/widget; **read** lock; requires `tools.xcode.home` |
+   | `Verify: Swift tests` | `./scripts/verify-core-tests.sh`; **read** lock; requires `tools.xcode.home` |
+   | `Verify` | no steps; VCS trigger on `NoSpoilers/**`, `NoSpoilersCore/**`, `scripts/**`, per-check-in, quiet period `DO_NOT_USE`; nightly 00:00 Europe/London with `withPendingChangesOnly = false`; three snapshot dependencies at `ADD_PROBLEM` / `MAKE_FAILED_TO_START` / `ReuseBuilds.NO` |
+   | `TestFlight` | two steps, the macOS one `ExecutionMode.ALWAYS`; `distribute.args` empty |
+
+   `env.TMPDIR = %system.teamcity.build.tempDir%` on every configuration except `TestFlight`,
+   which does not have it — reproduced as it is rather than tidied.
+
+   ### `Ship`
+
+   - **One step**: `scripts/ci-publish.sh --platform all %ship.args%`. `ship.args` empty by
+     default and **put back empty afterwards**: `publish.args` left holding a stale value is
+     how four presses uploaded a closed train on 2026-09-05.
+   - **The write lock on `no-spoilers-xcode`**, where the two Xcode legs take read locks. It
+     archives twice; no compile runs beside a release and no release beside a compile.
+   - **Snapshot dependency on `Verify`**, `CANCEL` on failure, `reuseBuilds = SUCCESSFUL`.
+     Unlike `TestFlight` it archives, so it must build a revision that passed — and unlike the
+     chain's own dependencies it *should* reuse, because the point is to ship a commit already
+     proved rather than to prove it again.
+   - **No trigger**, which is the decision at the top of this task rather than an omission.
+   - **`maxRunningBuilds = 1`**, and a 120-minute timeout.
+
+   **The five verification configurations still hold no credential and must not gain one.**
+   One file does not change that; it makes it checkable in one place.
+
+   ### Enabling it
+
+   `NoSpoilers` → **Versioned Settings** → VCS root `NoSpoilers_Main`, format **Kotlin**,
+   *Store secure values outside of VCS* on, synchronisation enabled, **allow UI editing off**
+   (§8, otherwise the server drifts from the repo). The enable dialog asks which side wins;
+   this repo now has a `.teamcity/settings.kts` written to match the server, so either answer
+   should be a no-op — but **"overwrite VCS with the current settings" is the safe answer**,
+   because it is the one that cannot lose anything if the DSL is wrong somewhere.
+
+   ### How the DSL was checked, and what is still unproven
+
+   - 31 facts — every configuration id, name, step script, execution mode, lock, agent
+     requirement, parameter and dependency edge — checked programmatically against the REST
+     snapshot. No mismatches.
+   - 9 trigger properties and 9 dependency flags checked against an explicit REST-value →
+     Kotlin-expression map. No mismatches.
+   - **Not proven: that the Kotlin compiles, and that the enum spellings mean what the REST
+     property values meant.** There is no local Maven and FunMax has no local DSL build either,
+     so the server compiles it; a compile failure lands in
+     `teamcity-versioned-settings.log` and leaves the current settings alone. The
+     translation risk is real and concentrated in `ReuseBuilds.NO`,
+     `FailureAction.MAKE_FAILED_TO_START` and `QuietPeriodMode.DO_NOT_USE`.
+   - **The check after enabling is the one that settles it**: re-run
+     `scripts/teamcity.py settings --json` and diff against the snapshot taken before. Anything
+     the DSL got wrong shows up as a concrete difference.
 
 ## The removal sweep
 
@@ -159,16 +189,13 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
    - `git clone git@github.com:npomfret/homebrew-tap.git` **beside the build checkout** — the
      path `release.sh` resolves is a sibling of the repository, which on an agent is under
      `work/`, not beside a laptop's projects.
-3. Create the `Ship` configuration, which is now three clicks rather than a form:
-   - **Create a new, empty project** — a subproject of `NoSpoilers` is tidiest. Give it any
-     id; the DSL does not name one.
-   - Point its **Versioned Settings** at this repository's VCS root, format **Kotlin**, with
-     *Store secure values outside of VCS* on, and synchronisation enabled.
-   - **Never do this to the project that holds the verification chain.** That project's
-     configurations are not in `settings.kts`, and synchronisation would delete them.
-
-   TeamCity compiles the DSL server-side and `Ship` appears. There is no local Maven here and
-   FunMax has no local DSL build either, so a compile error surfaces on the server.
+3. Turn on **Versioned Settings** for `NoSpoilers` — VCS root `NoSpoilers_Main`, format
+   Kotlin, *Store secure values outside of VCS* on, allow UI editing off. Answer the enable
+   dialog with **"overwrite VCS with the current settings"**. TeamCity compiles the DSL
+   server-side and `Ship` appears; a compile error lands in `teamcity-versioned-settings.log`
+   and leaves the current settings alone. Then diff: `scripts/teamcity.py settings --json`
+   against the snapshot taken before, so any translation error in the DSL is a concrete
+   difference rather than a surprise.
 4. Press it once with `ship.args = --check`. That is the whole point of `--check`: it asserts
    every item above and stops, having built and shipped nothing.
 5. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
@@ -219,11 +246,16 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   record half true.
 - Docs: `docs/guides/building.md` — *TestFlight from TeamCity* is now *Shipping from TeamCity*
   and describes the one button; `README.md` cross-reference followed.
-- **`.teamcity/settings.kts` and `.teamcity/pom.xml`** — the button as code, one configuration
-  and nothing else, for the reason in *The plan* step 4. The `pom.xml` is FunMax's with the
-  names changed; it is boilerplate and points at the same server's DSL plugin repository.
-  Every Kotlin construct used was checked against FunMax's file, which the server compiles
-  today — that is the only verification available, since there is no local Maven.
+- **`.teamcity/settings.kts` and `.teamcity/pom.xml`** — the whole project as code, read back
+  from the server rather than inferred; see *The plan* step 4 for what was read and how the
+  file was checked against it. The `pom.xml` is FunMax's with the three per-project names
+  changed, per `TEAMCITY-AGENTS.md` §8.
+- **`scripts/teamcity.py settings`** — added to the `teamcity` plugin in
+  `npomfret/agent-standards`, because the CLI could say how a configuration ran and not what it
+  was. Prints steps, triggers, locks, agent requirements and dependency flags, plus the
+  project's features and VCS roots; `--json` for a before-and-after diff. Same GET path as
+  every other query, so the token still arrives on stdin; the selftest that asserts that still
+  passes. **Uncommitted in that repo** — this sandbox cannot write outside this checkout.
 
 ## Verification
 

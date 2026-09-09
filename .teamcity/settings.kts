@@ -1,61 +1,228 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.sharedResources
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.triggers.schedule
+import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 version = "2026.1"
 
-// The `Ship` button, as code.
+// The `No Spoilers` project, as code.
 //
-// **This file describes ONE configuration and deliberately describes nothing
-// else.** The four verification configurations and `TestFlight` are owned by
-// the TeamCity UI and are not represented here, on purpose: versioned settings
-// are authoritative, so a project synchronised against a DSL that omits a
-// configuration *deletes* that configuration. Reproducing them here from the
-// outside would mean guessing their triggers, timeouts, agent requirements and
-// features, and a guess that compiles is indistinguishable from the truth until
-// it has overwritten the thing it was guessing at.
+// **Every configuration this project has is here, and that is not optional.**
+// With versioned settings on, the DSL is the whole truth: a configuration this
+// file omits is a configuration TeamCity deletes. The four verification
+// configurations and `TestFlight` existed in the UI first and were read back
+// over the REST API before this file was written — steps, triggers, locks,
+// agent requirements and every dependency flag — rather than reconstructed from
+// what they look like from outside. `docs/TEAMCITY-AGENTS.md` §10 in
+// `snowmonkey-proxy-common` is the tunnel that makes that read possible.
 //
-// **So this must be attached to a NEW, EMPTY project, never to the existing
-// one.** Create a project that contains nothing, point its versioned settings
-// at this repository, and let it hold `Ship` alone. Enabling synchronisation on
-// the project that currently holds the verification chain would destroy that
-// chain. See tasks/36-teamcity-replaces-xcode-cloud.md.
+// **The five verification configurations hold no credential and must not gain
+// one.** They build the public GitHub remote anonymously and pass
+// `CODE_SIGNING_ALLOWED=NO`; the agent needs Xcode and a checkout, not a
+// keychain. `Ship` is the one that holds credentials, and it is separate.
 //
-// If the UI-owned configurations are ever to become code too, the way to do it
-// is to let TeamCity generate their DSL — enable versioned settings on that
-// project with no `.teamcity/settings.kts` present and it commits an exact
-// representation of what exists — and then merge that generated file with this
-// one. It is not something to write by hand from the outside.
+// The settings VCS root is not declared here. `DslContext.settingsRoot` is
+// whichever root the settings came from — `NoSpoilers_Main` — and turning
+// versioned settings on makes that root read-only anyway (§8).
 
-// **No trigger, and that is the decision, not an omission.** A release is a
-// person choosing to make one. The Xcode Cloud path archived and uploaded on
-// every push to `main`, which is how four days of a closed train were uploaded
-// and refused by email without anyone deciding anything.
-//
-// **No snapshot dependency either, and that one is a trade.** A dependency on
-// the verification chain would mean naming a configuration this file must not
-// name. It costs less than it looks: `release.sh` runs `verify-core-tests.sh`
-// itself as the release gate, before anything is archived, and there is
-// deliberately no flag to skip it. The gate is in the engine rather than in the
-// pipeline, which is where it has been since 2026-08-22 — the day it was found
-// to have left the release path entirely when the CI that held it stopped.
+val xcodeLock = "no-spoilers-xcode"
+
+// Both Xcode legs take a *read* lock, so they run beside each other and only
+// collide on the CPU. The quota below has to be at least as large as the number
+// of legs holding one.
+fun BuildType.sharesTheXcodeBox() {
+    features {
+        sharedResources {
+            readLock(xcodeLock)
+        }
+    }
+}
+
+fun BuildType.onTheAgent() {
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+    params {
+        param("env.TMPDIR", "%system.teamcity.build.tempDir%")
+    }
+}
+
+val verifyPython = BuildType {
+    id("VerifyPython")
+    name = "Verify: Python"
+    description = "scripts/verify-python-selftests.sh: the offline selftests of the six " +
+        "App Store Connect scripts. Starts no Xcode, so it holds no lock and runs beside a compile."
+    onTheAgent()
+    steps {
+        script {
+            name = "selftests"
+            scriptContent = "./scripts/verify-python-selftests.sh"
+        }
+    }
+    requirements {
+        exists("python3.executable")
+    }
+}
+
+val verifyXcode = BuildType {
+    id("VerifyXcode")
+    name = "Verify: Xcode"
+    description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
+        "the Mac app, the iOS app and the widget extension all compile, unsigned. One " +
+        "configuration rather than three because they queue behind the same Xcode lock anyway."
+    onTheAgent()
+    sharesTheXcodeBox()
+    steps {
+        script {
+            name = "mac"
+            scriptContent = "./scripts/verify-mac-build.sh"
+        }
+        script {
+            name = "ios"
+            scriptContent = "./scripts/verify-ios-build.sh"
+        }
+        script {
+            name = "widget"
+            scriptContent = "./scripts/verify-widget-build.sh"
+        }
+    }
+    requirements {
+        exists("tools.xcode.home")
+    }
+}
+
+val verifySwiftTests = BuildType {
+    id("VerifySwiftTests")
+    name = "Verify: Swift tests"
+    description = "scripts/verify-core-tests.sh: the shared package's test suite. Deliberately " +
+        "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
+        "Xcode target would hide a test result it cannot affect."
+    onTheAgent()
+    sharesTheXcodeBox()
+    steps {
+        script {
+            name = "core"
+            scriptContent = "./scripts/verify-core-tests.sh"
+        }
+    }
+    requirements {
+        exists("tools.xcode.home")
+    }
+}
+
+val verify = BuildType {
+    id("Verify")
+    name = "Verify"
+    description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
+        "Verify: Xcode and Verify: Swift tests all passed on the same revision. Triggered by " +
+        "every push to main and nightly at 00:00 Europe/London."
+    onTheAgent()
+
+    // No steps. It exists so one light answers "did this commit pass" without
+    // anyone reading three configurations.
+
+    dependencies {
+        // **`reuseBuilds = NO` and the nightly are one decision, not two.** With
+        // reuse allowed, a nightly at an already-built revision takes the last
+        // green chain and reports success having compiled nothing — which is the
+        // case the nightly exists for. ADD_PROBLEM rather than CANCEL so a red
+        // leg leaves a red light rather than no light.
+        snapshot(verifyPython) {
+            onDependencyFailure = FailureAction.ADD_PROBLEM
+            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
+            reuseBuilds = ReuseBuilds.NO
+        }
+        snapshot(verifyXcode) {
+            onDependencyFailure = FailureAction.ADD_PROBLEM
+            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
+            reuseBuilds = ReuseBuilds.NO
+        }
+        snapshot(verifySwiftTests) {
+            onDependencyFailure = FailureAction.ADD_PROBLEM
+            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
+            reuseBuilds = ReuseBuilds.NO
+        }
+    }
+
+    triggers {
+        vcs {
+            branchFilter = "+:<default>"
+            triggerRules = """
+                +:NoSpoilers/**
+                +:NoSpoilersCore/**
+                +:scripts/**
+            """.trimIndent()
+            perCheckinTriggering = true
+            quietPeriodMode = VcsTrigger.QuietPeriodMode.DO_NOT_USE
+        }
+        schedule {
+            schedulingPolicy = daily {
+                hour = 0
+                minute = 0
+                timezone = "Europe/London"
+            }
+            branchFilter = "+:<default>"
+            triggerBuild = always()
+            // The point is to build an unchanged repo, so this must not wait for
+            // a change.
+            withPendingChangesOnly = false
+        }
+    }
+}
+
+val testFlight = BuildType {
+    id("TestFlight")
+    name = "TestFlight"
+    description = "Sends the newest uploaded build on each platform to the Internal TestFlight " +
+        "testers and writes its What to Test note: scripts/testflight_distribute.py --platform " +
+        "ios, then --platform macos. Manual only. Builds nothing and holds no lock. " +
+        "distribute.args takes --build N, --group NAME or --submit."
+    vcs {
+        root(DslContext.settingsRoot)
+    }
+    params {
+        param("distribute.args", "")
+    }
+    steps {
+        script {
+            name = "iOS"
+            scriptContent = "python3 scripts/testflight_distribute.py --platform ios --apply %distribute.args%"
+        }
+        script {
+            name = "macOS"
+            // Always, so a Mac build is never left stranded by an iPhone refusal.
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+            scriptContent = "python3 scripts/testflight_distribute.py --platform macos --apply %distribute.args%"
+        }
+    }
+}
+
+// The release button. One press, one version, one build number, three channels:
+// `ci-publish.sh --platform all` asserts what a build agent breaks and then
+// hands over to `ship.sh`, which is already the thing that picks the version
+// once and the build number once. See docs/guides/building.md.
 val ship = BuildType {
     id("Ship")
     name = "Ship"
-    description = "One press, one version, one build number: Mac App Store, " +
-        "Homebrew and the iOS App Store. Runs scripts/ci-publish.sh, which asserts " +
-        "what a build agent breaks and then hands over to scripts/ship.sh. See " +
-        "docs/guides/building.md."
+    description = "One press, one version, one build number: Mac App Store, Homebrew and the " +
+        "iOS App Store. Runs scripts/ci-publish.sh --platform all, which asserts what a build " +
+        "agent breaks and then hands over to scripts/ship.sh. Manual only. ship.args takes " +
+        "--check or an explicit X.Y.Z."
+    onTheAgent()
 
-    vcs {
-        root(DslContext.settingsRoot)
+    // It archives twice, so it takes the write lock: no compile may run beside
+    // a release, and no release beside a compile.
+    features {
+        sharedResources {
+            writeLock(xcodeLock)
+        }
     }
 
     params {
         // Empty by default, and it must be put back empty. `publish.args` left
         // holding a stale value is how four presses on 2026-09-05 each archived
-        // and uploaded a version Apple had already approved. `--check` goes here
-        // to run the assertions and stop; an explicit `X.Y.Z` goes here to ship
-        // a version other than the one App Store Connect implies.
+        // and uploaded a version Apple had already approved.
         param("ship.args", "")
     }
 
@@ -66,22 +233,59 @@ val ship = BuildType {
         }
     }
 
+    // Unlike `TestFlight`, this one archives, so it must build a revision that
+    // passed. `reuseBuilds = SUCCESSFUL` rather than `NO`: the point here is to
+    // ship a commit the chain already proved, not to prove it again.
+    dependencies {
+        snapshot(verify) {
+            onDependencyFailure = FailureAction.CANCEL
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+
     failureConditions {
-        // Two archives, two uploads, and a wait on Apple's notary service in
-        // the middle of the second one. The notary wait is the unbounded part
-        // and is not ours to bound.
+        // Two archives, two uploads, and an unbounded wait on Apple's notary
+        // service in the middle of the second one.
         executionTimeoutMin = 120
     }
 
-    // Only ever one release at a time. A second press while the first is still
-    // running would take the next build number from App Store Connect and race
-    // the first one's tag push.
+    // Only ever one release at a time. A second press during a run would take
+    // the next build number from App Store Connect and race the first one's
+    // tag push.
     maxRunningBuilds = 1
+
+    // **No trigger, and that is the decision rather than an omission.** A
+    // release is a person choosing to make one. Xcode Cloud archived and
+    // uploaded on every push to `main`, which is how four days of an approved,
+    // closed train were uploaded and refused by email without anyone deciding
+    // anything. FunMax's `Ship` fires on every green `Verdict`; this one must
+    // not.
+
+    requirements {
+        exists("tools.xcode.home")
+    }
 }
 
 project {
-    description = "Releases No Spoilers. Holds credentials the verification " +
-        "configurations must never hold."
+    description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
 
+    // The Xcode lock. Quota 3 because a read lock takes one unit of it and the
+    // two Xcode verification legs hold read locks; `Ship` takes the write lock
+    // and so shuts both out, and they it.
+    features {
+        feature {
+            id = "PROJECT_EXT_4"
+            type = "JetBrains.SharedResources"
+            param("name", xcodeLock)
+            param("type", "quoted")
+            param("quota", "3")
+        }
+    }
+
+    buildType(verifyPython)
+    buildType(verifyXcode)
+    buildType(verifySwiftTests)
+    buildType(verify)
+    buildType(testFlight)
     buildType(ship)
 }
