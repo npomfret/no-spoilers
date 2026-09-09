@@ -118,6 +118,18 @@ locks, agent requirements and every snapshot-dependency flag — rather than rec
 they look like from outside. `scripts/teamcity.py settings` is that read, and
 `snowmonkey-proxy-common`'s `TEAMCITY-AGENTS.md` §10 is the access it needs.
 
+**Live since 2026-09-09**, and the conversion was verified rather than assumed: the server's
+settings were read over REST before and after and compared field by field — five configurations,
+**zero differences**, nothing lost, `Ship` added, and build history intact at #92. The uuids in
+the DSL are what preserved that history; without them TeamCity can treat a configuration as new,
+delete the old one and restart its counter.
+
+Two things to know when editing it. **A DSL that fails to compile is reported and the current
+settings are left alone** — but synchronization then *stops* rather than retrying, and
+`POST /app/rest/projects/id:NoSpoilers/versionedSettings/loadSettings` restarts it.
+**`versionedSettings/status` returns every compile error with file and line**, where
+`teamcity-versioned-settings.log` returns the first and "and N more errors"; use the endpoint.
+
 **Versioned settings are also the only backup those configurations have.** `TEAMCITY.md` §2 and
 §3: what a project keeps in its own `.teamcity/` survives the server, what is configured in the UI
 does not, and the box has no backups of either TeamCity volume. A `settings.kts` that fails to

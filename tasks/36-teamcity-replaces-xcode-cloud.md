@@ -1,9 +1,12 @@
 # Task 36: TeamCity replaces Xcode Cloud
 
-**Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository, and the
-repository side of the button is written and tested. What is outstanding is entirely on the agent
-and the server: three certificates, a tap checkout, and the configuration itself. Until they exist
-a release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.**
+**Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository. The
+`Ship` button now exists on TeamCity and the whole project is versioned settings in
+`.teamcity/settings.kts` — verified against the server as 0 field differences on the five
+existing configurations, with build history intact. What is outstanding is entirely credentials
+on the agent: two certificates, a notarization key that has never been exercised, `gh` login and
+a `homebrew-tap` checkout. Until those exist the button cannot get past its own preflight, and a
+release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.**
 
 **Scope decided 2026-09-09: option A — one button, all three channels.** Modelled on
 `SuperFunMaxMusic_Ship`, which is one Command Line step (`submit_build.py --apply --tested`) behind
@@ -156,22 +159,64 @@ settles them; its failure output gives the real spelling.
    ssh root@snowmonkey.co.uk "tail -50 /var/lib/docker/volumes/snowmonkey-proxy_teamcity-logs/_data/teamcity-versioned-settings.log"
    ```
 
-   ### How the DSL was checked, and what is still unproven
+   ### Enabled 2026-09-09, and what it cost to get there
 
-   - 31 facts — every configuration id, name, step script, execution mode, lock, agent
-     requirement, parameter and dependency edge — checked programmatically against the REST
-     snapshot. No mismatches.
-   - 9 trigger properties and 9 dependency flags checked against an explicit REST-value →
-     Kotlin-expression map. No mismatches.
-   - **Not proven: that the Kotlin compiles, and that the enum spellings mean what the REST
-     property values meant.** There is no local Maven and FunMax has no local DSL build either,
-     so the server compiles it; a compile failure lands in
-     `teamcity-versioned-settings.log` and leaves the current settings alone. The
-     translation risk is real and concentrated in `ReuseBuilds.NO`,
-     `FailureAction.MAKE_FAILED_TO_START` and `QuietPeriodMode.DO_NOT_USE`.
-   - **The check after enabling is the one that settles it**: re-run
-     `scripts/teamcity.py settings --json` and diff against the snapshot taken before. Anything
-     the DSL got wrong shows up as a concrete difference.
+   **Done.** `synchronizationMode=enabled`, format kotlin, root `NoSpoilers_Main`,
+   `buildSettingsMode=ALWAYS_USE_CURRENT`, secure values outside VCS. TeamCity set
+   `useRelativeIds=true` itself on switching to Kotlin, which was the one thing that could
+   not be checked beforehand and the thing the external ids depended on.
+
+   **The result, measured rather than assumed.** `teamcity.py settings --json` before the
+   change and again after, compared field by field across name, description, type,
+   parameters, steps, triggers, features, agent requirements, dependencies and VCS roots:
+
+   > 5 configurations compared, **0 field differences**. Lost: none. New: `NoSpoilers_Ship`.
+
+   Build history survived — `Verify` and its three legs still read **#92**, not #1 — which is
+   what the uuids were for.
+
+   **It took three attempts, and both failures were mine.** A DSL that does not compile is
+   reported and the current settings are left alone, so nothing was ever damaged.
+
+   1. `Unresolved reference: sharedResources`. I had added
+      `import ...buildFeatures.sharedResources`. FunMax uses `sharedResources { }` with **no
+      such import** and compiles; the symbol comes from the wildcard, and naming it
+      explicitly breaks it and every use with it. I had checked that FunMax used the
+      construct, not that it used it without the import.
+   2. `Unresolved reference: MAKE_FAILED_TO_START` (×3) and `VcsTrigger`. Both were REST
+      property *values* copied into the DSL as if they were constants. `FailureAction` has no
+      `MAKE_FAILED_TO_START`, and the VCS trigger's quiet-period type needs an import this
+      file does not carry. Both values are TeamCity's own defaults, so leaving them unset
+      reproduces the server exactly — confirmed afterwards: `Ship`'s dependency reads back
+      `run-build-if-dependency-failed-to-start = MAKE_FAILED_TO_START` without the DSL
+      mentioning it.
+
+   Both landed in the two places the previous draft of this section named as the concentrated
+   translation risk. The lesson is narrower than "be careful": **reproduce a REST value by
+   omitting it when it is the default, and copy a working sibling's imports exactly rather
+   than adding the one that looks right.**
+
+   ### Reading compile errors
+
+   **`versionedSettings/status` returns every error with file and line; the log returns the
+   first and "and 4 more errors".** Use the endpoint:
+
+   ```
+   GET /app/rest/projects/id:NoSpoilers/versionedSettings/status
+   ```
+
+   It also reports progress (`Running DSL…`) and success (`Changes from VCS are applied…`),
+   and it is what said the state was stuck and needed a disable/enable.
+
+   ### Two operational notes
+
+   - **Synchronization does not retry on its own after a failed compile.** It stops, and the
+     status says so. `POST …/versionedSettings/loadSettings` restarts it. After the second
+     failure it also needed a full `synchronizationMode: disabled` then `enabled` round trip,
+     because TeamCity could not find a last committed revision for the project.
+   - **`importFromVCS` is the only available direction here**, because `NoSpoilers_Main`
+     authenticates anonymously and TeamCity therefore cannot commit generated settings back.
+     "Overwrite VCS with the current settings" is not an option for this project.
 
 ## The removal sweep
 
@@ -205,7 +250,9 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
    - `git clone git@github.com:npomfret/homebrew-tap.git` **beside the build checkout** — the
      path `release.sh` resolves is a sibling of the repository, which on an agent is under
      `work/`, not beside a laptop's projects.
-3. Turn on **Versioned Settings** for `NoSpoilers` — VCS root `NoSpoilers_Main`, format
+3. ~~Turn on **Versioned Settings** for `NoSpoilers`~~ — **done 2026-09-09**, see *Enabled
+   2026-09-09* above. Original instructions kept because they are the recipe for the next
+   project: turn on Versioned Settings for `NoSpoilers` — VCS root `NoSpoilers_Main`, format
    Kotlin, *Store secure values outside of VCS* on, allow UI editing off. Answer the enable
    dialog with **"overwrite VCS with the current settings"**. TeamCity compiles the DSL
    server-side and `Ship` appears; a compile error lands in `teamcity-versioned-settings.log`
