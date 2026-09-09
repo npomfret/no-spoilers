@@ -6,6 +6,11 @@
 #                         this repo has already claimed, skipping any version
 #                         that is already tagged. Falls back to 1.0.0 for a
 #                         repo with neither a version tag nor a project version.
+#                         **Opens the next train. Not what a ship should carry.**
+#   version_to_ship       Print the version a ship should carry on one platform:
+#                         the project's own while its train is open, the next
+#                         one once it is closed. What every caller shipping
+#                         something wants.
 #   next_build_number     Print the build number the next upload should carry.
 #   current_build_number  Print the CURRENT_PROJECT_VERSION the project holds.
 #
@@ -120,6 +125,56 @@ suggest_next_version() {
     SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
   done
   printf '%s' "$SUGGESTED"
+}
+
+# The version a ship should carry, which is **not** `suggest_next_version`.
+#
+# Two questions were being answered by one function, and only one of them was
+# "what am I shipping". `suggest_next_version` opens the *next* train: it takes
+# the highest version anything claims — tags or `MARKETING_VERSION` — and steps
+# past it. That is right after a version reaches the store and wrong before it,
+# because a train that is open and untagged has not shipped and stepping past
+# it skips a version nobody released. On 2026-09-09 that is exactly what it did:
+# 1.1.4 open, untagged, taking builds, and the prompt offered 1.1.5.
+#
+# The honest question is whether the project's own version can still take a
+# build, and App Store Connect is the only thing that knows. Open, ship it;
+# closed, `suggest_next_version` and open the next one.
+#
+# **The exit code is read, never the output** — 0 open, 3 closed, anything else
+# means the question was not answered — so an offline laptop stops rather than
+# guessing a version. `ci-publish.sh` has asked it this way since task 36; this
+# is that decision moved somewhere both it and `ship.sh` can reach, because two
+# copies of "which version ships" is how they come to disagree.
+#
+# Tags are fetched by the caller, not here: `suggest_next_version` skips
+# versions already tagged and a CI checkout carries none.
+version_to_ship() {
+  local PLATFORM="$1" PROJECT STATUS
+  if [[ -z "$PLATFORM" ]]; then
+    echo "version_to_ship needs a platform" >&2
+    return 1
+  fi
+  PROJECT="$(current_marketing_version)" || return 1
+
+  # `|| STATUS=$?` rather than bracketing the call in `set +e` / `set -e`. This
+  # is a sourced function and the caller's shell is not ours to change: the
+  # restoring `set -e` would switch errexit *on* for a caller that had it off,
+  # which is a release script quietly acquiring a new failure mode by asking
+  # what version to ship. A command on the left of `||` does not trip errexit,
+  # so nothing has to be turned off in the first place.
+  STATUS=0
+  python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/appstore_status.py" \
+    --train "${PLATFORM}" "${PROJECT}" >/dev/null 2>&1 || STATUS=$?
+
+  case "$STATUS" in
+    0) printf '%s' "${PROJECT}" ;;
+    3) suggest_next_version ;;
+    *)
+      echo "could not find out whether ${PLATFORM} ${PROJECT} is still taking builds (exit ${STATUS})" >&2
+      return 1
+      ;;
+  esac
 }
 
 # ── The next build number ───────────────────────────────────────────────────

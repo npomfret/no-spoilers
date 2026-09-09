@@ -25,7 +25,29 @@ source "${SCRIPT_DIR}/_version.sh"
 if [[ $# -gt 0 ]]; then
   VERSION="$1"
 else
-  SUGGESTED=$(suggest_next_version)
+  # `suggest_next_version` used to be the default here, and it is the answer to
+  # a different question — see `version_to_ship`. It offered 1.1.5 on the day
+  # 1.1.4 was open, untagged and taking builds, which is a version skipped by
+  # pressing Enter.
+  #
+  # Tags first, because the answer skips versions already tagged.
+  git fetch --quiet --tags origin
+  echo "==> Asking App Store Connect which version is still taking builds..."
+  MACOS_VERSION="$(version_to_ship macos)"
+  IOS_VERSION="$(version_to_ship ios)"
+
+  # **One version on all three channels is the whole point of this script**, so
+  # two platforms disagreeing is a state to stop on, not to resolve by picking
+  # one. It happens when a version is approved on one platform and not the
+  # other: one train is closed and wants the next version, the other is open
+  # and wants this one. Naming both is the only useful thing to say.
+  if [[ "$MACOS_VERSION" != "$IOS_VERSION" ]]; then
+    echo "macOS would ship ${MACOS_VERSION} and iOS would ship ${IOS_VERSION}." >&2
+    echo "One run ships one version, so pass the one you mean: $0 X.Y.Z" >&2
+    exit 1
+  fi
+
+  SUGGESTED="$MACOS_VERSION"
   read -rp "Version [${SUGGESTED}]: " INPUT
   VERSION="${INPUT:-$SUGGESTED}"
 fi

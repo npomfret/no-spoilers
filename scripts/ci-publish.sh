@@ -217,13 +217,13 @@ git config user.email >/dev/null || fail "no git user.email on this agent, so no
 # ── 4. Which version ─────────────────────────────────────────────────────────
 #
 # Told one, ship it; `release.sh` still refuses it if Apple would. Told
-# nothing, ship the project's version while its train is open and the next
-# patch version once it is closed. The question is `appstore_status.py
-# --train`, and its exit codes are read the same way `release.sh` reads
-# `--spent`: 0 open, 3 closed, anything else means the question was not
-# answered and the run stops rather than guessing. Tags are fetched first
-# because `suggest_next_version` skips versions that are already tagged, and
-# a TeamCity checkout does not carry them on its own.
+# nothing, the answer is `_version.sh: version_to_ship` — the project's version
+# while its train is open, the next patch version once it is closed, and a
+# stop rather than a guess if App Store Connect did not answer. That decision
+# lived here until 2026-09-09 and now lives beside `suggest_next_version`,
+# because `ship.sh` needs the same answer and two copies of "which version
+# ships" is how they come to disagree. Tags are fetched first because the
+# answer skips versions already tagged, and a TeamCity checkout carries none.
 #
 # **A closed train is also the moment the approval is recorded.** The
 # version is closed because users can get one of its builds, and this is the
@@ -238,26 +238,20 @@ if [[ -n "$REQUESTED_VERSION" ]]; then
   VERSION="$REQUESTED_VERSION"
 else
   PROJECT_VERSION="$(current_marketing_version)"
+  git fetch --quiet --tags origin
   echo "==> Asking App Store Connect whether ${PLATFORM} ${PROJECT_VERSION} is still taking builds..."
-  set +e
-  python3 "${SCRIPT_DIR}/appstore_status.py" --train "${PLATFORM}" "${PROJECT_VERSION}"
-  TRAIN_STATUS=$?
-  set -e
-  case "$TRAIN_STATUS" in
-    0) VERSION="$PROJECT_VERSION" ;;
-    3)
-      git fetch --quiet --tags origin
-      echo "==> Recording which build of ${PROJECT_VERSION} users got..."
-      if [[ -n "$CHECK_ONLY" ]]; then
-        python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}"
-      else
-        python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}" --apply
-      fi
-      VERSION="$(suggest_next_version)"
-      echo "  ${PROJECT_VERSION} is closed, so this run opens ${VERSION}."
-      ;;
-    *) fail "could not find out whether ${PROJECT_VERSION} is still taking builds (exit ${TRAIN_STATUS}), so no version was chosen" ;;
-  esac
+  VERSION="$(version_to_ship "${PLATFORM}")" \
+    || fail "no version was chosen for ${PLATFORM} ${PROJECT_VERSION}"
+
+  if [[ "$VERSION" != "$PROJECT_VERSION" ]]; then
+    echo "==> Recording which build of ${PROJECT_VERSION} users got..."
+    if [[ -n "$CHECK_ONLY" ]]; then
+      python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}"
+    else
+      python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}" --apply
+    fi
+    echo "  ${PROJECT_VERSION} is closed, so this run opens ${VERSION}."
+  fi
 fi
 
 # ── Hand over ────────────────────────────────────────────────────────────────
