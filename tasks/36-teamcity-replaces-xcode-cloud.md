@@ -275,8 +275,8 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   eight selftest cases in `appstore_status.py`.
 - Rewritten as history: `README.md` (the whole *Checking Xcode Cloud is wired* section is gone),
   both guides, `appstore_status.py`, `tag_approved.py`, `AppVersion.swift` and the
-  release-and-delivery skill. Task 26's `ci_health.py` checkbox is dropped rather than left
-  unsatisfiable.
+  release-and-delivery skill. The `ci_health.py` checkbox task 26 carried was dropped there
+  rather than left unsatisfiable, before that task was closed and deleted.
 
 ### Option A, 2026-09-09
 
