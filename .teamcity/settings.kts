@@ -138,6 +138,14 @@ val verify = BuildType {
     // anyone reading three configurations.
 
     dependencies {
+        // Two flags the server holds are left unset because they are already
+        // TeamCity's defaults, and naming them does not compile: the REST value
+        // `MAKE_FAILED_TO_START` for a dependency that failed to start is the
+        // default of `onDependencyCancel` and is not a `FailureAction` constant,
+        // and the VCS trigger's `DO_NOT_USE` quiet period is its default and
+        // needs a type this file does not import. Both were tried on 2026-09-09
+        // and both were compilation errors.
+        //
         // **`reuseBuilds = NO` and the nightly are one decision, not two.** With
         // reuse allowed, a nightly at an already-built revision takes the last
         // green chain and reports success having compiled nothing — which is the
@@ -145,17 +153,14 @@ val verify = BuildType {
         // leg leaves a red light rather than no light.
         snapshot(verifyPython) {
             onDependencyFailure = FailureAction.ADD_PROBLEM
-            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
             reuseBuilds = ReuseBuilds.NO
         }
         snapshot(verifyXcode) {
             onDependencyFailure = FailureAction.ADD_PROBLEM
-            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
             reuseBuilds = ReuseBuilds.NO
         }
         snapshot(verifySwiftTests) {
             onDependencyFailure = FailureAction.ADD_PROBLEM
-            onDependencyCancel = FailureAction.MAKE_FAILED_TO_START
             reuseBuilds = ReuseBuilds.NO
         }
     }
@@ -169,7 +174,6 @@ val verify = BuildType {
                 +:scripts/**
             """.trimIndent()
             perCheckinTriggering = true
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.DO_NOT_USE
         }
         schedule {
             schedulingPolicy = daily {
