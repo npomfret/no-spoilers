@@ -1,10 +1,10 @@
 # Task 26: the first macOS release since the release engine was rewritten
 
-**Status: IN PROGRESS, narrowed. Raised 2026-09-05 out of task 22. The Mac App Store half is
-done — 1.1.3 is on the store and tagged — but it shipped from an Xcode Cloud build, so neither
-of the two things this task exists to exercise has run. What remains is the Developer ID /
-Homebrew channel, still at 1.1.1 since 2026-08-12, and the one-build-number path through
-`ship.sh`. Both are now owed at 1.1.4, not 1.1.3. Everything else this task listed is done.**
+**Status: DONE, 2026-09-09. Raised 2026-09-05 out of task 22. Both of the things this task
+existed to exercise have now run, in one `scripts/ship.sh 1.1.4` on the laptop: one version, one
+build number, three channels. The Developer ID / Homebrew channel is off 1.1.1 for the first time
+since the engine was rewritten on 2026-08-13, and 10024 reached the Mac App Store, Homebrew and
+iOS together rather than as three separate numbers. See *Closed* at the foot of this file.**
 
 `scripts/release.sh` was rewritten on 2026-08-13 and 2026-08-14. Since then the iOS App Store
 channel has shipped fifteen builds (locally and from TeamCity) and the macOS App Store channel
@@ -31,10 +31,10 @@ nothing anywhere reports it.
 
 ## Verification
 
-- [ ] `ship.sh` run: same version and build number on Mac App Store, Developer ID and iOS. Since
+- [x] `ship.sh` run: same version and build number on Mac App Store, Developer ID and iOS. Since
       task 32 (2026-09-05) the number comes from `next_build_number` once, the macOS run writes
       `build/N` and the annotated `vX.Y.Z`, and the iOS run finds `build/N` already on its
-      commit — this is the first run to exercise that reuse path
+      commit — **done 2026-09-09 with 1.1.4 / 10024; the reuse path held.** Evidence below
 - [x] Dropped: `scripts/ci_health.py` was deleted with the Xcode Cloud path (task 36), so there
       are no products left to resolve
 - [x] Popover photographed with the Chivo wordmark before the archive — 2026-09-06, light and
@@ -252,3 +252,30 @@ The resolution has no guesswork in it and was checked before applying. There is 
 bump itself. Parentage is the honest answer for any bump before 2026-08-26, the day `release.sh`
 learned to rebase them; this one is from April. 1.0.21 also produced builds 3 and 4 that same
 afternoon, and the store approved build 2, so the other two bumps are correctly not what was read.
+
+## Closed, 2026-09-09
+
+`scripts/ship.sh 1.1.4` on the laptop. What it left, read back rather than assumed:
+
+- **One build number across three channels.** `build/10024` and the annotated `v1.1.4` are both
+  on `ba243f1`, and App Store Connect reports **10024 as the newest build on both platforms**,
+  installable by the Internal group on both. The macOS run took the number from
+  `next_build_number` once and the iOS run found `build/10024` already on the commit — the reuse
+  path task 32 added, exercised for the first time. This is the defect the whole task existed
+  for: 1.1.1 shipped as 10001 on macOS and 10002 on iOS.
+- **The Developer ID channel ran under the current engine.** GitHub release `v1.1.4`
+  (2026-09-09 18:05 UTC) carrying `NoSpoilers-1.1.4.zip`, and `../homebrew-tap` at `796db3e
+  no-spoilers 1.1.4` with the cask reading `version "1.1.4"`. Its previous run was `v1.1.1` on
+  2026-08-12, the day before `release.sh` was rewritten.
+- **The bare-tag invariant survived the run**, which was the point of clearing `v1.1.2`,
+  `v1.1.3`, `v1.0.10` and `v1.0.11` first: `v1.1.4` is a name with a GitHub release behind it,
+  so `tag_version`'s skip stayed safe rather than silently reusing a bump commit.
+
+The durable half of this file is already in `docs/guides/building.md` — the three tag families
+and what each means, the invariant, and the `10000` band — so nothing needs promoting before
+deletion.
+
+**Not in this task's scope and still owed:** 1.1.4 has no App Store version record on either
+platform. `listing/{macos,ios}/*.txt` are still 1.1.3's copy, so preparing and submitting 1.1.4
+is the ordinary `appstore_listing.py --apply` flow, and Submit is a person. The engine is what
+this task was about, and the engine has now shipped.
