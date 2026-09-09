@@ -38,8 +38,19 @@ public class ScheduleStore: ObservableObject {
         } catch {
             AppLog.cache.error("cache load failed at launch", ["error": LogValue.error(error)])
         }
-        // Forward confirmer updates to our own objectWillChange so views re-render.
-        confirmer.onChange = { [weak self] in self?.objectWillChange.send() }
+        // **A confirmed end has to reach more than the open app.** `objectWillChange` re-renders
+        // the views, and until 2026-09-09 that was the whole of it — so a session OpenF1 said
+        // had ended left the Home Screen widget holding a timeline built from the grace-window
+        // estimate, still saying *In Progress*. The reload in `performRefresh` cannot cover
+        // this: it fires when the fetched *weekends* differ, and a confirmed end changes none of
+        // them. Bounded by the widget's next entry, which is the grace end — 90 minutes after
+        // the scheduled end for a race, which is the whole of the window this feature exists to
+        // shorten.
+        confirmer.onChange = { [weak self] in
+            self?.objectWillChange.send()
+            WidgetCenter.shared.reloadAllTimelines()
+            AppLog.store.notice("widget reload requested", ["reason": "end confirmed"])
+        }
         // Kick off overrun polling with whatever data we have now.
         confirmer.update(weekends: self.weekends)
         // Kick off a fetch immediately so the menu bar label is populated on
@@ -137,7 +148,7 @@ public class ScheduleStore: ObservableObject {
                                                      "changed": changed])
             if changed {
                 WidgetCenter.shared.reloadAllTimelines()
-                AppLog.store.notice("widget reload requested")
+                AppLog.store.notice("widget reload requested", ["reason": "schedule changed"])
             }
         } catch {
             if self.weekends.isEmpty, let cached = try? cache.load(for: appGroupID) {

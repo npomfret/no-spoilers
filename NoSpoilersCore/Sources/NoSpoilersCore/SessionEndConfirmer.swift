@@ -16,10 +16,12 @@ public final class SessionEndConfirmer {
 
     /// Called on the main actor whenever a new confirmed end date is stored.
     ///
-    /// Known gap, noted 2026-09-05 and not closed: `ScheduleStore` forwards this to
-    /// `objectWillChange` and nothing more, so a confirmed end reaches the app's views and never
-    /// asks WidgetKit to reload. The widget catches up at its next timeline boundary, which the
-    /// grace window bounds. Separate task if it is ever seen to matter.
+    /// **Every surface that can show the old boundary has to be reached from here.** This
+    /// forwarded to `objectWillChange` and nothing more until 2026-09-09, so a confirmed end
+    /// reached the app's views and never asked WidgetKit to reload: the widget went on saying
+    /// *In Progress* until its next timeline entry, which the grace window bounds at 90 minutes
+    /// for a race. `ScheduleStore` now reloads timelines here as well. Anything else that caches
+    /// a boundary belongs in this callback too, not in a second mechanism beside it.
     var onChange: (() -> Void)?
 
     private let appGroupID: String?
