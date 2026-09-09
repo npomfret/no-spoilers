@@ -38,7 +38,8 @@
       "allowedDomains": [
         "*"
       ],
-      "allowLocalBinding": true
+      "allowLocalBinding": true,
+      "allowAllUnixSockets": true
     },
     "filesystem": {
       "allowWrite": [
