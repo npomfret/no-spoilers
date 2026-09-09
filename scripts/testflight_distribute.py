@@ -537,6 +537,75 @@ def choose_build(builds: list[dict], number: str | None, platform: str) -> dict:
     return target
 
 
+def orphans(session: Session, app_id: str, platform: str, train: str) -> list[dict]:
+    """The builds of one marketing version that nothing points at, on one platform.
+
+    An orphan is a build **no tester group holds and no `appStoreVersions`
+    record links to**. That is the whole definition, and both halves are read
+    from App Store Connect rather than assumed: a build in a group is one
+    somebody can install today, and a build behind a version record is one the
+    store may still be serving or reviewing. Neither is this script's to expire.
+
+    The definition is deliberately not "old", "superseded", or "untagged".
+    Those describe how a build got here; only these two say whether taking it
+    away removes something somebody has.
+
+    **Expiring does not free the build number.** `highest_build` counts expired
+    builds precisely because App Store Connect does, so this changes what can be
+    installed and nothing about what can be uploaded next. See `appstore_status`.
+    """
+    live = asc.live_builds(asc.platform_builds(session.get, app_id, platform))
+    in_train = asc.train_builds(session.get, app_id, platform).get(train, set())
+
+    # One read per version record on this platform, not one per build: the
+    # record names its build, so the set of spoken-for builds is settled once.
+    records = session.get(
+        f"/v1/apps/{app_id}/appStoreVersions?filter[platform]={platform}&include=build&limit=200"
+    )
+    spoken_for = {
+        item["attributes"]["version"]
+        for item in records.get("included") or []
+        if item["type"] == "builds"
+    }
+
+    # By name, because a refusal has to say what it is protecting and a group
+    # UUID says nothing to the person reading it.
+    names = {
+        group["id"]: group["attributes"]["name"]
+        for group in session.get(f"/v1/apps/{app_id}/betaGroups?limit=50")["data"]
+    }
+
+    found = []
+    for build in sorted((b for b in live if b["version"] in in_train), key=lambda b: b["uploaded"]):
+        holders = asc.groups_holding(session.get, build["id"])
+        found.append(
+            {
+                **build,
+                "groups": sorted(names.get(h, h) for h in holders),
+                "spoken_for": build["version"] in spoken_for,
+                "orphan": not holders and build["version"] not in spoken_for,
+            }
+        )
+    return found
+
+
+def expire(session: Session, build: dict, apply: bool) -> None:
+    """Stop one build launching. There is no way back from this.
+
+    `expired` is the only writable attribute on a build that matters here, and
+    App Store Connect offers no unexpire — the build stays in the list, keeps
+    its number, and can never be installed again.
+    """
+    if not apply:
+        print(f"  build {build['version']} would be expired")
+        return
+    session.patch(
+        f"/v1/builds/{build['id']}",
+        {"data": {"type": "builds", "id": build["id"], "attributes": {"expired": True}}},
+    )
+    print(f"  build {build['version']} expired")
+
+
 def gather(session: Session, only: str | None, platform: str, number: str | None) -> dict:
     app_id = asc.find_app(session.get)["id"]
 
@@ -645,10 +714,37 @@ def main() -> int:
         help="hand over this build number instead of the newest upload — the one "
         "attached to the App Store version, ordinarily.",
     )
+    parser.add_argument(
+        "--expire",
+        metavar="VERSION",
+        help="the opposite errand: stop every orphan build of this marketing "
+        "version launching, on --platform. An orphan is a build no tester group "
+        "holds and no App Store version record points at; anything else is "
+        "listed and refused. Not reversible, and it does not free the build "
+        "numbers. Needs --apply.",
+    )
     arguments = parser.parse_args([a for a in sys.argv[1:] if a != "--selftest"])
 
     platform = PLATFORMS[arguments.platform]
     session = Session()
+
+    if arguments.expire:
+        app_id = asc.find_app(session.get)["id"]
+        found = orphans(session, app_id, platform, arguments.expire)
+        if not found:
+            print(f"{platform} {arguments.expire} holds no unexpired builds")
+            return 0
+        print(f"{platform} {arguments.expire}: {len(found)} unexpired builds")
+        for build in found:
+            if build["orphan"]:
+                expire(session, build, arguments.apply)
+                continue
+            held = ", ".join(build["groups"])
+            why = "attached to an App Store version record" if build["spoken_for"] else f"held by {held}"
+            print(f"  build {build['version']} kept — {why}")
+        if not arguments.apply:
+            print("\nnothing was changed. re-run with --apply. that cannot be undone.")
+        return 0
     state = gather(session, arguments.group, platform, arguments.build)
     build = state["build"]
     chosen = "named" if arguments.build else "newest"

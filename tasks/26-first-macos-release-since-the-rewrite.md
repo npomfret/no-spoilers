@@ -196,8 +196,34 @@ and those builds are the most recent things the store has. They carry no `build/
 **nothing in this repository can name the commit behind any of them**, and the CI that made them
 no longer exists. Four of them, macOS included, have never been distributed to the Internal group.
 
-Which build numbers those are is not visible here: the report searches only the newest five and
-build numbers are not contiguous, so the range cannot be inferred from 118 and 131.
+Which build numbers those are was not visible in that report — it searches only the newest five,
+and build numbers are not contiguous, so the range could not be inferred from 118 and 131.
+Enumerated properly they are **127, 128, 130 and 131 on each platform**, all uploaded 2026-09-09,
+the last Xcode Cloud runs before the workflow was disabled. 119–126 and 129 were consumed by runs
+that delivered nothing, which is the hole-making `train_builds` describes.
+
+### Expired, 2026-09-09
+
+All eight are now expired, on both platforms, by
+`testflight_distribute.py --platform <p> --expire 1.1.4 --apply`. TestFlight now reports 118 as
+the newest build on both platforms and installable — the four-builds-behind gap is closed.
+
+**`--next-build` is still 10024.** Expiring stops a build launching; it does not free its number,
+which is why `highest_build` counts expired builds. So this changed what a tester can install and
+nothing about the next release.
+
+The `--expire` mode is new, in `testflight_distribute.py` because that script already owns
+TestFlight build state and already writes through `asc_write`. **What makes it safe is its
+definition of an orphan: a build no tester group holds and no `appStoreVersions` record points
+at.** Both halves are read from App Store Connect per run, not assumed, and anything failing
+either test is listed with the reason and left alone. Deliberately not "old", "superseded" or
+"untagged" — those say how a build got here, only these two say whether expiring it takes
+something away from somebody.
+
+Checked against 1.1.3 before the write, which is the case that must refuse: of its 22 unexpired
+builds it kept iOS 112 as *attached to an App Store version record* and every build the Internal
+group holds, including 10022 and 10023. Verification: `verify-python-selftests.sh`, five scripts
+green, 48 cases in this one.
 
 Nothing about this rescues the task. An Xcode Cloud upload is exactly what task 26 exists not to
 be satisfied by, and none of these are Developer ID builds. It changes two practical things:
@@ -205,6 +231,5 @@ be satisfied by, and none of these are Developer ID builds. It changes two pract
 - **The release still owed is 1.1.4**, at build 10024 from `--next-build`. The macOS App Store
   half would be exercised again by the same run, because 1.1.4 has no record yet — so a `ship.sh`
   run now covers all three channels and both of the things this task was raised to test.
-- **Undecided: whether the orphan builds are expired or left.** Leaving them means the newest
-  thing on the store stays a build no commit can be named for. Expiring them is an App Store
-  Connect write and needs the owner.
+- **The orphan builds are expired** (above), so the newest installable build on both platforms is
+  118 again and nothing a tester can reach comes from the dead CI.
