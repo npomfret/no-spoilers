@@ -1,10 +1,14 @@
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.sharedResources
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.triggers.schedule
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 version = "2026.1"
+
+// No `buildFeatures.sharedResources` import: `sharedResources` resolves from the
+// wildcard above in this DSL version, and importing it explicitly does not
+// compile — "Unresolved reference: sharedResources", plus one error per use.
+// That is how the first import of this file failed on 2026-09-09.
 
 // The `No Spoilers` project, as code.
 //
