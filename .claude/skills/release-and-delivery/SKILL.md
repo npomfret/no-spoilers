@@ -13,7 +13,7 @@ user-invocable: true
    when ownership is unclear.
 2. Inspect the working tree, current branch, and the actual wrapper or Python script. Do not infer a release path from an old task or command history.
 3. Classify the requested action before proceeding:
-   - read-only status: `scripts/appstore_status.py` or `scripts/ci_health.py`
+   - read-only status: `scripts/appstore_status.py`
    - App Review conversation or reply: from sibling repo `../appstoreconnect-bot`, run
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
    - TestFlight distribution: `scripts/testflight_distribute.py --apply`
@@ -27,7 +27,7 @@ user-invocable: true
      version tag by hand; the bare `vX.Y.Z` belongs to the Developer ID channel
    - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
-5. Preserve existing boundaries: `appstore_status.py` and `ci_health.py` remain read-only;
+5. Preserve existing boundaries: `appstore_status.py` remains read-only;
    `testflight_distribute.py` owns TestFlight metadata and groups; `appstore_listing.py` owns listing
    copy and build attachment; `appstore_screenshots.py` owns listing images; `tag_approved.py` owns
    the approval tags and writes only to git; the sibling bot owns Resolution Center conversation.
@@ -41,5 +41,5 @@ user-invocable: true
 ## Do not
 
 - Do not introduce a second release engine or put credentials into the five verification jobs.
-- Do not guess credentials, App Store Connect IDs, Xcode Cloud product IDs, build numbers, groups, or release channels.
+- Do not guess credentials, App Store Connect IDs, build numbers, groups, or release channels.
 - Do not treat the highest build number as the newest upload.
