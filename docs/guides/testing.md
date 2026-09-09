@@ -50,7 +50,7 @@ pushes the content state, and again in the extension by `SessionActivityDisplay`
 view at the stale date with `context.isStale` set — behaviour the documentation promises, that the
 simulator does not exercise (it hosts activities but never leaves them alone for an hour), and that
 this project has not yet watched on a device. Until it has, the fix for a Lock Screen that said
-*In Progress* an hour after the session (task 29, 2026-09-05) is verified by build and by test, not
+*In Progress* an hour after the session, made 2026-09-05, is verified by build and by test, not
 by observation.
 
 - **Use a session whose stale date is minutes away.** For the upcoming phase that is the start;
@@ -78,3 +78,21 @@ by observation.
   set, because nothing else in the product can reach a running activity from the background.
 - **Opening the app scores nothing.** Every foreground moment calls `refresh`, which pushes a fresh
   content state; a card that changed after that proves only the half that is already tested.
+
+## What one device session would settle
+
+Two separate things about the Live Activity have never been observed on hardware, and one cold
+launch before a real session inside the eight-hour look-ahead settles both.
+
+- **The stale re-render**, above: the half of the 2026-09-05 fix that rests on ActivityKit
+  re-rendering at the stale date, which the simulator does not exercise.
+- **The Dynamic Island.** The card was redesigned on 2026-09-06 — no background tint, so the Lock
+  Screen draws its own material; wordmark, round, flag and Grand Prix; a `Text(timerInterval:)`
+  clock counting down to the start and up from it. That redesign shipped in 1.1.4 (build 10024).
+  The simulator pass that approved it read the Lock Screen in four combinations — upcoming and
+  live, light and dark — and captured neither Dynamic Island region. The compact trailing slot and
+  the expanded regions draw the same pieces from the same state, so they are unlikely to be wrong
+  in a way the Lock Screen is right; they are simply unseen.
+
+Both want the same procedure as the staleness check: cold-launch the app so the activity starts,
+lock the phone, and do not open the app again.

@@ -1,6 +1,12 @@
 # Task 33: a Live Activity that looks like the product
 
-**Status: IN PROGRESS. Raised 2026-09-06 from a Lock Screen photograph.**
+**Status: DONE, 2026-09-09. Raised 2026-09-06 from a Lock Screen photograph. The card was
+rebuilt, read on the simulator in four combinations, and shipped in 1.1.4 (build 10024) — the
+redesign is in the build on TestFlight now, not just in the tree. What is left is an observation
+rather than work: nobody has looked at it on a device, and the Dynamic Island has been rendered
+nowhere. That gap now lives in `docs/guides/testing.md` beside the identical gap the
+staleness fix left, because one cold launch before a real session settles both. See *Closed* at the foot of this
+file.**
 
 ## The issue
 
@@ -46,7 +52,9 @@ Three things, in order of severity:
 - [ ] On the device: open the app during or before a session so the activity is re-requested,
       then look at the Lock Screen in both appearances and the Dynamic Island expanded. The name
       must be legible on both, the wordmark must be Chivo (the face registers per process and
-      traps if it cannot), and the clock must count.
+      traps if it cannot), and the clock must count. **Calendar-blocked, not work-blocked** — it
+      needs a real session inside the eight-hour look-ahead. Carried to
+      `docs/guides/testing.md` rather than held open here.
 
 ## 2026-09-06, evening: seen on the simulator
 
@@ -76,3 +84,39 @@ What the pictures taught, each fixed in `SessionActivityWidget.swift`:
 
 - [x] Simulator, iPhone 17, iOS 26.5: upcoming and live, light and dark, all four read.
 - [ ] Device, on a real session: still worth the look — the Dynamic Island was not captured.
+      Carried to `docs/guides/testing.md`.
+
+## Closed, 2026-09-09
+
+All three defects the photograph showed are fixed, and the fix is in users' hands rather than only
+in the tree: `e158a6f` and `bc04289` are both ancestors of `ba243f1`, the commit 1.1.4 was archived
+from, so build 10024 carries the redesigned card on both platforms.
+
+What the code now holds, checked against the tree on 2026-09-09:
+
+- **No `activityBackgroundTint` and no `activitySystemActionForegroundColor` anywhere in the
+  project.** That is the invisible-name defect closed at its cause: the Lock Screen draws its own
+  material and the text uses the system's primary and secondary styles, so both halves of the pair
+  are resolved by the same party. The palette is no longer split across a boundary.
+- `Text(timerInterval:)` rather than `Text(_:style: .timer)`, bounded by `clockMaxWidth = 104`, so
+  the clock gives digits and cannot starve the Grand Prix's name.
+- `SessionActivityAttributes.lookAhead` is one constant shared by the controller and the
+  extension's countdown range.
+- `countryCode` reaches the card from `FeaturedSessionPlanner` through the attributes, nil-tolerant
+  and drawn chequered when the mapping does not know the country, with three planner tests on it.
+
+Verification that ran: `verify-core-tests.sh` at 118 tests and 0 failures, the three build scripts
+green, and the simulator pass on iPhone 17 / iOS 26.5 reading upcoming and live in light and dark.
+
+**Residual risk, promoted rather than dropped.** The Dynamic Island's compact and expanded regions
+have been rendered nowhere. They take the same pieces from the same state as the Lock Screen, so
+they are unlikely to be wrong in a way the Lock Screen is right, but that is an argument rather
+than an observation. `docs/guides/testing.md` now carries it in the same section as the staleness
+re-render the 2026-09-05 fix could not observe either, with the note that one cold launch before a real
+session settles both. That is a look, not a piece of work, which is why it does not become a
+narrower task file.
+
+**Deliberately not done.** A countdown to a session's *estimated end* remains rejected, for the
+reason the view's own comment gave: the end is an estimate, and drawing it as a clock states it as
+a fact. Counting up from a known start is arithmetic on calendar data; counting down to a guessed
+end is a claim about the session.
