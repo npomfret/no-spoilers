@@ -88,8 +88,8 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
 1. Decide whether macOS ships from TeamCity. If yes, install a *Mac Installer Distribution*
    certificate on the agent. If no, macOS stays a `scripts/ship.sh` run on the laptop.
 2. Create the `Publish` configuration in TeamCity, or approve its creation.
-3. Turn off the Xcode Cloud workflow, so pushes stop producing runs. Nothing in this
-   repository can do that; it is an App Store Connect action.
+3. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
+   with `isEnabled: false`. Pushes no longer produce runs, and the ITMS emails stopped.
 
 ## What landed
 
@@ -119,7 +119,11 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
       question it exists to answer — whether the login keychain is unlocked in the agent's own
       session — has no answer from an SSH shell or a sandbox. `security find-identity` returns
       zero identities here.
-- [ ] Nothing has shipped through the new path yet.
+- [ ] **Nothing has shipped through the new path.** Confirmed 2026-09-09 from both ends: the only
+      `build/N` tag in the repository is `build/10023` (2026-09-05, a `release.sh` run on the
+      laptop), and TeamCity has never run a build under a `Publish` configuration. The `Verify`
+      chain is green at `3a2fbc1` and `TestFlight` has run — but `TestFlight` distributes an
+      already-uploaded build, it does not archive one.
 
 ## Residual risk
 
