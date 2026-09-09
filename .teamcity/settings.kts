@@ -26,6 +26,13 @@ version = "2026.1"
 // whichever root the settings came from — `NoSpoilers_Main` — and turning
 // versioned settings on makes that root read-only anyway (§8).
 
+// **The five existing configurations carry their real `uuid`s, read off the
+// server's own `config/projects/NoSpoilers/buildTypes/*.xml`.** TeamCity matches
+// a DSL entity to an existing one by uuid first; without them it can decide
+// these are new configurations, delete the old ones and start their build
+// counters again — 93 builds of history, and the `TestFlight` counter at 3.
+// `Ship` has none because it does not exist yet, and TeamCity will assign it one.
+
 val xcodeLock = "no-spoilers-xcode"
 
 // Both Xcode legs take a *read* lock, so they run beside each other and only
@@ -50,6 +57,7 @@ fun BuildType.onTheAgent() {
 
 val verifyPython = BuildType {
     id("VerifyPython")
+    uuid = "f3a71237-4c2e-4085-86b3-30b8c58829de"
     name = "Verify: Python"
     description = "scripts/verify-python-selftests.sh: the offline selftests of the six " +
         "App Store Connect scripts. Starts no Xcode, so it holds no lock and runs beside a compile."
@@ -67,6 +75,7 @@ val verifyPython = BuildType {
 
 val verifyXcode = BuildType {
     id("VerifyXcode")
+    uuid = "7dedfb93-073b-4518-a32c-d8502d321da8"
     name = "Verify: Xcode"
     description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
         "the Mac app, the iOS app and the widget extension all compile, unsigned. One " +
@@ -94,6 +103,7 @@ val verifyXcode = BuildType {
 
 val verifySwiftTests = BuildType {
     id("VerifySwiftTests")
+    uuid = "4a9e1beb-b9aa-4468-9c39-43005dc3652c"
     name = "Verify: Swift tests"
     description = "scripts/verify-core-tests.sh: the shared package's test suite. Deliberately " +
         "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
@@ -113,6 +123,7 @@ val verifySwiftTests = BuildType {
 
 val verify = BuildType {
     id("Verify")
+    uuid = "694fdce7-693a-4880-9733-d999e7f6c1bc"
     name = "Verify"
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
         "Verify: Xcode and Verify: Swift tests all passed on the same revision. Triggered by " +
@@ -173,6 +184,7 @@ val verify = BuildType {
 
 val testFlight = BuildType {
     id("TestFlight")
+    uuid = "0c7571cc-7900-4dbd-ae9d-96caedce8cef"
     name = "TestFlight"
     description = "Sends the newest uploaded build on each platform to the Internal TestFlight " +
         "testers and writes its What to Test note: scripts/testflight_distribute.py --platform " +
