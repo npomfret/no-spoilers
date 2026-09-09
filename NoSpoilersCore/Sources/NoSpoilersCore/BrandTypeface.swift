@@ -8,7 +8,7 @@ import SwiftUI
 /// 4.1(a) has not been cited since. But it left the app's name set in the same face as every OS
 /// alert and Settings row on the device, which is to say it left the app with no identity. Six
 /// open-licensed faces were measured as the actual wordmark string on 2026-08-26 and Chivo won;
-/// `tasks/24-wordmark-typeface.md` records the comparison and why the other five lost.
+/// `docs/guides/brand.md` records the comparison and why the other five lost.
 ///
 /// **Chivo, and not something with motorsport in it.** This is the exact surface that was rejected
 /// three times under 4.1(a) Copycats, so the rule the search ran under was *distinctive without

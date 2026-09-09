@@ -215,9 +215,9 @@ which is sized against a 300pt row.
 **`BrandTypeface.wordmark(size:)` in Swift, `--wordmark` in `docs/styles.css`.** Chivo ExtraBold,
 SIL OFL 1.1, bundled — `Chivo.ttf` and `Chivo-OFL.txt` ship in
 `NoSpoilersCore/…/Resources/` and again in `docs/`, self-hosted rather than from a CDN.
-`tasks/24-wordmark-typeface.md` records why this face and not another; the short version is that
-this is the surface rejected three times under 4.1(a), so the face had to be distinctive without
-being sport-referential.
+The face was chosen
+because this is the surface rejected three times under 4.1(a), so it had to be distinctive without
+being sport-referential; the comparison that settled it is below.
 
 **One face, one component, on both sides.** Swift applies it in `NoSpoilersWordmark` and nowhere
 else; CSS applies it to `.hero h1` and nowhere else — `privacy.html`'s heading stays in the system
@@ -230,6 +230,44 @@ for plain `"Chivo"` silently gets Medium. And a missing or misnamed face does no
 renders as the system font while every command still reports success. `BrandTypeface` therefore
 `precondition`s on the face resolving, and `BrandTypefaceTests` pins both the registration and the
 9pt measurement the 300pt popover row was sized against.
+
+### Why Chivo and not the other five
+
+Measured 2026-08-26, in CoreText, each face set as the actual wordmark string at the two shipping
+sizes rather than judged from a specimen. The harness reproduced the system font's 71.5pt exactly,
+which is the figure `NoSpoilersWordmarkSize.fontSize` records — that is what makes the rest of the
+column trustworthy.
+
+| face | 9pt `.medium` | 15pt `.large` | vs the system font |
+| --- | --- | --- | --- |
+| System `.heavy` (was shipping) | 71.5pt | 117.9pt | — |
+| **Chivo 800** | **65.2pt** | **113.1pt** | **−6.3pt** |
+| Space Grotesk 700 | 61.4pt | 106.7pt | −10.1pt |
+| Sora 700 | 69.8pt | 120.7pt | −1.7pt |
+| Archivo 800 | 70.4pt | 121.7pt | −1.1pt |
+| Archivo Expanded 800 | 86.1pt | 147.9pt | +14.6pt |
+| Familjen Grotesk 700 | 60.1pt | 104.5pt | −11.4pt |
+
+Chivo is built for headlines and reads as a decision rather than as a style, which is the property
+that has to survive three years. It is also 6.3pt *narrower* than what it replaced, so the 300pt
+popover row gained room rather than losing it and the `.medium` size did not have to be
+re-decided.
+
+Why the others lost, which is the half worth not rediscovering:
+
+- **Space Grotesk** was the runner-up and has more character, but it is currently everywhere in
+  tech and editorial. A wordmark that dates is this whole exercise a second time.
+- **Archivo Expanded** is the best-looking of the six and disqualified itself on fit: the row has
+  about 137pt for the centred Grand Prix name and Archivo Expanded wanted 15 of them.
+- **Sora** is too close to the system font it would replace to justify the cost of registering a
+  face at all.
+- **Archivo** and **Familjen Grotesk** were beaten on character by the two above them without
+  winning anything back on fit.
+
+Space Grotesk, Sora and Familjen Grotesk also ship no true italic, so an italic on any of them
+would be a synthesised oblique — first on the exclusion list `BrandTypeface` explains. Chivo has a
+real one (`Chivo-Italic[wght].ttf`) if that is ever revisited, though the reason italic was turned
+down is about 4.1(a) rather than about letterforms.
 
 ## 7. Motion
 
@@ -292,5 +330,3 @@ forget; the app will simply tint itself with the old red.
 - `NoSpoilersCore/Sources/NoSpoilersCore/BrandPalette.swift` — where the hexes live.
 - `docs/styles.css` — the CSS binding, shared by `docs/index.html` and `docs/privacy.html`.
 - `NoSpoilersCore/Sources/NoSpoilersCore/SharedChrome.swift` — the components these tokens dress.
-- `tasks/27-design-tokens-and-component-convergence.md` — how this came to exist, and every
-  decision made along the way with its evidence.

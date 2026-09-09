@@ -59,7 +59,9 @@
 
   /* ── Surfaces and structure ──────────────────────────────
    * `--card`, `--border` and `--bg` are roles the Swift side does not have
-   * names for yet. The vocabulary is worth keeping; see phase 8 of task 27.
+   * names for yet. The vocabulary is worth keeping: `docs/guides/brand.md` is
+   * the map, and these are the roles waiting on a Swift binding rather than
+   * ones deliberately left web-only.
    */
   --bg: linear-gradient(180deg, rgba(255,247,242,0.82) 0%, rgba(251,232,229,0.75) 54%, rgba(255,241,238,0.82) 100%);
   --card: rgba(255, 255, 255, 0.88);
