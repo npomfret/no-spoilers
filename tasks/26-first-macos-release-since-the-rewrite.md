@@ -1,6 +1,10 @@
 # Task 26: the first macOS release since the release engine was rewritten
 
-**Status: WAITING for a macOS release to be wanted. Raised 2026-09-05 out of task 22.**
+**Status: IN PROGRESS, narrowed. Raised 2026-09-05 out of task 22. The Mac App Store half is
+done — 1.1.3 is on the store and tagged — but it shipped from an Xcode Cloud build, so neither
+of the two things this task exists to exercise has run. What remains is the Developer ID /
+Homebrew channel, still at 1.1.1 since 2026-08-12, and the one-build-number path through
+`ship.sh`.**
 
 `scripts/release.sh` was rewritten on 2026-08-13 and 2026-08-14. Since then the iOS App Store
 channel has shipped fifteen builds (locally and from TeamCity) and the macOS App Store channel
@@ -33,9 +37,11 @@ nothing anywhere reports it.
       commit — this is the first run to exercise that reuse path
 - [x] Dropped: `scripts/ci_health.py` was deleted with the Xcode Cloud path (task 36), so there
       are no products left to resolve
-- [ ] Popover photographed with the Chivo wordmark before the archive
-- [ ] Popover photographed dark as well, and the release note says the app now follows the
-      system appearance (task 28, 2026-09-05, asked for both)
+- [x] Popover photographed with the Chivo wordmark before the archive — 2026-09-06, light and
+      dark, from a `verify-mac-build.sh` build of 1.1.3/10022. The face loads; it is not the
+      system font
+- [x] The release note says the app now follows the system appearance (task 28, 2026-09-05,
+      asked for both): `listing/macos/whats-new.txt`, second bullet
 
 ## 2026-09-06: what the release is, measured
 
@@ -103,3 +109,43 @@ Everything Submit needs is now on the record; Submit itself is still a person.
 macOS 1.1.3 build 104 went to App Review at 2026-09-06, `WAITING_FOR_REVIEW`. When it is
 approved: `tag_approved.py macos 1.1.3 --apply`, and decide the Developer ID / Homebrew channel,
 which is still at 1.1.1.
+
+## 2026-09-09: approved, and what is actually left
+
+Build 104 was approved 2026-09-07 and is `READY_FOR_SALE`. `tag_approved.py macos 1.1.3 --apply`
+ran 2026-09-09 and wrote `macos/v1.1.3` on `dc2f283919d3` — from the build's TestFlight note,
+because an Xcode Cloud build leaves no `build/N` tag.
+
+Which is the point. **The Mac App Store shipped without either of the two things this task exists
+to exercise.** 104 came from Xcode Cloud, so `release.sh` did not archive it, `ship.sh` did not
+put one number on three channels, and the Developer ID channel was never in the run at all. The
+task therefore narrows rather than closes:
+
+- **The Developer ID channel is at 1.1.1** — GitHub release `v1.1.1`, 2026-08-12, and
+  `../homebrew-tap` cask `version "1.1.1"`. Nothing has been notarised since the engine was
+  rewritten the following day.
+- **`ship.sh`'s one-build-number path has still never run.** It is the fix for the 2026-08-12
+  run that produced 10006 on macOS and 10002 on iOS, and it has shipped nothing.
+- **`tag_approved.py macos 1.0.21`** was never applied. `6991ff4` is what is on the store for
+  users who have not updated.
+
+### A trap in front of the Developer ID run
+
+`release.sh:377 tag_version` writes the bare `vX.Y.Z` for the Developer ID channel and *skips*
+when the name already exists, then pushes what is there. But `v1.1.2` and `v1.1.3` already exist
+— written by the pre-task-32 `release.sh`, which tagged the bare name at the first upload of a
+train whatever the channel:
+
+    v1.1.2  6c304c611de8  "bump to v1.1.2 (build 10003)"   2026-08-22
+    v1.1.3  a5017d8ac464  "bump to v1.1.3 (build 10022)"   2026-09-05
+
+So a Developer ID release of 1.1.3 will silently reuse a tag that marks the *bump* commit rather
+than the notarised one — the same defect on the Homebrew channel that task 32 fixed on the App
+Store channels. The cask still downloads the right asset, because it downloads by name from the
+GitHub release; it is the record of what shipped that would be wrong.
+
+Nothing here moves that tag. Moving a published tag is what `tag_approved.py` refuses to do and
+this should not do it either. The choice belongs to whoever makes the Developer ID release:
+accept the stale bare tag as a name the cask needs and record the truth in the release, or
+decide `v1.1.3` was never a Developer ID tag and remove it before the run. Decide it *before*
+the run, not during.

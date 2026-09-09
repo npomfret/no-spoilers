@@ -1,6 +1,7 @@
 # Task 34: iOS 1.1.3, the first update to the iPhone app on the store
 
-**Status: IN PROGRESS. Raised 2026-09-06.**
+**Status: DONE. Raised 2026-09-06, closed 2026-09-09. iOS 1.1.3 build 112 is `READY_FOR_SALE`
+since 2026-09-07 and `ios/v1.1.3` marks `bc0428933c11`. Nothing is outstanding.**
 
 iOS 1.1.2 (build 10012, commit `ed1951b`) was approved on 2026-09-02, the first iPhone version to
 reach the store. Everything since is on `main` and nothing of it has been submitted. The macOS
