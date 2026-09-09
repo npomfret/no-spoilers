@@ -31,7 +31,8 @@
       "ssh *",
       "scp *",
       "rsync *",
-      "npm run deploy*"
+      "npm run deploy*",
+      "node /Users/nickpomfret/projects/appstoreconnect-bot/dist/cli.js *"
     ],
     "network": {
       "allowedDomains": [
