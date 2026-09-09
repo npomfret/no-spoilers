@@ -66,14 +66,12 @@ class Session:
     """Signs with `appstore_status`'s token, and writes, which it does not."""
 
     def __init__(self) -> None:
-        key = asc.key_path(ADMIN_KEY_ID)
-        if not key.exists():
-            raise SystemExit(
-                f"no private key at {key}\n"
-                f"{ADMIN_KEY_ID} must be an App Manager key, downloadable once from "
-                "App Store Connect > Users and Access > Integrations. The Developer key "
-                "the rest of this repo uses cannot write."
-            )
+        key = asc.require_key(
+            asc.key_path(ADMIN_KEY_ID),
+            f"{ADMIN_KEY_ID} must be an App Manager key, downloadable once from "
+            "App Store Connect > Users and Access > Integrations. The Developer key "
+            "the rest of this repo uses cannot write.",
+        )
         self.bearer = asc.token(asc.ISSUER_ID, ADMIN_KEY_ID, key)
 
     def _call(self, method: str, path: str, body: dict | None = None) -> dict:

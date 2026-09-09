@@ -97,6 +97,33 @@ def key_path(key_id: str) -> Path:
 
 KEY_PATH = key_path(KEY_ID)
 
+
+def require_key(key: Path, absent: str) -> Path:
+    """The key, or a refusal that says which of the two problems this is.
+
+    `Path.exists()` answers False for a key that is there but cannot be
+    reached — it swallows the `OSError` — so both callers reported a
+    locked-down `~/.appstoreconnect/private_keys` as "no private key at ...".
+    That message asks for a key that is already on disk, and the download it
+    sends you for does nothing about the permission that denied the stat
+    (2026-09-09, an agent sandbox denying reads under the key directory).
+
+    Nothing here reads the key. `stat` is metadata; openssl still does the only
+    read there is.
+    """
+    try:
+        key.stat()
+    except FileNotFoundError:
+        raise SystemExit(f"no private key at {key}\n{absent}") from None
+    except OSError as denial:
+        raise SystemExit(
+            f"cannot reach the private key at {key}: {denial.strerror}\n"
+            "The key is not the problem — something is refusing access to it. Check the "
+            "permissions on the file and on the directory holding it, and whether this "
+            "process is confined to a sandbox that excludes them."
+        ) from None
+    return key
+
 # App Store Connect rejects a token older than twenty minutes. A run is well
 # inside that; this is not a session.
 TOKEN_LIFETIME = 1200
@@ -262,12 +289,11 @@ class Client:
     """GET-only. There is no post, put or patch here, by design."""
 
     def __init__(self) -> None:
-        if not KEY_PATH.exists():
-            raise SystemExit(
-                f"no private key at {KEY_PATH}\n"
-                "It is the one scripts/ship-ios.sh already uses, downloadable once from "
-                "App Store Connect > Users and Access > Integrations."
-            )
+        require_key(
+            KEY_PATH,
+            "It is the one scripts/ship-ios.sh already uses, downloadable once from "
+            "App Store Connect > Users and Access > Integrations.",
+        )
         self.bearer = token(ISSUER_ID, KEY_ID, KEY_PATH)
 
     def get(self, path: str) -> dict:
@@ -1542,6 +1568,34 @@ def _selftest() -> int:
         if len(base64.urlsafe_b64decode(pad(signature))) != 64:
             failures.append("signature is not 64 bytes")
 
+    # An unreadable key and an absent one need different fixes, and for as long
+    # as this went through `Path.exists()` they produced the same sentence.
+    with tempfile.TemporaryDirectory() as tmp:
+        locked = Path(tmp) / "locked"
+        locked.mkdir()
+        (locked / "AuthKey_X.p8").write_bytes(b"")
+        try:
+            require_key(Path(tmp) / "AuthKey_X.p8", "download it")
+            failures.append("require_key accepted a key that is not there")
+        except SystemExit as refusal:
+            if "no private key at" not in str(refusal):
+                failures.append(f"absent key: {refusal}")
+
+        locked.chmod(0o000)
+        try:
+            require_key(locked / "AuthKey_X.p8", "download it")
+            failures.append("require_key accepted a key it cannot reach")
+        except SystemExit as refusal:
+            if "cannot reach the private key" not in str(refusal):
+                failures.append(f"unreadable key reported as: {refusal}")
+        finally:
+            locked.chmod(0o700)
+
+        readable = Path(tmp) / "AuthKey_Y.p8"
+        readable.write_bytes(b"")
+        if require_key(readable, "download it") != readable:
+            failures.append("require_key did not return the key it was given")
+
     expect("everything ready", _fixture(), None)
 
     # A shipping app spends most of its life with nothing in preparation. That is
@@ -2191,7 +2245,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 123 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 126 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
