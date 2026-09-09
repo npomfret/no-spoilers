@@ -147,7 +147,7 @@ suggests the next version, runs the Core tests as a gate, archives, and only the
 the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or on a
 TeamCity agent by pressing `Publish`. An uploaded build reaches no tester until it is handed over:
 locally with `scripts/testflight_distribute.py --apply`, or by pressing `TestFlight` on TeamCity,
-which runs it for both platforms. See *TestFlight from TeamCity* in
+which runs it for both platforms. See *Shipping from TeamCity* in
 `docs/guides/building.md`.
 
 | Script | What it does |

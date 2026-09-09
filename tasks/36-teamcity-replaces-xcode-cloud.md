@@ -1,8 +1,16 @@
 # Task 36: TeamCity replaces Xcode Cloud
 
-**Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository. The
-TeamCity button and the certificate it needs are outstanding, and until they exist a release is a
-`scripts/ship.sh` run on a laptop.**
+**Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository, and the
+repository side of the button is written and tested. What is outstanding is entirely on the agent
+and the server: three certificates, a tap checkout, and the configuration itself. Until they exist
+a release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.**
+
+**Scope decided 2026-09-09: option A — one button, all three channels.** Modelled on
+`SuperFunMaxMusic_Ship`, which is one Command Line step (`submit_build.py --apply --tested`) behind
+a snapshot dependency on its verification composite. The alternative considered and rejected was a
+`Publish` button per platform: each press asks App Store Connect for the next build number and gets
+a different one, so one version would ship as two builds — the 1.1.1 / 10001 / 10002 defect
+`ship.sh` exists to prevent — and a third from the laptop for Homebrew. See *One button* below.
 
 Xcode Cloud is to stop being a delivery path, and TeamCity is to become the one that ships.
 Decided 2026-09-09, after Xcode Cloud was found archiving every push to `main` against an
@@ -28,20 +36,41 @@ The owner presses a button per release rather than shipping every push.
 is the foundation here: it is thin, it asserts the three things `release.sh` assumes about a
 machine, and it has shipped real builds.
 
+## One button
+
+**A release is one marketing version and one build number across three channels.** That is the
+property `ship.sh` exists to hold, and a platform at a time cannot hold it: `ci-publish.sh` asks
+App Store Connect for the next number on every invocation, so two presses produce two numbers for
+one version. 1.1.1 is build 10001 on macOS and 10002 on iOS for exactly that reason.
+
+So `--platform all` does not orchestrate the platforms itself. It asserts the machine and then
+hands over to `ship.sh`, which already picks the version once, picks the number once, and runs
+macOS `--channel both` (App Store, then Developer ID from the same archive) followed by iOS. The
+Homebrew channel rides inside that macOS run, which is what makes the build number *shared* rather
+than merely equal. Nothing here is a second release engine, and `release.sh` is still the only one.
+
 ## The blocker, and it is not a code one
 
-**The agent cannot sign a Mac App Store package.** It holds an *Apple Distribution*
-certificate and no *Mac Installer Distribution* one, which is why `Publish iOS` covered one
-platform. A `.pkg` for the Mac App Store needs the installer certificate; nothing in this
-repository can create it.
+**Everything outstanding is a credential on the agent.** The agent is `teamcity-agent-3`, running
+as `nickpomfret`, and it holds an *Apple Distribution* certificate and nothing else — which is why
+`Publish iOS` covered one platform.
 
-So the achievable end state is:
+| What | For | State |
+|---|---|---|
+| *Apple Distribution* | the `.app`, both platforms | present, proven 2026-08-25 |
+| *Mac Installer Distribution* | the Mac App Store `.pkg` | **missing** |
+| *Developer ID Application* | the Homebrew zip | **missing** |
+| `AuthKey_ASC6H3SL2D.p8` reaching the notary service | notarization | **unverified** |
+| `gh auth status` | the GitHub release | **unverified** |
+| `homebrew-tap` beside the checkout | the cask commit | **missing** |
 
-- **iOS App Store from TeamCity** — proven, worked from 2026-08-25.
-- **macOS App Store from TeamCity** — only after the installer certificate is on the agent.
-- **Homebrew / Developer ID** — stays on the laptop. It needs a *Developer ID Application*
-  certificate, notarization credentials and the `../homebrew-tap` checkout. Moving it buys
-  little and widens what the agent holds.
+Nothing in this repository can create any of them. Each is asserted by `ci-publish.sh --check`
+before anything is built, and the certificate assertions now print the identities the agent does
+hold, so one `--check` run names every gap instead of one per attempt.
+
+The three identity strings in `ci-publish.sh` are conventions written by hand — a team name and a
+team id — and have never been compared with the keychain that will be used. `--check` is what
+settles them; its failure output gives the real spelling.
 
 ## The plan
 
@@ -52,15 +81,34 @@ So the achievable end state is:
 2. **Add the macOS assertion** — the installer identity — so the macOS button fails in
    seconds with what is missing rather than after an archive.
 3. **Remove Xcode Cloud from the repository** (detail below).
-4. **TeamCity configuration** — a `Publish` configuration per platform, or one with a
-   platform parameter, on the `NoSpoilers_Main` VCS root, with a snapshot dependency on
-   `Verify`. Unlike `TestFlight`, this one archives, so it must build a revision that passed.
+4. **TeamCity configuration** — a single `Ship` configuration, modelled on the existing
+   `TestFlight` button, which is the local precedent for a UI-owned manual button:
+
+   - **Name** `Ship`, in `NoSpoilers`, on the `NoSpoilers_Main` VCS root.
+   - **One Command Line step**: `python3 scripts/ci-publish.sh --platform all %ship.args%`.
+     `ship.args` empty by default, as `distribute.args` is on `TestFlight`; it is where a
+     `--check` or an explicit `X.Y.Z` goes. **Set it as a configuration parameter, not a
+     prompt**, and clear it after use: `publish.args` left holding a stale value is how four
+     presses uploaded a closed train on 2026-09-05.
+   - **Snapshot dependency on `Verify`**, `onDependencyFailure = CANCEL`, reusing successful
+     builds. Unlike `TestFlight` this one archives, so it must build a revision that passed.
+   - **No trigger.** FunMax's `Ship` fires on every green `Verdict`; this one must not. The
+     owner presses a button per release — that is the decision at the top of this task — and
+     an automatic ship is Xcode Cloud again with a different logo.
+   - **Timeout** generous: a three-channel run archives twice and waits on the notary service.
+   - **Agent requirement** the same one `Verify` uses, since there is one Mac.
+
    **The five verification configurations still hold no credential and must not gain one**;
-   `Publish` is separate and holds them.
+   `Ship` is separate and holds them.
 
    This repository has no `.teamcity/settings.kts` — configurations are UI-owned — and
    `scripts/teamcity.py` is GET-only by design. So the button is created by the owner, or by
    a separately approved action. It is not something this task can land on its own.
+
+   Worth doing separately, and not in scope here: **adopt versioned settings**, as FunMax has
+   (`.teamcity/settings.kts` + `pom.xml`). It would put this configuration in git and under
+   review rather than in a web form. It also takes ownership of the four `Verify`
+   configurations away from the UI, which is a decision of its own.
 
 ## The removal sweep
 
@@ -85,10 +133,20 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
 
 ## What the owner has to do
 
-1. Decide whether macOS ships from TeamCity. If yes, install a *Mac Installer Distribution*
-   certificate on the agent. If no, macOS stays a `scripts/ship.sh` run on the laptop.
-2. Create the `Publish` configuration in TeamCity, or approve its creation.
-3. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
+1. ~~Decide whether macOS ships from TeamCity~~ — **decided 2026-09-09: option A**, all three
+   channels from one button.
+2. On `teamcity-agent-3`, in the keychain the agent's own session uses:
+   - install a *Mac Installer Distribution* certificate;
+   - install a *Developer ID Application* certificate;
+   - `gh auth login`;
+   - `git clone git@github.com:npomfret/homebrew-tap.git` **beside the build checkout** — the
+     path `release.sh` resolves is a sibling of the repository, which on an agent is under
+     `work/`, not beside a laptop's projects.
+3. Create the `Ship` configuration in TeamCity, or approve its creation. Recipe in *The plan*
+   step 4.
+4. Press it once with `ship.args = --check`. That is the whole point of `--check`: it asserts
+   every item above and stops, having built and shipped nothing.
+5. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
    with `isEnabled: false`. Pushes no longer produce runs, and the ITMS emails stopped.
 
 ## What landed
@@ -105,6 +163,38 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   release-and-delivery skill. Task 26's `ci_health.py` checkbox is dropped rather than left
   unsatisfiable.
 
+### Option A, 2026-09-09
+
+- **`_version.sh: version_to_ship` takes `all`.** It asks both platforms and refuses to answer
+  when they disagree, printing both. That refusal lived in `ship.sh` for a day; it moved into
+  the function the moment `ci-publish.sh` needed the same answer, because two copies of "which
+  version ships" is how they come to disagree — the defect this function was written to fix.
+- **`ship.sh` forwards anything after the version to both `release.sh` invocations**, the same
+  `"$@"` passthrough `ship-ios.sh` and `ship-appstore.sh` already used. That is how the agent's
+  credentials reach the engine without `ship.sh` learning what a build agent is. With a version
+  passed it never prompts, so it was already usable as a CI step.
+- **`ci-publish.sh --platform all`** — hands over to `ship.sh` instead of a per-platform
+  wrapper, and asserts what the extra channel needs before anything is built:
+  - the *Developer ID Application* identity, by **signing a probe binary**, not by presence:
+    a locked keychain lists an identity happily and then refuses it, and this one is used
+    after the App Store upload has already happened;
+  - **`notarytool history`** with the App Manager key — a read that authenticates, lists this
+    team's submissions and changes nothing, so the credentials that will notarize are the
+    credentials that were tested;
+  - `gh auth status`, because the SSH key checked for git does not authenticate the API;
+  - the sibling `homebrew-tap` checkout, and `git push --dry-run` on it.
+- **Notarization is given a key, not the `no-spoilers-notarytool` keychain profile.** A profile
+  is created interactively by `notarytool store-credentials` and lives in the login keychain,
+  so it is one more thing that is present and unusable when that keychain is locked — the
+  failure this whole file exists to catch. `release.sh` already took `--notarytool-key`.
+- **A missing certificate now prints what the agent does hold.** The identity strings are
+  conventions written by hand and the first press is the first comparison with a real keychain.
+- **The approval tag is written per platform.** `all` reaches that branch only when both trains
+  said closed, so both `ios/vX.Y.Z` and `macos/vX.Y.Z` are owed and writing one would leave the
+  record half true.
+- Docs: `docs/guides/building.md` — *TestFlight from TeamCity* is now *Shipping from TeamCity*
+  and describes the one button; `README.md` cross-reference followed.
+
 ## Verification
 
 - [x] `scripts/verify-python-selftests.sh` — five scripts green, 2026-09-09 (189 cases; was six
@@ -114,20 +204,61 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
 - [x] No reference anywhere to a deleted file: `ci_health`, `ci_pre_xcodebuild`, `ci-publish-ios`,
       `ci_scripts`, `find_ci_product`, `source_commit` — every remaining hit is prose naming them
       as removed
-- [x] `ci-publish.sh` refuses a missing `--platform` and an unknown one, exit 1 both
+- [x] `ci-publish.sh` refuses a missing `--platform` and an unknown one, exit 1 both, and both
+      messages name `all` — 2026-09-09
+- [x] `version_to_ship all` returns `1.1.4` against the live record, and returns nothing with
+      exit 1 and both versions named when the platforms disagree — proved with a stubbed
+      `appstore_status.py` reporting the macOS train closed and the iOS one open, 2026-09-09
+- [x] `version_to_ship` leaves the caller's `errexit` off, before and after, `all` included
+- [x] **`ship.sh` gives both `release.sh` invocations one build number and every credential**,
+      proved with a stub `release.sh` that prints its arguments: `9.9.9 … --build 10025` with
+      the signing *and* notarization flags on the macOS `--channel both` run and the iOS
+      `--channel app-store` run alike. The no-argument path still offers `1.1.4` and prompts.
+- [x] `bash -n` on `_version.sh`, `ship.sh`, `ci-publish.sh`; `verify-python-selftests.sh`
+      five scripts green (196 cases), 2026-09-09
+- [x] The first assertion fires in the sandbox and the new diagnostic earns its place: it
+      reports `0 valid identities found`, which distinguishes a wrong identity string from a
+      keychain the session cannot reach
 - [ ] **`ci-publish.sh --check` has never run on the agent.** It cannot be run anywhere else: the
       question it exists to answer — whether the login keychain is unlocked in the agent's own
       session — has no answer from an SSH shell or a sandbox. `security find-identity` returns
-      zero identities here.
-- [ ] **Nothing has shipped through the new path.** Confirmed 2026-09-09 from both ends: the only
-      `build/N` tag in the repository is `build/10023` (2026-09-05, a `release.sh` run on the
-      laptop), and TeamCity has never run a build under a `Publish` configuration. The `Verify`
-      chain is green at `3a2fbc1` and `TestFlight` has run — but `TestFlight` distributes an
-      already-uploaded build, it does not archive one.
+      zero identities here. Everything from the Developer ID probe onwards is therefore unproven
+      code: the assertions were reasoned about, not executed.
+- [ ] **The notarization credential is unverified even in principle from here.** The `.p8` keys
+      are outside what this session may read, so `notarytool history` has not been run with
+      `ASC6H3SL2D` anywhere. If the App Manager key turns out not to carry notary access, the
+      key id in `ci-publish.sh` is the one line to change.
+- [x] `gh auth status` and `git -C ../homebrew-tap push --dry-run` both pass **on the laptop**,
+      which proves the assertion logic and says nothing about the agent
+- [ ] **Nothing has shipped through the new path.** TeamCity has never run a build under a
+      `Ship` or `Publish` configuration; the `Verify` chain is green at `ba243f1` and
+      `TestFlight` has run twice, but `TestFlight` distributes an already-uploaded build rather
+      than archiving one.
 
 ## Residual risk
 
 The macOS half is unproven in a way the iOS half is not: `ci-publish-ios.sh` shipped iOS 1.1.2
-build 10008 on 2026-08-25, and no macOS archive has ever been made on the agent. The installer
-identity string in the script is the conventional one and has not been read off the certificate
-this repository will actually use.
+build 10008 on 2026-08-25, and no macOS archive has ever been made on the agent. All three
+identity strings in the script are conventional and have not been read off the certificates this
+repository will actually use — `--check` prints the real list on failure, so this costs one press
+rather than a guessing loop.
+
+**The Homebrew channel is the risk option A adds, and it is asymmetric.** `--channel both`
+uploads to the App Store before it exports for Developer ID, so a failure in the new half leaves
+a build already with Apple. That ordering is deliberate and documented, and the preflight is
+built around it — every Homebrew prerequisite is asserted at the head of the run precisely
+because it is used at the tail — but an assertion is not a proof, and none of them have executed
+on the agent.
+
+**`release.sh`'s own bare prompt still offers `suggest_next_version`.** It is the last instance of
+the defect fixed on 2026-09-09 in `ship.sh` and `ci-publish.sh`. It cannot bite either of them —
+both always pass a version — so it only reaches a person running `release.sh` directly. Fixing it
+means reading `--platform` before the version, which reorders that script's argument handling, so
+it is recorded here rather than done in passing.
+
+**Correction, 2026-09-09.** This task previously called `build/10023` "a `release.sh` run on the
+laptop". Its tagger is `nick pomfret`; `build/10024`, written by this laptop on 2026-09-09, is
+tagged `npomfret`. So 10023 was written under a different git identity and the machine that made
+it is not established. What the claim was supporting still holds by the stronger evidence: TeamCity
+has never run a build under a publishing configuration, so wherever 10023 came from, it did not
+come from the path this task is building.

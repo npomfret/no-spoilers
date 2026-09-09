@@ -14,9 +14,16 @@ set -euo pipefail
 # 10002 on iOS: one version, two builds, and the claim above quietly untrue.
 # The macOS run writes `build/N` on the commit and the iOS run finds it there.
 #
+# Anything after the version is passed to both `release.sh` invocations
+# unchanged, which is how `ci-publish.sh` hands this the credentials a build
+# agent needs and a laptop does not. Same passthrough as `ship-ios.sh` and
+# `ship-appstore.sh`, for the same reason: the flags belong to `release.sh` and
+# repeating them here is how they come to differ from it.
+#
 # Usage:
-#   scripts/ship.sh          # auto-increments version
-#   scripts/ship.sh 1.2.0    # explicit version
+#   scripts/ship.sh                    # auto-increments version, prompts
+#   scripts/ship.sh 1.2.0              # explicit version, no prompt
+#   scripts/ship.sh 1.2.0 --signing-key ...   # and these reach release.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
@@ -24,6 +31,7 @@ source "${SCRIPT_DIR}/_version.sh"
 
 if [[ $# -gt 0 ]]; then
   VERSION="$1"
+  shift
 else
   # `suggest_next_version` used to be the default here, and it is the answer to
   # a different question — see `version_to_ship`. It offered 1.1.5 on the day
@@ -33,21 +41,11 @@ else
   # Tags first, because the answer skips versions already tagged.
   git fetch --quiet --tags origin
   echo "==> Asking App Store Connect which version is still taking builds..."
-  MACOS_VERSION="$(version_to_ship macos)"
-  IOS_VERSION="$(version_to_ship ios)"
-
-  # **One version on all three channels is the whole point of this script**, so
-  # two platforms disagreeing is a state to stop on, not to resolve by picking
-  # one. It happens when a version is approved on one platform and not the
-  # other: one train is closed and wants the next version, the other is open
-  # and wants this one. Naming both is the only useful thing to say.
-  if [[ "$MACOS_VERSION" != "$IOS_VERSION" ]]; then
-    echo "macOS would ship ${MACOS_VERSION} and iOS would ship ${IOS_VERSION}." >&2
-    echo "One run ships one version, so pass the one you mean: $0 X.Y.Z" >&2
-    exit 1
-  fi
-
-  SUGGESTED="$MACOS_VERSION"
+  # `all`, not one call per platform: **one version on all three channels is
+  # the whole point of this script**, and the function refuses to answer when
+  # the two platforms disagree.
+  SUGGESTED="$(version_to_ship all)" \
+    || { echo "So pass the one you mean: $0 X.Y.Z" >&2; exit 1; }
   read -rp "Version [${SUGGESTED}]: " INPUT
   VERSION="${INPUT:-$SUGGESTED}"
 fi
@@ -66,7 +64,8 @@ echo "==> Shipping macOS (app-store + developer-id) v${VERSION} build ${BUILD}..
   --build "${BUILD}" \
   --api-key "${API_KEY}" \
   --api-key-id "${API_KEY_ID}" \
-  --api-issuer "${API_ISSUER}"
+  --api-issuer "${API_ISSUER}" \
+  "$@"
 
 echo ""
 echo "==> Shipping iOS (app-store) v${VERSION} build ${BUILD}..."
@@ -76,7 +75,8 @@ echo "==> Shipping iOS (app-store) v${VERSION} build ${BUILD}..."
   --build "${BUILD}" \
   --api-key "${API_KEY}" \
   --api-key-id "${API_KEY_ID}" \
-  --api-issuer "${API_ISSUER}"
+  --api-issuer "${API_ISSUER}" \
+  "$@"
 
 echo ""
 echo "Done. v${VERSION} shipped to Homebrew, Mac App Store, iOS App Store."

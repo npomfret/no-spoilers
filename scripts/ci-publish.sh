@@ -16,21 +16,39 @@ set -euo pipefail
 # where it fails fast and says what is missing, rather than letting a build queue
 # or die ten minutes in.
 #
-# **Both platforms, one file.** This was `ci-publish-ios.sh` and covered iOS
-# alone, because the agent held an *Apple Distribution* certificate and no *Mac
-# Installer Distribution* one, so a macOS press could only have failed. Task 36
-# put the installer certificate on the agent; the difference between the two
-# platforms is now which wrapper runs and one extra assertion, so there is one
-# file rather than a copy that will drift.
+# **Every channel, one file.** This was `ci-publish-ios.sh` and covered iOS
+# alone, because the agent held an *Apple Distribution* certificate and nothing
+# else, so any other press could only have failed. The difference between the
+# platforms is which wrapper runs and which certificates are asserted, so there
+# is one file rather than copies that will drift.
 #
-# The Developer ID / Homebrew channel is deliberately not here. It needs a
-# *Developer ID Application* certificate, notarization credentials and the
-# `../homebrew-tap` checkout, and it stays a `scripts/ship.sh` run on a laptop.
+# **The certificates the agent needs beyond iOS are still to be installed** —
+# task 36 tracks them — and the assertions below are how a press says which one
+# is missing, in seconds, rather than after an archive.
+#
+# **`--platform all` is the button, and the other two are repairs.** A release
+# is one marketing version and *one build number* across all three channels,
+# and a platform at a time cannot hold that: each press asks App Store Connect
+# for the next number and gets a different one, which is how 1.1.1 came to be
+# build 10001 on macOS and 10002 on iOS. So `all` hands over to `scripts/ship.sh`
+# — already the thing that picks the version once, picks the number once and
+# runs macOS `--channel both` then iOS — rather than orchestrating a second
+# copy of it here. The Developer ID / Homebrew channel rides along inside that
+# macOS run, which is what makes the number shared rather than merely equal.
+#
+# The price is what the agent has to hold: on top of the App Store
+# certificates, a *Developer ID Application* certificate, notarization
+# credentials, an authenticated `gh`, and a `homebrew-tap` checkout beside the
+# build directory. Every one of them is asserted below before anything is
+# built, because the Homebrew half fails at the *end* of a run — after the
+# archive, the notarization and a public GitHub release — where there is no way
+# to finish and no way back.
 #
 # Usage:
-#   scripts/ci-publish.sh --platform ios            # the project's version, or the next one
+#   scripts/ci-publish.sh --platform all            # the whole release, one build number
+#   scripts/ci-publish.sh --platform ios            # one channel, e.g. re-running a failed leg
 #   scripts/ci-publish.sh --platform macos 1.2.0    # exactly this version
-#   scripts/ci-publish.sh --platform ios --check    # run the assertions and stop
+#   scripts/ci-publish.sh --platform all --check    # run the assertions and stop
 #
 # **The first form has to just work, every time the button is pressed.** While
 # the project's version is still taking builds it ships that version, so a
@@ -74,6 +92,12 @@ IDENTITY="Apple Distribution: Nick Pomfret (6FZN56WC8G)"
 # identity rather than a missing certificate.
 INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Nick Pomfret (6FZN56WC8G)"
 
+# **A third certificate, for the channel that never touches the App Store.**
+# The Homebrew zip is signed with *Developer ID Application* and notarized;
+# neither of the two identities above can produce a build Gatekeeper will open
+# outside the store. Only `--platform all` needs it.
+DEVID_IDENTITY="Developer ID Application: Nick Pomfret (6FZN56WC8G)"
+
 API_KEY_ID="S394C74APG"
 PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
 
@@ -86,6 +110,16 @@ PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
 # account, which sends you looking at entitlements.
 SIGNING_KEY_ID="ASC6H3SL2D"
 ASC_ISSUER="69a6de6e-6d3e-47e3-e053-5b8c7c11a4d1"
+
+# **Notarization is given a key rather than a keychain profile.** `release.sh`
+# defaults to the `no-spoilers-notarytool` profile, which is right on a laptop
+# and wrong here: a profile is created by `notarytool store-credentials` in an
+# interactive session and lives in the login keychain, so it is one more thing
+# that is present and unusable when that keychain is locked — the failure this
+# file exists to catch. An App Store Connect key is a file, and the agent
+# already keeps the two above beside it. The App Manager key, because
+# notarization is a developer-account action and the upload key's role is not.
+NOTARY_KEY_ID="ASC6H3SL2D"
 
 CHECK_ONLY=""
 PLATFORM=""
@@ -112,12 +146,34 @@ fail() {
   exit 1
 }
 
+# What this agent actually holds, for a failure that says a certificate is
+# missing. The three identity strings above are conventions — a team name and
+# a team id, written here by hand — and the first press of a new button is the
+# first time anything compares them with the keychain. Printing the real list
+# turns "no such identity" into one round trip instead of a guess per attempt.
+# The names are not a secret: they are in this file already, and a TeamCity log
+# is as private as this repository.
+what_the_agent_has() {
+  echo "  what this agent does have:" >&2
+  security find-identity -v 2>&1 | sed 's/^/  /' >&2
+}
+
 case "$PLATFORM" in
   ios)   WRAPPER="ship-ios.sh" ;;
   macos) WRAPPER="ship-appstore.sh" ;;
-  "")    fail "--platform is required (ios or macos)" ;;
-  *)     fail "unknown platform '${PLATFORM}' (expected ios or macos)" ;;
+  all)   WRAPPER="ship.sh" ;;
+  "")    fail "--platform is required (all, ios or macos)" ;;
+  *)     fail "unknown platform '${PLATFORM}' (expected all, ios or macos)" ;;
 esac
+
+# Which extra certificates this run needs, asked once so the assertions below
+# and the handover at the bottom cannot disagree about what a platform means.
+# `if` rather than `[[ … ]] && …`: under `set -e` the second form exits the
+# script whenever the test is false, which is every iOS run.
+NEEDS_INSTALLER=""
+NEEDS_DEVID=""
+if [[ "$PLATFORM" == "macos" || "$PLATFORM" == "all" ]]; then NEEDS_INSTALLER="yes"; fi
+if [[ "$PLATFORM" == "all" ]]; then NEEDS_DEVID="yes"; fi
 
 # ── 1. The signing identity has to be usable, not merely present ─────────────
 #
@@ -133,8 +189,10 @@ esac
 # same in a green log.
 
 echo "==> Asserting the signing identity can actually sign..."
-security find-identity -v -p codesigning | grep -qF "${IDENTITY}" \
-  || fail "no '${IDENTITY}' in any keychain this agent can see"
+if ! security find-identity -v -p codesigning | grep -qF "${IDENTITY}"; then
+  what_the_agent_has
+  fail "no '${IDENTITY}' in any keychain this agent can see"
+fi
 
 PROBE="$(mktemp -d)"
 trap 'rm -rf "${PROBE}"' EXIT
@@ -151,13 +209,35 @@ fi
 # a package needs a package: `productbuild` has nothing equivalent to the
 # throwaway binary above. `-p codesigning` would not list it — an installer
 # identity is not a codesigning one — so this asks for every valid identity.
-if [[ "$PLATFORM" == "macos" ]]; then
+if [[ -n "$NEEDS_INSTALLER" ]]; then
   echo "==> Asserting the Mac installer identity is present..."
-  security find-identity -v | grep -qF "${INSTALLER_IDENTITY}" \
-    || fail "no '${INSTALLER_IDENTITY}' in any keychain this agent can see.
+  if ! security find-identity -v | grep -qF "${INSTALLER_IDENTITY}"; then
+    what_the_agent_has
+    fail "no '${INSTALLER_IDENTITY}' in any keychain this agent can see.
 That is the *Mac Installer Distribution* certificate, and without it the export
 signs no package: the run would archive first and fail after. Create it in the
 Apple Developer portal and install it in the keychain this agent runs under."
+  fi
+fi
+
+# The Developer ID certificate gets the probe treatment rather than a presence
+# check, because it signs a binary like the first one does and the keychain can
+# refuse it for exactly the same reason. This is the identity whose failure is
+# most expensive: `--channel both` archives, uploads to the App Store, and only
+# then exports for Developer ID, so a locked keychain here is discovered after
+# a build is already with Apple.
+if [[ -n "$NEEDS_DEVID" ]]; then
+  echo "==> Asserting the Developer ID identity can actually sign..."
+  if ! security find-identity -v -p codesigning | grep -qF "${DEVID_IDENTITY}"; then
+    what_the_agent_has
+    fail "no '${DEVID_IDENTITY}' in any keychain this agent can see.
+That is the *Developer ID Application* certificate, which signs the Homebrew
+zip. It is not the one the App Store uses and nothing else can stand in for it."
+  fi
+  if ! codesign -f -s "${DEVID_IDENTITY}" "${PROBE}/probe" 2>"${PROBE}/err"; then
+    echo "  codesign said: $(cat "${PROBE}/err")" >&2
+    fail "the Developer ID identity is present but cannot sign."
+  fi
 fi
 
 # ── 2. The App Store Connect key ─────────────────────────────────────────────
@@ -174,6 +254,28 @@ KEYS="${HOME}/.appstoreconnect/private_keys"
   || fail "no AuthKey_${API_KEY_ID}.p8 in ${KEYS} — nothing could be uploaded"
 [[ -f "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8" ]] \
   || fail "no AuthKey_${SIGNING_KEY_ID}.p8 in ${KEYS} — nothing could be signed"
+
+# **Notarization is asked to prove itself, not merely to exist.** `notarytool
+# history` is a read: it authenticates, lists this team's past submissions and
+# changes nothing, so the credentials that will be used to notarize are the
+# credentials that were tested. That matters more here than anywhere else in
+# this file — a bad key is discovered by `notarytool submit --wait`, which is
+# minutes into the one step that cannot be retried cheaply, with the App Store
+# upload already done.
+if [[ -n "$NEEDS_DEVID" ]]; then
+  [[ -f "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" ]] \
+    || fail "no AuthKey_${NOTARY_KEY_ID}.p8 in ${KEYS} — nothing could be notarized"
+  echo "==> Asserting the notarization credentials work..."
+  if ! NOTARY_SAYS="$(xcrun notarytool history \
+      --key "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" \
+      --key-id "${NOTARY_KEY_ID}" \
+      --issuer "${ASC_ISSUER}" 2>&1)"; then
+    echo "  notarytool said: ${NOTARY_SAYS}" >&2
+    fail "AuthKey_${NOTARY_KEY_ID}.p8 cannot talk to the notary service.
+The key needs the App Manager role: notarization is a developer-account action
+and the upload key is not allowed to take it."
+  fi
+fi
 
 # ── 3. A push remote that can actually push ──────────────────────────────────
 #
@@ -214,6 +316,42 @@ esac
 git config user.name  >/dev/null || fail "no git user.name on this agent, so nothing this run commits or tags has an author"
 git config user.email >/dev/null || fail "no git user.email on this agent, so nothing this run commits or tags has an author"
 
+# ── 3b. What the Homebrew half publishes to ──────────────────────────────────
+#
+# **This is the tail of the run, which is why it is checked at the head of it.**
+# `release.sh` exports for Developer ID, notarizes, staples, creates a *public
+# GitHub release*, and only then commits the cask. A missing `gh` login or a
+# missing tap checkout is discovered at that last step, with the release
+# already published and the App Store upload already done — a half-shipped
+# version, and nothing here can unpublish it. `release.sh` makes the same
+# argument about the tap in its own preflight; this adds the two things it
+# assumes rather than checks, and does it before the queue wait.
+
+if [[ -n "$NEEDS_DEVID" ]]; then
+  echo "==> Asserting the Homebrew channel has somewhere to publish..."
+
+  command -v gh >/dev/null \
+    || fail "no 'gh' on this agent, so no GitHub release could be created"
+  if ! GH_SAYS="$(gh auth status 2>&1)"; then
+    echo "  gh said: ${GH_SAYS}" >&2
+    fail "'gh' is installed but not logged in, so no GitHub release could be created.
+The SSH key checked above pushes git; it does not authenticate the GitHub API."
+  fi
+
+  # The same path `release.sh` resolves, computed the same way rather than
+  # assumed: it is a sibling of the *checkout*, and a TeamCity checkout lives
+  # under the agent's work directory, not beside a laptop's projects.
+  TAP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)/homebrew-tap"
+  [[ -f "${TAP_DIR}/Casks/no-spoilers.rb" ]] \
+    || fail "no Homebrew cask at ${TAP_DIR}/Casks/no-spoilers.rb.
+The Developer ID channel commits the cask to a checkout beside this one. Clone
+npomfret/homebrew-tap there — over SSH, because this run pushes it."
+  git -C "${TAP_DIR}" rev-parse --git-dir >/dev/null 2>&1 \
+    || fail "${TAP_DIR} is not a git checkout, so the cask update could not be pushed"
+  git -C "${TAP_DIR}" push --dry-run --quiet \
+    || fail "${TAP_DIR} cannot push, so the cask update would be committed and stranded"
+fi
+
 # ── 4. Which version ─────────────────────────────────────────────────────────
 #
 # Told one, ship it; `release.sh` still refuses it if Apple would. Told
@@ -245,11 +383,18 @@ else
 
   if [[ "$VERSION" != "$PROJECT_VERSION" ]]; then
     echo "==> Recording which build of ${PROJECT_VERSION} users got..."
-    if [[ -n "$CHECK_ONLY" ]]; then
-      python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}"
-    else
-      python3 "${SCRIPT_DIR}/tag_approved.py" "${PLATFORM}" "${PROJECT_VERSION}" --apply
-    fi
+    # One tag per platform, because the approval is per platform and the two
+    # trains close on their own schedule. `all` reaches here only when both
+    # said closed — `version_to_ship all` refuses to answer otherwise — so both
+    # tags are owed and writing one of them would leave the record half true.
+    if [[ "$PLATFORM" == "all" ]]; then TAG_PLATFORMS=(macos ios); else TAG_PLATFORMS=("$PLATFORM"); fi
+    for TAG_PLATFORM in "${TAG_PLATFORMS[@]}"; do
+      if [[ -n "$CHECK_ONLY" ]]; then
+        python3 "${SCRIPT_DIR}/tag_approved.py" "${TAG_PLATFORM}" "${PROJECT_VERSION}"
+      else
+        python3 "${SCRIPT_DIR}/tag_approved.py" "${TAG_PLATFORM}" "${PROJECT_VERSION}" --apply
+      fi
+    done
     echo "  ${PROJECT_VERSION} is closed, so this run opens ${VERSION}."
   fi
 fi
@@ -261,6 +406,9 @@ if [[ -n "$CHECK_ONLY" ]]; then
   echo "This run would ship ${PLATFORM} ${VERSION}."
   echo ""
   echo "Preflight passed. This agent can sign, can upload and can push."
+  if [[ -n "$NEEDS_DEVID" ]]; then
+    echo "It can also sign with Developer ID, notarize, and publish the cask."
+  fi
   echo "Nothing was built and nothing was shipped: --check was passed."
   exit 0
 fi
@@ -268,7 +416,21 @@ fi
 echo ""
 echo "==> Preflight passed. Shipping ${PLATFORM} ${VERSION} via scripts/${WRAPPER}..."
 echo ""
-exec "${SCRIPT_DIR}/${WRAPPER}" "${VERSION}" \
-  --signing-key "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8" \
-  --signing-key-id "${SIGNING_KEY_ID}" \
+
+# The credentials, in the shape every wrapper already forwards to `release.sh`.
+# Notarization is added only where it is used, so an iOS run cannot be handed a
+# key for a step it does not have.
+CREDENTIALS=(
+  --signing-key "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8"
+  --signing-key-id "${SIGNING_KEY_ID}"
   --signing-issuer "${ASC_ISSUER}"
+)
+if [[ -n "$NEEDS_DEVID" ]]; then
+  CREDENTIALS+=(
+    --notarytool-key "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8"
+    --notarytool-key-id "${NOTARY_KEY_ID}"
+    --notarytool-issuer "${ASC_ISSUER}"
+  )
+fi
+
+exec "${SCRIPT_DIR}/${WRAPPER}" "${VERSION}" "${CREDENTIALS[@]}"

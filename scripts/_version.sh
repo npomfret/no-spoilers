@@ -10,7 +10,8 @@
 #   version_to_ship       Print the version a ship should carry on one platform:
 #                         the project's own while its train is open, the next
 #                         one once it is closed. What every caller shipping
-#                         something wants.
+#                         something wants. `all` asks both platforms and refuses
+#                         to answer when they disagree.
 #   next_build_number     Print the build number the next upload should carry.
 #   current_build_number  Print the CURRENT_PROJECT_VERSION the project holds.
 #
@@ -149,12 +150,33 @@ suggest_next_version() {
 #
 # Tags are fetched by the caller, not here: `suggest_next_version` skips
 # versions already tagged and a CI checkout carries none.
+#
+# **`all` is the whole release**, and it is the answer `ship.sh` and the
+# TeamCity button both want: one version on every channel is the property that
+# script exists to hold. Two platforms disagreeing is a state to stop on rather
+# than resolve by picking one — it happens when a version is approved on one
+# platform and not the other, so one train is closed and wants the next version
+# while the other is open and wants this one. Naming both is the only useful
+# thing to say about it.
 version_to_ship() {
-  local PLATFORM="$1" PROJECT STATUS
+  local PLATFORM="$1" PROJECT STATUS MACOS IOS
   if [[ -z "$PLATFORM" ]]; then
     echo "version_to_ship needs a platform" >&2
     return 1
   fi
+
+  if [[ "$PLATFORM" == "all" ]]; then
+    MACOS="$(version_to_ship macos)" || return 1
+    IOS="$(version_to_ship ios)" || return 1
+    if [[ "$MACOS" != "$IOS" ]]; then
+      echo "macOS would ship ${MACOS} and iOS would ship ${IOS}." >&2
+      echo "One run ships one version, so name the one you mean." >&2
+      return 1
+    fi
+    printf '%s' "$MACOS"
+    return
+  fi
+
   PROJECT="$(current_marketing_version)" || return 1
 
   # `|| STATUS=$?` rather than bracketing the call in `set +e` / `set -e`. This
