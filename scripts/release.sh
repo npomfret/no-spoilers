@@ -53,7 +53,7 @@ export PATH="/usr/bin:/bin:${PATH}"
 #   number is `next_build_number` from _version.sh: the highest App Store
 #   Connect holds on either platform, or the highest build/ tag, plus one.
 #
-# What a run leaves in git, since task 32 (2026-09-05):
+# What a run leaves in git, since 2026-09-05:
 #
 #   open vX.Y.Z      a commit, only when MARKETING_VERSION changed, pushed
 #                    before the archive
@@ -272,7 +272,7 @@ fi
 # keeps is the counter, and `next_build_number` reads it — plus the build/
 # tags, for a number this repository tagged that never reached the record. The
 # project file's CURRENT_PROJECT_VERSION stopped being edited by this script
-# in task 32; the archive is stamped from the command line below, as it always
+# on 2026-09-05; the archive is stamped from the command line below, as it always
 # was, and the committed value was only ever a ledger of the last upload.
 #
 # `--build` pins the number instead, for ship.sh: one ship run is one build

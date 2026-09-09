@@ -22,9 +22,10 @@ set -euo pipefail
 # platforms is which wrapper runs and which certificates are asserted, so there
 # is one file rather than copies that will drift.
 #
-# **The certificates the agent needs beyond iOS are still to be installed** —
-# task 36 tracks them — and the assertions below are how a press says which one
-# is missing, in seconds, rather than after an archive.
+# **The certificates the agent needs beyond iOS are still to be installed** — a
+# *Mac Installer Distribution* certificate and a *Developer ID Application*
+# one — and the assertions below are how a press says which one is missing, in
+# seconds, rather than after an archive.
 #
 # **`--platform all` is the button, and the other two are repairs.** A release
 # is one marketing version and *one build number* across all three channels,

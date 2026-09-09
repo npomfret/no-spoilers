@@ -410,8 +410,8 @@ def find_app(get: "Callable[[str], dict]") -> dict:
 # The Xcode Cloud product lookup lived here: `ci_products`, `select_ci_product`
 # and `find_ci_product`, which found this app's product id by the app it builds
 # rather than by its name, because a product seized by the Create Workflow
-# wizard wears the other project's name. Task 36 removed the Xcode Cloud
-# delivery path and `scripts/ci_health.py` with it, and `testflight_distribute`
+# wizard wears the other project's name. The Xcode Cloud delivery path was
+# removed on 2026-09-09 and `scripts/ci_health.py` with it, and `testflight_distribute`
 # stopped asking a run which commit it built, so nothing called them. What they
 # knew — that `GET /v1/ciProducts` is a cache that lies in both directions, and
 # that a listed id which 404s is a ghost indistinguishable from a second
@@ -455,7 +455,7 @@ def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> di
     not free anything — so this reads every build rather than the live ones.
     And **a cancelled run consumed its number exactly as a delivered one did** —
     the holes in this app's trains were made that way, by Xcode Cloud, before
-    task 36 removed it — which is why "next number" and "next free number" are
+    that path was removed — which is why "next number" and "next free number" are
     different questions.
 
     `include=preReleaseVersion` is what joins a build to its train. The filtered
@@ -489,7 +489,7 @@ def highest_build(get: "Callable[[str], dict]", app_id: str) -> int:
     **The next build number is this plus one, and App Store Connect is the
     authority because it is the thing that enforces the rule.** CFBundleVersion
     has to increase across every upload of the app, both platforms together
-    under Universal Purchase, and until task 32 the counter lived in the
+    under Universal Purchase, and until 2026-09-05 the counter lived in the
     project file: every upload was a commit on `main` whose only job was to
     remember the last number. Twenty of those since 2026-08-22, three for
     builds Apple never received. Asking the record instead costs one GET per
@@ -498,7 +498,7 @@ def highest_build(get: "Callable[[str], dict]", app_id: str) -> int:
     Every build counts, on both platforms and in every train, expired ones
     included — an expired build stops launching, it does not free its number.
     The record still holds two bands: the run numbers Xcode Cloud uploaded
-    before task 36, 1 through 125, beside the 10000 band `release.sh` uses. The
+    before it was removed, 1 through 125, beside the 10000 band `release.sh` uses. The
     maximum is the maximum; nothing here knows or cares which path produced it.
 
     An app record with no builds at all is refused rather than answered with
@@ -1577,7 +1577,7 @@ def _selftest() -> int:
 
     # Eight cases picking the Xcode Cloud product stood here, replaying the
     # crossed products of 2026-08-12. They went with `select_ci_product` in
-    # task 36; the lookup they guarded has no callers now that nothing in this
+    # when that path was removed; the lookup they guarded has no callers now that nothing in this
     # repository talks to Xcode Cloud.
 
     # Screenshot families are per platform: a macOS version has desktop shots and
@@ -1829,7 +1829,7 @@ def _selftest() -> int:
     except SystemExit:
         pass
 
-    # `highest_build` is where the build number comes from since task 32, so
+    # `highest_build` is where the build number comes from since 2026-09-05, so
     # the two ways it could undercount are the two that would be refused at
     # upload: an expired build read as freeing its number, and the other
     # platform's builds not counted at all. The low Xcode Cloud band beside
@@ -1900,7 +1900,7 @@ def _selftest() -> int:
         if not installable_phrase(entry).startswith("nothing"):
             failures.append(f"{name}: 'nothing' was not said plainly")
 
-    # The distinction task 23 was filed for, at the level of the printed line:
+    # The distinction that matters at the level of the printed line:
     # a Mac build nobody handed over, against no Mac build at all. Both are
     # "testers can install nothing" and they need entirely different work.
     stranded = installable_phrase(_distribution("MAC_OS", installable=None, behind=None, searched=4))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mark the commit users got: `PLATFORM/vX.Y.Z` on the build App Store Connect approved.
 
-A version tag should point at what shipped, and until task 32 (2026-09-05)
+A version tag should point at what shipped, and until 2026-09-05
 none of this repository's did: `release.sh` wrote `vX.Y.Z` at the *first*
 upload of a train, so `v1.1.2` marks build 10003 while the build on sale is
 10012. Which build of a version reaches the store is decided by App Review,
@@ -109,7 +109,7 @@ def main() -> int:
     # git first, then the build's own note. The two git sources are records of
     # the archive; the note is a record of what the archive was reported to be,
     # which is weaker and is why it is asked last. For anything shipped since
-    # task 32 the `build/N` tag answers and this never runs.
+    # 2026-09-05 the `build/N` tag answers and this never runs.
     commit = ship_commit(number) or note_commit(client, app_id, arguments.platform, number)
     if commit is None:
         raise SystemExit(
@@ -117,7 +117,8 @@ def main() -> int:
             f"tag, no `bump to` commit, and no usable `Build {number} from <sha>` in its "
             "TestFlight note.\n"
             "Every release.sh upload leaves one of the first two. A build Xcode Cloud uploaded "
-            "before task 36 has only the note, and that note is missing, about a different "
+            "before that path was removed has only the note, and that note is missing, "
+            "about a different "
             "build, or names a commit this checkout cannot reach. None of those is something "
             "to tag over."
         )

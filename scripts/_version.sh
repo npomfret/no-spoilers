@@ -28,7 +28,7 @@
 # the project, and release.sh seds MARKETING_VERSION to whatever it is given, so
 # the suggestion silently walks the project backwards.
 #
-# **Three tag families, since task 32 (2026-09-05), and each means one thing.**
+# **Three tag families, since 2026-09-05, and each means one thing.**
 #
 #   build/N       this commit was archived as build N — one per upload, written
 #                 by release.sh on the commit it archived, annotated
@@ -56,7 +56,7 @@ pbxproj_path() {
 }
 
 # The build number the project currently holds. **Not the next upload's
-# number**: since task 32 the committed CURRENT_PROJECT_VERSION is frozen at
+# number**: since 2026-09-05 the committed CURRENT_PROJECT_VERSION is frozen at
 # 10022, the last upload recorded by a bump commit, and every upload since is
 # a build/N tag whose number came from App Store Connect (`next_build_number`
 # below). What is left of this is what a local Xcode build stamps into a
@@ -144,7 +144,8 @@ suggest_next_version() {
 #
 # **The exit code is read, never the output** — 0 open, 3 closed, anything else
 # means the question was not answered — so an offline laptop stops rather than
-# guessing a version. `ci-publish.sh` has asked it this way since task 36; this
+# guessing a version. `ci-publish.sh` has asked it this way since the move to
+# TeamCity; this
 # is that decision moved somewhere both it and `ship.sh` can reach, because two
 # copies of "which version ships" is how they come to disagree.
 #
@@ -204,7 +205,7 @@ version_to_ship() {
 # **App Store Connect is the authority, because it is the thing that enforces
 # the rule.** CFBundleVersion must increase across every upload of the app on
 # either platform, and `appstore_status.py --next-build` reads every build the
-# record holds and adds one. Until task 32 the counter was the committed
+# record holds and adds one. Until 2026-09-05 the counter was the committed
 # CURRENT_PROJECT_VERSION and every upload was a commit on `main` whose only
 # job was to remember it.
 #
@@ -247,8 +248,8 @@ next_build_number() {
 # archive, the export and the wait.
 
 # There is no `set_build_number` here any more. It wrote CURRENT_PROJECT_VERSION
-# into every build configuration, and by task 36 nothing called it: release.sh
-# stopped in task 32, stamping its number on the `xcodebuild archive` command
+# into every build configuration, and nothing calls it now: release.sh stopped
+# on 2026-09-05, stamping its number on the `xcodebuild archive` command
 # line instead, and its last caller was the Xcode Cloud hook, deleted with the
 # rest of that path. The committed value is frozen at 10022 and only Xcode
 # stamps it now, into a local build, which is what `mac_screenshots.py` reads.

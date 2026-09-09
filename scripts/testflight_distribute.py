@@ -46,7 +46,7 @@ way to tell a working run from a broken one. This script writes `whatsNew` over
 the API instead, where the result is visible and a failure is an HTTP error
 rather than silence.
 
-**The commit comes from git**, since task 36 took the Xcode Cloud path away:
+**The commit comes from git**, since the Xcode Cloud path was removed on 2026-09-09:
 `release.sh` tags the archived commit `build/N` the moment the archive exists
 (and, for builds 10001–10022, committed `bump to vX.Y.Z (build N)` on top of
 it). Until 2026-08-22 the commit came from the run instead, and every 10000-band
@@ -245,9 +245,9 @@ def note_state(existing: dict | None) -> str:
 
 # There was a `source_commit` here, asking `/v1/ciProducts/{id}/buildRuns` which
 # commit an Xcode Cloud run built. It was the first of two answers, and
-# `ship_commit` below was the fallback for builds no run produced. Task 36
-# removed the Xcode Cloud delivery path, so every build now arrives from
-# `release.sh` carrying a `build/N` tag on the commit it archived, and the
+# `ship_commit` below was the fallback for builds no run produced. The Xcode
+# Cloud delivery path was removed on 2026-09-09, so every build now arrives
+# from `release.sh` carrying a `build/N` tag on the commit it archived, and the
 # fallback is the whole answer. Builds 10001–10022 still have no tag and never
 # will; `ship_commit` finds those by their bump commit, as it always did.
 
@@ -259,14 +259,14 @@ def note_commit(
 
     **The last record of the Xcode Cloud era, and the reason it is not lost.**
     Those builds carried their commit in the run's `sourceCommit` and nothing
-    else; git never saw it, and task 36 removed the API that could ask. What
+    else; git never saw it, and the API that could ask went with that path. What
     survives is the note this script wrote at the time, in `note_text`'s
     format — `Build N from <sha>` — which is a machine-written primary record
     rather than somebody's recollection.
 
     Asked last, after the `build/N` tag and the bump commit, because it is a
     record of a record: the two git sources are the archive itself, and this is
-    what the archive was reported to be. For any build shipped since task 32 the
+    what the archive was reported to be. For any build shipped since 2026-09-05 the
     tag answers first and this is never reached.
 
     Three things have to hold before the answer is usable, and each is a way the
@@ -370,7 +370,7 @@ def ship_commit(version: str, repo: Path = REPO) -> dict | None:
     number, so CI answers first and git is only asked about numbers no run
     claims.
 
-    **Since task 32 the record is the `build/N` tag, on the commit that was
+    **Since 2026-09-05 the record is the `build/N` tag, on the commit that was
     archived, and it is read first.** `release.sh` writes it the moment the
     archive exists, on HEAD, which nothing moves after the archive — so the
     tag says what was built directly and there is nothing to infer. It is the
@@ -758,8 +758,8 @@ def main() -> int:
     # The `build/N` tag that names the commit was pushed by whichever machine
     # shipped — a TeamCity agent, ordinarily — and this one may not have seen
     # it. Without the fetch a stale clone reads as "nothing names the commit
-    # behind build N" and leaves the note blank, silently. Since task 36 that
-    # tag is the only answer, so the fetch is the whole of the lookup.
+    # behind build N" and leaves the note blank, silently. That tag is now the
+    # only answer, so the fetch is the whole of the lookup.
     git("fetch", "--quiet", "--tags", "origin")
     repair_note(session, build, arguments.apply)
     print()
@@ -954,7 +954,7 @@ def _selftest() -> int:
         failures.append("ship_commit matched a build number by prefix")
 
     # The `build/N` tag, against a throwaway repository: this one carries no
-    # such tag until the first ship after task 32, and a reader whose only
+    # such tag until the first ship that writes one, and a reader whose only
     # test is "the repo happens to contain one" is untested until then. Three
     # shapes — tag alone, bump alone, and both on one build — and the two
     # records have to agree when both are present, because the tag is written

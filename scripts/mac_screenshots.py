@@ -91,7 +91,7 @@ worth believing.
 
 ## `--appearance` flips the whole desktop, and puts it back
 
-The popover follows the system appearance since 2026-09-05 (task 28), and there is no
+The popover follows the system appearance since 2026-09-05, and there is no
 per-app override for a menu bar app: the only way to see it dark is to make the Mac
 dark. `--appearance dark` does that through System Events' appearance preferences,
 relaunches the app so the popover draws fresh, captures, and restores whatever the
