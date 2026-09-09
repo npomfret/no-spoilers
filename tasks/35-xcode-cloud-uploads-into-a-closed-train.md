@@ -54,8 +54,24 @@ uploaded, which is already how the core-tests gate works.
 1. **Open the 1.1.4 train.** Bump `MARKETING_VERSION` to 1.1.4 with `set_marketing_version`,
    which proves the stamp against every configuration. Unblocks the next Xcode Cloud run on
    its own. — DONE, see Verification.
-2. **Guard the Xcode Cloud path.** Blocked on a decision that is not this repository's to
-   make: where the hook gets an App Store Connect key. Recorded above; awaiting the owner.
+2. **Guard the Xcode Cloud path.** Decided 2026-09-09: the hook asks App Store Connect, with
+   the key supplied as Xcode Cloud secret environment variables. This is the documented
+   shape for calling the API from a build script — Apple encrypts secret variables, decrypts
+   them only into the temporary action environment, and masks them in logs.
+
+   - **Owner, in Xcode Cloud's workflow settings** (this cannot be done from the repository):
+     add `ASC_ISSUER_ID`, `ASC_KEY_ID` and `ASC_KEY_P8_BASE64`, each with **Secret** ticked.
+     The third is `base64 < AuthKey_S394C74APG.p8`. The `.p8` itself is never committed.
+   - **Here:** `appstore_status.py` hardcodes `KEY_ID`, `ISSUER_ID` and `KEY_PATH`. Give the
+     three an environment override so a caller can supply them without a file on disk, then
+     have the hook decode `ASC_KEY_P8_BASE64` into a `mktemp` file, run `--train` for the
+     platform being archived, and remove the file on exit. Refuse on exit 3 and on any exit
+     that is not 0 or 3, exactly as `release.sh:327` does — a missing key must not read as
+     "the train is open".
+   - **Not negotiable in the implementation:** nothing echoes the decoded key or the base64,
+     and the temp file is removed by a trap rather than a final line that a failure skips.
+
+   Blocked until the three variables exist; the hook cannot be written blind against them.
 
 ## Verification
 
@@ -65,12 +81,10 @@ uploaded, which is already how the core-tests gate works.
       number is frozen by task 32 and this change does not touch it
 - [x] Both trains open afterwards, 2026-09-09: `--train ios 1.1.4` and `--train macos 1.1.4`
       both "still taking builds", exit 0
-- [ ] **`scripts/verify-ios-build.sh` has not run.** Xcode cannot run under the agent's
-      sandbox at all: `xcodebuild` dies in package resolution with `sandbox-exec:
-      sandbox_apply: Operation not permitted`, and even `-list` loses CoreSimulator and the
-      fs-event stream. The project file's structural soundness is unproven here; `agvtool`
-      wrote it, and the setter counted 6/6, but that is not a build.
-- [ ] Step 2 not started: no credential path for the hook
+- [x] All four build entry points green at 1.1.4, 2026-09-09: `verify-ios-build.sh`,
+      `verify-mac-build.sh`, `verify-widget-build.sh` all `** BUILD SUCCEEDED **`, and
+      `verify-core-tests.sh` 118 tests, 0 failures
+- [ ] Step 2 not started: waiting on the three Xcode Cloud secret variables above
 
 ## Residual risk
 

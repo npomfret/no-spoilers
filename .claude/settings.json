@@ -31,7 +31,8 @@
       "ssh *",
       "scp *",
       "rsync *",
-      "npm run deploy*"
+      "npm run deploy*",
+      "./scripts/verify-*.sh*"
     ],
     "network": {
       "allowedDomains": [
