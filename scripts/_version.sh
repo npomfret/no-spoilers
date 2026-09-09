@@ -169,14 +169,41 @@ next_build_number() {
 # extension disagrees about its build number is refused at upload, after the
 # archive, the export and the wait.
 
-# There is no `set_build_number` here any more. It wrote CURRENT_PROJECT_VERSION
-# into every build configuration, and by task 36 nothing called it: release.sh
-# stopped in task 32, stamping its number on the `xcodebuild archive` command
-# line instead, and its last caller was the Xcode Cloud hook, deleted with the
-# rest of that path. The committed value is frozen at 10022 and only Xcode
-# stamps it now, into a local build, which is what `mac_screenshots.py` reads.
-# `set_marketing_version` below is the survivor, and it proves its work the same
-# careful way: a `sed` succeeds having matched nothing.
+# Set CURRENT_PROJECT_VERSION in every build configuration.
+#
+# One caller since task 32: NoSpoilers/ci_scripts/ci_pre_xcodebuild.sh, which
+# stamps the Xcode Cloud run number into the project before that path
+# archives. scripts/release.sh used to be the second — it wrote the next
+# number here and committed the file — and now stamps its number on the
+# `xcodebuild archive` command line instead, leaving the committed value
+# alone. It stays here rather than moving into the hook because it is the
+# careful implementation: a second copy in release.sh had drifted into a
+# `sed` that silently stamped a subset of the configurations, which is the
+# one case where the stamp matters at all.
+set_build_number() {
+  local BUILD="$1" PBXPROJ TOTAL STAMPED
+  if [[ ! "$BUILD" =~ ^[0-9]+$ ]]; then
+    echo "set_build_number needs a whole number (got: ${BUILD})" >&2
+    return 1
+  fi
+  PBXPROJ="$(pbxproj_path)" || return 1
+
+  # agvtool reads the directory it is run from, not a path. It also prints
+  # `Cannot find ".../YES"` — that is it misreading GENERATE_INFOPLIST_FILE = YES
+  # as a plist path. Noise, not the failure you are looking for.
+  ( cd "$(dirname "$(dirname "${PBXPROJ}")")" && xcrun agvtool new-version -all "${BUILD}" ) || return 1
+
+  # `|| true` on both: grep exits 1 on zero matches, which under `set -e` would
+  # kill the caller one line before the message explaining why.
+  TOTAL=$(grep -cF "CURRENT_PROJECT_VERSION = " "${PBXPROJ}" || true)
+  STAMPED=$(grep -cF "CURRENT_PROJECT_VERSION = ${BUILD};" "${PBXPROJ}" || true)
+  if [[ "$TOTAL" -eq 0 || "$STAMPED" -ne "$TOTAL" ]]; then
+    echo "agvtool exited 0 but stamped ${STAMPED}/${TOTAL} configurations" >&2
+    grep -n "CURRENT_PROJECT_VERSION" "${PBXPROJ}" >&2
+    return 1
+  fi
+  echo "  CURRENT_PROJECT_VERSION = ${BUILD} in all ${TOTAL} configurations"
+}
 
 # Set MARKETING_VERSION in every build configuration.
 #

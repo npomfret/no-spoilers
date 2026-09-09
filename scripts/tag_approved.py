@@ -107,10 +107,9 @@ def main() -> int:
         raise SystemExit(
             f"nothing in this repository records which commit build {number} was archived "
             f"from: no build/{number} tag and no `bump to` commit.\n"
-            "Every release.sh upload leaves one or the other, so either this is one of the "
-            "builds Xcode Cloud uploaded before that path was removed — whose commit was its "
-            "run's sourceCommit and was never in git — or the record is incomplete. Neither "
-            "is something to tag over."
+            "Every release.sh upload leaves one or the other, so either this is an Xcode Cloud "
+            "build — whose commit is its run's sourceCommit, not anything in git — or the "
+            "record is incomplete. Neither is something to tag over."
         )
     print(f"build {number} was archived from {commit['sha'][:12]} {commit['subject']} ({commit['source']})")
 

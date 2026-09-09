@@ -35,6 +35,7 @@ no-spoilers/
 │   ├── NoSpoilers/             # iOS app target (NoSpoilersApp)
 │   ├── NoSpoilersWidget/       # iOS widget extension (NoSpoilersWidgetExtension)
 │   ├── NoSpoilersMac/          # macOS app target (MenuBarExtra)
+│   └── ci_scripts/             # Xcode Cloud hooks — must sit beside the .xcodeproj
 ├── scripts/                    # Build, release and App Store Connect tooling
 ├── docs/                       # GitHub Pages site, brand, and contributor guides
 ├── research/                   # Reference material
@@ -144,10 +145,10 @@ Required entitlement (iOS app and widget extension):
 
 Four wrapper scripts handle distribution, all over the one engine `scripts/release.sh`. Each
 suggests the next version, runs the Core tests as a gate, archives, and only then commits and pushes
-the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or on a
-TeamCity agent by pressing `Publish`. An uploaded build reaches no tester until it is handed over:
-locally with `scripts/testflight_distribute.py --apply`, or by pressing `TestFlight` on TeamCity,
-which runs it for both platforms. See *TestFlight from TeamCity* in
+the version bump — so a failed archive leaves no bump behind. Releases run on your machine; day
+to day, Xcode Cloud archives both platforms on every push. An uploaded build reaches no tester
+until it is handed over: locally with `scripts/testflight_distribute.py --apply`, or by pressing
+`TestFlight` on TeamCity, which runs it for both platforms. See *TestFlight from TeamCity* in
 `docs/guides/building.md`.
 
 | Script | What it does |
@@ -158,8 +159,8 @@ which runs it for both platforms. See *TestFlight from TeamCity* in
 | `scripts/ship-ios.sh` | iOS App Store only |
 
 The suggested version is one patch above the higher of the newest `vX.Y.Z` tag and the project's
-`MARKETING_VERSION`. It needs both: opening a version train without shipping it moves the
-project ahead of the tags, and a suggestion
+`MARKETING_VERSION`. It needs both: opening a version train without shipping it — which is what
+starting a fresh Xcode Cloud train does — moves the project ahead of the tags, and a suggestion
 based on tags alone would walk the project backwards, since `release.sh` sets `MARKETING_VERSION`
 to whatever it is given.
 
@@ -203,12 +204,12 @@ After upload, go to App Store Connect and submit for review.
 
 ### Shipping an iOS build to TestFlight
 
-Press `Publish` on TeamCity, or run `scripts/ship-ios.sh` locally. **The build then reaches no
-tester until you hand it over.** That is a command rather than an automatic step, so that shipping
+A push to `main` builds the iOS app on Xcode Cloud and uploads it to TestFlight. **The build reaches
+no tester until you hand it over.** That is a command rather than an automatic step, so that pushing
 several times a day does not notify every tester several times a day.
 
 ```bash
-# press Publish on ci.snowmonkey.co.uk, or: scripts/ship-ios.sh
+git push                                     # Xcode Cloud archives and uploads
 scripts/testflight_distribute.py             # dry run — says what it would do
 scripts/testflight_distribute.py --apply     # give the newest build to the internal group
 ```
@@ -223,16 +224,47 @@ To see who can install what:
 scripts/appstore_status.py                   # the TESTFLIGHT section
 ```
 
-It reports both platforms, because a release ships both and a Mac build has to be handed over
-separately. `testers can install build 12, 1 build behind build 13` is the ordinary state after a
-ship, not a warning — the newest build sits undistributed until you run the command
+It reports both platforms, because every Xcode Cloud run archives both and a Mac build has to be
+handed over separately. `testers can install build 12, 1 build behind build 13` is the ordinary
+state after a push, not a warning — the newest build sits undistributed until you run the command
 above. Only "testers can install nothing" is reported as a problem.
 
-The record holds two build-number bands: 1 to 125 from Xcode Cloud, which built this app until
-2026-09-09, and 10000 up from `release.sh`, which builds it now. The number in the app's About
-screen says which one shipped it.
+For a versioned App Store submission rather than a test build, use `scripts/ship-ios.sh`. The two
+paths keep separate build-number bands — Xcode Cloud counts from 1, `release.sh` from 10000 — so
+they cannot collide, and the build number in the app's About screen says which one shipped it.
 
 Full detail, including why delivery is manual: the TestFlight section of `docs/guides/building.md`.
+
+### Checking Xcode Cloud is wired to the right project
+
+```bash
+scripts/ci_health.py                         # PASS, or every problem it can see
+```
+
+**Run this immediately after Integrate → Create Workflow, before pushing.** Two projects share
+this Apple team, and that wizard has now three times seized the other one's Xcode Cloud product —
+renaming it, repointing it at whichever repo ran the wizard, and leaving the other project
+building nothing while its own workflow still reads as perfectly valid. It is invisible from the
+victim's side. `docs/guides/building.md` has the mechanism and the restore baseline.
+
+**The wizard has only ever created from a team with zero products.** Run it with one already
+present and it takes that one; that is what all three occurrences are, including one where this
+check reported `PASS` on a healthy single-product list minutes beforehand. A `PASS` means nothing
+is crossed right now — never that the wizard is safe to run.
+
+So the check asks in both directions: no product of ours attached to another project's
+repository, and no product of theirs attached to ours. If it says `STOP`, do **not** rerun the
+wizard — retrying is the thing that seizes the next product.
+
+This repo's product was recreated on 2026-08-12 at 15:08 after the third seizure, into a team
+proven empty by `404` on the old id *and* `total 0` — the pair, since either alone is ambiguous.
+Its workflow is called `NoSpoilers iOS` rather than `Default`, deliberately: the abort message is
+*"Workflow name already exists"*, and leaving that name unoccupied is what may let the other
+project create its own. Run history restarts at #1, which is why `MARKETING_VERSION` moved to
+1.1.0 — TestFlight build numbers are unique per version train and 1.0.22 already holds 3–17.
+Without a product, `testflight_distribute.py` stops before it writes anything and says so;
+TestFlight builds themselves are unaffected by any of this, living on the app record rather than
+the product.
 
 ### Asking what App Store Connect holds
 

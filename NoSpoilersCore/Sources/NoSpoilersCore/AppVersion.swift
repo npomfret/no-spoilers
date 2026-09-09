@@ -14,10 +14,9 @@ public enum AppVersion {
     public static var marketing: String { value(for: "CFBundleShortVersionString") }
 
     /// `CFBundleVersion` — the build number, and the only thing that tells two
-    /// builds of the same marketing version apart. `release.sh` writes it, from
-    /// the highest number App Store Connect holds plus one. Builds 1 to 125 came
-    /// from Xcode Cloud, which wrote its run number here until that path was
-    /// removed; see `docs/guides/building.md` for why the two bands are apart.
+    /// builds of the same marketing version apart. Xcode Cloud writes its run
+    /// number here; `release.sh` writes 10000 and up. See `docs/guides/building.md`
+    /// for why the two paths occupy deliberately separate bands.
     public static var build: String { value(for: "CFBundleVersion") }
 
     private static func value(for key: String) -> String {

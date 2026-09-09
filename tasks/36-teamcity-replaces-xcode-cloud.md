@@ -1,7 +1,16 @@
 # Task 36: TeamCity replaces Xcode Cloud
 
-**Status: IN PROGRESS. Raised 2026-09-09. The repository half has landed; the button and the
-certificate are the owner's and are outstanding.**
+**Status: OPEN, nothing landed. Raised 2026-09-09.**
+
+**The removal was written and then reverted the same day, unshipped.** `f3d9586` deleted the
+Xcode Cloud path from the repository while the Xcode Cloud *workflow* was still switched on and
+still building every push — builds 126 to 130 landed during that session, from those very commits.
+Deleting `ci_pre_xcodebuild.sh` therefore did not stop Xcode Cloud; it stripped the
+`verify-core-tests.sh` gate off it and left the only thing standing between a broken commit and
+TestFlight gone, with no `Publish` configuration yet built to take over. The revert put it back.
+
+**The ordering this proved:** build and prove the replacement, turn the old path off at its source,
+and only then delete the code. The code is the last step, not the first.
 
 Xcode Cloud is to stop being a delivery path, and TeamCity is to become the one that ships.
 Decided 2026-09-09 after task 35 found Xcode Cloud archiving every push to `main` against an
@@ -81,47 +90,37 @@ than deleted: `README.md`, `docs/guides/building.md`, `docs/guides/important-cod
 
 Task files 26, 34 and 35 are records of what happened and are not rewritten.
 
-## What the owner has to do
+## What the owner has to do, in this order
 
-1. Decide whether macOS ships from TeamCity. If yes, install a *Mac Installer Distribution*
-   certificate on the agent. If no, macOS stays a `scripts/ship.sh` run on the laptop.
-2. Create the `Publish` configuration in TeamCity, or approve its creation.
-3. Turn off the Xcode Cloud workflow, so pushes stop producing runs. Nothing in this
-   repository can do that; it is an App Store Connect action.
+1. Install a *Mac Installer Distribution* certificate on the agent, in the keychain it runs under.
+   Decided 2026-09-09 that macOS ships from TeamCity too.
+2. Create the `Publish` configuration in TeamCity — one press per platform, on the
+   `NoSpoilers_Main` VCS root, with a snapshot dependency on `Verify` (unlike `TestFlight` this one
+   archives, so it must build a revision that passed). Then run `ci-publish.sh --platform macos
+   --check`, which ships nothing, and after that ship one real build through it.
+   Configurations here are UI-owned: there is no `.teamcity/settings.kts`, and `scripts/teamcity.py`
+   is GET-only by design.
+3. **Turn off the Xcode Cloud workflow in App Store Connect.** Until this happens Xcode Cloud
+   builds every push, whatever this repository says — that is what the revert above is about.
+   Nothing here can do it.
+4. Only then re-land the removal.
 
-## What landed
+## Where the work is
 
-- `scripts/ci-publish.sh` — recovered from `e08e838^`, `--platform ios|macos` now required, the
-  installer-identity assertion added for macOS, the wrapper and the version question chosen by
-  platform. Everything else is as it was, including `--check`.
-- Deleted: `NoSpoilers/ci_scripts/` and its hook, `scripts/ci_health.py` and its selftest entry,
-  `set_build_number` from `_version.sh`, `source_commit` and the `find_ci_product` plumbing in
-  `testflight_distribute.py`, and `ci_products`/`select_ci_product`/`find_ci_product` plus their
-  eight selftest cases in `appstore_status.py`.
-- Rewritten as history: `README.md` (the whole *Checking Xcode Cloud is wired* section is gone),
-  both guides, `appstore_status.py`, `tag_approved.py`, `AppVersion.swift` and the
-  release-and-delivery skill. Task 26's `ci_health.py` checkbox is dropped rather than left
-  unsatisfiable.
+The whole change exists and is known-good against the repository's own checks; it is in `f3d9586`
+and its revert. Recovering it is `git revert` of the revert, not writing it again. It was verified
+at the time: all five entry points green, 189 selftest cases across five scripts, the three builds
+and the core tests, and no dangling reference to a deleted file.
 
-## Verification
+What it is waiting for is steps 1 to 3 above, in that order. Do not re-land it before step 3.
 
-- [x] `scripts/verify-python-selftests.sh` — five scripts green, 2026-09-09 (189 cases; was six
-      scripts and 206 before `ci_health.py` went)
-- [x] `scripts/verify-core-tests.sh`, `verify-ios-build.sh`, `verify-mac-build.sh`,
-      `verify-widget-build.sh` all green, 2026-09-09
-- [x] No reference anywhere to a deleted file: `ci_health`, `ci_pre_xcodebuild`, `ci-publish-ios`,
-      `ci_scripts`, `find_ci_product`, `source_commit` — every remaining hit is prose naming them
-      as removed
-- [x] `ci-publish.sh` refuses a missing `--platform` and an unknown one, exit 1 both
-- [ ] **`ci-publish.sh --check` has never run on the agent.** It cannot be run anywhere else: the
-      question it exists to answer — whether the login keychain is unlocked in the agent's own
-      session — has no answer from an SSH shell or a sandbox. `security find-identity` returns
-      zero identities here.
-- [ ] Nothing has shipped through the new path yet.
+## Residual risk, when it does land
 
-## Residual risk
-
-The macOS half is unproven in a way the iOS half is not: `ci-publish-ios.sh` shipped iOS 1.1.2
-build 10008 on 2026-08-25, and no macOS archive has ever been made on the agent. The installer
-identity string in the script is the conventional one and has not been read off the certificate
-this repository will actually use.
+- **`ci-publish.sh --check` has never run on the agent**, and cannot run anywhere else: the
+  question it exists to answer — whether the login keychain is unlocked in the agent's own
+  session — has no answer from an SSH shell or a sandbox. `security find-identity` returns zero
+  identities from the agent tooling here.
+- **The macOS half is unproven in a way the iOS half is not.** `ci-publish-ios.sh` shipped iOS
+  1.1.2 build 10008 on 2026-08-25; no macOS archive has ever been made on the agent. The installer
+  identity string in the script is the conventional one and has not been read off the certificate
+  this repository will actually use.
