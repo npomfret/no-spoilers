@@ -3,10 +3,13 @@
 **Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository. The
 `Ship` button now exists on TeamCity and the whole project is versioned settings in
 `.teamcity/settings.kts` — verified against the server as 0 field differences on the five
-existing configurations, with build history intact. What is outstanding is entirely credentials
-on the agent: two certificates, a notarization key that has never been exercised, `gh` login and
-a `homebrew-tap` checkout. Until those exist the button cannot get past its own preflight, and a
-release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.**
+existing configurations, with build history intact. The button has been pressed twice, and the
+preflight stopped both presses in a second: what is outstanding is entirely credentials on the
+agent — two certificates, a notarization key that has never been exercised, `gh` login and a
+`homebrew-tap` checkout. Until those exist the button cannot get past its own preflight, and a
+release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.
+The one thing the presses did settle is the question this whole file was written around: the
+agent's login keychain is unlocked in its own session, and the certificate it holds can sign.**
 
 **Scope decided 2026-09-09: option A — one button, all three channels.** Modelled on
 `SuperFunMaxMusic_Ship`, which is one Command Line step (`submit_build.py --apply --tested`) behind
@@ -60,7 +63,7 @@ as `nickpomfret`, and it holds an *Apple Distribution* certificate and nothing e
 
 | What | For | State |
 |---|---|---|
-| *Apple Distribution* | the `.app`, both platforms | present, proven 2026-08-25 |
+| *Apple Distribution* | the `.app`, both platforms | present, and proven to **sign** in the agent's own session 2026-09-09 |
 | *Mac Installer Distribution* | the Mac App Store `.pkg` | **missing** |
 | *Developer ID Application* | the Homebrew zip | **missing** |
 | `AuthKey_ASC6H3SL2D.p8` reaching the notary service | notarization | **unverified** |
@@ -68,12 +71,13 @@ as `nickpomfret`, and it holds an *Apple Distribution* certificate and nothing e
 | `homebrew-tap` beside the checkout | the cask commit | **missing** |
 
 Nothing in this repository can create any of them. Each is asserted by `ci-publish.sh --check`
-before anything is built, and the certificate assertions now print the identities the agent does
-hold, so one `--check` run names every gap instead of one per attempt.
+before anything is built, and one `--check` run names every gap rather than one per press — which
+took two presses and a fix to become true; see *Every gap in one press*.
 
-The three identity strings in `ci-publish.sh` are conventions written by hand — a team name and a
-team id — and have never been compared with the keychain that will be used. `--check` is what
-settles them; its failure output gives the real spelling.
+The three identity strings in `ci-publish.sh` were conventions written by hand — a team name and a
+team id — never compared with the keychain that would be used. **Settled 2026-09-09**: the agent
+holds `Apple Distribution: Nick Pomfret (6FZN56WC8G)` under exactly that spelling, so the two
+missing strings, which differ from it only in certificate type, are right too.
 
 ## The plan
 
@@ -259,8 +263,11 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
    and leaves the current settings alone. Then diff: `scripts/teamcity.py settings --json`
    against the snapshot taken before, so any translation error in the DSL is a concrete
    difference rather than a surprise.
-4. Press it once with `ship.args = --check`. That is the whole point of `--check`: it asserts
-   every item above and stops, having built and shipped nothing.
+4. ~~Press it once with `ship.args = --check`~~ — **done 2026-09-09**, `Ship #2`, build id 4164.
+   It stopped at the missing *Mac Installer Distribution* certificate having built and shipped
+   nothing, and the press before it — `ship.args` left empty, so a real release — stopped in the
+   same place for the same reason. Press it again once step 2 is done: it now reports every
+   remaining gap in one run rather than the first one.
 5. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
    with `isEnabled: false`. Pushes no longer produce runs, and the ITMS emails stopped.
 
@@ -313,6 +320,23 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   from the server rather than inferred; see *The plan* step 4 for what was read and how the
   file was checked against it. The `pom.xml` is FunMax's with the three per-project names
   changed, per `TEAMCITY-AGENTS.md` §8.
+### Every gap in one press, 2026-09-09
+
+`refuse` beside `fail`: under `--check` it records the message and lets the run carry on, and on a
+real press it is `fail` unchanged. So a real press still stops at the first gap — everything after
+it would describe a machine that cannot ship anyway — and `--check` walks all nine assertions and
+prints what is missing as one numbered list.
+
+- The checks that depend on an earlier one are guarded rather than left to fail again, so one gap
+  is one message: no `codesign` probe against a certificate that is not there, no `notarytool
+  history` without a key to run it with, no `gh auth status` without `gh`, no `git push --dry-run`
+  into a tap that was never cloned.
+- `security find-identity` prints once per run, not once per missing certificate.
+- The report comes **before** the version question, which asks App Store Connect using a key that
+  may be one of the things found missing.
+- `clang could not build the signing probe` stays a hard `fail` in both modes. An agent whose
+  compiler is broken has no certificate problem worth listing.
+
 - **`scripts/teamcity.py settings`** — added to the `teamcity` plugin in
   `npomfret/agent-standards`, because the CLI could say how a configuration ran and not what it
   was. Prints steps, triggers, locks, agent requirements and dependency flags, plus the
@@ -345,21 +369,61 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
 - [x] The first assertion fires in the sandbox and the new diagnostic earns its place: it
       reports `0 valid identities found`, which distinguishes a wrong identity string from a
       keychain the session cannot reach
-- [ ] **`ci-publish.sh --check` has never run on the agent.** It cannot be run anywhere else: the
-      question it exists to answer — whether the login keychain is unlocked in the agent's own
-      session — has no answer from an SSH shell or a sandbox. `security find-identity` returns
-      zero identities here. Everything from the Developer ID probe onwards is therefore unproven
-      code: the assertions were reasoned about, not executed.
+- [x] **`ci-publish.sh --check` has run on the agent** — `Ship #2`, build id 4164, 2026-09-09.
+      Assertions 1 and 2 executed; it stopped at 2.
+- [x] **The login keychain is unlocked in the agent's own session**, proved by the probe binary
+      being signed rather than by `find-identity` listing anything. This is the question the
+      `--check` mode was written for and it now has an answer.
+- [ ] **Everything past assertion 2 is still unrun on the agent**: the Developer ID probe,
+      `notarytool history`, the GitHub SSH check, `gh auth status` and the tap. One press once the
+      two certificates are installed now reports all of them together rather than one per press.
+- [x] **`--check` reports every gap**, exercised against a throwaway checkout with an empty `HOME`:
+      nine gaps in one run, the identity list printed once, and `notarytool` not called at all
+      when its key is absent. The same run without `--check` stops at the first gap, unchanged.
+      `--platform ios --check` reports four, correctly omitting the installer, Developer ID,
+      notarization, `gh` and tap assertions. `bash -n` clean.
 - [ ] **The notarization credential is unverified even in principle from here.** The `.p8` keys
       are outside what this session may read, so `notarytool history` has not been run with
       `ASC6H3SL2D` anywhere. If the App Manager key turns out not to carry notary access, the
       key id in `ci-publish.sh` is the one line to change.
 - [x] `gh auth status` and `git -C ../homebrew-tap push --dry-run` both pass **on the laptop**,
       which proves the assertion logic and says nothing about the agent
-- [ ] **Nothing has shipped through the new path.** TeamCity has never run a build under a
-      `Ship` or `Publish` configuration; the `Verify` chain is green at `ba243f1` and
-      `TestFlight` has run twice, but `TestFlight` distributes an already-uploaded build rather
-      than archiving one.
+- [ ] **Nothing has shipped through the new path.** `Ship` has now run twice — #1 (id 4147) and
+      #2 (id 4164), both at `9ffba57`, both stopped by their own preflight. No archive has ever
+      been made under a publishing configuration.
+
+### The first two presses, 2026-09-09
+
+Both red, both in under two seconds, and between them they answered more than a green run would
+have.
+
+**`Ship #1`, build id 4147, was pressed with `ship.args` empty** — `ci-publish.sh --platform all`
+with no `--check`, which is a real release of all three channels. It stopped at assertion 2 with
+nothing archived, nothing uploaded, nothing committed and nothing tagged. The preflight paid for
+itself on the first press of the button it guards, which is the argument this file makes about
+itself, now with evidence.
+
+**`Ship #2`, build id 4164, was the `--check` press**, and stopped in the same place.
+
+**What assertion 1 proved.** It did not merely list the certificate, it signed the probe binary
+with it. The login keychain is unlocked for the agent's own session — the question the whole
+`--check` mode exists for, and the one the task said had no answer from an SSH shell or a sandbox.
+
+**What the agent holds**, printed by the failure itself:
+
+```
+1) Apple Development: Nick Pomfret (V4937W3NU8)
+2) Apple Distribution: Nick Pomfret (6FZN56WC8G)
+   2 valid identities found
+```
+
+Two identities, and the team id `6FZN56WC8G` in the missing installer string matches the
+certificate that is there. So the three identity strings written by hand are right, and the two
+missing certificates are missing rather than misspelled.
+
+**What it cost: one press per gap.** This task claimed `--check` would name every gap in one run
+because a failure prints the identity list. It does not — every assertion was a `fail`, which
+exits. Fixed the same day; see *Every gap in one press* below.
 
 ## Residual risk
 

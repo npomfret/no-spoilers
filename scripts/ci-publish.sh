@@ -73,6 +73,10 @@ set -euo pipefail
 # uploads to Apple, pushes a commit and pushes a tag — and to find out by having
 # all three not happen. Run this first on a new agent, after an OS update, and
 # after anything touches the keychain.
+#
+# **It reports every gap, where a real press stops at the first.** An agent that
+# has never shipped is missing several things at once, and one per press is a
+# queue wait each. See `refuse`.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
@@ -147,6 +151,25 @@ fail() {
   exit 1
 }
 
+# **A failed assertion stops the run, except under `--check`, which carries on.**
+# A real press wants the first gap and nothing after it: the run is over, and
+# everything below would be describing a machine that cannot ship anyway.
+# `--check` wants the opposite. Its whole job is to describe the agent, and
+# stopping at the first gap describes it one press at a time — which is what the
+# first two presses did on 2026-09-09, both stopping at the same missing
+# installer certificate with four assertions behind it still unrun.
+#
+# Returns 0 either way, so the `cmd || refuse "..."` sites below read as they did
+# when it was `fail` and `set -e` does not end the run this is trying to
+# continue. Checks that depend on an earlier one are guarded rather than left to
+# fail again, so one gap is one message.
+GAPS=()
+refuse() {
+  if [[ -z "$CHECK_ONLY" ]]; then fail "$1"; fi
+  GAPS+=("$1")
+  return 0
+}
+
 # What this agent actually holds, for a failure that says a certificate is
 # missing. The three identity strings above are conventions — a team name and
 # a team id, written here by hand — and the first press of a new button is the
@@ -154,7 +177,12 @@ fail() {
 # turns "no such identity" into one round trip instead of a guess per attempt.
 # The names are not a secret: they are in this file already, and a TeamCity log
 # is as private as this repository.
+IDENTITIES_PRINTED=""
 what_the_agent_has() {
+  # Once per run. Under `--check` all three certificate assertions can fail in
+  # the same press, and it is the same list every time.
+  if [[ -n "$IDENTITIES_PRINTED" ]]; then return 0; fi
+  IDENTITIES_PRINTED="yes"
   echo "  what this agent does have:" >&2
   security find-identity -v 2>&1 | sed 's/^/  /' >&2
 }
@@ -189,19 +217,20 @@ if [[ "$PLATFORM" == "all" ]]; then NEEDS_DEVID="yes"; fi
 # real question, where `find-identity` answers a different one that looks the
 # same in a green log.
 
-echo "==> Asserting the signing identity can actually sign..."
-if ! security find-identity -v -p codesigning | grep -qF "${IDENTITY}"; then
-  what_the_agent_has
-  fail "no '${IDENTITY}' in any keychain this agent can see"
-fi
-
 PROBE="$(mktemp -d)"
 trap 'rm -rf "${PROBE}"' EXIT
 printf 'int main(void){return 0;}\n' > "${PROBE}/probe.c"
+# `fail` and not `refuse`: an agent whose compiler is broken has no certificate
+# problem worth listing, and nothing below could be answered anyway.
 clang -o "${PROBE}/probe" "${PROBE}/probe.c" || fail "clang could not build the signing probe"
-if ! codesign -s "${IDENTITY}" "${PROBE}/probe" 2>"${PROBE}/err"; then
+
+echo "==> Asserting the signing identity can actually sign..."
+if ! security find-identity -v -p codesigning | grep -qF "${IDENTITY}"; then
+  what_the_agent_has
+  refuse "no '${IDENTITY}' in any keychain this agent can see"
+elif ! codesign -s "${IDENTITY}" "${PROBE}/probe" 2>"${PROBE}/err"; then
   echo "  codesign said: $(cat "${PROBE}/err")" >&2
-  fail "the identity is present but cannot sign — the login keychain is locked for this session.
+  refuse "the identity is present but cannot sign — the login keychain is locked for this session.
 Unlock it for the agent, or give the build a dedicated keychain and unlock it here.
 An archive would have failed the same way, ten minutes later."
 fi
@@ -214,7 +243,7 @@ if [[ -n "$NEEDS_INSTALLER" ]]; then
   echo "==> Asserting the Mac installer identity is present..."
   if ! security find-identity -v | grep -qF "${INSTALLER_IDENTITY}"; then
     what_the_agent_has
-    fail "no '${INSTALLER_IDENTITY}' in any keychain this agent can see.
+    refuse "no '${INSTALLER_IDENTITY}' in any keychain this agent can see.
 That is the *Mac Installer Distribution* certificate, and without it the export
 signs no package: the run would archive first and fail after. Create it in the
 Apple Developer portal and install it in the keychain this agent runs under."
@@ -231,13 +260,12 @@ if [[ -n "$NEEDS_DEVID" ]]; then
   echo "==> Asserting the Developer ID identity can actually sign..."
   if ! security find-identity -v -p codesigning | grep -qF "${DEVID_IDENTITY}"; then
     what_the_agent_has
-    fail "no '${DEVID_IDENTITY}' in any keychain this agent can see.
+    refuse "no '${DEVID_IDENTITY}' in any keychain this agent can see.
 That is the *Developer ID Application* certificate, which signs the Homebrew
 zip. It is not the one the App Store uses and nothing else can stand in for it."
-  fi
-  if ! codesign -f -s "${DEVID_IDENTITY}" "${PROBE}/probe" 2>"${PROBE}/err"; then
+  elif ! codesign -f -s "${DEVID_IDENTITY}" "${PROBE}/probe" 2>"${PROBE}/err"; then
     echo "  codesign said: $(cat "${PROBE}/err")" >&2
-    fail "the Developer ID identity is present but cannot sign."
+    refuse "the Developer ID identity is present but cannot sign."
   fi
 fi
 
@@ -252,9 +280,9 @@ fi
 echo "==> Asserting the App Store Connect keys are present..."
 KEYS="${HOME}/.appstoreconnect/private_keys"
 [[ -f "${KEYS}/AuthKey_${API_KEY_ID}.p8" ]] \
-  || fail "no AuthKey_${API_KEY_ID}.p8 in ${KEYS} — nothing could be uploaded"
+  || refuse "no AuthKey_${API_KEY_ID}.p8 in ${KEYS} — nothing could be uploaded"
 [[ -f "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8" ]] \
-  || fail "no AuthKey_${SIGNING_KEY_ID}.p8 in ${KEYS} — nothing could be signed"
+  || refuse "no AuthKey_${SIGNING_KEY_ID}.p8 in ${KEYS} — nothing could be signed"
 
 # **Notarization is asked to prove itself, not merely to exist.** `notarytool
 # history` is a read: it authenticates, lists this team's past submissions and
@@ -264,17 +292,19 @@ KEYS="${HOME}/.appstoreconnect/private_keys"
 # minutes into the one step that cannot be retried cheaply, with the App Store
 # upload already done.
 if [[ -n "$NEEDS_DEVID" ]]; then
-  [[ -f "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" ]] \
-    || fail "no AuthKey_${NOTARY_KEY_ID}.p8 in ${KEYS} — nothing could be notarized"
-  echo "==> Asserting the notarization credentials work..."
-  if ! NOTARY_SAYS="$(xcrun notarytool history \
-      --key "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" \
-      --key-id "${NOTARY_KEY_ID}" \
-      --issuer "${ASC_ISSUER}" 2>&1)"; then
-    echo "  notarytool said: ${NOTARY_SAYS}" >&2
-    fail "AuthKey_${NOTARY_KEY_ID}.p8 cannot talk to the notary service.
+  if [[ ! -f "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" ]]; then
+    refuse "no AuthKey_${NOTARY_KEY_ID}.p8 in ${KEYS} — nothing could be notarized"
+  else
+    echo "==> Asserting the notarization credentials work..."
+    if ! NOTARY_SAYS="$(xcrun notarytool history \
+        --key "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8" \
+        --key-id "${NOTARY_KEY_ID}" \
+        --issuer "${ASC_ISSUER}" 2>&1)"; then
+      echo "  notarytool said: ${NOTARY_SAYS}" >&2
+      refuse "AuthKey_${NOTARY_KEY_ID}.p8 cannot talk to the notary service.
 The key needs the App Manager role: notarization is a developer-account action
 and the upload key is not allowed to take it."
+    fi
   fi
 fi
 
@@ -310,12 +340,12 @@ GITHUB_SAYS="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o Conne
   -T git@github.com 2>&1 || true)"
 case "${GITHUB_SAYS}" in
   *"successfully authenticated"*) ;;
-  *) fail "this agent cannot authenticate to GitHub, so the version bump could not be pushed.
+  *) refuse "this agent cannot authenticate to GitHub, so the version bump could not be pushed.
 GitHub said: ${GITHUB_SAYS}" ;;
 esac
 
-git config user.name  >/dev/null || fail "no git user.name on this agent, so nothing this run commits or tags has an author"
-git config user.email >/dev/null || fail "no git user.email on this agent, so nothing this run commits or tags has an author"
+git config user.name  >/dev/null || refuse "no git user.name on this agent, so nothing this run commits or tags has an author"
+git config user.email >/dev/null || refuse "no git user.email on this agent, so nothing this run commits or tags has an author"
 
 # ── 3b. What the Homebrew half publishes to ──────────────────────────────────
 #
@@ -331,11 +361,11 @@ git config user.email >/dev/null || fail "no git user.email on this agent, so no
 if [[ -n "$NEEDS_DEVID" ]]; then
   echo "==> Asserting the Homebrew channel has somewhere to publish..."
 
-  command -v gh >/dev/null \
-    || fail "no 'gh' on this agent, so no GitHub release could be created"
-  if ! GH_SAYS="$(gh auth status 2>&1)"; then
+  if ! command -v gh >/dev/null; then
+    refuse "no 'gh' on this agent, so no GitHub release could be created"
+  elif ! GH_SAYS="$(gh auth status 2>&1)"; then
     echo "  gh said: ${GH_SAYS}" >&2
-    fail "'gh' is installed but not logged in, so no GitHub release could be created.
+    refuse "'gh' is installed but not logged in, so no GitHub release could be created.
 The SSH key checked above pushes git; it does not authenticate the GitHub API."
   fi
 
@@ -343,14 +373,37 @@ The SSH key checked above pushes git; it does not authenticate the GitHub API."
   # assumed: it is a sibling of the *checkout*, and a TeamCity checkout lives
   # under the agent's work directory, not beside a laptop's projects.
   TAP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)/homebrew-tap"
-  [[ -f "${TAP_DIR}/Casks/no-spoilers.rb" ]] \
-    || fail "no Homebrew cask at ${TAP_DIR}/Casks/no-spoilers.rb.
+  if [[ ! -f "${TAP_DIR}/Casks/no-spoilers.rb" ]]; then
+    refuse "no Homebrew cask at ${TAP_DIR}/Casks/no-spoilers.rb.
 The Developer ID channel commits the cask to a checkout beside this one. Clone
 npomfret/homebrew-tap there — over SSH, because this run pushes it."
-  git -C "${TAP_DIR}" rev-parse --git-dir >/dev/null 2>&1 \
-    || fail "${TAP_DIR} is not a git checkout, so the cask update could not be pushed"
-  git -C "${TAP_DIR}" push --dry-run --quiet \
-    || fail "${TAP_DIR} cannot push, so the cask update would be committed and stranded"
+  elif ! git -C "${TAP_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
+    refuse "${TAP_DIR} is not a git checkout, so the cask update could not be pushed"
+  elif ! git -C "${TAP_DIR}" push --dry-run --quiet; then
+    refuse "${TAP_DIR} cannot push, so the cask update would be committed and stranded"
+  fi
+fi
+
+# ── Every gap, in one place ──────────────────────────────────────────────────
+#
+# Only reachable under `--check`: on a real press every `refuse` above has
+# already exited. Reported here rather than at each site so the list is one
+# block of work to take to the agent, and reported *before* the version question
+# below, which asks App Store Connect using a key that may be one of the things
+# found missing.
+
+if [[ ${#GAPS[@]} -gt 0 ]]; then
+  echo "" >&2
+  echo "ci-publish: this agent cannot ship ${PLATFORM}. ${#GAPS[@]} of the preflight assertions failed:" >&2
+  GAP_NUMBER=0
+  for GAP in "${GAPS[@]}"; do
+    GAP_NUMBER=$((GAP_NUMBER + 1))
+    echo "" >&2
+    echo "${GAP_NUMBER}. ${GAP}" >&2
+  done
+  echo "" >&2
+  echo "Nothing was built and nothing was shipped: --check was passed." >&2
+  exit 1
 fi
 
 # ── 4. Which version ─────────────────────────────────────────────────────────
