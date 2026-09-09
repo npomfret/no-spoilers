@@ -66,9 +66,9 @@ as `nickpomfret`, and it holds an *Apple Distribution* certificate and nothing e
 | *Apple Distribution* | the `.app`, both platforms | present, and proven to **sign** in the agent's own session 2026-09-09 |
 | *Mac Installer Distribution* | the Mac App Store `.pkg` | **missing** |
 | *Developer ID Application* | the Homebrew zip | **missing** |
-| `AuthKey_ASC6H3SL2D.p8` reaching the notary service | notarization | **unverified** |
-| `gh auth status` | the GitHub release | **unverified** |
-| `homebrew-tap` beside the checkout | the cask commit | **missing** |
+| `AuthKey_ASC6H3SL2D.p8` reaching the notary service | notarization | **proven 2026-09-09** — `notarytool history` authenticated |
+| `gh auth status` | the GitHub release | **proven 2026-09-09** |
+| `homebrew-tap` beside the checkout | the cask commit | **missing**, and the path is `/Users/nickpomfret/teamcity-agent-3/work/homebrew-tap` |
 
 Nothing in this repository can create any of them. Each is asserted by `ci-publish.sh --check`
 before anything is built, and one `--check` run names every gap rather than one per press — which
@@ -374,9 +374,13 @@ prints what is missing as one numbered list.
 - [x] **The login keychain is unlocked in the agent's own session**, proved by the probe binary
       being signed rather than by `find-identity` listing anything. This is the question the
       `--check` mode was written for and it now has an answer.
-- [ ] **Everything past assertion 2 is still unrun on the agent**: the Developer ID probe,
-      `notarytool history`, the GitHub SSH check, `gh auth status` and the tap. One press once the
-      two certificates are installed now reports all of them together rather than one per press.
+- [x] **Every assertion has now run on the agent** — `Ship #3`, build id 4178, `ced967a`,
+      2026-09-09. Three failed, and they are the three items above. Everything else passed,
+      including `notarytool history` and `gh auth status`, neither of which had ever been executed
+      against this agent's credentials.
+- [ ] **The Developer ID *probe* is still unrun**, as opposed to the presence check that refused
+      it: no certificate means nothing to sign the probe binary with. It will run on the first
+      press after the certificate is installed.
 - [x] **`--check` reports every gap**, exercised against a throwaway checkout with an empty `HOME`:
       nine gaps in one run, the identity list printed once, and `notarytool` not called at all
       when its key is absent. The same run without `--check` stops at the first gap, unchanged.
@@ -388,9 +392,9 @@ prints what is missing as one numbered list.
       key id in `ci-publish.sh` is the one line to change.
 - [x] `gh auth status` and `git -C ../homebrew-tap push --dry-run` both pass **on the laptop**,
       which proves the assertion logic and says nothing about the agent
-- [ ] **Nothing has shipped through the new path.** `Ship` has now run twice — #1 (id 4147) and
-      #2 (id 4164), both at `9ffba57`, both stopped by their own preflight. No archive has ever
-      been made under a publishing configuration.
+- [ ] **Nothing has shipped through the new path.** `Ship` has now run three times — #1 (4147)
+      and #2 (4164) at `9ffba57`, #3 (4178) at `ced967a` — all three stopped by their own
+      preflight. No archive has ever been made under a publishing configuration.
 
 ### The first two presses, 2026-09-09
 
@@ -404,6 +408,10 @@ itself on the first press of the button it guards, which is the argument this fi
 itself, now with evidence.
 
 **`Ship #2`, build id 4164, was the `--check` press**, and stopped in the same place.
+
+**`Ship #3`, build id 4178, at `ced967a`, was the first press that described the whole agent** —
+three seconds, three gaps, and the two credentials this task had never been able to test from
+anywhere both passed on the way past. See *What the agent still needs* below.
 
 **What assertion 1 proved.** It did not merely list the certificate, it signed the probe binary
 with it. The login keychain is unlocked for the agent's own session — the question the whole
@@ -424,6 +432,25 @@ missing certificates are missing rather than misspelled.
 **What it cost: one press per gap.** This task claimed `--check` would name every gap in one run
 because a failure prints the identity list. It does not — every assertion was a `fail`, which
 exits. Fixed the same day; see *Every gap in one press* below.
+
+### What the agent still needs, measured 2026-09-09
+
+`Ship #3` walked all nine assertions. What passed is as much of the result as what failed, because
+four of the passes had never been executed anywhere:
+
+- **`notarytool history` authenticated** with `AuthKey_ASC6H3SL2D.p8`. The App Manager key does
+  carry notary access, so the key id in `ci-publish.sh` needed no change — the one line this task
+  said might have to.
+- **`gh` is installed and logged in**, and the SSH push remote authenticates to GitHub.
+- Both App Store Connect keys are on disk, and `git user.name` / `user.email` are set.
+
+Three things remain, all of them on the machine:
+
+1. A *Mac Installer Distribution* certificate in the agent's login keychain.
+2. A *Developer ID Application* certificate in the same keychain.
+3. `git clone git@github.com:npomfret/homebrew-tap.git` at
+   `/Users/nickpomfret/teamcity-agent-3/work/homebrew-tap` — the path the run resolved and
+   printed, rather than the one this task inferred.
 
 ## Residual risk
 
