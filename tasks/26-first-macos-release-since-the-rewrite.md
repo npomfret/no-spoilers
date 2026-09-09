@@ -4,7 +4,7 @@
 done — 1.1.3 is on the store and tagged — but it shipped from an Xcode Cloud build, so neither
 of the two things this task exists to exercise has run. What remains is the Developer ID /
 Homebrew channel, still at 1.1.1 since 2026-08-12, and the one-build-number path through
-`ship.sh`. Both are now owed at 1.1.4, not 1.1.3.**
+`ship.sh`. Both are now owed at 1.1.4, not 1.1.3. Everything else this task listed is done.**
 
 `scripts/release.sh` was rewritten on 2026-08-13 and 2026-08-14. Since then the iOS App Store
 channel has shipped fifteen builds (locally and from TeamCity) and the macOS App Store channel
@@ -130,8 +130,9 @@ task therefore narrows rather than closes:
   rewritten the following day.
 - **`ship.sh`'s one-build-number path has still never run.** It is the fix for the 2026-08-12
   run that produced 10006 on macOS and 10002 on iOS, and it has shipped nothing.
-- **`tag_approved.py macos 1.0.21`** was never applied. `6991ff4` is what is on the store for
-  users who have not updated.
+- ~~**`tag_approved.py macos 1.0.21`** was never applied.~~ **Done 2026-09-09:** `macos/v1.0.21`
+  is on `6991ff4`, annotated and pushed. See the last section for why that is not the commit the
+  bare `v1.0.21` marks.
 
 ### A trap in front of the Developer ID run, now cleared
 
@@ -233,3 +234,21 @@ be satisfied by, and none of these are Developer ID builds. It changes two pract
   run now covers all three channels and both of the things this task was raised to test.
 - **The orphan builds are expired** (above), so the newest installable build on both platforms is
   118 again and nothing a tester can reach comes from the dead CI.
+
+### `macos/v1.0.21`, and the two commits of one version
+
+Applied 2026-09-09: `macos/v1.0.21` on **`6991ff4`**, pushed. That is what Mac users who never
+updated are still running, and until now it was written down nowhere.
+
+**It is not the commit the bare `v1.0.21` marks, and that is the point of having two families.**
+The bare tag — the Developer ID release behind GitHub release `v1.0.21` and the Homebrew cask —
+is on `e070608 bump to v1.0.21`, 14:04:43. The App Store build was archived nine minutes later,
+from `6991ff4`, and shipped as build 2. One version, two channels, two commits: exactly the
+conflation task 32 fixed by giving the App Store its own `PLATFORM/vX.Y.Z` family.
+
+The resolution has no guesswork in it and was checked before applying. There is no `build/2` tag
+— those start at task 32 — so `ship_commit` fell to the `bump to v1.0.21 (build 2)` commit,
+`4192002` at 14:16:23, exactly one in the repository, and returned **its parent** rather than the
+bump itself. Parentage is the honest answer for any bump before 2026-08-26, the day `release.sh`
+learned to rebase them; this one is from April. 1.0.21 also produced builds 3 and 4 that same
+afternoon, and the store approved build 2, so the other two bumps are correctly not what was read.
