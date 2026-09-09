@@ -42,6 +42,7 @@
     },
     "filesystem": {
       "allowWrite": [
+        "~/projects/agent-standards",
         "~/.npm",
         "~/.cache",
         "~/Library/Caches",

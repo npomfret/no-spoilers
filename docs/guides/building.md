@@ -118,6 +118,12 @@ locks, agent requirements and every snapshot-dependency flag — rather than rec
 they look like from outside. `scripts/teamcity.py settings` is that read, and
 `snowmonkey-proxy-common`'s `TEAMCITY-AGENTS.md` §10 is the access it needs.
 
+**Versioned settings are also the only backup those configurations have.** `TEAMCITY.md` §2 and
+§3: what a project keeps in its own `.teamcity/` survives the server, what is configured in the UI
+does not, and the box has no backups of either TeamCity volume. A `settings.kts` that fails to
+compile explains itself in `teamcity-versioned-settings.log` inside the `teamcity-logs` volume —
+not in `docker logs`, and not in Loki.
+
 `Ship` takes the **write** lock on `no-spoilers-xcode` where the two Xcode verification legs take
 read locks, so no compile runs beside a release; it depends on `Verify` with
 `reuseBuilds = SUCCESSFUL`, because unlike `TestFlight` it archives and must build a revision that

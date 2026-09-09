@@ -90,6 +90,14 @@ settles them; its failure output gives the real spelling.
    configuration loses that configuration.** So the file describes the whole project or none
    of it — the four verification configurations, `TestFlight`, and `Ship`.
 
+   **That is also why this is worth doing for its own sake, separately from the button.**
+   `TEAMCITY.md` §2: *"Projects that use versioned settings keep their build configurations in
+   their own repo's `.teamcity/`, so those survive the server. Anything configured in the UI
+   does not."* And §3: **there are no backups** — no cron entry, no `/opt/backups`, and
+   `deploy.sh` does not touch the volumes, so a lost volume loses the database and every
+   UI-configured setting. Until this lands, the only copy of those five configurations is on
+   that box.
+
    **It was written from the server's own record, not from inference.** An earlier draft of
    this section claimed the existing configurations could not be read from outside and that
    `Ship` therefore needed a project of its own. That was wrong, and the thing that made it
@@ -139,6 +147,14 @@ settles them; its failure output gives the real spelling.
    this repo now has a `.teamcity/settings.kts` written to match the server, so either answer
    should be a no-op — but **"overwrite VCS with the current settings" is the safe answer**,
    because it is the one that cannot lose anything if the DSL is wrong somewhere.
+
+   **A `settings.kts` that fails to compile explains itself in
+   `teamcity-versioned-settings.log`** (`TEAMCITY.md` §6), which is a file in the
+   `teamcity-logs` volume and reaches neither `docker logs` nor Loki:
+
+   ```
+   ssh root@snowmonkey.co.uk "tail -50 /var/lib/docker/volumes/snowmonkey-proxy_teamcity-logs/_data/teamcity-versioned-settings.log"
+   ```
 
    ### How the DSL was checked, and what is still unproven
 
