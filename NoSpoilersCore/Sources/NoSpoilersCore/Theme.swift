@@ -1019,6 +1019,10 @@ public enum Theme {
         public static let offSeason = "flag.checkered.2.crossed"
         /// The schedule could not be loaded — a failure, not an empty calendar.
         public static let scheduleUnavailable = "calendar.badge.exclamationmark"
+        /// `LaunchProblemBanner`: the app failed at something before it could draw. A generic
+        /// warning triangle rather than a subject-specific glyph, because what it marks is by
+        /// definition whatever went wrong that nobody anticipated.
+        public static let launchProblem = "exclamationmark.triangle.fill"
         /// The Home Screen widget itself, on the iOS install prompt.
         public static let widget = "square.grid.2x2.fill"
         /// The countdown to a session, wherever there is room for a glyph and not

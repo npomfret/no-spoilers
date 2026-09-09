@@ -68,6 +68,13 @@ struct ContentView: View {
             .padding(.top, Theme.Space.md)
             .padding(.bottom, Theme.Space.xs)
 
+            // Draws nothing unless something on the launch path reported a fault, which is every
+            // ordinary run. Above the pager rather than inside it because it is about the app and
+            // not about a weekend, and 23 pages would otherwise each need their own copy.
+            LaunchProblemBanner()
+                .padding(.horizontal, Theme.Space.xxl)
+                .padding(.bottom, Theme.Space.md)
+
             if store.isRefreshing && !weekendsLoaded {
                 ScrollView {
                     skeletonView.padding(Theme.Space.xxl)
@@ -118,6 +125,9 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            // The launch reached the screen. Until this is written, `LaunchDiagnostics` treats the
+            // run as unfinished and the next launch will say so — which is the whole mechanism.
+            LaunchDiagnostics.shared.launchShown()
             homeSelectionIfNeeded()
             setupRefreshTimer()
         }

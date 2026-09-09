@@ -50,7 +50,7 @@ public enum BrandTypeface {
     /// wordmark registers exactly once and no host has to remember to. The alternative — a call in
     /// each of the three targets' entry points — is three chances to spell it differently and one
     /// chance to forget entirely in the extension, which would fail as a silent fallback rather
-    /// than as a crash.
+    /// than as the reported one below.
     ///
     /// **`fixedSize:` rather than `size:`.** `Font.custom(_:size:)` scales with Dynamic Type;
     /// `.system(size:)`, which this replaces, does not. Keeping it fixed keeps `.medium`'s
@@ -58,9 +58,21 @@ public enum BrandTypeface {
     /// accessibility sizes is a real change with a real question behind it (what that row does at
     /// AX5) and it is not this change.
     public static func wordmark(size: CGFloat) -> Font {
-        registerOnce
+        guard registration == nil else {
+            // The system's own heaviest weight, which is what the wordmark was set in before
+            // Chivo and what `docs/guides/brand.md` measured Chivo against. Fixed size for the
+            // reason above: `.system(size:)` does not scale with Dynamic Type, so the fallback
+            // keeps the measurements in `NoSpoilersWordmarkSize` meaning what they say.
+            return .system(size: size, weight: .heavy)
+        }
         return .custom(wordmarkFace, fixedSize: size)
     }
+
+    /// Why the wordmark's face is unavailable, or `nil` on every ordinary run.
+    ///
+    /// Public so a test can assert the shipped bundle registers cleanly without reaching into the
+    /// private storage to do it.
+    public static var registrationFailure: String? { registration }
 
     /// **Fails loudly, because the alternative is invisible.** A face that is missing, misnamed or
     /// left out of the resource bundle does not break a build and does not log: `Font.custom`
@@ -68,9 +80,23 @@ public enum BrandTypeface {
     /// looking exactly as it did before this file existed. That is the one failure this whole
     /// change has to be protected from, so registration proves the face is reachable by name
     /// afterwards rather than trusting that the register call returning `true` was enough.
-    private static let registerOnce: Void = {
+    ///
+    /// **What "loudly" means depends on who is listening, and that changed on 2026-09-09.** All
+    /// three checks below used to `preconditionFailure`, and `NoSpoilersWordmark` is the first view
+    /// in `ContentView.body` — so on a device where any of them failed, the app trapped before it
+    /// drew a pixel and the user got a Home Screen and no explanation. That is not loud, it is
+    /// mute: an App Store user cannot read a trap. The third check is the one that makes this
+    /// device-specific rather than build-specific — `CTFontManagerRegisterFontsForURL` refuses a
+    /// face already registered on the device, which a font-installer app or a configuration
+    /// profile can do system-wide without this app knowing.
+    ///
+    /// So the trap survives where it works — `#if DEBUG`, which still stops a developer dead on
+    /// the first launch after breaking the bundle — and a release build reports the identical
+    /// sentence to `LaunchDiagnostics`, which puts it on screen. The fallback is never silent,
+    /// which was the whole objection to having one.
+    private static let registration: String? = {
         guard let url = noSpoilersCoreBundle.url(forResource: resourceName, withExtension: "ttf") else {
-            preconditionFailure(
+            return refuse(
                 "\(resourceName).ttf is not in noSpoilersCoreBundle. It lives in "
                 + "NoSpoilersCore/Sources/NoSpoilersCore/Resources/ and reaches every host through "
                 + "the package's .process(\"Resources\") rule."
@@ -79,7 +105,7 @@ public enum BrandTypeface {
 
         var error: Unmanaged<CFError>?
         guard CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) else {
-            preconditionFailure(
+            return refuse(
                 "could not register \(url.lastPathComponent): "
                 + String(describing: error?.takeRetainedValue())
             )
@@ -89,11 +115,27 @@ public enum BrandTypeface {
         // checks what came back — the only way to tell a registered font from a fallback.
         let resolved = CTFontCopyFamilyName(CTFontCreateWithName(wordmarkFace as CFString, 12, nil)) as String
         guard resolved == wordmarkFamily else {
-            preconditionFailure(
+            return refuse(
                 "registered \(url.lastPathComponent) but \"\(wordmarkFace)\" resolves to "
                 + "\"\(resolved)\" rather than \"\(wordmarkFamily)\". The wordmark would render in "
                 + "the system font and nothing else would say so."
             )
         }
+
+        return nil
     }()
+
+    /// Traps in development, reports in release. See `registration`.
+    private static func refuse(_ reason: String) -> String {
+        #if DEBUG
+        preconditionFailure(reason)
+        #else
+        LaunchDiagnostics.shared.record(LaunchProblem(
+            id: "brand-typeface",
+            summary: Strings.Diagnostics.typefaceSummary,
+            detail: reason
+        ))
+        return reason
+        #endif
+    }
 }

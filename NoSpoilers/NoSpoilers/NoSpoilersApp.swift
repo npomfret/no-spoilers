@@ -15,6 +15,10 @@ struct NoSpoilersApp: App {
     @StateObject private var activities = SessionActivityController()
 
     init() {
+        // First, before anything that could fail. Reads how the last launch ended — a launch that
+        // never reached the screen leaves its mark here — and records that this one has started.
+        // See `LaunchDiagnostics`.
+        LaunchDiagnostics.shared.beginLaunch()
         AppLog.launched(process: "ios")
         // WidgetKit keeps showing the previous build's archived timeline after an update until
         // something asks for a reload, and `ScheduleStore` only asks when the schedule changes.

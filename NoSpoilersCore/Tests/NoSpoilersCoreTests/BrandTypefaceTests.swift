@@ -61,6 +61,22 @@ final class BrandTypefaceTests: XCTestCase {
         XCTAssertNotNil(noSpoilersCoreBundle.url(forResource: "Chivo-OFL", withExtension: "txt"))
     }
 
+    /// What the three `preconditionFailure`s used to guarantee, now that release builds no longer
+    /// carry them.
+    ///
+    /// They were the only thing asserting the face was reachable, and on 2026-09-09 they were
+    /// found to be the likeliest cause of an App Store install dying before it drew a pixel — a
+    /// trap is unreadable to the person it happens to.
+    ///
+    /// **This test run is a Debug one, so the trap is still armed here** and a broken bundle stops
+    /// it as a crash rather than as this assertion. That is not a reason to drop the assertion: it
+    /// is what carries the same guarantee into a release-configuration run, where `refuse` returns
+    /// instead of trapping and nothing else would notice.
+    func testTheShippedBundleRegistersTheFaceCleanly() {
+        _ = BrandTypeface.wordmark(size: 15)
+        XCTAssertNil(BrandTypeface.registrationFailure)
+    }
+
     private func family(of face: String) -> String {
         CTFontCopyFamilyName(CTFontCreateWithName(face as CFString, 12, nil)) as String
     }

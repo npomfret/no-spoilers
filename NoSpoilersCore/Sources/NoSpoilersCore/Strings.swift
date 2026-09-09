@@ -43,6 +43,40 @@ public enum Strings {
         public static let trademarkDisclaimer: LocalizedStringKey = "Formula 1, F1, and related marks are trademarks of Formula One Licensing BV. This app is not affiliated with, endorsed by, or sponsored by Formula One Licensing BV, Liberty Media, or the FIA."
     }
 
+    /// What the app says when it could not do something before it had a screen to say it on.
+    ///
+    /// Deliberately free of blame and of jargon. The reader is someone whose app just failed at
+    /// them; what they need is confirmation that it is broken rather than them, and something
+    /// concrete to send. See `LaunchDiagnostics`.
+    public enum Diagnostics {
+        /// The banner's own heading, above whichever summaries were recorded.
+        public static let bannerTitle: LocalizedStringKey = "Something didn't start properly"
+
+        /// Opens the detail sheet. The banner shows one line per problem and no more; everything
+        /// worth copying is behind this.
+        public static let bannerAction: LocalizedStringKey = "Details"
+
+        public static let detailTitle: LocalizedStringKey = "Diagnostics"
+
+        /// Above the detail text. Says what the text is for, because a wall of technical detail
+        /// with no instruction reads as a second fault rather than a way out of the first.
+        public static let detailIntro: LocalizedStringKey =
+            "The app is still usable. Sending this to the developer is what gets it fixed."
+
+        public static let shareAction: LocalizedStringKey = "Share"
+
+        public static let previousLaunchSummary = "The last time you opened the app, it closed before it could show anything."
+
+        public static func previousLaunchDetail(stage: String) -> String {
+            "The previous launch stopped at stage \"\(stage)\" and never reached the schedule screen."
+        }
+
+        /// The wordmark's own failure. Named for what the user can see — the app's name in the
+        /// wrong lettering — rather than for CoreText, which means nothing to them.
+        public static let typefaceSummary = "The app's own lettering could not be loaded, so its name is shown in the system font."
+    }
+
+
     /// The vocabulary for rendering a schedule, shared by every target that
     /// draws one.
     ///
