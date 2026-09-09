@@ -3,6 +3,8 @@
   "permissions": {
     "defaultMode": "acceptEdits",
     "allow": [
+      "Skill(browse)",
+      "mcp__ide__getDiagnostics",
       "Bash(*)",
       "WebSearch",
       "WebFetch"
@@ -28,6 +30,7 @@
       "git clone *",
       "gh *",
       "python3 scripts/teamcity.py *",
+      "python3 scripts/appstore_status.py *",
       "ssh *",
       "scp *",
       "rsync *",
