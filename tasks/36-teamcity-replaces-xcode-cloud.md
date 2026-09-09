@@ -81,34 +81,51 @@ settles them; its failure output gives the real spelling.
 2. **Add the macOS assertion** — the installer identity — so the macOS button fails in
    seconds with what is missing rather than after an archive.
 3. **Remove Xcode Cloud from the repository** (detail below).
-4. **TeamCity configuration** — a single `Ship` configuration, modelled on the existing
-   `TestFlight` button, which is the local precedent for a UI-owned manual button:
+4. **TeamCity configuration**, as code — `.teamcity/settings.kts` and `.teamcity/pom.xml`,
+   the shape FunMax uses. It declares a single `Ship` configuration:
 
-   - **Name** `Ship`, in `NoSpoilers`, on the `NoSpoilers_Main` VCS root.
-   - **One Command Line step**: `python3 scripts/ci-publish.sh --platform all %ship.args%`.
+   - **One Command Line step**: `scripts/ci-publish.sh --platform all %ship.args%`.
      `ship.args` empty by default, as `distribute.args` is on `TestFlight`; it is where a
-     `--check` or an explicit `X.Y.Z` goes. **Set it as a configuration parameter, not a
-     prompt**, and clear it after use: `publish.args` left holding a stale value is how four
-     presses uploaded a closed train on 2026-09-05.
-   - **Snapshot dependency on `Verify`**, `onDependencyFailure = CANCEL`, reusing successful
-     builds. Unlike `TestFlight` this one archives, so it must build a revision that passed.
-   - **No trigger.** FunMax's `Ship` fires on every green `Verdict`; this one must not. The
-     owner presses a button per release — that is the decision at the top of this task — and
-     an automatic ship is Xcode Cloud again with a different logo.
-   - **Timeout** generous: a three-channel run archives twice and waits on the notary service.
-   - **Agent requirement** the same one `Verify` uses, since there is one Mac.
+     `--check` or an explicit `X.Y.Z` goes. **Put it back empty afterwards**: `publish.args`
+     left holding a stale value is how four presses uploaded a closed train on 2026-09-05.
+   - **No trigger**, which is the decision at the top of this task rather than an omission.
+     FunMax's `Ship` fires on every green `Verdict`; an automatic ship here is Xcode Cloud
+     again with a different logo.
+   - **`maxRunningBuilds = 1`.** A second press during a run would take the next build number
+     from App Store Connect and race the first one's tag push.
+   - **Timeout 120 minutes**: two archives, two uploads, and an unbounded notary wait inside
+     the second of them.
 
    **The five verification configurations still hold no credential and must not gain one**;
    `Ship` is separate and holds them.
 
-   This repository has no `.teamcity/settings.kts` — configurations are UI-owned — and
-   `scripts/teamcity.py` is GET-only by design. So the button is created by the owner, or by
-   a separately approved action. It is not something this task can land on its own.
+   ### The constraint the DSL is written around
 
-   Worth doing separately, and not in scope here: **adopt versioned settings**, as FunMax has
-   (`.teamcity/settings.kts` + `pom.xml`). It would put this configuration in git and under
-   review rather than in a web form. It also takes ownership of the four `Verify`
-   configurations away from the UI, which is a decision of its own.
+   **Versioned settings are authoritative: a project synchronised against a DSL that omits a
+   configuration deletes that configuration.** The four verification configurations and
+   `TestFlight` are UI-owned, and nothing outside the server can see their triggers, timeouts,
+   agent requirements or features — `scripts/teamcity.py` is GET-only by design and its
+   commands do not reach build-type settings, the REST API is behind Google SSO, and a build
+   log shows the steps and nothing else. So `settings.kts` **names none of them**, and the
+   file says so at the top.
+
+   That has two consequences, both deliberate:
+
+   - **It must be attached to a new, empty project, never to the one holding the chain.**
+     Enabling synchronisation on that project against this file would destroy it.
+   - **`Ship` has no snapshot dependency**, because a dependency would mean naming a
+     configuration this file must not name. It costs less than it looks: `release.sh` runs
+     `verify-core-tests.sh` itself as the release gate, before anything is archived, with no
+     flag to skip it. The gate is in the engine rather than the pipeline — which is where it
+     has been since 2026-08-22, the day it was found to have left the release path entirely
+     when the CI that held it stopped.
+
+   If the UI-owned configurations should become code too, the way is to let **TeamCity
+   generate their DSL** — enable versioned settings on that project with no
+   `.teamcity/settings.kts` present and it commits an exact representation of what exists —
+   and then merge that generated file with this one. Writing them by hand from the outside
+   would mean guessing, and a guess that compiles is indistinguishable from the truth until
+   it has overwritten the thing it was guessing at.
 
 ## The removal sweep
 
@@ -142,8 +159,16 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
    - `git clone git@github.com:npomfret/homebrew-tap.git` **beside the build checkout** — the
      path `release.sh` resolves is a sibling of the repository, which on an agent is under
      `work/`, not beside a laptop's projects.
-3. Create the `Ship` configuration in TeamCity, or approve its creation. Recipe in *The plan*
-   step 4.
+3. Create the `Ship` configuration, which is now three clicks rather than a form:
+   - **Create a new, empty project** — a subproject of `NoSpoilers` is tidiest. Give it any
+     id; the DSL does not name one.
+   - Point its **Versioned Settings** at this repository's VCS root, format **Kotlin**, with
+     *Store secure values outside of VCS* on, and synchronisation enabled.
+   - **Never do this to the project that holds the verification chain.** That project's
+     configurations are not in `settings.kts`, and synchronisation would delete them.
+
+   TeamCity compiles the DSL server-side and `Ship` appears. There is no local Maven here and
+   FunMax has no local DSL build either, so a compile error surfaces on the server.
 4. Press it once with `ship.args = --check`. That is the whole point of `--check`: it asserts
    every item above and stops, having built and shipped nothing.
 5. ~~Turn off the Xcode Cloud workflow~~ — **done 2026-09-09.** `PATCH /v1/ciWorkflows/7A43B70B…`
@@ -194,6 +219,11 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
   record half true.
 - Docs: `docs/guides/building.md` — *TestFlight from TeamCity* is now *Shipping from TeamCity*
   and describes the one button; `README.md` cross-reference followed.
+- **`.teamcity/settings.kts` and `.teamcity/pom.xml`** — the button as code, one configuration
+  and nothing else, for the reason in *The plan* step 4. The `pom.xml` is FunMax's with the
+  names changed; it is boilerplate and points at the same server's DSL plugin repository.
+  Every Kotlin construct used was checked against FunMax's file, which the server compiles
+  today — that is the only verification available, since there is no local Maven.
 
 ## Verification
 

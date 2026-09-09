@@ -106,8 +106,19 @@ such identity" into one round trip rather than a guess per attempt.
 `scripts/ship.sh` on a laptop remains the other path, and is now the same path: the button runs
 that script.
 
-**The five verification configurations still hold no credential and must not gain one.** `Publish`
+**The five verification configurations still hold no credential and must not gain one.** `Ship`
 is separate and holds them.
+
+**`Ship` is defined in `.teamcity/settings.kts`, and that file declares nothing else.** Versioned
+settings are authoritative — a project synchronised against a DSL that omits a configuration
+*deletes* it — and nothing outside the server can read the verification chain's triggers, timeouts,
+agent requirements or features to reproduce them faithfully. So the DSL names none of them, and
+**must be attached to a new, empty project rather than to the one holding the chain**. Two things
+follow: `Ship` has no snapshot dependency, because a dependency would mean naming a configuration
+the file must not name — the release gate is `verify-core-tests.sh` inside `release.sh`, which has
+no skip flag — and it has no trigger, which is the decision rather than an omission. If the UI-owned
+configurations should become code, let TeamCity generate their DSL (enable versioned settings with
+no `settings.kts` present and it commits an exact representation) and merge that with this file.
 
 **`TestFlight` pushes the newest uploaded build on each platform to the Internal testers.** One
 button, two steps: `python3 scripts/testflight_distribute.py --platform ios --apply
