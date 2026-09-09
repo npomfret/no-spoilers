@@ -159,6 +159,15 @@ Checked before deleting, and each of these is why it was safe:
   removed. `testflight_distribute.py:418` matches the *commit subject* `bump to vX.Y.Z`, not a
   tag, so `ship_commit` still resolves builds 10001–10022.
 
-`v1.0.10` and `v1.0.11` are also bare tags with no GitHub release behind them. They were not
-touched — they predate all of this, and whether a release was deleted or never made cannot be
-told from here.
+`v1.0.10` and `v1.0.11` were deleted the same day, for the same reason: no release, no cask
+reference, no mention anywhere in either repository. They are two gaps in an otherwise unbroken
+run of releases made on 2026-03-29, which reads as two attempts that were superseded within the
+hour. `v1.0.11` marked its own `bump to v1.0.11` commit, so that version is still named in
+history; `v1.0.10` marked `add LSApplicationCategoryType for App Store submission`, and the tag
+was the only place that version was written down. `280d76b0637a` and `b4b245e334d3` restore
+them.
+
+**What this leaves is an invariant, and it is the useful part.** Every bare `vX.Y.Z` tag now has
+a GitHub release of the same name, and every release has its tag — 22 of each, checked both
+directions on 2026-09-09 with no orphan either way. A bare tag with nothing behind it is from
+here a defect rather than history, which is what makes `tag_version`'s skip safe again.
