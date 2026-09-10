@@ -288,6 +288,16 @@ around a missing local profile without inspecting the actual export error.
   - Because there was a gap, `submit_build.py`'s dry run did not start. Nothing was built or
     reserved, and there is no record artifact.
   - `macstudio-1` and `-2` remain unproven.
+- **`Ship #6`, 2026-09-10 10:43, `macstudio-3`, `64c98e9`, `ship.platform = ios`, `--check`.** Green,
+  after `Verify #106`.
+  - All three checks passed, and the installer was correctly not checked.
+  - The dry run read App Store Connect: `1.1.4 from 64c98e9d191d`, and it would reserve build 10025.
+  - Nothing was reserved. `appstore_status.py --next-build` also said 10025 from this machine, and
+    origin's newest tag was still `build/10024`.
+  - **It exposed a fault in `--check`.** The plan said it "would run scripts/verify-core-tests.sh",
+    which the real run skips. `ci-publish.sh` passed the forwarded arguments, `--tested` included,
+    to the real run but not to the dry run. A real run would not have been affected; only the
+    check's description of it was wrong.
 - **A review of `86b6277..37e0ef0` raised four findings; all four were confirmed in the code and
   fixed:**
   1. **An App Store Connect error after an upload ended the whole run.** macOS never ran, and the
@@ -327,9 +337,8 @@ around a missing local profile without inspecting the actual export error.
 1. ~~Confirm the `6e0c2df` settings sync and a green `Verify` on it.~~ Done: `Verify #103` and
    `#104`, and `Ship`'s live settings match `cd64e4b`.
 2. ~~Press `Ship` with `ship.args = --check`~~ Done as `Ship #5`: on `all` the installer identity
-   was the one gap, so the dry run never started. Next, press `Ship` with
-   `ship.platform = ios` and `ship.args = --check`. That skips the installer check, so
-   `submit_build.py` dry-runs against App Store Connect with nothing reserved or uploaded.
+   was the one gap, so the dry run never started. The iOS `--check` that followed is `Ship #6`: green,
+   and it planned build 10025. It also exposed the dropped `--tested`, now forwarded to the dry run.
 3. With explicit owner approval, press `Ship` with `ship.platform = ios`: the first real delivery.
    Check the record artifact, App Store Connect, the note and Internal membership.
 4. Import the Mac Installer Distribution identity (with its private key) for `nickpomfret`; press

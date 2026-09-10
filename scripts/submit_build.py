@@ -622,6 +622,27 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         )
 
 
+def dry_run_plan(platforms: list[str], number: str, tested: bool, archive_only: bool) -> str:
+    """What `--apply` with the same flags would do, said before doing any of it.
+
+    **Built from the flags the real run gets.** `ci-publish.sh --check` exists to
+    show what a press would do, and until 2026-09-10 it dropped `--tested` on the
+    way here, so `Ship #6` described a test gate its real run would skip.
+    """
+    gate = "" if tested else "run scripts/verify-core-tests.sh, "
+    order = " then ".join(platforms)
+    if archive_only:
+        return (
+            f"would {gate}stamp build {number} without reserving it, and for {order}: archive and export "
+            "locally, uploading nothing.\nRe-run with --apply."
+        )
+    return (
+        f"would {gate}reserve build {number} as a build/ tag on this commit, and for {order}: archive, "
+        "upload, wait for processing, and deliver that exact build to the internal testers.\n"
+        "Re-run with --apply."
+    )
+
+
 def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> int:
     blocked = dirty_reason()
     if blocked:
@@ -653,12 +674,7 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
         return 1
 
     if not apply:
-        print(
-            f"would {'' if tested else 'run scripts/verify-core-tests.sh, '}reserve build "
-            f"{version_helper('next_build_number')} as a build/ tag on this commit, and for "
-            f"{' then '.join(open_platforms)}: archive, upload, wait for processing, and deliver "
-            "that exact build to the internal testers.\nRe-run with --apply."
-        )
+        print(dry_run_plan(open_platforms, version_helper("next_build_number"), tested, archive_only))
         return 1 if refused else 0
 
     asc.require_key(
@@ -968,9 +984,19 @@ def selftest() -> int:
             "so TeamCity could end a run before it records why"
         )
 
+    # The dry run describes the run the same flags would start: Ship #6's plan
+    # named a test gate that `--tested` skips.
+    if "verify-core-tests" in dry_run_plan(["ios"], "10025", tested=True, archive_only=False):
+        failures.append("a dry run given --tested still describes the test gate")
+    if "verify-core-tests" not in dry_run_plan(["ios"], "10025", tested=False, archive_only=False):
+        failures.append("a dry run without --tested does not describe the test gate")
+    archive_plan = dry_run_plan(["macos"], "10025", tested=True, archive_only=True)
+    if "reserve build" in archive_plan or "uploading nothing" not in archive_plan:
+        failures.append(f"an --archive-only dry run describes a reservation or an upload: {archive_plan!r}")
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 44 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 47 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
@@ -980,8 +1006,6 @@ def main() -> int:
     speak_in_order()
     asked = arguments().parse_args()
     requested = list(PLATFORMS) if asked.platform == "all" else [asked.platform]
-    if asked.archive_only and not asked.apply:
-        raise SystemExit("--archive-only does something only with --apply")
     return run(requested, asked.apply, asked.tested, asked.archive_only)
 
 

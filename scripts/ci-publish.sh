@@ -236,7 +236,10 @@ private key, into the keychain of the user the agents run as."
   if [[ -n "$CHECK_ONLY" ]]; then
     echo ""
     echo "==> Preflight passed. What a real run would do, asking App Store Connect and changing nothing:"
-    python3 "${SCRIPT_DIR}/submit_build.py" --platform "${PLATFORM}"
+    # The arguments the real run gets below, without `--apply`. Until 2026-09-10
+    # they were dropped here, so `--tested` never arrived and Ship #6 described a
+    # test gate that its real run would have skipped.
+    python3 "${SCRIPT_DIR}/submit_build.py" --platform "${PLATFORM}" "${FORWARD[@]+"${FORWARD[@]}"}"
     exit $?
   fi
 
