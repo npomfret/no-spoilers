@@ -345,6 +345,24 @@ prints what is missing as one numbered list.
   passes. Committed there as `80bc31c`; the conversion lessons above are in that plugin's
   `teamcity-builds` skill as `21f6f1d`, so the next project does not repay them.
 
+### The tap is pulled before it is pushed, 2026-09-10
+
+Found while working out where the agent's `homebrew-tap` clone should go. `release.sh` edited
+the cask, committed and pushed it **without pulling first**, and `ci-publish.sh`'s
+`git push --dry-run` passes on a checkout that is merely behind. The tap holds more than this
+cask and both the laptop and the agent publish to it, so any clone falls behind the moment the
+other one pushes — and the push that then fails comes after the GitHub release is public.
+
+`bring_tap_current` in `release.sh`: refuses uncommitted changes to tracked files (untracked
+ones such as the laptop tap's `.DS_Store` are left alone), then `git pull --rebase`, aborting a
+conflicting rebase so the tap is left as it was. Called in preflight and again immediately
+before the cask is edited. A failure at that second call prints the `version` and `sha256` the
+cask needs, since the release is already public by then. `docs/guides/building.md` says the same.
+
+**Still open:** whether `macstudio-2` can take a `Ship` build. The keychain is per user, so the
+certificates would reach it; a tap cloned under `teamcity-agent-3/work/` would not. Every press so
+far has landed on `macstudio-3`.
+
 ## Verification
 
 - [x] `scripts/verify-python-selftests.sh` — five scripts green, 2026-09-09 (189 cases; was six
@@ -386,6 +404,13 @@ prints what is missing as one numbered list.
       when its key is absent. The same run without `--check` stops at the first gap, unchanged.
       `--platform ios --check` reports four, correctly omitting the installer, Developer ID,
       notarization, `gh` and tap assertions. `bash -n` clean.
+- [x] **The tap is brought current, and refuses what it should**, 2026-09-10 — `release.sh` run
+      against throwaway remotes, five cases: a tap behind its upstream is pulled; an uncommitted
+      cask edit is refused and left untouched; an untracked `.DS_Store` is ignored while the tap
+      is still pulled; an unpushed cask commit is carried onto a remote that advanced elsewhere;
+      a conflicting unpushed commit is refused with no rebase left in progress and the tap on its
+      own commit. The second call, at the tail, is the same function and has not run end to end.
+      `bash -n` clean.
 - [ ] **The notarization credential is unverified even in principle from here.** The `.p8` keys
       are outside what this session may read, so `notarytool history` has not been run with
       `ASC6H3SL2D` anywhere. If the App Manager key turns out not to carry notary access, the

@@ -188,6 +188,38 @@ EXPORT_PATH_APPSTORE="/tmp/${PRODUCT_BASENAME}-appstore-export-${VERSION}"
 # run means discovering it after notarization has completed and the GitHub
 # release is already public, with no way to finish. Fail loudly, first.
 
+# **The tap is shared, so every checkout of it goes stale.** It holds more than
+# this cask, and a laptop and a build agent both publish to it, so a checkout
+# falls behind the moment another one pushes. The cask commit at the end of
+# the run is a bare `git push`, which a checkout behind its upstream cannot
+# make — and by then the GitHub release is public. Found 2026-09-10 while
+# cloning the tap onto a TeamCity agent: nothing here pulled it, and
+# `ci-publish.sh`'s `push --dry-run` passes on a checkout that is merely behind.
+# So it is brought current twice: in preflight, where failing costs nothing,
+# and again immediately before the cask is edited, for whatever was pushed
+# during the notarization wait.
+#
+# Uncommitted changes to tracked files stop the run rather than being stashed
+# or carried: an edited cask is a previous run that died before committing, or
+# somebody's work, and this cannot tell which. Untracked files are left alone —
+# a `.DS_Store` in a laptop's tap is ordinary, and nothing here commits anything
+# but the cask. `--rebase`, as the push loop for `main` below uses: a cask
+# commit a previous run made and failed to push is carried onto the new tip,
+# and a real conflict is aborted with the tap left as it was.
+bring_tap_current() {
+  if ! git -C "${HOMEBREW_TAP_DIR}" diff --quiet HEAD --; then
+    echo "${HOMEBREW_TAP_DIR} has uncommitted changes to tracked files:" >&2
+    git -C "${HOMEBREW_TAP_DIR}" status --short --untracked-files=no >&2
+    echo "Commit, push or discard them; this run will not guess which." >&2
+    return 1
+  fi
+  if ! git -C "${HOMEBREW_TAP_DIR}" pull --rebase --quiet; then
+    git -C "${HOMEBREW_TAP_DIR}" rebase --abort >/dev/null 2>&1 || true
+    echo "${HOMEBREW_TAP_DIR} could not be brought up to date with its upstream." >&2
+    return 1
+  fi
+}
+
 if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
   HOMEBREW_TAP_DIR="$(dirname "$(realpath "$0")")/../../homebrew-tap"
   CASK_FILE="${HOMEBREW_TAP_DIR}/Casks/no-spoilers.rb"
@@ -201,6 +233,8 @@ if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
     echo "${HOMEBREW_TAP_DIR} is not a git checkout, so the cask update cannot be pushed" >&2
     exit 1
   fi
+  echo "==> Bringing homebrew-tap up to date..."
+  bring_tap_current || exit 1
 fi
 
 # ── Preflight: the working tree ─────────────────────────────────────────────
@@ -716,8 +750,19 @@ if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
       "${ZIP_PATH}"
   fi
 
-  # HOMEBREW_TAP_DIR and CASK_FILE were resolved and checked in preflight.
+  # HOMEBREW_TAP_DIR and CASK_FILE were resolved and checked in preflight, and
+  # the tap is pulled again here for whatever landed during notarization. If
+  # that fails the release is already public, so the two values the cask needs
+  # are printed rather than left in a scrolled-away log.
   echo "==> Updating homebrew-tap..."
+  if ! bring_tap_current; then
+    echo "" >&2
+    echo "v${VERSION} is published on GitHub, but the cask still names the previous version." >&2
+    echo "Once ${HOMEBREW_TAP_DIR} is current, set these in Casks/no-spoilers.rb, commit and push:" >&2
+    echo "  version \"${VERSION}\"" >&2
+    echo "  sha256 \"${SHA256}\"" >&2
+    exit 1
+  fi
   sed -i '' "s/version \".*\"/version \"${VERSION}\"/" "${CASK_FILE}"
   sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" "${CASK_FILE}"
   (cd "${HOMEBREW_TAP_DIR}" && git add Casks/no-spoilers.rb && git commit -m "no-spoilers ${VERSION}" && git push)
