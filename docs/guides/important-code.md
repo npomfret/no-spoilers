@@ -16,7 +16,7 @@ This guide maps the current control plane and the places that define repo standa
 10. `.claude/skills/review-working-tree/SKILL.md` — read-only correctness and pattern-drift review workflow.
 11. `task-files:task-files` and `teamcity:teamcity-builds` (the `task-files@npomfret` and `teamcity@npomfret` plugins, enabled in `.claude/settings.json`) — shared task lifecycle and read-only CI diagnosis. Their wording and the TeamCity REST implementation are edited in `npomfret/agent-standards`, not here; `.teamcity/cli.json` and `scripts/teamcity.py` are the project-owned configuration and locator.
 12. `.claude/skills/bug-investigation/SKILL.md` — controlled, reversible diagnosis for observed failures.
-13. `.claude/skills/claude-setup-maintenance/SKILL.md` — workflow for maintaining Claude Code instructions and automation.
+13. Removed 2026-09-10: the Claude setup maintenance skill. The permission baseline is written by `agent-standards`, and the rest of `.claude/` needs no workflow of its own. The number is kept so later items still read correctly.
 14. `.claude/agents/codebase-explorer.md` — plan-mode discovery and pattern lookup specialist.
 15. `.claude/agents/pattern-compliance-reviewer.md` — plan-mode duplication and pattern-drift specialist.
 16. `.claude/rules/spoiler-safety.md` and `.claude/agents/spoiler-safety-reviewer.md` — path-scoped schedule-only enforcement and its plan-mode audit specialist.
