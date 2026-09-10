@@ -69,11 +69,13 @@ public struct LogChannel: Sendable {
         logger = Logger(subsystem: subsystem, category: category)
     }
 
-    /// The routine trace. Discarded unless something is streaming, so the JSON is only built
-    /// when a reader is attached — which matters at this level and not the other two, because
-    /// this is the one called per entry and per boundary.
+    /// The routine trace. Discarded unless something is streaming, and `Logger` only evaluates
+    /// an interpolation when its level is enabled, so the JSON is only built when a reader is
+    /// attached — which matters at this level and not the other two, because this is the one
+    /// called per entry and per boundary. Do not guard with `Logger.isEnabled(type:)`: the SDK
+    /// declares it available since iOS 14, but iOS only gained the symbol in 26.4, an app that
+    /// imports it is killed at launch on anything older, and the Mac target's minimum is 26.2.
     public func debug(_ msg: StaticString, _ fields: LogFields = [:]) {
-        guard logger.isEnabled(type: .debug) else { return }
         logger.debug("\(LogLine.json(msg, fields), privacy: .public)")
     }
 

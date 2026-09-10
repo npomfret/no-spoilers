@@ -51,8 +51,8 @@ app target is `NoSpoilersApp` and lives in `NoSpoilers/NoSpoilers/`.
 
 | Target | Platform | Purpose |
 |--------|----------|---------|
-| `NoSpoilersApp` | iOS 26.2+ | Host app, schedule fetch, App Group cache write |
-| `NoSpoilersWidgetExtension` | iOS 26.2+ | WidgetKit extension, reads App Group cache |
+| `NoSpoilersApp` | iOS 26.4+ | Host app, schedule fetch, App Group cache write |
+| `NoSpoilersWidgetExtension` | iOS 26.4+ | WidgetKit extension, reads App Group cache |
 | `NoSpoilersMac` | macOS 26.2+ | MenuBarExtra + popover, independent fetch |
 
 ### Data Flow
@@ -99,10 +99,10 @@ is not called safe while it is still running.
 
 ## Platform Requirements
 
-- iOS 26.2+
+- iOS 26.4+
 - macOS 26.2+
 
-Both app targets set a deployment target of 26.2. The `NoSpoilersCore` package declares the lower
+The iOS app and widget set a deployment target of 26.4, the Mac app 26.2. The `NoSpoilersCore` package declares the lower
 `.iOS(.v17)` / `.macOS(.v14)` floor it actually needs, which is why those numbers appear in
 `Package.swift`; they are not what the shipped apps require.
 
