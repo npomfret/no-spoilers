@@ -112,6 +112,19 @@ PLATFORMS = {
     "macos": {"scheme": "NoSpoilers", "destination": "generic/platform=macOS", "bundles": 1},
 }
 
+# **macOS is signed manually at export; iOS stays automatic.** An agent holds only the App Manager
+# key, and Apple refuses that key cloud-managed certificates (Ship #8 and #9). Automatic signing then
+# needs a Mac App Store profile listing the local Apple Distribution certificate, and none of the
+# portal's 78 did, so Xcode tried to make one from a cloud certificate and was refused. Naming the
+# profile and both certificates leaves it nothing to look up. iOS exports because its store profile
+# on the agent machine does list the local certificate.
+MAC_SIGNING = {
+    "bundle": "pomocorp.NoSpoilers.NoSpoilersMac",
+    "profile": "No Spoilers Mac App Store",
+    "certificate": "Apple Distribution",
+    "installer": "3rd Party Mac Developer Installer",
+}
+
 GATE_LIMIT = 1800.0
 ARCHIVE_LIMIT = 2400.0
 EXPORT_LIMIT = 2400.0
@@ -250,14 +263,15 @@ def archive_command(platform: str, number: int, archive: Path, derived: Path) ->
     ]
 
 
-def export_options(upload: bool) -> dict:
+def export_options(platform: str, upload: bool) -> dict:
     """The export, stated in full rather than left to Xcode's defaults.
 
     `app-store-connect` rather than the deprecated `app-store` the old plist
     used. `manageAppVersionAndBuildNumber` false, because its default is YES and
-    Xcode would renumber the build during the upload.
+    Xcode would renumber the build during the upload. macOS names its profile and
+    both certificates; see `MAC_SIGNING` for why.
     """
-    return {
+    options = {
         "method": "app-store-connect",
         "destination": "upload" if upload else "export",
         "teamID": TEAM,
@@ -265,6 +279,14 @@ def export_options(upload: bool) -> dict:
         "uploadSymbols": True,
         "manageAppVersionAndBuildNumber": False,
     }
+    if platform == "macos":
+        options.update({
+            "signingStyle": "manual",
+            "provisioningProfiles": {MAC_SIGNING["bundle"]: MAC_SIGNING["profile"]},
+            "signingCertificate": MAC_SIGNING["certificate"],
+            "installerSigningCertificate": MAC_SIGNING["installer"],
+        })
+    return options
 
 
 def export_command(archive: Path, options: Path, output: Path) -> list[str]:
@@ -599,7 +621,7 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         reached("archived")
 
         options = work / f"{platform}.exportOptions.plist"
-        options.write_bytes(plistlib.dumps(export_options(upload=not archive_only)))
+        options.write_bytes(plistlib.dumps(export_options(platform, upload=not archive_only)))
         output = work / f"{platform}-export"
         verb = "exporting" if archive_only else "exporting and uploading"
         print(f"\n==> {platform}: {verb} — limit {EXPORT_LIMIT / 60:.0f}m")
@@ -800,15 +822,29 @@ def selftest() -> int:
     """Offline. The decisions and the commands, not the tools they start."""
     failures: list[str] = []
 
-    uploading = export_options(upload=True)
+    uploading = export_options("ios", upload=True)
     if uploading["method"] != "app-store-connect" or uploading["destination"] != "upload":
         failures.append(f"the export does not upload to App Store Connect: {uploading}")
     if uploading["manageAppVersionAndBuildNumber"] is not False:
         failures.append("Xcode is left free to renumber the build during the upload")
-    if export_options(upload=False)["destination"] != "export":
+    if export_options("macos", upload=False)["destination"] != "export":
         failures.append("--archive-only would still upload")
     if plistlib.loads(plistlib.dumps(uploading)) != uploading:
         failures.append("the export options do not survive being written as a plist")
+
+    # iOS ships on automatic signing; macOS names what it signs with, because with only the App
+    # Manager key automatic signing reached for a cloud-managed certificate and was refused.
+    if uploading["signingStyle"] != "automatic" or "provisioningProfiles" in uploading:
+        failures.append(f"the iOS export no longer signs automatically, which is what ships it: {uploading}")
+    mac = export_options("macos", upload=True)
+    wanted = {
+        "signingStyle": "manual",
+        "provisioningProfiles": {"pomocorp.NoSpoilers.NoSpoilersMac": "No Spoilers Mac App Store"},
+        "signingCertificate": "Apple Distribution",
+        "installerSigningCertificate": "3rd Party Mac Developer Installer",
+    }
+    if {key: mac.get(key) for key in wanted} != wanted or plistlib.loads(plistlib.dumps(mac)) != mac:
+        failures.append(f"the macOS export does not name its profile and both certificates: {mac}")
 
     archive = Path("/archives/x.xcarchive")
     command = archive_command("ios", 10025, archive, Path("/derived"))
@@ -1062,7 +1098,7 @@ def selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 49 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 51 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

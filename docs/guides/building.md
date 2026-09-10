@@ -63,9 +63,15 @@ should.
   - Then **for iOS, then macOS**: a Release archive with `CURRENT_PROJECT_VERSION=N` on the command
     line; a check that every `.app` and `.appex` reads N and the project's version, because an app
     whose widget extension disagrees is refused at upload; and one authenticated `-exportArchive`
-    with `method=app-store-connect`, `destination=upload`, `signingStyle=automatic`,
-    `uploadSymbols=true` and **`manageAppVersionAndBuildNumber=false`** — its default is YES, and
-    Xcode would renumber the build on the way out. Apple's tools run with `/usr/bin` first on PATH.
+    with `method=app-store-connect`, `destination=upload`, `uploadSymbols=true` and
+    **`manageAppVersionAndBuildNumber=false`** — its default is YES, and Xcode would renumber the
+    build on the way out.
+    - **iOS signs automatically.** Its store profile on the agent machine lists the local
+      *Apple Distribution* certificate.
+    - **macOS signs manually.** The export names the profile `No Spoilers Mac App Store`, *Apple
+      Distribution*, and the *3rd Party Mac Developer Installer* identity. With only the App Manager
+      key, automatic signing looked for a cloud-managed certificate and was refused (`Ship #8` and
+      `#9`). Apple's tools run with `/usr/bin` first on PATH.
   - **It waits for Apple, bounded at an hour per platform**, and says so when an upload has not
     appeared after fifteen minutes, since a binary refused on arrival never appears and is explained
     by email. A 429, a 5xx or a dropped connection during the wait is one more poll; any other

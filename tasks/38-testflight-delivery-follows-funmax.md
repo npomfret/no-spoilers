@@ -423,6 +423,45 @@ around a missing local profile without inspecting the actual export error.
       - Run against this Mac's real temp directory, it kept `Ship #8`'s `NoSpoilers_` bundle with
         all seven logs. It skipped the older `NoSpoilersApp_` bundle from `Ship #7`.
       - Not yet observed on TeamCity.
+- **`Ship #9`, 2026-09-10 13:04–13:05 UTC, `macstudio-3`, `cb057f8`, `ship.platform = macos`,
+  `--archive-only`. Red at export again, one step further on.**
+  - The installer check passed, and the "No signing certificate 'Mac Installer Distribution'" error
+    is gone: the local certificate is found.
+  - The session was `key identifier: ASC6H3SL2D`, not an Xcode account. Xcode on this Mac lists no
+    signed-in account.
+  - **What remains is the `.app`:** "No profiles for 'pomocorp.NoSpoilers.NoSpoilersMac' were found".
+    To make one, Xcode asked only for `DISTRIBUTION_MANAGED` certificates and got the same
+    `FORBIDDEN_ERROR`. It never considered the local Apple Distribution `6E62FC93`.
+  - **No Mac App Store profile containing the local certificate exists anywhere.**
+    - This Mac holds iOS store profiles only. The ones for `NoSpoilersMac` and its widget are
+      Xcode-managed, created 2026-08-22, and list `6E62FC93` plus a cloud-managed `9CBBFDA9`. That
+      is why iOS exports here.
+    - The portal holds 292 profiles for this bundle id: 107 iOS store, 107 iOS ad hoc and 78 Mac
+      App Store.
+      - All are Xcode-managed, the newest from 2026-09-09, and none contains `6E62FC93`.
+      - The newest carry `C845EA64` and `06121E96`, which the certificates API does not list, so
+        they are cloud-managed.
+      - The count suggests a new profile per signing run.
+    - The team's non-managed certificates, from the API: Developer ID Application `A2E9AE25`, two
+      Development, Distribution `6E62FC93`, and Mac Installer Distribution `018FBCAB`.
+  - **Our artifact rule was wrong again.** `submit_build.py` kept the bundle (`kept
+    NoSpoilers_…xcdistributionlogs`), but `*.xcdistributionlogs` ends at a directory name and matched
+    no files, so only `record.json` was published. The rule now ends in `/**`.
+- **The remedy, approved by the owner on 2026-09-10: sign the macOS export manually.**
+  - `submit_build.py`'s macOS export now names the profile `No Spoilers Mac App Store`, *Apple
+    Distribution*, and *3rd Party Mac Developer Installer*, all held in `MAC_SIGNING`. iOS stays on
+    automatic signing.
+  - **The profile was created through the App Store Connect API**, with the App Manager key and the
+    owner's explicit approval.
+    - The call was `POST /v1/profiles` for bundle id `25U7WD3QJJ` (`pomocorp.NoSpoilers.NoSpoilersMac`,
+      `UNIVERSAL`) and certificate `J8N5X845S9`, which is `6E62FC93` alone.
+    - A read immediately before found no profile with that name.
+  - **Apple returned** profile `9AK39HG9U5`: `MAC_APP_STORE`, `ACTIVE`, platform `OSX`, UUID
+    `dac94353-…`, not Xcode-managed, expiring 2027-08-21 with its certificate. Its entitlements carry
+    `group.pomocorp.no-spoilers`.
+  - **So the key can create profiles;** only cloud-managed certificates are refused to it.
+  - **It still has to be installed** in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`
+    on this Mac. This session's sandbox cannot write there, so the owner copies it in.
 
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
@@ -489,6 +528,14 @@ around a missing local profile without inspecting the actual export error.
            Distribution.
          - The login keychain changed at 13:57:02.
          - `ci-publish.sh`'s presence check is back, with that exact name.
+         - **The owner set the login keychain's partition list** in their own Terminal:
+           `security set-key-partition-list -S apple-tool:,apple: -s <login keychain>`, prompting
+           for the password.
+           - The first attempt was refused, "The user name or passphrase you entered is not
+             correct", because the placeholder had been typed literally. Nothing changed then.
+           - The prompted second attempt succeeded.
+           - The partition list cannot be read back from an agent session without the password.
+             The next macOS export proves it: a missing entry would hang rather than fail.
        - The key's partition list is set, so an agent's non-interactive session can use it without a
          hidden keychain prompt.
        - The exact identity name is read back before the presence check is reinstated.

@@ -266,10 +266,12 @@ val ship = BuildType {
     // answer when signing or an upload is refused. Xcode writes those logs to the
     // per-user temp directory and ignores TMPDIR, so `submit_build.py` copies them
     // into the run's directory; a rule on the build temp directory itself matched
-    // nothing on Ship #8, the one run that needed it.
+    // nothing on Ship #8, the one run that needed it. The trailing `/**` matters:
+    // a bundle is a directory, and a wildcard that ends at a directory name
+    // matches no files, which is how Ship #9 kept the bundle and published none.
     artifactRules = """
         %system.teamcity.build.tempDir%/no-spoilers-ship/*/record.json => ship
-        %system.teamcity.build.tempDir%/no-spoilers-ship/*/*.xcdistributionlogs => ship/distribution-logs
+        %system.teamcity.build.tempDir%/no-spoilers-ship/*/*.xcdistributionlogs/** => ship/distribution-logs
     """.trimIndent()
 
     // `reuseBuilds = SUCCESSFUL` rather than `NO`: the point is to ship a
