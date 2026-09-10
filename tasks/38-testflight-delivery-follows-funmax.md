@@ -1,6 +1,9 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: OPEN. Raised 2026-09-10. Investigation complete; implementation has not started.**
+**Status: IN PROGRESS. Raised 2026-09-10. The Apple engine, the Homebrew separation and the new
+`Ship` step are on `main` (`101e61c`, `03adbbe`, `6e0c2df`); nothing has yet archived, uploaded or
+delivered through them. Blocked on the Mac Installer Distribution identity for macOS; iOS can be
+proved first. See *Progress*.**
 
 Make No Spoilers use the proven Super Funmax Music deployment pattern on the shared
 TeamCity agents: verify a commit, archive that exact commit, upload it, wait for Apple
@@ -232,7 +235,7 @@ around a missing local profile without inspecting the actual export error.
   page each, so paging was preventive. Dry runs against build 10024 read correctly on both platforms.
 - `03adbbe`: `scripts/submit_build.py`, the Apple engine. Dry run on a clean tree: 1.1.4, build 10025,
   both trains open. `Verify #102` green at `03adbbe`.
-- Uncommitted at the time of writing: `scripts/open-version.sh`; `ci-publish.sh` split into Apple and
+- `6e0c2df`: `scripts/open-version.sh`; `ci-publish.sh` split into Apple and
   `--platform homebrew`; `release.sh` reduced to Developer ID, releasing the committed version and
   reserving `build/N` before archiving; `ship.sh`, `ship-ios.sh`, `ship-appstore.sh`,
   `ExportOptions-AppStore.plist` and `version_to_ship` removed; `Ship` running `ci-publish.sh
@@ -249,6 +252,28 @@ around a missing local profile without inspecting the actual export error.
   installer identity. Nothing was imported.
 - `scripts/teamcity.py`'s ssh is sometimes refused by this session's sandbox; the TeamCity token is
   deliberately not read outside the shared CLI.
+- **`Ship` still carries no `uuid` in the DSL**, as before. Its real uuid could not be read (the
+  sandbox refusal above), and the five `settings.kts` commits all predate Ship's first run, so Ship
+  was created by the DSL and its id has not changed since. Confirm after the `6e0c2df` sync that
+  Ship's history (#1–#4) survived.
+- `.teamcity/cli.json` now reports `Ship` and `TestFlight` (`status` showed both after the change).
+  The shared CLI still does not resolve here without `TEAMCITY_CLI`, so that checklist item stays
+  open.
+- **Not yet observed, as of the push of `6e0c2df`**: TeamCity had synced neither the new `Ship`
+  settings nor run `Verify` on that revision.
+
+**Next, in order**
+
+1. Confirm the `6e0c2df` settings sync and a green `Verify` on it.
+2. Press `Ship` with `ship.args = --check`: proves this agent session signs, then dry-runs
+   `submit_build.py` against App Store Connect. Expect the installer identity as the one gap on `all`.
+3. With explicit owner approval, press `Ship` with `ship.platform = ios`: the first real delivery.
+   Check the record artifact, App Store Connect, the note and Internal membership.
+4. Import the Mac Installer Distribution identity (with its private key) for `nickpomfret`; press
+   `ship.platform = macos` with `--archive-only` to prove the package signature and establish
+   whether a macOS App Store profile has to be supplied; then a real macOS delivery.
+5. Add the `finishBuildTrigger` on `Verify` (nightly included), then the composite `Verify`,
+   Release compilation and test reporting.
 
 **Acceptance criteria**
 
