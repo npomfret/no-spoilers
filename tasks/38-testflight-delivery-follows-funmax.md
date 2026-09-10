@@ -1,9 +1,14 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS. Raised 2026-09-10. The Apple engine, the Homebrew separation and the new
-`Ship` step are on `main` (`101e61c`, `03adbbe`, `6e0c2df`); nothing has yet archived, uploaded or
-delivered through them. Blocked on the Mac Installer Distribution identity for macOS; iOS can be
-proved first. See *Progress*.**
+**Status: IN PROGRESS. Raised 2026-09-10.**
+- **On `main` (`101e61c` to `bc0c742`):** the Apple engine, the Homebrew separation, the new `Ship`
+  step, and the fixes from a review of them.
+- **Proven on TeamCity:** `Ship #6` passed an iOS `--check` on `macstudio-3` and planned build 10025.
+- **Not yet done:** nothing has archived, uploaded or delivered through the new path.
+- **Next:** the first real iOS delivery, which waits on the owner's approval.
+- **Blocked:** macOS, on the Mac Installer Distribution identity.
+
+See *Progress*, *Learned while driving TeamCity* and *Next, in order*.
 
 Make No Spoilers use the proven Super Funmax Music deployment pattern on the shared
 TeamCity agents: verify a commit, archive that exact commit, upload it, wait for Apple
@@ -183,9 +188,10 @@ around a missing local profile without inspecting the actual export error.
 - Every provisioning profile on this machine is iOS; **there is no macOS App Store profile**.
 - `build/10024` was tagged by `npomfret`; this machine's git user is `nick pomfret`, so the
   1.1.4 three-channel ship came from the laptop.
-- `scripts/teamcity.py` does not resolve the plugin here (the cause of Funmax's red
+- `scripts/teamcity.py` did not resolve the plugin here (the cause of Funmax's red
   selftest); `TEAMCITY_CLI=~/projects/agent-standards/plugins/teamcity/scripts/teamcity.py`
-  works. An agent session's sandbox cannot run `xcodebuild`, so signing is proved by builds.
+  worked. *Superseded later that day: see "How the shared CLI resolves here" under Progress.*
+- An agent session's sandbox cannot run `xcodebuild`, so signing is proved by builds.
 
 **Implementation plan**
 
@@ -254,12 +260,13 @@ around a missing local profile without inspecting the actual export error.
   version other than the commit's and a missing tap. All six Python selftest suites green.
 - **Blocked on the owner**: the laptop export was `Apple Distribution` and `Apple Development`, not the
   installer identity. Nothing was imported.
-- `scripts/teamcity.py`'s ssh is sometimes refused by this session's sandbox; the TeamCity token is
-  deliberately not read outside the shared CLI.
+- `scripts/teamcity.py`'s ssh was refused by this session's sandbox. Why, and the fix, are under
+  "How the shared CLI resolves here" below. The TeamCity token is deliberately not read outside the
+  shared CLI.
 - **`Ship` still carries no `uuid` in the DSL**, as before. Its real uuid could not be read (the
   sandbox refusal above), and the five `settings.kts` commits all predate Ship's first run, so Ship
-  was created by the DSL and its id has not changed since. Confirm after the `6e0c2df` sync that
-  Ship's history (#1–#4) survived.
+  was created by the DSL and its id has not changed since. Confirmed after the sync: Ship's history
+  (#1–#4) survived.
 - `.teamcity/cli.json` now reports `Ship` and `TestFlight` (`status` showed both after the change).
 - **How the shared CLI resolves here.** The watchers for the `6e0c2df` sync and its `Verify` ended
   without an answer: the sandbox refused ssh on every poll. The cause was two things together:
@@ -331,6 +338,45 @@ around a missing local profile without inspecting the actual export error.
     comes from the shared number ledger, a design choice. It is recorded here, not changed.
   - **A lesson for agent-standards:** Funmax's `Ship` has the same timeout gap, 90 minutes around
     the same 40/40/60 limits for one platform.
+- **`bc0c742`: the `--check` dry run now gets the arguments the real run gets.** This fixes the fault
+  `Ship #6` exposed.
+  - `ci-publish.sh` forwards `--tested`, and anything else it is given, to the dry run as well as to
+    the real run.
+  - `submit_build.py` now describes an `--archive-only` dry run rather than refusing one without
+    `--apply`. `dry_run_plan` builds that description from the flags.
+  - **Evidence:**
+    - All six selftest suites green, 259 cases (`submit_build` 47).
+    - With `--tested` ignored in memory, the new case fails.
+    - Local dry runs on `bc0c742`. `--platform ios --tested` said "would reserve build 10025 … for
+      ios", naming no test gate. `--platform macos --tested --archive-only` said "would stamp build
+      10025 without reserving it … uploading nothing".
+    - Origin's newest tag was still `build/10024` afterwards.
+  - **Not yet observed:** `Verify` on `bc0c742`. TeamCity polls the repository, and minutes after the
+    push it had not started.
+
+**Learned while driving TeamCity from an agent session, 2026-09-10**
+
+- **The sandbox exclusion matches only the plain command.**
+  - Reaches the server: `python3 scripts/teamcity.py …`, including when piped into `head`.
+  - Stays sandboxed, with ssh refused: the same command after a `TEAMCITY_CLI=` prefix, inside a
+    shell loop, or inside `$(…)`.
+  - So an agent session cannot poll TeamCity in the background. The owner says when a build has
+    finished, and the agent reads it then.
+  - Stretching the exclusion to run a loop unsandboxed was deliberately not done.
+- **Some requests fail with "It said nothing at all, on either stream. ssh never reached the
+  server."** This is not the sandbox refusal, whose message names the local machine. It happened
+  three times; the two retried both succeeded at once.
+- **`Ship` pins the tip of `main` when pressed.** A commit touching only `tasks/`, `.claude/` or
+  `.mcp.json` has no `Verify`, because those paths are outside its trigger rules. Pressing `Ship` on
+  such a commit queues a full `Verify` chain first, as `Ship #5` and `#6` both did. Avoid task-only
+  pushes just before a press, or expect the wait.
+- **`--check` stops after reporting its gaps, before the dry run.** On `all`, the missing installer
+  identity means App Store Connect is never asked. Until the identity exists, `ship.platform = ios`
+  is the way to reach the dry run.
+- **A local `submit_build.py` dry run refuses a commit that is not on `origin/main`.** Push before
+  dry-running a fix.
+- **Both presses so far ran on `macstudio-3`.** Nothing yet decides which agent a press gets, and
+  `macstudio-1` and `-2` are unproven for signing.
 
 **Next, in order**
 
@@ -338,9 +384,14 @@ around a missing local profile without inspecting the actual export error.
    `#104`, and `Ship`'s live settings match `cd64e4b`.
 2. ~~Press `Ship` with `ship.args = --check`~~ Done as `Ship #5`: on `all` the installer identity
    was the one gap, so the dry run never started. The iOS `--check` that followed is `Ship #6`: green,
-   and it planned build 10025. It also exposed the dropped `--tested`, now forwarded to the dry run.
-3. With explicit owner approval, press `Ship` with `ship.platform = ios`: the first real delivery.
-   Check the record artifact, App Store Connect, the note and Internal membership.
+   and it planned build 10025. It also exposed the dropped `--tested`, fixed in `bc0c742`.
+3. **With explicit owner approval, press `Ship` with `ship.platform = ios` and `ship.args` empty.**
+   This is the first real delivery.
+   - Once `Verify` is green on the tip of `main`, it reserves `build/10025` (or the next free number)
+     and archives that commit.
+   - It uploads, waits up to an hour for Apple, and delivers to the internal testers.
+   - Afterwards, read the log, the `ship/record.json` artifact, App Store Connect, and Internal
+     membership. Check the note's `Build N from <sha>` line names the pressed commit.
 4. Import the Mac Installer Distribution identity (with its private key) for `nickpomfret`; press
    `ship.platform = macos` with `--archive-only` to prove the package signature and establish
    whether a macOS App Store profile has to be supplied; then a real macOS delivery.
