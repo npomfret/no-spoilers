@@ -5,7 +5,8 @@
     "allow": [
       "Bash(*)",
       "WebSearch",
-      "WebFetch"
+      "WebFetch",
+      "mcp__gitnexus"
     ],
     "deny": [
       "Read(~/.appstoreconnect/private_keys/**)",
@@ -46,6 +47,7 @@
         "~/.cache",
         "~/Library/Caches",
         "~/Library/Developer/Xcode/DerivedData",
+        "~/.gitnexus",
         "/var/folders"
       ],
       "allowRead": [
@@ -62,5 +64,8 @@
   "enabledPlugins": {
     "task-files@npomfret": true,
     "teamcity@npomfret": true
-  }
+  },
+  "enabledMcpjsonServers": [
+    "gitnexus"
+  ]
 }
