@@ -84,6 +84,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -448,6 +449,41 @@ def await_processing(platform: str, version: str, number: int) -> tuple[bool, st
         time.sleep(POLL_SECONDS)
 
 
+def distribution_logs(temp: Path, scheme: str, since: float) -> list[Path]:
+    """This export's log bundles in `temp`: named for its scheme, and written since it began.
+
+    Xcode names a bundle `<scheme>_<local time>.xcdistributionlogs`, so `NoSpoilers_` is the Mac
+    export's and `NoSpoilersApp_` the iOS one's; the underscore keeps the first from matching the
+    second. The directory holds every export this user has run, FunMax's included.
+    """
+    return sorted(
+        path
+        for path in temp.glob(f"{scheme}_*.xcdistributionlogs")
+        if path.is_dir() and path.stat().st_mtime >= since
+    )
+
+
+def keep_distribution_logs(scheme: str, since: float, work: Path) -> None:
+    """Copy this export's log bundles beside the record, where `Ship` publishes them.
+
+    **Xcode writes them to the per-user temp directory and ignores `TMPDIR`**, so a rule on the
+    build's temp directory published nothing on Ship #8, the run whose one useful output was Apple's
+    refusal inside such a bundle. Losing them costs a diagnosis rather than a delivery, so a failure
+    to copy is said and the run goes on.
+    """
+    try:
+        temp = Path(
+            subprocess.run(
+                ["getconf", "DARWIN_USER_TEMP_DIR"], capture_output=True, text=True, check=True
+            ).stdout.strip()
+        )
+        for bundle in distribution_logs(temp, scheme, since):
+            shutil.copytree(bundle, work / bundle.name, dirs_exist_ok=True)
+            print(f"  kept {bundle.name} for the run's artifacts")
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"  could not keep the export's distribution logs: {first_line(error)}", file=sys.stderr)
+
+
 def step(command: list[str], limit: float) -> int:
     """Run one Apple tool with its output streaming into the log, bounded."""
     try:
@@ -567,11 +603,16 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         output = work / f"{platform}-export"
         verb = "exporting" if archive_only else "exporting and uploading"
         print(f"\n==> {platform}: {verb} — limit {EXPORT_LIMIT / 60:.0f}m")
-        if step(export_command(archive, options, output), EXPORT_LIMIT):
+        # A second early, so a bundle Xcode creates in the second the export starts still counts.
+        export_started = time.time() - 1
+        export_failed = step(export_command(archive, options, output), EXPORT_LIMIT)
+        keep_distribution_logs(scheme, export_started, work)
+        if export_failed:
             return failed(
                 "export",
                 "xcodebuild -exportArchive failed. It prints a digest; Apple's verbatim answer is in "
-                "IDEDistributionProvisioning.log inside the .xcdistributionlogs bundle its first lines name",
+                "IDEDistributionProvisioning.log inside the .xcdistributionlogs bundle kept beside this "
+                "record (the ship/distribution-logs artifact on Ship)",
                 recovery_for("archived", platform, number, archive_only),
             )
 
@@ -876,9 +917,34 @@ def selftest() -> int:
     # The review's case, 2026-09-10: iOS uploaded, then an App Store Connect
     # error. A 503 is ridden out; a 403 is recorded against processing with the
     # recovery, and returned rather than raised, so macOS still runs.
-    patched = {name: globals()[name] for name in ("processing_state", "step", "bundle_problems", "POLL_SECONDS")}
+    # The export's log bundles, from a directory that holds every export this user ever ran: this
+    # scheme's, from this export, and nobody else's. Ship #8's were published by no rule at all.
+    with tempfile.TemporaryDirectory() as scratch:
+        temp = Path(scratch)
+        for name, age in (
+            ("NoSpoilers_now", 0),
+            ("NoSpoilers_last_week", 7 * 86400),
+            ("NoSpoilersApp_now", 0),
+            ("SuperFunMaxMusic_now", 0),
+        ):
+            bundle = temp / f"{name}.xcdistributionlogs"
+            bundle.mkdir()
+            stamp = time.time() - age
+            os.utime(bundle, (stamp, stamp))
+        mac = [path.name for path in distribution_logs(temp, "NoSpoilers", time.time() - 60)]
+        if mac != ["NoSpoilers_now.xcdistributionlogs"]:
+            failures.append(f"the Mac export kept another export's log bundles, or lost its own: {mac}")
+        ios = [path.name for path in distribution_logs(temp, "NoSpoilersApp", time.time() - 60)]
+        if ios != ["NoSpoilersApp_now.xcdistributionlogs"]:
+            failures.append(f"the iOS export kept another export's log bundles, or lost its own: {ios}")
+
+    patched = {
+        name: globals()[name]
+        for name in ("processing_state", "step", "bundle_problems", "keep_distribution_logs", "POLL_SECONDS")
+    }
     try:
         globals()["POLL_SECONDS"] = 0.0
+        globals()["keep_distribution_logs"] = lambda *_: None
         answers: list = [asc.Refused("GET", "/v1/builds", 503, "Service Unavailable"), (True, "READY_FOR_BETA_TESTING")]
 
         def scripted(*_):
@@ -996,7 +1062,7 @@ def selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 47 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 49 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

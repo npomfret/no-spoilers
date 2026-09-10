@@ -388,6 +388,41 @@ around a missing local profile without inspecting the actual export error.
   - **Not yet proven on an agent.** The agents have no Xcode account, so cloud signing there depends
     on the App Manager key being allowed to use cloud-managed certificates. A macOS `--archive-only`
     press would prove or disprove it without uploading anything, once that check stops refusing it.
+- **`Ship #8`, 2026-09-10 11:29–11:30 UTC, `macstudio-3`, `b80effd`, `ship.platform = macos`,
+  `--archive-only`. Red at export: this agent cannot cloud-sign.**
+  - The archive succeeded in 21 seconds, stamping 10026 without reserving it.
+  - `-exportArchive` failed with four errors: "Cloud signing permission error" (twice), "No signing
+    certificate 'Mac Installer Distribution' found", and "No profiles for
+    'pomocorp.NoSpoilers.NoSpoilersMac' were found".
+  - **Apple's verbatim answer**, from `IDEDistributionProvisioning.log`, was `FORBIDDEN_ERROR`: "You
+    haven't been given access to cloud-managed distribution certificates. Please contact your team's
+    Account Holder or an Admin to give you access."
+    - It came back for key `ASC6H3SL2D` on both `MAC_INSTALLER_DISTRIBUTION_MANAGED` (the `.pkg`)
+      and `DISTRIBUTION_MANAGED` (the `.app`).
+    - Nothing followed the second refusal, so no profile creation was attempted. The missing profile
+      follows from the certificate refusal, and whether this key can create a Mac App Store profile
+      is still unknown.
+  - **The laptop's cloud signing presumably used its Xcode account, the Account Holder;** the agents
+    have only the key. That is inferred, not read.
+  - **The record was right:** `stage: archived`, `failed: export`, `recovery: null`,
+    `reserved: null`.
+  - **A fault of ours, found here: the `.xcdistributionlogs` bundle was not published.**
+    - Xcode writes it to `getconf DARWIN_USER_TEMP_DIR` (`/var/folders/…/T/`) and ignores `TMPDIR`,
+      so the artifact rule on the build temp directory matched nothing.
+    - The bundle was read directly on this Mac, where the agents run.
+    - Funmax's `submit_build.py` does not capture these bundles either; its old ones sit in the same
+      directory.
+    - **Fixed the same day.** After every export, whether it passed or failed,
+      `submit_build.py: keep_distribution_logs` copies that export's bundles into the run's
+      directory. It selects them by `<scheme>_` prefix and by time, and `Ship`'s artifact rule now
+      reads `no-spoilers-ship/*/*.xcdistributionlogs`. A failure to copy is reported and does not
+      fail the run.
+    - **Evidence:**
+      - All six selftest suites green, 261 cases (`submit_build` 49). Two new cases cover choosing
+        this scheme's bundles from this export only, and both fail when the prefix is ignored.
+      - Run against this Mac's real temp directory, it kept `Ship #8`'s `NoSpoilers_` bundle with
+        all seven logs. It skipped the older `NoSpoilersApp_` bundle from `Ship #7`.
+      - Not yet observed on TeamCity.
 
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
@@ -439,12 +474,23 @@ around a missing local profile without inspecting the actual export error.
      the owner's agreement on 2026-09-10. `ci-publish.sh` asserts no installer identity for any
      platform. The building guide, README, important-code and `submit_build.py`'s docstring now
      say why.
-   - Then press `Ship` with `ship.platform = macos` and `ship.args = --archive-only`. That signs and
-     packages on an agent and uploads nothing.
-   - If cloud signing is refused, the `.xcdistributionlogs` artifact holds Apple's answer. The
-     remedies would then be a Mac Installer Distribution certificate created in the developer
-     portal, or a key allowed cloud-managed certificates.
-   - Then a real macOS delivery.
+   - ~~Then press `Ship` with `ship.platform = macos` and `ship.args = --archive-only`.~~ Done as
+     `Ship #8`. Apple refused this key cloud-managed certificates, for both the `.pkg` and the `.app`.
+   - **The owner decides between two remedies:**
+     - **Recommended: a Mac Installer Distribution certificate held locally.**
+       - Create it in the laptop's Xcode (Settings → Accounts → Manage Certificates → + → Mac
+         Installer Distribution), export it with its private key, and import it into
+         `nickpomfret`'s login keychain here.
+       - The key's access stays as it is.
+       - Then reinstate a presence check in `ci-publish.sh`, so a missing identity is named in
+         seconds.
+       - A Mac App Store profile for `pomocorp.NoSpoilers.NoSpoilersMac` may still be needed; the
+         next `--archive-only` will show.
+     - **Cloud-managed certificate access for the key the agents use**, granted by the Account Holder
+       or an Admin. No certificate file on any machine, but the agents would hold a key that can do
+       more.
+   - Then `--archive-only` again, with the log bundles now kept as artifacts, then a real macOS
+     delivery.
 5. Add the `finishBuildTrigger` on `Verify` (nightly included), then the composite `Verify`,
    Release compilation and test reporting.
 
