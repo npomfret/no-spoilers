@@ -83,7 +83,8 @@ should.
     names the commit the tag marks. A note naming the right number from another commit is rewritten,
     not accepted.
   - **It leaves a record**, `no-spoilers-ship/build-N/record.json` under the temporary directory (a
-    `Ship` artifact), naming the commit, the number and how far each platform got. **Whatever stops a
+    `Ship` artifact), naming the commit, the number, how far each platform got and, once Apple shows
+    the build, App Store Connect's id for it (`asc_build_id`). **Whatever stops a
     platform is recorded against the stage it was in, and the next platform still runs.** When an
     upload was accepted and the wait or delivery then failed, the record and the log name the recovery,
     `testflight_distribute.py --platform P --build N --apply`, which delivers that recorded build and
@@ -117,7 +118,9 @@ should.
 **`Ship` is TestFlight delivery.** One step, `scripts/ci-publish.sh --platform %ship.platform%
 --tested %ship.args%`. `ship.platform` is `all` by default — iOS then macOS under one number — or
 `ios` or `macos`; `ship.args` takes `--check` or `--archive-only`, and both go back to their defaults
-after a custom run. It takes the **write** lock on `no-spoilers-xcode`, where the two Xcode
+after a custom run. It never takes `--apply`: `ci-publish.sh` adds that to a real run itself and
+refuses one passed in, before any assertion, since under `--check` it would turn the dry run into a
+release. It takes the **write** lock on `no-spoilers-xcode`, where the two Xcode
 verification legs take read locks; it has a snapshot dependency on `Verify` with
 `reuseBuilds = SUCCESSFUL`, which is what makes `--tested` true; one run at a time; 360 minutes,
 above `submit_build.py`'s own worst case of 330 so that the script and not TeamCity ends a slow run

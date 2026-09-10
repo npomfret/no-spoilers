@@ -320,7 +320,7 @@ class Client:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             detail = error.read().decode(errors="replace")[:400]
-            raise SystemExit(f"GET {path} -> HTTP {error.code}\n{detail}")
+            raise Refused("GET", path, error.code, detail)
 
 
 # The marks this product may not use, and the one place it must.
@@ -2165,9 +2165,31 @@ def _selftest() -> int:
     if "pending" in rendered:
         failures.append("a listing with no pending edit should not mention one")
 
+    # An HTTP error from a read carries its status, so a caller can tell Apple being briefly
+    # unavailable from Apple saying no. Until 2026-09-10 only the writer's did, and
+    # `submit_build.py`'s wait, which retries a 503, asked once and stopped.
+    import io
+
+    opened = urllib.request.urlopen
+    reader = Client.__new__(Client)
+    reader.bearer = "selftest"
+
+    def unavailable(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 503, "Service Unavailable", None, io.BytesIO(b"busy"))
+
+    try:
+        urllib.request.urlopen = unavailable
+        reader.get("/v1/builds")
+        failures.append("a read answered with HTTP 503 returned instead of refusing")
+    except SystemExit as error:
+        if not isinstance(error, Refused) or error.status != 503:
+            failures.append(f"a read's HTTP 503 was raised without its status: {error!r}")
+    finally:
+        urllib.request.urlopen = opened
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 123 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 124 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

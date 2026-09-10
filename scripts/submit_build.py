@@ -421,8 +421,8 @@ def first_line(error: BaseException) -> str:
     return (str(error).strip().splitlines() or [type(error).__name__])[0]
 
 
-def processing_state(platform: str, version: str, number: int) -> tuple[bool, str | None]:
-    """One look: whether App Store Connect shows this build, and its internal state.
+def processing_state(platform: str, version: str, number: int) -> tuple[str | None, str | None]:
+    """One look: App Store Connect's id for this build once it shows it, and its internal state.
 
     A fresh client every look: a token lives twenty minutes and the wait can
     last an hour.
@@ -431,26 +431,31 @@ def processing_state(platform: str, version: str, number: int) -> tuple[bool, st
     app_id = asc.find_app(client.get)["id"]
     build = uploaded_build(client.get, app_id, platform, version, number)
     if build is None:
-        return False, None
-    return True, client.get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]["internalBuildState"]
+        return None, None
+    return build["id"], client.get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]["internalBuildState"]
 
 
-def await_processing(platform: str, version: str, number: int) -> tuple[bool, str]:
+def await_processing(platform: str, version: str, number: int) -> tuple[bool, str, str | None]:
     """Poll until Apple has an answer for this exact build, or the ceiling passes.
+
+    Returns whether it is ready, its state or why not, and App Store Connect's
+    id for the build if it was ever seen.
 
     **A read that fails transiently is one more poll, not the end of the run.**
     The wait begins after the upload was accepted, and until 2026-09-10 a 503
     here escaped as a `SystemExit` and took the rest of the run with it — the
     other platform included — leaving a record that said `uploaded` and
-    nothing more. What `transient` refuses still escapes, and `ship_platform`
-    records it with the recovery command.
+    nothing more. The first fix caught `asc.Refused` while `asc.Client.get`
+    still raised a plain `SystemExit`, so a real 503 was asked once; the
+    selftest now goes through that client. What `transient` refuses still
+    escapes, and `ship_platform` records it with the recovery command.
     """
     started = time.monotonic()
     doubted = False
-    visible, state = False, None
+    build_id, state = None, None
     while True:
         try:
-            visible, state = processing_state(platform, version, number)
+            build_id, state = processing_state(platform, version, number)
             verdict, reason = wait_verdict(state)
         except (asc.Refused, OSError) as error:
             if not transient(error):
@@ -460,14 +465,14 @@ def await_processing(platform: str, version: str, number: int) -> tuple[bool, st
         print(f"  [{elapsed / 60:5.1f}m / {PROCESSING_CEILING / 60:.0f}m] {platform} {number}: {reason}")
         if verdict == "ready":
             print(f"  Apple took {elapsed / 60:.1f} minutes ({EXPECTED_WAIT})")
-            return True, state
+            return True, state, build_id
         if verdict == "stop":
-            return False, f"{state}: {reason}"
-        if not doubted and (doubt := ingest_doubt(elapsed, visible)):
+            return False, f"{state}: {reason}", build_id
+        if not doubted and (doubt := ingest_doubt(elapsed, build_id is not None)):
             print(f"  {doubt}")
             doubted = True
         if elapsed >= PROCESSING_CEILING:
-            return False, f"still {state or 'not visible'} after {PROCESSING_CEILING / 60:.0f} minutes"
+            return False, f"still {state or 'not visible'} after {PROCESSING_CEILING / 60:.0f} minutes", build_id
         time.sleep(POLL_SECONDS)
 
 
@@ -649,7 +654,10 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
 
         reached("uploaded")
         print(f"\n==> {platform}: waiting for Apple to process build {number} — {EXPECTED_WAIT}")
-        ready, state = await_processing(platform, version, number)
+        ready, state, build_id = await_processing(platform, version, number)
+        # Kept whether or not it is ready: it is the name App Store Connect's own API and pages use.
+        if build_id is not None:
+            entry["asc_build_id"] = build_id
         if not ready:
             return failed("processing", state, recovery_command(platform, number))
         reached("processed", processing=state)
@@ -796,7 +804,8 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
 
 
 def arguments() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    # No abbreviations: `--app` would otherwise be `--apply`, past `ci-publish.sh`'s refusal of it.
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0], allow_abbrev=False)
     parser.add_argument(
         "--platform",
         required=True,
@@ -934,6 +943,7 @@ def selftest() -> int:
     import contextlib
     import io
     import urllib.error
+    import urllib.request
 
     def muted(call):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
@@ -974,48 +984,72 @@ def selftest() -> int:
         if ios != ["NoSpoilersApp_now.xcdistributionlogs"]:
             failures.append(f"the iOS export kept another export's log bundles, or lost its own: {ios}")
 
-    patched = {
-        name: globals()[name]
-        for name in ("processing_state", "step", "bundle_problems", "keep_distribution_logs", "POLL_SECONDS")
-    }
+    # **Through the real `asc.Client`, with only the network and the key
+    # replaced.** The second review, 2026-09-10: the wait caught `asc.Refused`
+    # while the client still raised a plain `SystemExit`, and this selftest
+    # scripted `processing_state` itself, so it passed a retry no real 503 got.
+    def apple(*refusals: int, state: str = "READY_FOR_BETA_TESTING"):
+        pending = list(refusals)
+        asked: list[str] = []
+
+        def urlopen(request, timeout):
+            url = request.full_url
+            asked.append(url)
+            if pending:
+                raise urllib.error.HTTPError(url, pending.pop(0), "refused", None, io.BytesIO(b"{}"))
+            if url.endswith("/buildBetaDetail"):
+                body = {"data": {"attributes": {"internalBuildState": state}}}
+            elif "/v1/apps?" in url:
+                body = {"data": [{"id": "app", "attributes": {"bundleId": asc.BUNDLE_ID}}]}
+            else:
+                body = {"data": [{"id": "asc-10025", "attributes": {"version": "10025"}}]}
+            return io.BytesIO(json.dumps(body).encode())
+
+        return urlopen, asked
+
+    patched = {name: globals()[name] for name in ("step", "bundle_problems", "keep_distribution_logs", "POLL_SECONDS")}
+    network = (urllib.request.urlopen, asc.require_key, asc.token)
     try:
         globals()["POLL_SECONDS"] = 0.0
         globals()["keep_distribution_logs"] = lambda *_: None
-        answers: list = [asc.Refused("GET", "/v1/builds", 503, "Service Unavailable"), (True, "READY_FOR_BETA_TESTING")]
+        asc.require_key = lambda *_: None
+        asc.token = lambda *_: "selftest"
 
-        def scripted(*_):
-            answer = answers.pop(0)
-            if isinstance(answer, BaseException):
-                raise answer
-            return answer
-
-        globals()["processing_state"] = scripted
+        urllib.request.urlopen, asked = apple(503)
         try:
-            rode_it_out = muted(lambda: await_processing("ios", "1.1.4", 10025))[0] is True and not answers
-        except asc.Refused:
-            rode_it_out = False
-        if not rode_it_out:
-            failures.append("a 503 while waiting on Apple ended the wait instead of asking again")
+            waited = muted(lambda: await_processing("ios", "1.1.4", 10025))
+        except SystemExit as error:
+            waited = (False, first_line(error), None)
+        if waited[0] is not True or len(asked) < 2:
+            failures.append(f"a 503 from App Store Connect while waiting ended the wait instead of asking again: {waited}")
+        if waited[2] != "asc-10025":
+            failures.append(f"the wait did not return App Store Connect's id for the build: {waited}")
 
-        def forbidden(*_):
-            raise asc.Refused("GET", "/v1/builds", 403, "")
-
-        globals()["processing_state"] = forbidden
+        urllib.request.urlopen, asked = apple(403)
         try:
             muted(lambda: await_processing("ios", "1.1.4", 10025))
-            failures.append("a 403 while waiting on Apple was not allowed to end the wait")
-        except asc.Refused:
-            pass
+            failures.append("a 403 from App Store Connect while waiting was asked again instead of ending the wait")
+        except SystemExit as error:
+            if not isinstance(error, asc.Refused) or error.status != 403 or len(asked) != 1:
+                failures.append(f"a 403 while waiting did not end the wait as a Refused 403 on the first ask: {error!r}")
 
         globals()["step"] = lambda command, limit: 0
         globals()["bundle_problems"] = lambda *_: []
         with tempfile.TemporaryDirectory() as scratch:
+            urllib.request.urlopen, _ = apple(403)
             entry = {"version": "1.1.4", "stage": "started"}
             shipped = muted(lambda: ship_platform("ios", "1.1.4", 10025, Path(scratch), entry, lambda: None, False))
             if shipped is not False or entry.get("failed") != "processing":
                 failures.append(f"an App Store Connect error after the upload escaped or was misplaced: {entry}")
             if entry.get("recovery") != recovery_command("ios", 10025):
                 failures.append("an upload stranded by an App Store Connect error names no recovery")
+
+            # A build Apple shows and then stops on: the record names it as App Store Connect does.
+            urllib.request.urlopen, _ = apple(state="SELFTEST_UNSEEN_STATE")
+            entry = {"version": "1.1.4", "stage": "started"}
+            muted(lambda: ship_platform("ios", "1.1.4", 10025, Path(scratch), entry, lambda: None, False))
+            if entry.get("failed") != "processing" or entry.get("asc_build_id") != "asc-10025":
+                failures.append(f"the record does not carry App Store Connect's id for a build it saw: {entry}")
 
             def unreadable(*_):
                 raise FileNotFoundError("Info.plist")
@@ -1027,6 +1061,7 @@ def selftest() -> int:
                 failures.append(f"a crash before anything was uploaded was not recorded as one: {entry}")
     finally:
         globals().update(patched)
+        urllib.request.urlopen, asc.require_key, asc.token = network
 
     # The reservation, against a throwaway origin and two clones of it, as one
     # person in one second — the race the review reproduced. The premise is
@@ -1096,9 +1131,29 @@ def selftest() -> int:
     if "reserve build" in archive_plan or "uploading nothing" not in archive_plan:
         failures.append(f"an --archive-only dry run describes a reservation or an upload: {archive_plan!r}")
 
+    # `--apply` belongs to the wrapper, and `--check --apply` was a release under a banner saying
+    # it changed nothing (the second review). Run from a lone copy with no keys under its HOME,
+    # so a regression finds no `submit_build.py` beside it rather than shipping anything.
+    with tempfile.TemporaryDirectory() as scratch:
+        lone = Path(scratch) / "scripts" / "ci-publish.sh"
+        lone.parent.mkdir()
+        shutil.copy2(SCRIPTS / "ci-publish.sh", lone)
+        for flags in (["--check", "--apply"], ["--apply"]):
+            said = subprocess.run(
+                [str(lone), "--platform", "ios", *flags],
+                capture_output=True, text=True, timeout=60, env={**os.environ, "HOME": scratch},
+            )
+            if said.returncode != 1 or "--apply is not an argument" not in said.stderr or "==> Asserting" in said.stdout:
+                failures.append(f"ci-publish.sh {' '.join(flags)} was not refused before its preflight")
+    try:
+        muted(lambda: arguments().parse_args(["--platform", "ios", "--app"]))
+        failures.append("submit_build.py read --app as --apply")
+    except SystemExit:
+        pass
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 51 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 55 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

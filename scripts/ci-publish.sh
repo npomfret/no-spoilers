@@ -28,7 +28,8 @@ set -euo pipefail
 #   scripts/ci-publish.sh --platform all --check           # assert the agent, then a dry run
 #   scripts/ci-publish.sh --platform homebrew 1.1.4        # the Developer ID channel
 #
-# Anything else after an Apple platform goes to `submit_build.py` unchanged;
+# Anything else after an Apple platform goes to `submit_build.py` unchanged,
+# except `--apply`, which is refused: this script adds it to a real run itself.
 # `--tested` belongs in the TeamCity step, beside the snapshot dependency on
 # `Verify` that makes it true, and nowhere else.
 #
@@ -77,12 +78,14 @@ PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
 HOMEBREW_TAP_REMOTE="git@github.com:npomfret/homebrew-tap.git"
 
 CHECK_ONLY=""
+APPLY_PASSED=""
 PLATFORM=""
 FORWARD=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --check) CHECK_ONLY="yes"; shift ;;
+    --apply) APPLY_PASSED="yes"; shift ;;
     --platform) PLATFORM="${2:-}"; shift 2 ;;
     *) FORWARD+=("$1"); shift ;;
   esac
@@ -93,6 +96,16 @@ fail() {
   echo "ci-publish: $1" >&2
   exit 1
 }
+
+# **`--apply` is this script's to add, and it never adds it under `--check`.**
+# Until 2026-09-10 a supplied `--apply` travelled with the other arguments to
+# `--check`'s dry run, so `--check --apply` would have reserved, uploaded and
+# delivered under a banner saying it changed nothing. Refused here, before a
+# single assertion. `submit_build.py` refuses abbreviations, so `--app` cannot
+# stand in for it.
+if [[ -n "$APPLY_PASSED" ]]; then
+  fail "--apply is not an argument here: a real run passes it to submit_build.py itself, and --check never does"
+fi
 
 # **A failed assertion stops the run, except under `--check`, which carries on.**
 # A real press wants the first gap: everything after it describes a machine that

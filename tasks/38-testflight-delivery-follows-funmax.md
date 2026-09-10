@@ -2,11 +2,13 @@
 
 **Status: IN PROGRESS. Raised 2026-09-10. Both platforms now deliver to TestFlight through `Ship`,
 pressed by hand. Unattended delivery is not switched on yet.**
-- **On `main` (`101e61c` to `7aa08c3`):**
+- **On `main` (from `101e61c`):**
   - the Apple engine, the Homebrew separation and the `Ship` step;
   - the fixes from a code review, and the `--check` fix;
   - capture of Xcode's distribution logs;
-  - macOS manual signing.
+  - macOS manual signing;
+  - the second review's fixes: `--check` can no longer release, a 503 while waiting is really
+    retried, and the record names App Store Connect's build id.
 - **Proven on TeamCity, iOS:** `Ship #7` delivered iOS 1.1.4 build 10025 from `4aa77e3` to
   `Internal` in about four and a half minutes, with a confirmed note.
 - **Proven on TeamCity, macOS:** `Ship #11` delivered macOS 1.1.4 build 10026 from `7aa08c3` to
@@ -232,9 +234,11 @@ around a missing local profile without inspecting the actual export error.
   record each platform separately. Existing `build/N` tags can include Homebrew history;
   resolve that namespace explicitly so separating flows introduces neither collisions
   nor an ongoing requirement to release both channels together.
-- [x] Record commit, marketing version, build number, platform, ASC build ID and stage
+- [ ] Record commit, marketing version, build number, platform, ASC build ID and stage
   results in a durable TeamCity release artifact. Support resuming upload/processing/
   distribution as appropriate, including a partial two-platform success.
+  *Unticked after the second review: the record had no ASC build ID. It now carries `asc_build_id`
+  per platform, covered by selftest. Tick once a real `Ship` record shows it.*
 - [x] Use the explicit Funmax export options, bounded waits and clear progress messages.
   Verify archive and exported/uploaded versions, including the iOS extension.
 - [x] Pass the exact build to notes/distribution and read back Internal membership.
@@ -523,6 +527,32 @@ around a missing local profile without inspecting the actual export error.
     succeeded.
   - **Follow-up:** that script has no retry of its own for network errors.
 
+**Second review, 2026-09-10 (`37e0ef0..df7eca7`)**
+
+- **Found sound:** the reservation, the note's commit check and the timeout. The reviewer
+  independently confirmed `Ship #11`'s record and the live 360-minute timeout.
+- **[P1] `--check` could release.** `bc0c742` forwarded every argument to `--check`'s dry run,
+  including a supplied `--apply`. So `ci-publish.sh --platform ios --check --apply` would have
+  reserved, uploaded and delivered under a banner saying it changed nothing. No `Ship` run passed
+  it. Now:
+  - `ci-publish.sh` refuses `--apply` before any assertion;
+  - `submit_build.py` refuses abbreviations, so `--app` cannot stand in for it.
+- **[P2] The processing retry never worked against Apple.** `await_processing` caught
+  `asc.Refused`, but `asc.Client.get` still raised a plain `SystemExit`, so a real 503 was asked
+  once. The earlier selftest scripted `processing_state` and never met the client, and this file's
+  claim that the client raised `Refused` was wrong: only `asc_write` did. Now both do. The selftest
+  goes through the real client, with only `urlopen` and the key replaced.
+- **The record lacked the ASC build id,** so its plan checkbox overstated. Each platform's entry
+  now carries `asc_build_id` once Apple shows the build, whatever the wait's outcome.
+- **Evidence:**
+  - All six suites pass, 268 cases.
+  - Each defect, put back in a scratch copy, fails its new cases: the old client fails 1 in
+    `appstore_status` and 3 in `submit_build`; forwarding `--apply` fails 2; allowing abbreviations
+    fails 1.
+  - While trying the first mutation in memory, `appstore_status.main()` ran by mistake and printed
+    the live read-only report. Nothing was written.
+- **The reviewer's condition for unattended delivery:** these fixes, then one combined `all` run.
+
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
 - **The sandbox exclusion matches only the plain command.**
@@ -583,12 +613,14 @@ around a missing local profile without inspecting the actual export error.
      installed, and the macOS export switched to manual signing (`fbdb260`).
    - **`Ship #10`** (`--archive-only`, green) proved the signing, and **`Ship #11`** delivered macOS
      build 10026 to `Internal`.
-5. **The owner reviews what has been done** (asked for on 2026-09-10).
-6. **With the owner's approval, turn on unattended delivery.**
-   - Add the `finishBuildTrigger` on `Verify`, the nightly included, as decided.
-   - Before that, one `ship.platform = all` press would prove the two-platform run under one number,
-     which nothing has exercised yet.
-7. The composite `Verify`, Release compilation and test reporting.
+5. ~~The owner reviews what has been done.~~ Done: the second review found two issues and an
+   overstated checkbox, all fixed (see *Second review*).
+6. **With the owner's approval, one `ship.platform = all` press.** The reviewer's condition for
+   unattended delivery. It proves the two-platform run under one number, which nothing has exercised
+   yet, and should show `asc_build_id` in both records.
+7. **With the owner's approval, turn on unattended delivery:** the `finishBuildTrigger` on `Verify`,
+   the nightly included, as decided.
+8. The composite `Verify`, Release compilation and test reporting.
 
 **Follow-ups, found along the way**
 
@@ -639,7 +671,8 @@ around a missing local profile without inspecting the actual export error.
   selects the recorded build, does not duplicate an accepted upload, and does not
   relabel some newer build with an older commit's notes.
   *Diagnostics were observed on `#8` and `#9` (records and logs). Recovery is covered by selftests
-  only.*
+  only. The second review found the retry during processing had never worked against the real
+  client; it is fixed and now tested through it.*
 - [x] Build selection/allocation handles pagination, expired builds and concurrent
   release attempts. Existing release provenance remains readable.
   *Paging and expired builds are in `appstore_status`. The same-second reservation race is reproduced
@@ -659,7 +692,7 @@ around a missing local profile without inspecting the actual export error.
   LaunchAgent configuration and distribution-profile metadata.
 - [x] Read live App Store Connect status for both apps.
 - [x] No Spoilers' five Python selftest suites passed: 196 cases total. *(That was at the
-  investigation. There are six suites and 261 cases at `fbdb260`.)*
+  investigation. There are six suites and 268 cases after the second review's fixes.)*
 - [x] Funmax's submit_build and testflight_distribute selftests passed.
 - [x] ~~No fresh archive, export, upload or device installation was performed by this
   investigation.~~ Superseded by the implementation. `Ship #7` and `#11` archived, exported and
