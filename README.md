@@ -147,17 +147,17 @@ including why they were separated, is *Continuous delivery* in `docs/guides/buil
 
 **TestFlight: `scripts/submit_build.py`.** It refuses a dirty tree, a commit not on `origin/main` and
 a version Apple has already approved; runs the Core tests; reserves the next build number as a
-`build/N` tag; and then, for iOS and then macOS, archives, uploads, waits for Apple and hands that
-exact build to the Internal testers with its *What to Test* note, reading both back.
+`build/N` tag; and then archives the one platform it was given, uploads, waits for Apple and hands
+that exact build to the Internal testers with its *What to Test* note, reading both back.
 
 ```bash
-scripts/submit_build.py --platform all                                # dry run: what would happen
-scripts/submit_build.py --platform all --apply                        # do it
+scripts/submit_build.py --platform ios                                # dry run: what would happen
+scripts/submit_build.py --platform ios --apply                        # do it
 scripts/submit_build.py --platform macos --apply --archive-only       # prove signing; upload nothing
 ```
 
-On TeamCity this is `Ship`, which runs `scripts/ci-publish.sh`: it asserts the agent can sign and
-push, then runs the same thing against the revision `Verify` passed. Submitting for App Review is
+On TeamCity this is `Ship iOS` and `Ship macOS`, each running `scripts/ci-publish.sh`: it asserts
+the agent can sign and push, then runs the same thing against the revision `Verify` passed. Submitting for App Review is
 still a person pressing Submit in App Store Connect.
 
 A run that uploaded a build and could not finish delivering it names the recovery in its log and its

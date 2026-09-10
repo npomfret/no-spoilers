@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Put this commit in front of the TestFlight testers: archive, upload, wait, deliver.
 
-The one Apple delivery path, for a person and for TeamCity's `Ship` alike, since
-2026-09-10. It is FunMax's `submit_build.py` in shape, and task 38 is why: that
-one has delivered unattended from the same agents for weeks, while
-`release.sh` never once got a TeamCity run as far as an archive.
+The one Apple delivery path, for a person and for TeamCity's `Ship iOS` and
+`Ship macOS` alike, since 2026-09-10. It is FunMax's `submit_build.py` in shape,
+and task 38 is why: that one has delivered unattended from the same agents for
+weeks, while `release.sh` never once got a TeamCity run as far as an archive.
+
+**One platform per run.** Each has its own TeamCity configuration, so a Mac
+signing failure never turns the iPhone light red and either re-runs alone. Until
+2026-09-10 an `all` run shipped both under one number; now one commit reaches
+the two platforms under two numbers, which Apple, the notes and the approval
+tags are all indifferent to.
 
 One run, in order:
 
@@ -12,7 +18,7 @@ One run, in order:
    because `xcodebuild archive` builds the tree, not the commit; a commit
    `origin/main` does not contain is refused because the `build/N` tag has to
    mark something everyone can reach.
-2. **Refuse a closed train**, per platform. Once Apple has approved a version
+2. **Refuse a closed train.** Once Apple has approved a version
    every further upload of it is refused after the archive, so the refusal
    comes first and names the commands that open the next one. **This never
    commits, rebases or pushes a branch.** A version is opened by a commit that
@@ -31,7 +37,7 @@ One run, in order:
    and origin is read back, because identical tag objects both push — see
    `claim`. A reserved number that never reaches Apple is harmless; an upload
    nothing records is not.
-5. **For each platform, iOS first**: archive with `CURRENT_PROJECT_VERSION=N`,
+5. **Archive** with `CURRENT_PROJECT_VERSION=N`,
    check every bundle in the archive reads that number and the project's
    version, then export and upload in one authenticated `-exportArchive`.
    `manageAppVersionAndBuildNumber` is false, or Xcode renumbers the build on
@@ -42,19 +48,18 @@ One run, in order:
    reads both back. Never "the newest" — a build uploaded meanwhile from
    elsewhere must not receive this commit's note.
 
-One platform failing does not stop the other, however it fails: `ship_platform`
-records anything short of an interrupt against the stage it happened in, and an
-App Store Connect 429, 5xx or dropped connection during the wait is another
-poll rather than a failure. A two-platform run is one number and two entries in
-one record, and the run is red if either did not reach its testers.
+However the platform stops, the record says where: `ship_platform` records
+anything short of an interrupt against the stage it happened in, and an App
+Store Connect 429, 5xx or dropped connection during the wait is another poll
+rather than a failure. The run is red unless the build reached its testers.
 
-Every bound here — archive, export, Apple, delivery — sits inside `Ship`'s
-TeamCity timeout with room to record: `worst_case`, which the selftest holds
-against `.teamcity/settings.kts`.
+Every bound here — archive, export, Apple, delivery — sits inside each `Ship`
+configuration's TeamCity timeout with room to record: `worst_case`, which the
+selftest holds against `.teamcity/settings.kts`.
 
 **A run leaves a record**, `no-spoilers-ship/build-N/record.json` under the
 temporary directory — TeamCity's build temp directory on `Ship`, published as an
-artifact — naming the commit, the number, and how far each platform got. When
+artifact — naming the commit, the platform, the number, and how far it got. When
 an upload was accepted and the wait or the delivery then failed, the record and
 the log both name the recovery command, which delivers that recorded build and
 nothing else. Uploading again would only be refused as a duplicate.
@@ -70,9 +75,9 @@ tools run with `/usr/bin` first on PATH: Homebrew's rsync answering first breaks
 the export's copy step with an error that reads like a certificate fault.
 
 Usage:
-    scripts/submit_build.py --platform all                    # what would happen
-    scripts/submit_build.py --platform all --apply            # a person, with the test gate
-    scripts/submit_build.py --platform all --apply --tested   # what TeamCity's Ship runs
+    scripts/submit_build.py --platform ios                    # what would happen
+    scripts/submit_build.py --platform ios --apply            # a person, with the test gate
+    scripts/submit_build.py --platform ios --apply --tested   # what TeamCity's Ship iOS runs
     scripts/submit_build.py --platform macos --apply --archive-only
     scripts/submit_build.py --selftest
 """
@@ -105,8 +110,6 @@ PROJECT = REPO / "NoSpoilers" / "NoSpoilers.xcodeproj"
 CONFIGURATION = "Release"
 TEAM = "6FZN56WC8G"
 
-# The order is the delivery order: the iPhone app is the product priority, so it
-# goes first and a Mac failure can never cost it the upload.
 PLATFORMS = {
     "ios": {"scheme": "NoSpoilersApp", "destination": "generic/platform=iOS", "bundles": 2},
     "macos": {"scheme": "NoSpoilers", "destination": "generic/platform=macOS", "bundles": 1},
@@ -392,17 +395,17 @@ def recovery_for(reached: str, platform: str, number: int, archive_only: bool) -
     return recovery_command(platform, number)
 
 
-def worst_case(platforms: int) -> float:
+def worst_case() -> float:
     """The longest a delivering run can take with every bound reached, in seconds.
 
-    `Ship`'s `executionTimeoutMin` has to exceed this plus `RECORD_MARGIN`, or
-    TeamCity rather than this script decides when a run ends — and a run
-    TeamCity kills records no failure and names no recovery, possibly after the
-    first platform has delivered. The selftest reads the number out of
-    `.teamcity/settings.kts` and holds it to this. The test gate is not
+    Each `Ship` configuration's `executionTimeoutMin` has to exceed this plus
+    `RECORD_MARGIN`, or TeamCity rather than this script decides when a run
+    ends — and a run TeamCity kills records no failure and names no recovery,
+    possibly after the upload was accepted. The selftest reads the number out
+    of `.teamcity/settings.kts` and holds it to this. The test gate is not
     counted: `Ship` passes `--tested`.
     """
-    return OUTSIDE_THE_STEPS + platforms * (ARCHIVE_LIMIT + EXPORT_LIMIT + PROCESSING_CEILING + DELIVERY_LIMIT)
+    return OUTSIDE_THE_STEPS + ARCHIVE_LIMIT + EXPORT_LIMIT + PROCESSING_CEILING + DELIVERY_LIMIT
 
 
 def transient(error: BaseException) -> bool:
@@ -446,7 +449,7 @@ def await_processing(platform: str, version: str, number: int) -> tuple[bool, st
     here escaped as a `SystemExit` and took the rest of the run with it — the
     other platform included — leaving a record that said `uploaded` and
     nothing more. The first fix caught `asc.Refused` while `asc.Client.get`
-    still raised a plain `SystemExit`, so a real 503 was asked once; the
+    still raised a plain `SystemExit`, so a real 503 was asked only once; the
     selftest now goes through that client. What `transient` refuses still
     escapes, and `ship_platform` records it with the recovery command.
     """
@@ -567,19 +570,19 @@ def claim(tag: str, sha: str, subject: str, repo: Path = REPO) -> bool:
     )
 
 
-def reserve_number(sha: str, versions: dict[str, str]) -> int:
+def reserve_number(sha: str, platform: str, version: str) -> int:
     """Choose the next build number and make it this run's by claiming its tag.
 
     The claim is the lock. Two runs that chose the same N — a laptop and an agent
-    a minute apart — cannot both hold `build/N`, so the loser learns it here, in
-    seconds, and chooses again, rather than at upload after an archive.
-    `next_build_number` fetches tags first, so the winner's tag moves it on.
+    a minute apart, or `Ship iOS` and `Ship macOS` on one commit — cannot both
+    hold `build/N`, so the loser learns it here, in seconds, and chooses again,
+    rather than at upload after an archive. `next_build_number` fetches tags
+    first, so the winner's tag moves it on.
     """
-    shipping = ", ".join(f"{platform} v{version}" for platform, version in versions.items())
     for attempt in range(1, RESERVE_ATTEMPTS + 1):
         number = int(version_helper("next_build_number"))
         tag = f"build/{number}"
-        if claim(tag, sha, f"build {number}: {shipping}"):
+        if claim(tag, sha, f"build {number}: {platform} v{version}"):
             return number
         print(f"  {tag} was taken by another run (attempt {attempt} of {RESERVE_ATTEMPTS}); choosing again")
     raise SystemExit(f"lost the build-number race {RESERVE_ATTEMPTS} times running; something else is shipping")
@@ -591,13 +594,13 @@ def write_record(path: Path, record: dict) -> None:
 
 
 def ship_platform(platform: str, version: str, number: int, work: Path, entry: dict, save, archive_only: bool) -> bool:
-    """One platform from archive to confirmed delivery, recording every stage.
+    """The platform from archive to confirmed delivery, recording every stage in `entry`.
 
-    **Nothing but an interrupt escapes it.** A platform that stops for a reason
-    no stage anticipated — an App Store Connect error the wait could not ride
-    out, an archive with no Info.plist — is recorded as failing in the stage it
-    was in, with the recovery that applies from there, and the run goes on to
-    the next platform. Until 2026-09-10 such an error ended the whole run.
+    **Nothing but an interrupt escapes it.** A run that stops for a reason no
+    stage anticipated — an App Store Connect error the wait could not ride out,
+    an archive with no Info.plist — is recorded as failing in the stage it was
+    in, with the recovery that applies from there. Until 2026-09-10 such an
+    error escaped, and a record that said `uploaded` named no recovery.
     """
     scheme = PLATFORMS[platform]["scheme"]
 
@@ -693,7 +696,7 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         )
 
 
-def dry_run_plan(platforms: list[str], number: str, tested: bool, archive_only: bool) -> str:
+def dry_run_plan(platform: str, number: str, tested: bool, archive_only: bool) -> str:
     """What `--apply` with the same flags would do, said before doing any of it.
 
     **Built from the flags the real run gets.** `ci-publish.sh --check` exists to
@@ -701,20 +704,19 @@ def dry_run_plan(platforms: list[str], number: str, tested: bool, archive_only: 
     way here, so `Ship #6` described a test gate its real run would skip.
     """
     gate = "" if tested else "run scripts/verify-core-tests.sh, "
-    order = " then ".join(platforms)
     if archive_only:
         return (
-            f"would {gate}stamp build {number} without reserving it, and for {order}: archive and export "
+            f"would {gate}stamp {platform} build {number} without reserving it, archive and export "
             "locally, uploading nothing.\nRe-run with --apply."
         )
     return (
-        f"would {gate}reserve build {number} as a build/ tag on this commit, and for {order}: archive, "
+        f"would {gate}reserve build {number} as a build/ tag on this commit, archive {platform}, "
         "upload, wait for processing, and deliver that exact build to the internal testers.\n"
         "Re-run with --apply."
     )
 
 
-def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> int:
+def run(platform: str, apply: bool, tested: bool, archive_only: bool) -> int:
     blocked = dirty_reason()
     if blocked:
         print(blocked, file=sys.stderr)
@@ -724,29 +726,23 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
 
     client = asc.Client()
     app_id = asc.find_app(client.get)["id"]
-    open_platforms = []
-    for platform in requested:
-        state = asc.closed_train(client.get, app_id, asc.PLATFORM_FLAGS[platform], version)
-        if state is None:
-            open_platforms.append(platform)
-            continue
+    subject = distribute.git("log", "-1", "--format=%s", sha).strip()
+    print(f"{platform} {version} from {sha[:12]} {subject}")
+
+    state = asc.closed_train(client.get, app_id, asc.PLATFORM_FLAGS[platform], version)
+    if state is not None:
         print(
-            f"{platform} {version} is closed to new builds: it is {state}. Nothing will be built for {platform}.\n"
+            f"{platform} {version} is closed to new builds: it is {state}. Nothing was built.\n"
             "  Record the approval and open the next version; that commit then ships like any other:\n"
             f"    scripts/tag_approved.py {platform} {version} --apply\n"
             f"    scripts/open-version.sh {version_helper('suggest_next_version')}",
             file=sys.stderr,
         )
-    refused = [platform for platform in requested if platform not in open_platforms]
-
-    subject = distribute.git("log", "-1", "--format=%s", sha).strip()
-    print(f"{version} from {sha[:12]} {subject}")
-    if not open_platforms:
         return 1
 
     if not apply:
-        print(dry_run_plan(open_platforms, version_helper("next_build_number"), tested, archive_only))
-        return 1 if refused else 0
+        print(dry_run_plan(platform, version_helper("next_build_number"), tested, archive_only))
+        return 0
 
     asc.require_key(
         asc.key_path(ADMIN_KEY_ID),
@@ -770,7 +766,7 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
         number = int(version_helper("next_build_number"))
         print(f"archive only: stamping {number}, which is not reserved because nothing will be uploaded")
     else:
-        number = reserve_number(sha, {platform: version for platform in open_platforms})
+        number = reserve_number(sha, platform, version)
         print(f"==> reserved build/{number} on {sha[:12]}")
 
     work = Path(tempfile.gettempdir()) / "no-spoilers-ship" / f"build-{number}"
@@ -778,29 +774,22 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
     record_path = work / "record.json"
     record = {
         "commit": sha,
+        "platform": platform,
+        "version": version,
         "build": number,
         "reserved": None if archive_only else f"build/{number}",
         "mode": "archive-only" if archive_only else "deliver",
         "tested": tested,
         "started": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "platforms": {platform: {"version": version, "stage": "refused: train closed"} for platform in refused},
+        "stage": "started",
     }
     save = lambda: write_record(record_path, record)  # noqa: E731
+    save()
+    shipped = ship_platform(platform, version, number, work, record, save, archive_only)
 
-    results = {}
-    for platform in open_platforms:
-        record["platforms"][platform] = {"version": version, "stage": "started"}
-        save()
-        results[platform] = ship_platform(
-            platform, version, number, work, record["platforms"][platform], save, archive_only
-        )
-
-    print(f"\nrecord: {record_path}")
-    for platform in requested:
-        entry = record["platforms"][platform]
-        outcome = f"failed at {entry['failed']}" if entry.get("failed") else entry["stage"]
-        print(f"  {platform:6} {version} ({number}): {outcome}")
-    return 0 if all(results.values()) and not refused else 1
+    outcome = f"failed at {record['failed']}" if record.get("failed") else record["stage"]
+    print(f"\nrecord: {record_path}\n  {platform} {version} ({number}): {outcome}")
+    return 0 if shipped else 1
 
 
 def arguments() -> argparse.ArgumentParser:
@@ -809,9 +798,9 @@ def arguments() -> argparse.ArgumentParser:
     parser.add_argument(
         "--platform",
         required=True,
-        choices=["all", *PLATFORMS],
-        help="all is iOS then macOS under one build number. Required, with no default: the "
-        "only default would be one platform, silently.",
+        choices=list(PLATFORMS),
+        help="one platform per run, as TeamCity's Ship iOS and Ship macOS are. Required, with no "
+        "default: a default would ship one platform silently.",
     )
     parser.add_argument("--apply", action="store_true", help="actually reserve, build, upload and deliver")
     parser.add_argument(
@@ -873,9 +862,6 @@ def selftest() -> int:
     if not tooling_environment()["PATH"].startswith("/usr/bin:"):
         failures.append("Homebrew's rsync would answer the export's copy step")
 
-    if list(PLATFORMS) != ["ios", "macos"]:
-        failures.append("iOS no longer ships before macOS")
-
     for state, wanted in (
         ("PROCESSING", "wait"),
         (None, "wait"),
@@ -927,18 +913,20 @@ def selftest() -> int:
             failures.append("a correct macOS archive was refused, so Contents/Info.plist is not being read")
 
     parser = arguments()
-    if parser.parse_args(["--platform", "all"]).tested:
+    if parser.parse_args(["--platform", "ios"]).tested:
         failures.append("the test gate is skipped by default")
-    try:
-        with open(os.devnull, "w") as quiet:
-            stderr, sys.stderr = sys.stderr, quiet
-            try:
-                parser.parse_args([])
-            finally:
-                sys.stderr = stderr
-        failures.append("--platform has a default, so asking for nothing ships something")
-    except SystemExit:
-        pass
+    for asked, wrong in (([], "--platform has a default, so asking for nothing ships something"),
+                         (["--platform", "all"], "--platform all is accepted, so one run ships two platforms")):
+        try:
+            with open(os.devnull, "w") as quiet:
+                stderr, sys.stderr = sys.stderr, quiet
+                try:
+                    parser.parse_args(asked)
+                finally:
+                    sys.stderr = stderr
+            failures.append(wrong)
+        except SystemExit:
+            pass
 
     import contextlib
     import io
@@ -959,10 +947,6 @@ def selftest() -> int:
         if transient(error) is not wanted:
             failures.append(f"{first_line(error)!r} was not judged {'transient' if wanted else 'final'}")
 
-    # The wait and the platform around it, with the tools and Apple replaced.
-    # The review's case, 2026-09-10: iOS uploaded, then an App Store Connect
-    # error. A 503 is ridden out; a 403 is recorded against processing with the
-    # recovery, and returned rather than raised, so macOS still runs.
     # The export's log bundles, from a directory that holds every export this user ever ran: this
     # scheme's, from this export, and nobody else's. Ship #8's were published by no rule at all.
     with tempfile.TemporaryDirectory() as scratch:
@@ -988,6 +972,9 @@ def selftest() -> int:
     # replaced.** The second review, 2026-09-10: the wait caught `asc.Refused`
     # while the client still raised a plain `SystemExit`, and this selftest
     # scripted `processing_state` itself, so it passed a retry no real 503 got.
+    # The review's case, 2026-09-10: an upload accepted, then an App Store
+    # Connect error. A 503 is ridden out; a 403 is recorded against processing
+    # with the recovery, and returned rather than raised.
     def apple(*refusals: int, state: str = "READY_FOR_BETA_TESTING"):
         pending = list(refusals)
         asked: list[str] = []
@@ -1112,22 +1099,28 @@ def selftest() -> int:
             else:
                 os.environ[name] = value
 
+    # One `ship(...)` function makes every Ship configuration, so its timeout is theirs, and a
+    # platform this script can ship that no configuration names would never ship unattended.
     settings = (REPO / ".teamcity" / "settings.kts").read_text()
-    timeout = re.search(r"executionTimeoutMin = (\d+)", settings[settings.index('id("Ship")'):])
-    needed = worst_case(len(PLATFORMS)) + RECORD_MARGIN
+    shipping = settings[settings.index("fun ship("):]
+    timeout = re.search(r"executionTimeoutMin = (\d+)", shipping)
+    needed = worst_case() + RECORD_MARGIN
     if timeout is None or int(timeout.group(1)) * 60 < needed:
         failures.append(
             f"Ship's TeamCity timeout is under this script's worst case of {needed / 60:.0f} minutes, "
             "so TeamCity could end a run before it records why"
         )
+    configured = re.findall(r'= ship\("(\w+)"', settings)
+    if sorted(configured) != sorted(PLATFORMS):
+        failures.append(f"the Ship configurations are {configured}, not one for each of {list(PLATFORMS)}")
 
     # The dry run describes the run the same flags would start: Ship #6's plan
     # named a test gate that `--tested` skips.
-    if "verify-core-tests" in dry_run_plan(["ios"], "10025", tested=True, archive_only=False):
+    if "verify-core-tests" in dry_run_plan("ios", "10025", tested=True, archive_only=False):
         failures.append("a dry run given --tested still describes the test gate")
-    if "verify-core-tests" not in dry_run_plan(["ios"], "10025", tested=False, archive_only=False):
+    if "verify-core-tests" not in dry_run_plan("ios", "10025", tested=False, archive_only=False):
         failures.append("a dry run without --tested does not describe the test gate")
-    archive_plan = dry_run_plan(["macos"], "10025", tested=True, archive_only=True)
+    archive_plan = dry_run_plan("macos", "10025", tested=True, archive_only=True)
     if "reserve build" in archive_plan or "uploading nothing" not in archive_plan:
         failures.append(f"an --archive-only dry run describes a reservation or an upload: {archive_plan!r}")
 
@@ -1153,7 +1146,7 @@ def selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 55 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 56 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
@@ -1162,8 +1155,7 @@ def main() -> int:
         return selftest()
     speak_in_order()
     asked = arguments().parse_args()
-    requested = list(PLATFORMS) if asked.platform == "all" else [asked.platform]
-    return run(requested, asked.apply, asked.tested, asked.archive_only)
+    return run(asked.platform, asked.apply, asked.tested, asked.archive_only)
 
 
 if __name__ == "__main__":

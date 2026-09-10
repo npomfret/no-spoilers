@@ -16,8 +16,8 @@ user-invocable: true
    - read-only status: `scripts/appstore_status.py`
    - App Review conversation or reply: from sibling repo `../appstoreconnect-bot`, run
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
-   - TestFlight delivery of the current commit, both platforms: `scripts/submit_build.py --platform all --apply`,
-     which TeamCity's `Ship` runs behind `scripts/ci-publish.sh`. It reserves a `build/N` tag
+   - TestFlight delivery of the current commit: `scripts/submit_build.py --platform <p> --apply`, one
+     platform per run, which TeamCity's `Ship iOS` and `Ship macOS` run behind `scripts/ci-publish.sh`. It reserves a `build/N` tag
      before archiving, delivers that exact build, and never commits, rebases or pushes a branch
    - Handing an uploaded build to testers, or recovering a delivery `Ship` could not finish:
      `scripts/testflight_distribute.py --platform <p> --build N --apply`, with N from the run's record

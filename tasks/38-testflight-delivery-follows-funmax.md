@@ -1,14 +1,17 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS. Raised 2026-09-10. Both platforms now deliver to TestFlight through `Ship`,
-pressed by hand. Unattended delivery is not switched on yet.**
+**Status: IN PROGRESS. Raised 2026-09-10. Both platforms have delivered to TestFlight through the
+old single `Ship`, pressed by hand. Since the split, `Ship iOS` and `Ship macOS` do it, one platform
+each, and neither has run yet. Unattended delivery is not switched on yet.**
 - **On `main` (from `101e61c`):**
   - the Apple engine, the Homebrew separation and the `Ship` step;
   - the fixes from a code review, and the `--check` fix;
   - capture of Xcode's distribution logs;
   - macOS manual signing;
   - the second review's fixes: `--check` can no longer release, a 503 while waiting is really
-    retried, and the record names App Store Connect's build id.
+    retried, and the record names App Store Connect's build id;
+  - one `Ship` configuration per platform, and no `TestFlight` configuration (see *One `Ship` per
+    platform*).
 - **Proven on TeamCity, iOS:** `Ship #7` delivered iOS 1.1.4 build 10025 from `4aa77e3` to
   `Internal` in about four and a half minutes, with a confirmed note.
 - **Proven on TeamCity, macOS:** `Ship #11` delivered macOS 1.1.4 build 10026 from `7aa08c3` to
@@ -16,12 +19,12 @@ pressed by hand. Unattended delivery is not switched on yet.**
   Installer Distribution identity and the API-created `No Spoilers Mac App Store` profile.
 - **Not yet done:**
   - the automatic trigger on a green `Verify`;
-  - a combined `ship.platform = all` run;
+  - a first real run of each of `Ship iOS` and `Ship macOS`;
   - the composite `Verify`, with Release compilation and test reporting;
   - any proof on `macstudio-1` or `-2`.
 
   See *Follow-ups*.
-- **Next:** the owner's review of the work so far, then the trigger.
+- **Next:** with the owner's approval, one press of each new configuration, then the trigger.
 
 See *Progress*, *Learned while driving TeamCity*, *Next, in order* and *Follow-ups*.
 
@@ -553,6 +556,44 @@ around a missing local profile without inspecting the actual export error.
     the live read-only report. Nothing was written.
 - **The reviewer's condition for unattended delivery:** these fixes, then one combined `all` run.
 
+**One `Ship` per platform, 2026-09-10**
+
+- **The owner decided it after the second review:** `Ship iOS` and `Ship macOS` replace the single
+  `Ship` and its `ship.platform` parameter, and the `TestFlight` configuration goes. Funmax is to be
+  made consistent later. It is iOS-only, so it already has one `Ship` for its one platform and no
+  recovery configuration; for it the change is the name, `Ship iOS`, with its id left alone so its
+  history stays.
+- **Why:**
+  - a macOS signing failure no longer turns the iPhone light red;
+  - either platform re-runs alone, and each has its own history;
+  - the timeout is one platform's, 210 minutes rather than 360.
+- **The cost is two build numbers per commit.** Apple numbers the platforms separately,
+  `tag_approved.py` works per platform, and each note names its own build and commit, so nothing
+  needed them equal. The two configurations both take the write lock, so they queue rather than
+  archive at once, and a same-second reservation race between them is the one `claim` already closes.
+- **`TestFlight` was not needed.** `teamcity.py builds --leg TestFlight` found no run TeamCity still
+  lists; `Ship` already writes the note and adds the build to `Internal`. A delivery that fails after
+  the upload names `testflight_distribute.py --platform P --build N --apply` in its record, run from
+  this Mac, and once the trigger is on the next green `Verify` ships a newer build.
+- **What changed:**
+  - `.teamcity/settings.kts`: one `ship(platform, slug, label)` function makes both configurations,
+    ids `ShipIos` and `ShipMacos`, after Funmax's `uiLeg(device, slug, label)`. `ship.args` is the only
+    parameter.
+  - `submit_build.py` takes one platform and no `all`. The record is flat: `platform`, `version`,
+    `stage` and the rest at the top level, rather than under `platforms`.
+  - `ci-publish.sh` refuses `all`, and asserts the installer identity for `macos` only.
+  - The selftest is 56 cases. It refuses `--platform all`, requires a `ship("…")` configuration for
+    every platform the script can ship, and holds the shared timeout to 195 minutes (180 plus the
+    record margin).
+- **Evidence:** all six suites pass, 269 cases. Each new check was confirmed by putting its defect
+  back in a scratch copy: `all` accepted, 1 failure; `Ship macOS` removed, 1 failure; the timeout at
+  180, 1 failure. `ci-publish.sh --platform all --check` exits 1 with "unknown platform 'all'".
+- **What was lost, as the owner accepted:** leaving `Ship` and `TestFlight` out of the DSL deletes
+  them from TeamCity, with `Ship` runs #5 to #11 and their artifacts. What those runs proved is in
+  *Progress* above.
+- **The reviewer's condition changes with it.** "One combined `all` run" becomes one real run of each
+  new configuration.
+
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
 - **The sandbox exclusion matches only the plain command.**
@@ -571,7 +612,7 @@ around a missing local profile without inspecting the actual export error.
   pushes just before a press, or expect the wait.
 - **`--check` stops after reporting its gaps, before the dry run.** On `all`, the missing installer
   identity means App Store Connect is never asked. Until the identity exists, `ship.platform = ios`
-  is the way to reach the dry run.
+  is the way to reach the dry run. *There is no `all` since the split, so this no longer arises.*
 - **A local `submit_build.py` dry run refuses a commit that is not on `origin/main`.** Push before
   dry-running a fix.
 - **All seven presses so far (`Ship #5` to `#11`) ran on `macstudio-3`.**
@@ -615,12 +656,17 @@ around a missing local profile without inspecting the actual export error.
      build 10026 to `Internal`.
 5. ~~The owner reviews what has been done.~~ Done: the second review found two issues and an
    overstated checkbox, all fixed (see *Second review*).
-6. **With the owner's approval, one `ship.platform = all` press.** The reviewer's condition for
-   unattended delivery. It proves the two-platform run under one number, which nothing has exercised
-   yet, and should show `asc_build_id` in both records.
-7. **With the owner's approval, turn on unattended delivery:** the `finishBuildTrigger` on `Verify`,
-   the nightly included, as decided.
-8. The composite `Verify`, Release compilation and test reporting.
+6. ~~With the owner's approval, one `ship.platform = all` press.~~ Superseded by *One `Ship` per
+   platform*.
+7. **Confirm the settings sync:** `Ship iOS` and `Ship macOS` present as written, `Ship` and
+   `TestFlight` gone, and a green `Verify` on the commit.
+8. **With the owner's approval, one press of `Ship iOS` and one of `Ship macOS`.** The reviewer's
+   condition for unattended delivery, now per configuration. Each record should show the flat shape
+   and `asc_build_id`.
+9. **With the owner's approval, turn on unattended delivery:** a `finishBuildTrigger` on `Verify` in
+   `ship(...)`, so both configurations get it, the nightly included, as decided.
+10. The composite `Verify`, Release compilation and test reporting.
+11. **Funmax, later:** rename its `Ship` to `Ship iOS`, the name only, so the two projects match.
 
 **Follow-ups, found along the way**
 
@@ -654,7 +700,8 @@ around a missing local profile without inspecting the actual export error.
 
 - [ ] A relevant main-branch push that passes verification produces an installable
   internal TestFlight build on both iOS and macOS without another distribution button.
-  *Each platform has delivered from a press (`Ship #7` and `#11`); the trigger is not on.*
+  *Each platform has delivered from a press of the old single `Ship` (`#7` and `#11`). `Ship iOS` and
+  `Ship macOS` have not run, and the trigger is not on.*
 - [ ] A failed verification prevents delivery. The archived SHA equals the verified SHA,
   even when main advances while Ship is queued or running.
   *Observed: `#7` and `#11` archived the revisions `Verify #108` and `#113` had just passed. A red
@@ -692,7 +739,7 @@ around a missing local profile without inspecting the actual export error.
   LaunchAgent configuration and distribution-profile metadata.
 - [x] Read live App Store Connect status for both apps.
 - [x] No Spoilers' five Python selftest suites passed: 196 cases total. *(That was at the
-  investigation. There are six suites and 268 cases after the second review's fixes.)*
+  investigation. There are six suites and 269 cases after the split into one `Ship` per platform.)*
 - [x] Funmax's submit_build and testflight_distribute selftests passed.
 - [x] ~~No fresh archive, export, upload or device installation was performed by this
   investigation.~~ Superseded by the implementation. `Ship #7` and `#11` archived, exported and

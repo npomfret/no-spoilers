@@ -20,23 +20,27 @@ version = "2026.1"
 // agent requirements and every dependency flag — rather than reconstructed from
 // what they look like from outside. `docs/TEAMCITY-AGENTS.md` §10 in
 // `snowmonkey-proxy-common` is the tunnel that makes that read possible.
+// `TestFlight` and the single `Ship` were deleted on 2026-09-10 by leaving them
+// out, when `Ship` became one configuration per platform; see task 38.
 //
 // **The five verification configurations hold no credential and must not gain
 // one.** They build the public GitHub remote anonymously and pass
 // `CODE_SIGNING_ALLOWED=NO`; the agent needs Xcode and a checkout, not a
-// keychain. `Ship` is the one that holds credentials, and it is separate.
+// keychain. The two `Ship` configurations are the ones that use credentials,
+// and they are separate.
 //
 // The settings VCS root is not declared here. `DslContext.settingsRoot` is
 // whichever root the settings came from — `NoSpoilers_Main` — and turning
 // versioned settings on makes that root read-only anyway (§8).
 
-// **The five existing configurations carry their real `uuid`s, read off the
+// **The four verification configurations carry their real `uuid`s, read off the
 // server's own `config/projects/NoSpoilers/buildTypes/*.xml`.** TeamCity matches
 // a DSL entity to an existing one by uuid first; without them it can decide
 // these are new configurations, delete the old ones and start their build
-// counters again — 93 builds of history, and the `TestFlight` counter at 3.
-// `Ship` has none: this file created it, and an entity with no uuid is matched by
-// its id, which has not changed. Do not invent one.
+// counters again — 93 builds of history when this file was written. `Ship iOS`
+// and `Ship macOS` have none: this file created them, and an entity with no uuid
+// is matched by its id. Do not invent one, and do not change their ids, or
+// TeamCity deletes the configuration and its history and starts a new one.
 
 val xcodeLock = "no-spoilers-xcode"
 
@@ -191,53 +195,34 @@ val verify = BuildType {
     }
 }
 
-val testFlight = BuildType {
-    id("TestFlight")
-    uuid = "0c7571cc-7900-4dbd-ae9d-96caedce8cef"
-    name = "TestFlight"
-    description = "Recovery for a delivery Ship could not finish: hands a build already on App " +
-        "Store Connect to the Internal testers, writes its What to Test note and reads both back. " +
-        "scripts/testflight_distribute.py --platform ios, then --platform macos. Manual only. " +
-        "Builds nothing and holds no lock. distribute.args takes --build N (the number Ship's " +
-        "record names), --group NAME or --submit; without --build it takes the newest upload."
-    vcs {
-        root(DslContext.settingsRoot)
-    }
-    params {
-        param("distribute.args", "")
-    }
-    steps {
-        script {
-            name = "iOS"
-            scriptContent = "python3 scripts/testflight_distribute.py --platform ios --apply %distribute.args%"
-        }
-        script {
-            name = "macOS"
-            // Always, so a Mac build is never left stranded by an iPhone refusal.
-            executionMode = BuildStep.ExecutionMode.ALWAYS
-            scriptContent = "python3 scripts/testflight_distribute.py --platform macos --apply %distribute.args%"
-        }
-    }
-}
-
-// TestFlight delivery. `ci-publish.sh` asserts what a build agent breaks and
-// hands over to `submit_build.py`, which archives this exact revision, uploads
-// it, waits for Apple, and delivers that build to the Internal testers. Apple
-// only: the Homebrew channel is `ci-publish.sh --platform homebrew`, has no
-// configuration here, and can no longer stop this one. See task 38 and
-// docs/guides/building.md.
-val ship = BuildType {
-    id("Ship")
-    name = "Ship"
-    description = "TestFlight, iOS then macOS under one build number: scripts/ci-publish.sh " +
-        "--platform (ship.platform) --tested, which asserts the agent and hands over to " +
-        "scripts/submit_build.py. Archives the verified revision, uploads it, waits for Apple " +
-        "and delivers that exact build to the Internal testers. Manual until its first real " +
-        "delivery. ship.args takes --check or --archive-only."
+// TestFlight delivery, **one configuration per platform**. `ci-publish.sh`
+// asserts what a build agent breaks and hands over to `submit_build.py`, which
+// archives this exact revision, uploads it, waits for Apple, and delivers that
+// build to the Internal testers. Apple only: the Homebrew channel is
+// `ci-publish.sh --platform homebrew`, has no configuration here, and can no
+// longer stop this one. See task 38 and docs/guides/building.md.
+//
+// **Two configurations rather than one `all` run, since 2026-09-10.** A macOS
+// signing failure no longer turns the iPhone light red, either platform re-runs
+// alone, and each has its own history. Each run reserves its own build number,
+// so one commit reaches the two platforms under two numbers; Apple numbers the
+// platforms separately and the approval tags are per platform, so nothing
+// needs them equal. There is no recovery configuration: a delivery that could
+// not finish names `testflight_distribute.py --build N` in its record, run from
+// a machine holding the App Manager key, and the next run ships a newer build
+// anyway. FunMax, which has one platform, has one `Ship` and no such button.
+fun ship(platform: String, slug: String, label: String) = BuildType {
+    id("Ship$slug")
+    name = "Ship $label"
+    description = "TestFlight for $label: scripts/ci-publish.sh --platform $platform --tested, which " +
+        "asserts the agent and hands over to scripts/submit_build.py. Archives the verified " +
+        "revision, uploads it, waits for Apple and delivers that exact build to the Internal " +
+        "testers. Manual until the trigger goes on. ship.args takes --check or --archive-only."
     onTheAgent()
 
     // It archives, so it takes the write lock: no compile runs beside a
-    // delivery, and no delivery beside a compile.
+    // delivery, no delivery beside a compile, and the two platforms queue
+    // behind each other rather than archive at once.
     features {
         sharedResources {
             writeLock(xcodeLock)
@@ -245,11 +230,9 @@ val ship = BuildType {
     }
 
     params {
-        // `all` is iOS then macOS under one build number; `ios` or `macos` is
-        // one. Both go back to their defaults after a custom run: `publish.args`
-        // left holding a stale value is how four presses on 2026-09-05 each
-        // uploaded a version Apple had already approved.
-        param("ship.platform", "all")
+        // Goes back to empty after a custom run: `publish.args` left holding a
+        // stale value is how four presses on 2026-09-05 each uploaded a version
+        // Apple had already approved.
         param("ship.args", "")
     }
 
@@ -258,7 +241,7 @@ val ship = BuildType {
             name = "ship"
             // `--tested` is true only because of the snapshot dependency on
             // `Verify` below, which is why it is spelled here and nowhere else.
-            scriptContent = "scripts/ci-publish.sh --platform %ship.platform% --tested %ship.args%"
+            scriptContent = "scripts/ci-publish.sh --platform $platform --tested %ship.args%"
         }
     }
 
@@ -285,35 +268,40 @@ val ship = BuildType {
 
     failureConditions {
         // Above `submit_build.py`'s own worst case, so the script's bounds are
-        // always what ends a run and it always records why: per platform, 40
-        // minutes to archive, 40 to export and upload, an hour of Apple and 10
-        // to deliver, twice, plus half an hour outside those steps, is 330. The
-        // other 30 are for the record. `submit_build.py --selftest` reads this
-        // number and fails if it falls under that. It was 180 until 2026-09-10,
-        // which could kill the macOS half after iOS had delivered, unrecorded.
-        executionTimeoutMin = 360
+        // always what ends a run and it always records why: 40 minutes to
+        // archive, 40 to export and upload, an hour of Apple and 10 to deliver,
+        // plus half an hour outside those steps, is 180. The other 30 are for
+        // the record. `submit_build.py --selftest` reads this number and fails
+        // if it falls under that.
+        executionTimeoutMin = 210
     }
 
-    // One delivery at a time. A second would be refused its build number by the
-    // tag push rather than collide, but it would queue two archives for nothing.
+    // One delivery of this platform at a time. A second would be refused its
+    // build number by the tag push rather than collide, but it would queue two
+    // archives for nothing.
     maxRunningBuilds = 1
 
     // **No trigger yet, and that is temporary.** Decided 2026-09-10: like
-    // FunMax's `Ship`, this follows every green `Verify`, the nightly included.
-    // The trigger goes on once a press has delivered to TestFlight end to end;
-    // until then an automatic run could only rediscover what that press will.
+    // FunMax's `Ship`, each follows every green `Verify`, the nightly included.
+    // The trigger goes on once each configuration has delivered to TestFlight
+    // end to end; until then an automatic run could only rediscover what that
+    // press will.
 
     requirements {
         exists("tools.xcode.home")
     }
 }
 
+// Their ids are their history: see the uuid note at the top.
+val shipIos = ship("ios", "Ios", "iOS")
+val shipMacos = ship("macos", "Macos", "macOS")
+
 project {
     description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
 
     // The Xcode lock. Quota 3 because a read lock takes one unit of it and the
-    // two Xcode verification legs hold read locks; `Ship` takes the write lock
-    // and so shuts both out, and they it.
+    // two Xcode verification legs hold read locks; each `Ship` takes the write
+    // lock and so shuts out both legs and the other `Ship`, and they it.
     features {
         feature {
             id = "PROJECT_EXT_4"
@@ -328,6 +316,6 @@ project {
     buildType(verifyXcode)
     buildType(verifySwiftTests)
     buildType(verify)
-    buildType(testFlight)
-    buildType(ship)
+    buildType(shipIos)
+    buildType(shipMacos)
 }

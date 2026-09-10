@@ -7,7 +7,8 @@ set -euo pipefail
 # other.** Task 38 separated them after every press of the combined button was
 # refused before archiving by prerequisites only Homebrew needed:
 #
-#   --platform ios|macos|all   Apple: TestFlight. Hands over to
+#   --platform ios|macos       Apple: TestFlight, one platform per run, as
+#                              `Ship iOS` and `Ship macOS`. Hands over to
 #                              `scripts/submit_build.py`, which archives the
 #                              verified commit, uploads, waits for processing
 #                              and delivers that exact build to the testers.
@@ -22,10 +23,10 @@ set -euo pipefail
 # missing.
 #
 # Usage:
-#   scripts/ci-publish.sh --platform all --tested          # what Ship runs: iOS then macOS
-#   scripts/ci-publish.sh --platform ios --tested          # one Apple platform
+#   scripts/ci-publish.sh --platform ios --tested          # what Ship iOS runs
+#   scripts/ci-publish.sh --platform macos --tested        # what Ship macOS runs
 #   scripts/ci-publish.sh --platform macos --archive-only  # prove signing, upload nothing
-#   scripts/ci-publish.sh --platform all --check           # assert the agent, then a dry run
+#   scripts/ci-publish.sh --platform ios --check           # assert the agent, then a dry run
 #   scripts/ci-publish.sh --platform homebrew 1.1.4        # the Developer ID channel
 #
 # Anything else after an Apple platform goes to `submit_build.py` unchanged,
@@ -135,16 +136,16 @@ what_the_agent_has() {
 }
 
 case "$PLATFORM" in
-  ios|macos|all) DELIVERY="apple" ;;
-  homebrew)      DELIVERY="homebrew" ;;
-  "") fail "--platform is required (all, ios, macos or homebrew)" ;;
-  *)  fail "unknown platform '${PLATFORM}' (expected all, ios, macos or homebrew)" ;;
+  ios|macos) DELIVERY="apple" ;;
+  homebrew)  DELIVERY="homebrew" ;;
+  "") fail "--platform is required (ios, macos or homebrew)" ;;
+  *)  fail "unknown platform '${PLATFORM}' (expected ios, macos or homebrew; one Apple platform per run)" ;;
 esac
 
 # `if` rather than `[[ … ]] && …`: under `set -e` the second form exits the
 # script whenever the test is false.
 NEEDS_INSTALLER=""
-if [[ "$PLATFORM" == "macos" || "$PLATFORM" == "all" ]]; then NEEDS_INSTALLER="yes"; fi
+if [[ "$PLATFORM" == "macos" ]]; then NEEDS_INSTALLER="yes"; fi
 
 KEYS="${HOME}/.appstoreconnect/private_keys"
 
