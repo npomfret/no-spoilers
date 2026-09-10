@@ -90,7 +90,7 @@ class Session:
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as error:
             detail = error.read().decode(errors="replace")[:400]
-            raise SystemExit(f"{method} {path} -> HTTP {error.code}\n{detail}{_hint(error.code)}")
+            raise asc.Refused(method, path, error.code, f"{detail}{_hint(error.code)}")
 
     def get(self, path: str) -> dict:
         return self._call("GET", path)

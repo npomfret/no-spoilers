@@ -285,6 +285,21 @@ def token(issuer: str, key_id: str, key_file: Path, now: int | None = None) -> s
     return f"{signing_input}.{_b64(der_to_raw(signed.stdout))}"
 
 
+class Refused(SystemExit):
+    """App Store Connect answered with an HTTP error.
+
+    Still a `SystemExit` with the same message, so every caller that stops on a
+    refusal stops exactly as it always did. What it adds is the status, for the
+    one caller that must not stop on every refusal: `submit_build.py` waits up
+    to an hour on Apple after an upload has been accepted, and a 503 in that
+    hour is a reason to ask again, where a 403 is a reason to stop and say so.
+    """
+
+    def __init__(self, method: str, path: str, status: int, detail: str) -> None:
+        super().__init__(f"{method} {path} -> HTTP {status}\n{detail}")
+        self.status = status
+
+
 class Client:
     """GET-only. There is no post, put or patch here, by design."""
 

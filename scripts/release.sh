@@ -211,17 +211,29 @@ echo "==> Running the release gate: scripts/verify-core-tests.sh..."
 # archive: `submit_build.py` can choose the same number at the same moment, and
 # only one of the two pushes can succeed. A reserved number that is never
 # released is harmless; two builds under one number are not.
+#
+# **Only one push succeeding depends on the two tags differing.** A tag object
+# is its content, so two runs tagging one commit with one message, as one
+# person, in one second, write the same object, and a push that sets a ref to
+# the object it already holds succeeds. The `Reservation:` line makes every
+# object unique, and the remote is read back rather than the push's exit status
+# believed, as `submit_build.py: claim` does.
 
 echo "==> Reserving the next build number..."
 NEW_BUILD="$(next_build_number)"
 BUILD_TAG="build/${NEW_BUILD}"
 git tag -a "${BUILD_TAG}" -m "build ${NEW_BUILD}: macos developer-id v${VERSION}" \
-  -m "Reserved by release.sh before archiving this commit for the Developer ID channel."
-if ! git push --quiet origin "refs/tags/${BUILD_TAG}"; then
+  -m "Reserved by release.sh before archiving this commit for the Developer ID channel." \
+  -m "Reservation: $(uuidgen) on $(hostname -s)"
+RESERVED_OBJECT="$(git rev-parse "refs/tags/${BUILD_TAG}")"
+git push --quiet origin "refs/tags/${BUILD_TAG}" || true
+REMOTE_OBJECT="$(git ls-remote origin "refs/tags/${BUILD_TAG}" \
+  | awk -v ref="refs/tags/${BUILD_TAG}" '$2 == ref { print $1 }')" || REMOTE_OBJECT=""
+if [[ "${REMOTE_OBJECT}" != "${RESERVED_OBJECT}" ]]; then
   git tag -d "${BUILD_TAG}" >/dev/null
   echo "" >&2
-  echo "Could not push ${BUILD_TAG}. If another run reserved it first, run this again to take" >&2
-  echo "the next number. Nothing was built." >&2
+  echo "Could not reserve ${BUILD_TAG}: origin does not hold this run's tag. If another run" >&2
+  echo "reserved it first, run this again to take the next number. Nothing was built." >&2
   exit 1
 fi
 echo "  ${BUILD_TAG} reserved on $(git log -1 --format='%h %s')"

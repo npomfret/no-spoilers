@@ -54,9 +54,12 @@ should.
   - **It reserves the build number by pushing `build/N` before archiving.** N is
     `_version.sh: next_build_number`: the highest build App Store Connect holds on either platform —
     every page, expired builds included — or the highest `build/` tag, plus one. The tag push is the
-    lock: two runs that chose the same N cannot both push it, and the loser chooses again in seconds
-    rather than colliding at upload. A reserved number that never reaches Apple is harmless. A
-    two-platform run is one number and two uploads.
+    lock: two runs that chose the same N cannot both hold it, and the loser chooses again in seconds
+    rather than colliding at upload. **Every tag carries a `Reservation:` line of its own, and origin
+    is read back after the push**, because without one two runs tagging one commit as one person in
+    one second wrote identical tag objects and both pushes succeeded. `release.sh` reserves the same
+    way. A reserved number that never reaches Apple is harmless. A two-platform run is one number and
+    two uploads.
   - Then **for iOS, then macOS**: a Release archive with `CURRENT_PROJECT_VERSION=N` on the command
     line; a check that every `.app` and `.appex` reads N and the project's version, because an app
     whose widget extension disagrees is refused at upload; and one authenticated `-exportArchive`
@@ -65,14 +68,18 @@ should.
     Xcode would renumber the build on the way out. Apple's tools run with `/usr/bin` first on PATH.
   - **It waits for Apple, bounded at an hour per platform**, and says so when an upload has not
     appeared after fifteen minutes, since a binary refused on arrival never appears and is explained
-    by email.
-  - **It delivers exactly the build it uploaded**: `testflight_distribute.py --platform P --build N
-    --apply`, never "the newest". That writes the note from the `build/N` tag, adds the build to the
-    internal group — settling Apple's 422 for a build it attached itself — and reads both back,
-    exiting 1 unless the group holds it and the note names it.
+    by email. A 429, a 5xx or a dropped connection during the wait is one more poll; any other
+    refusal ends that platform's wait.
+  - **It delivers exactly the build it uploaded**, within ten minutes: `testflight_distribute.py
+    --platform P --build N --apply`, never "the newest". That writes the note from the `build/N` tag,
+    adds the build to the internal group — settling Apple's 422 for a build it attached itself — and
+    reads both back, exiting 1 unless the group holds it and the note's `Build N from <sha>` line
+    names the commit the tag marks. A note naming the right number from another commit is rewritten,
+    not accepted.
   - **It leaves a record**, `no-spoilers-ship/build-N/record.json` under the temporary directory (a
-    `Ship` artifact), naming the commit, the number and how far each platform got. When an upload
-    was accepted and the wait or delivery then failed, the record and the log name the recovery,
+    `Ship` artifact), naming the commit, the number and how far each platform got. **Whatever stops a
+    platform is recorded against the stage it was in, and the next platform still runs.** When an
+    upload was accepted and the wait or delivery then failed, the record and the log name the recovery,
     `testflight_distribute.py --platform P --build N --apply`, which delivers that recorded build and
     cannot relabel a newer one. Uploading again would only be refused as a duplicate.
   - `--archive-only` archives and exports locally and uploads nothing, and on macOS checks the
@@ -106,7 +113,9 @@ should.
 `ios` or `macos`; `ship.args` takes `--check` or `--archive-only`, and both go back to their defaults
 after a custom run. It takes the **write** lock on `no-spoilers-xcode`, where the two Xcode
 verification legs take read locks; it has a snapshot dependency on `Verify` with
-`reuseBuilds = SUCCESSFUL`, which is what makes `--tested` true; one run at a time; 180 minutes; and
+`reuseBuilds = SUCCESSFUL`, which is what makes `--tested` true; one run at a time; 360 minutes,
+above `submit_build.py`'s own worst case of 330 so that the script and not TeamCity ends a slow run
+and records why, which `submit_build.py --selftest` checks against this file; and
 it publishes the run's record and the export's `.xcdistributionlogs`, which hold Apple's verbatim
 answer when signing or an upload is refused.
 

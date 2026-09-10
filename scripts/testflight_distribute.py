@@ -192,6 +192,11 @@ def explain(is_internal: bool, detail: dict) -> tuple[str, str, bool]:
     return state, reason, actionable
 
 
+def note_marker(version: str, sha: str) -> str:
+    """The line that identifies a note: which build, archived from which commit."""
+    return f"Build {version} from {sha[:12]}"
+
+
 def note_text(subject: str, sha: str, version: str) -> str:
     """The tester note for a build. This function defines the format.
 
@@ -200,7 +205,7 @@ def note_text(subject: str, sha: str, version: str) -> str:
     commit cannot be told apart from a stale one, which is the fault this whole
     mechanism exists to avoid.
     """
-    return f"{subject}\n\nBuild {version} from {sha[:12]}\n"
+    return f"{subject}\n\n{note_marker(version, sha)}\n"
 
 
 def note_names_build(whats_new: str | None, version: str) -> bool:
@@ -209,8 +214,25 @@ def note_names_build(whats_new: str | None, version: str) -> bool:
     The failure this exists for produces a note that is real, well-formed, and
     about a different build. `from ` is load-bearing: without it, build 1's
     marker matches build 10's note.
+
+    **The number alone, and so only where nothing records the commit** —
+    builds with no `build/N` tag and no bump commit. Wherever the commit is
+    known, `note_names_commit` is the check.
     """
     return bool(whats_new) and f"Build {version} from " in whats_new
+
+
+def note_names_commit(whats_new: str | None, version: str, sha: str) -> bool:
+    """Whether this note names this build *and* the commit it was archived from.
+
+    A note saying the right build came from the wrong commit passes
+    `note_names_build`, and misleads a tester exactly as much as a note about
+    another build. A whole line, so a subject that happens to read like a
+    marker is not taken for one.
+    """
+    if not whats_new:
+        return False
+    return note_marker(version, sha) in (line.strip() for line in whats_new.splitlines())
 
 
 def note_claims(whats_new: str | None) -> str | None:
@@ -484,21 +506,30 @@ def write_note(session: Session, build_id: str, existing: dict | None, text: str
     )
 
 
-def repair_note(session: Session, build: dict, apply: bool) -> None:
-    """Make the note describe this build, or say why it cannot."""
+def repair_note(session: Session, build: dict, commit: dict | None, apply: bool) -> None:
+    """Make the note describe this build and its commit, or say why it cannot.
+
+    `commit` is `ship_commit`'s answer, asked once by the caller so this repair
+    and the read-back after it judge the note against the same commit. **A note
+    naming the right number from the wrong commit is rewritten**: until
+    2026-09-10 it was left, because only the number was compared.
+    """
     existing = note_on(session, build["id"])
     current = existing["whatsNew"] if existing else None
-    if note_names_build(current, build["version"]):
-        print("what to test: names this build already")
-        return
-
     seen = note_state(existing)
-    commit = ship_commit(build["version"])
+
     if commit is None:
+        if note_names_build(current, build["version"]):
+            print("what to test: names this build already; nothing records its commit, so its sha is unchecked")
+            return
         print(
             f"what to test: {seen}, and nothing names the commit behind build "
             f"{build['version']} — no build/ tag and no ship commit — so leaving it"
         )
+        return
+
+    if note_names_commit(current, build["version"], commit["sha"]):
+        print("what to test: names this build and its commit already")
         return
 
     wanted = note_text(commit["subject"], commit["sha"], build["version"])
@@ -677,7 +708,7 @@ def add_to_group(session: Session, build: dict, plan: dict) -> str:
         return f"build {build['version']} is in {plan['name']}: Apple added it first"
 
 
-def unconfirmed(session: Session, build: dict, plans: list[dict]) -> list[str]:
+def unconfirmed(session: Session, build: dict, commit: dict | None, plans: list[dict]) -> list[str]:
     """What an `--apply` run set out to do that App Store Connect does not show.
 
     Read back after the writes rather than inferred from their status codes.
@@ -689,7 +720,10 @@ def unconfirmed(session: Session, build: dict, plans: list[dict]) -> list[str]:
     A plan that was refused as not actionable is not demanded here; it has
     already been counted as blocked. The note is demanded whatever happened to
     the groups, because a build a tester holds with a note about another
-    commit is the failure `note_names_build` was written for.
+    commit is the failure these checks were written for. **Against the commit
+    whenever one is known**, `commit` being the same `ship_commit` answer the
+    repair used: a note naming the right number from the wrong commit is not a
+    delivery confirmed.
     """
     gaps = []
     holding = asc.groups_holding(session.get, build["id"])
@@ -697,8 +731,12 @@ def unconfirmed(session: Session, build: dict, plans: list[dict]) -> list[str]:
         if (plan["present"] or plan["actionable"]) and plan["id"] not in holding:
             gaps.append(f"{plan['name']} does not hold build {build['version']}")
     note = note_on(session, build["id"])
-    if not note_names_build(note["whatsNew"] if note else None, build["version"]):
-        gaps.append(f"the tester note does not name build {build['version']}")
+    whats_new = note["whatsNew"] if note else None
+    if commit is None:
+        if not note_names_build(whats_new, build["version"]):
+            gaps.append(f"the tester note does not name build {build['version']}")
+    elif not note_names_commit(whats_new, build["version"], commit["sha"]):
+        gaps.append(f"the tester note does not say {note_marker(build['version'], commit['sha'])!r}")
     return gaps
 
 
@@ -813,7 +851,8 @@ def main() -> int:
     # behind build N" and leaves the note blank, silently. That tag is now the
     # only answer, so the fetch is the whole of the lookup.
     git("fetch", "--quiet", "--tags", "origin")
-    repair_note(session, build, arguments.apply)
+    commit = ship_commit(build["version"])
+    repair_note(session, build, commit, arguments.apply)
     print()
 
     blocked = 0
@@ -843,11 +882,12 @@ def main() -> int:
         return 1 if blocked else 0
 
     print()
-    gaps = unconfirmed(session, build, state["plans"])
+    gaps = unconfirmed(session, build, commit, state["plans"])
     for gap in gaps:
         print(f"! not confirmed: {gap}")
     if not gaps:
-        print(f"confirmed: build {build['version']}'s note names it, and every group given it holds it")
+        named = "it and its commit" if commit else "it"
+        print(f"confirmed: build {build['version']}'s note names {named}, and every group given it holds it")
     return 1 if blocked or gaps else 0
 
 
@@ -1139,27 +1179,57 @@ def _selftest() -> int:
     except SystemExit:
         pass
 
-    # The read-back after --apply. Three shapes: all delivered, a group that
-    # does not hold what it was given, and a note about somebody else's build.
+    # The read-back after --apply, and the repair before it. All delivered, a
+    # group that does not hold what it was given, a note about another build —
+    # and a note naming this build from another commit, which both the repair
+    # and the read-back accepted until 2026-09-10.
     class _Delivered:
         def __init__(self, holding: list[str], whats_new: str | None) -> None:
             self.holding, self.whats_new = holding, whats_new
+            self.written: list[str] = []
 
         def get(self, path: str) -> dict:
             if "betaBuildLocalizations" in path:
                 return {"data": [{"id": "loc", "attributes": {"locale": NOTE_LOCALE, "whatsNew": self.whats_new}}]}
             return {"included": [{"id": group} for group in self.holding]}
 
+        def patch(self, path: str, body: dict) -> dict:
+            self.written.append(body["data"]["attributes"]["whatsNew"])
+            return {}
+
     given = [{"id": "g1", "name": "Internal", "present": False, "actionable": True}]
     refused = {"id": "g2", "name": "Friends", "present": False, "actionable": False}
-    right_note = note_text("the work", "0123456789abcdef", "10025")
-    if unconfirmed(_Delivered(["g1"], right_note), handed, given + [refused]):
+    reserved = {"subject": "the work", "sha": "0123456789abcdef" * 2 + "01234567", "source": "the build/10025 tag"}
+    right_note = note_text(reserved["subject"], reserved["sha"], "10025")
+    other_commit = note_text("the work", "fedcba9876543210" * 2 + "fedcba98", "10025")
+    if unconfirmed(_Delivered(["g1"], right_note), handed, reserved, given + [refused]):
         failures.append("a delivered build with its own note was not confirmed")
-    if not any("Internal does not hold" in gap for gap in unconfirmed(_Delivered([], right_note), handed, given)):
+    if not any("Internal does not hold" in gap
+               for gap in unconfirmed(_Delivered([], right_note), handed, reserved, given)):
         failures.append("a group that does not hold the build it was given was confirmed")
-    if not any("note does not name" in gap
-               for gap in unconfirmed(_Delivered(["g1"], note_text("old", "abc", "10024")), handed, given)):
+    if not any("tester note" in gap
+               for gap in unconfirmed(_Delivered(["g1"], note_text("old", "abc", "10024")), handed, reserved, given)):
         failures.append("a note about another build was confirmed")
+    if not any("tester note" in gap
+               for gap in unconfirmed(_Delivered(["g1"], other_commit), handed, reserved, given)):
+        failures.append("a note naming this build from another commit was confirmed")
+    if unconfirmed(_Delivered(["g1"], other_commit), handed, None, given):
+        failures.append("a build nothing records the commit of was held to a commit")
+    shaped_like_it = f"Build 10025 from {reserved['sha'][:12]} was the plan\n\n{note_marker('10025', 'fedcba987654')}\n"
+    if note_names_commit(shaped_like_it, "10025", reserved["sha"]):
+        failures.append("a subject shaped like the marker was taken for the marker")
+
+    import contextlib
+    import io
+
+    mislabeled, settled = _Delivered([], other_commit), _Delivered([], right_note)
+    with contextlib.redirect_stdout(io.StringIO()):
+        repair_note(mislabeled, handed, reserved, apply=True)
+        repair_note(settled, handed, reserved, apply=True)
+    if mislabeled.written != [right_note]:
+        failures.append("repair_note left a note naming this build from another commit")
+    if settled.written:
+        failures.append("repair_note rewrote a note already naming the build and its commit")
 
     if "App Manager" not in _hint(403) or ADMIN_KEY_ID not in _hint(403):
         failures.append("the 403 hint does not name the key")
@@ -1194,7 +1264,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 54 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 59 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

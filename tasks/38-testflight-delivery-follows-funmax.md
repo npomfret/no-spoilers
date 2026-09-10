@@ -260,7 +260,41 @@ around a missing local profile without inspecting the actual export error.
   The shared CLI still does not resolve here without `TEAMCITY_CLI`, so that checklist item stays
   open.
 - **Not yet observed, as of the push of `6e0c2df`**: TeamCity had synced neither the new `Ship`
-  settings nor run `Verify` on that revision.
+  settings nor run `Verify` on that revision. The watcher polling for the sync ended without an
+  answer: the sandbox refused its ssh on every poll, so the server was never asked.
+- **A review of `86b6277..37e0ef0` raised four findings; all four were confirmed in the code and
+  fixed:**
+  1. **An App Store Connect error after an upload ended the whole run.** macOS never ran, and the
+     record said only `uploaded`. Now a 429, 5xx or dropped connection during the wait is another
+     poll (`transient`). `ship_platform` records any other failure against the stage it happened in,
+     with the recovery that applies, and returns so the next platform runs.
+     `appstore_status.Refused` carries the HTTP status and is still a `SystemExit` with the same
+     message.
+  2. **One identity reserving one number twice in one second wrote identical tag objects, and both
+     pushes succeeded.** `claim` adds a `Reservation: <uuid> on <host>` line and reads origin back,
+     rather than trusting the push's exit status. `release.sh` now reserves the same way.
+  3. **The read-back and `repair_note` compared the build number only.** A note naming the right
+     build from the wrong commit passed. Both now require the exact `Build N from <sha12>` line for
+     the commit `ship_commit` resolves (`note_names_commit`). The number alone is checked only for
+     builds nothing records.
+  4. **`Ship`'s 180-minute timeout was under the script's own worst case of 280 minutes.**
+     `Ship` now allows 360 minutes. The script's `worst_case` is 330, plus a 15-minute margin for
+     the record. The selftest checks that total against `settings.kts`, and delivery now has a
+     ten-minute limit.
+  - **Evidence:**
+    - The selftests are green: 256 cases (`testflight_distribute` 59, `submit_build` 44).
+    - `bash -n` and `git diff --check` are clean.
+    - Putting each old behaviour back, in memory, fails its case:
+      - a fixed reservation id reproduces the race, two failures;
+      - the old 180-minute `settings.kts` fails the timeout check;
+      - number-only note checks give three failures;
+      - no retry fails the wait case.
+- **What the review leaves open:**
+  - **Homebrew still needs App Store Connect to choose its build number.** `next_build_number`
+    reads both platforms, so a Developer ID release cannot start while that API is unreachable. This
+    comes from the shared number ledger, a design choice. It is recorded here, not changed.
+  - **A lesson for agent-standards:** Funmax's `Ship` has the same timeout gap, 90 minutes around
+    the same 40/40/60 limits for one platform.
 
 **Next, in order**
 

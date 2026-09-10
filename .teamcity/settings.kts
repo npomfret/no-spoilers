@@ -279,9 +279,14 @@ val ship = BuildType {
     }
 
     failureConditions {
-        // Two archives, two uploads, and a wait on Apple that `submit_build.py`
-        // bounds at an hour per platform.
-        executionTimeoutMin = 180
+        // Above `submit_build.py`'s own worst case, so the script's bounds are
+        // always what ends a run and it always records why: per platform, 40
+        // minutes to archive, 40 to export and upload, an hour of Apple and 10
+        // to deliver, twice, plus half an hour outside those steps, is 330. The
+        // other 30 are for the record. `submit_build.py --selftest` reads this
+        // number and fails if it falls under that. It was 180 until 2026-09-10,
+        // which could kill the macOS half after iOS had delivered, unrecorded.
+        executionTimeoutMin = 360
     }
 
     // One delivery at a time. A second would be refused its build number by the

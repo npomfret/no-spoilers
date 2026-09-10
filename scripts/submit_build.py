@@ -27,8 +27,10 @@ One run, in order:
    App Store Connect holds on either platform, expired builds and every page
    included, or the highest `build/` tag, plus one. The tag push is what makes
    the number this run's: a second run that chose the same N is refused by the
-   remote and chooses again. A reserved number that never reaches Apple is
-   harmless; an upload nothing records is not.
+   remote and chooses again. Each tag carries a `Reservation:` line of its own
+   and origin is read back, because identical tag objects both push — see
+   `claim`. A reserved number that never reaches Apple is harmless; an upload
+   nothing records is not.
 5. **For each platform, iOS first**: archive with `CURRENT_PROJECT_VERSION=N`,
    check every bundle in the archive reads that number and the project's
    version, then export and upload in one authenticated `-exportArchive`.
@@ -40,8 +42,15 @@ One run, in order:
    reads both back. Never "the newest" — a build uploaded meanwhile from
    elsewhere must not receive this commit's note.
 
-One platform failing does not stop the other. A two-platform run is one number
-and two records, and the run is red if either did not reach its testers.
+One platform failing does not stop the other, however it fails: `ship_platform`
+records anything short of an interrupt against the stage it happened in, and an
+App Store Connect 429, 5xx or dropped connection during the wait is another
+poll rather than a failure. A two-platform run is one number and two entries in
+one record, and the run is red if either did not reach its testers.
+
+Every bound here — archive, export, Apple, delivery — sits inside `Ship`'s
+TeamCity timeout with room to record: `worst_case`, which the selftest holds
+against `.teamcity/settings.kts`.
 
 **A run leaves a record**, `no-spoilers-ship/build-N/record.json` under the
 temporary directory — TeamCity's build temp directory on `Ship`, published as an
@@ -74,10 +83,14 @@ import argparse
 import json
 import os
 import plistlib
+import re
+import socket
 import subprocess
 import sys
 import tempfile
 import time
+import traceback
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -101,6 +114,7 @@ PLATFORMS = {
 GATE_LIMIT = 1800.0
 ARCHIVE_LIMIT = 2400.0
 EXPORT_LIMIT = 2400.0
+DELIVERY_LIMIT = 600.0
 
 # Apple's step, and the only one whose length nothing here governs. A poll with
 # no ceiling is worse than one that stops and names the command to run later.
@@ -109,7 +123,25 @@ POLL_SECONDS = 45.0
 INGEST_DOUBT = 900.0
 EXPECTED_WAIT = "FunMax measures six to fifteen minutes on the same team, and forty-five has happened"
 
+# Everything a delivering run does outside the bounded steps: `ci-publish.sh`'s
+# preflight, the fetch, the train reads, up to three reservations at
+# `version_helper`'s five minutes each, and each wait's last poll running past
+# its ceiling. Not measured, and generous on purpose: being short here is how
+# TeamCity, rather than this script, ends a run.
+OUTSIDE_THE_STEPS = 1800.0
+
+# What TeamCity must still allow once every bound has been reached, so the
+# record is written and published.
+RECORD_MARGIN = 900.0
+
 RESERVE_ATTEMPTS = 3
+RESERVED_BY = (
+    "Reserved by scripts/submit_build.py before archiving this commit. The number is spent "
+    "whether or not an upload follows; the run's record says what reached Apple."
+)
+
+# The stage a platform was in when it stopped, from the last stage it reached.
+FAILING_STAGE = {"started": "archive", "archived": "export", "uploaded": "processing", "processed": "delivery"}
 
 
 def speak_in_order() -> None:
@@ -322,22 +354,85 @@ def recovery_command(platform: str, number: int) -> str:
     return f"scripts/testflight_distribute.py --platform {platform} --build {number} --apply"
 
 
+def recovery_for(reached: str, platform: str, number: int, archive_only: bool) -> str | None:
+    """What recovers a platform that stopped after reaching `reached`, if anything does.
+
+    Nothing before the export, and nothing for `--archive-only`, which sends
+    nothing. The recorded build once the upload was accepted. During the
+    export, the same command on condition, since an upload can land after the
+    tool has reported failing.
+    """
+    if archive_only or reached == "started":
+        return None
+    if reached == "archived":
+        return f"if App Store Connect shows {platform} build {number} anyway, {recovery_command(platform, number)}"
+    return recovery_command(platform, number)
+
+
+def worst_case(platforms: int) -> float:
+    """The longest a delivering run can take with every bound reached, in seconds.
+
+    `Ship`'s `executionTimeoutMin` has to exceed this plus `RECORD_MARGIN`, or
+    TeamCity rather than this script decides when a run ends — and a run
+    TeamCity kills records no failure and names no recovery, possibly after the
+    first platform has delivered. The selftest reads the number out of
+    `.teamcity/settings.kts` and holds it to this. The test gate is not
+    counted: `Ship` passes `--tested`.
+    """
+    return OUTSIDE_THE_STEPS + platforms * (ARCHIVE_LIMIT + EXPORT_LIMIT + PROCESSING_CEILING + DELIVERY_LIMIT)
+
+
+def transient(error: BaseException) -> bool:
+    """Whether a failed App Store Connect read is worth asking again.
+
+    A 429 or a 5xx is Apple briefly unable to answer, and so is a connection
+    that dropped or timed out. A 401, 403 or 404 will answer the same way in
+    forty-five seconds, and an hour of asking would only bury it.
+    """
+    if isinstance(error, asc.Refused):
+        return error.status == 429 or error.status >= 500
+    return isinstance(error, OSError)
+
+
+def first_line(error: BaseException) -> str:
+    return (str(error).strip().splitlines() or [type(error).__name__])[0]
+
+
+def processing_state(platform: str, version: str, number: int) -> tuple[bool, str | None]:
+    """One look: whether App Store Connect shows this build, and its internal state.
+
+    A fresh client every look: a token lives twenty minutes and the wait can
+    last an hour.
+    """
+    client = asc.Client()
+    app_id = asc.find_app(client.get)["id"]
+    build = uploaded_build(client.get, app_id, platform, version, number)
+    if build is None:
+        return False, None
+    return True, client.get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]["internalBuildState"]
+
+
 def await_processing(platform: str, version: str, number: int) -> tuple[bool, str]:
     """Poll until Apple has an answer for this exact build, or the ceiling passes.
 
-    A fresh client every poll: a token lives twenty minutes and this can wait an
-    hour.
+    **A read that fails transiently is one more poll, not the end of the run.**
+    The wait begins after the upload was accepted, and until 2026-09-10 a 503
+    here escaped as a `SystemExit` and took the rest of the run with it — the
+    other platform included — leaving a record that said `uploaded` and
+    nothing more. What `transient` refuses still escapes, and `ship_platform`
+    records it with the recovery command.
     """
     started = time.monotonic()
     doubted = False
+    visible, state = False, None
     while True:
-        client = asc.Client()
-        app_id = asc.find_app(client.get)["id"]
-        build = uploaded_build(client.get, app_id, platform, version, number)
-        state = None
-        if build is not None:
-            state = client.get(f"/v1/builds/{build['id']}/buildBetaDetail")["data"]["attributes"]["internalBuildState"]
-        verdict, reason = wait_verdict(state)
+        try:
+            visible, state = processing_state(platform, version, number)
+            verdict, reason = wait_verdict(state)
+        except (asc.Refused, OSError) as error:
+            if not transient(error):
+                raise
+            verdict, reason = "wait", f"App Store Connect did not answer ({first_line(error)}); asking again"
         elapsed = time.monotonic() - started
         print(f"  [{elapsed / 60:5.1f}m / {PROCESSING_CEILING / 60:.0f}m] {platform} {number}: {reason}")
         if verdict == "ready":
@@ -345,7 +440,7 @@ def await_processing(platform: str, version: str, number: int) -> tuple[bool, st
             return True, state
         if verdict == "stop":
             return False, f"{state}: {reason}"
-        if not doubted and (doubt := ingest_doubt(elapsed, build is not None)):
+        if not doubted and (doubt := ingest_doubt(elapsed, visible)):
             print(f"  {doubt}")
             doubted = True
         if elapsed >= PROCESSING_CEILING:
@@ -362,35 +457,68 @@ def step(command: list[str], limit: float) -> int:
         return 124
 
 
-def reserve_number(sha: str, versions: dict[str, str]) -> int:
-    """Choose the next build number and make it this run's by pushing its tag.
+def claim(tag: str, sha: str, subject: str, repo: Path = REPO) -> bool:
+    """Tag `sha` and push it; True only when origin now holds this run's own tag object.
 
-    The push is the lock. Two runs that chose the same N — a laptop and an agent
-    a minute apart — cannot both push `build/N`, so the loser learns it here, in
+    **Every reservation carries its own identifier.** A tag object is its
+    content: two runs tagging one commit with one message, as one person, in
+    one second, write byte-identical objects, and a push that sets a ref to the
+    object it already holds succeeds — so both runs believed the number theirs.
+    The `Reservation:` line makes each object unique, which makes the second
+    push a refusal, and origin is read back rather than the push's exit status
+    believed. False means another run holds the tag; failing to reach origin at
+    all is a hard stop, since then nothing is reserved. A lost claim deletes the
+    local tag, because an agent's checkout outlives the run and a stale
+    `build/N` would clobber the next `fetch --tags`.
+    """
+    distribute.git(
+        "tag", "-a", tag, sha,
+        "-m", subject,
+        "-m", RESERVED_BY,
+        "-m", f"Reservation: {uuid.uuid4()} on {socket.gethostname()}",
+        repo=repo,
+    )
+    mine = distribute.git("rev-parse", f"refs/tags/{tag}", repo=repo).strip()
+    refusal = ""
+    try:
+        distribute.git("push", "--quiet", "origin", f"refs/tags/{tag}", repo=repo)
+    except subprocess.CalledProcessError as error:
+        refusal = error.stderr.strip()
+    try:
+        listed = distribute.git("ls-remote", "origin", f"refs/tags/{tag}", repo=repo)
+    except subprocess.CalledProcessError as error:
+        distribute.git("tag", "-d", tag, repo=repo)
+        raise SystemExit(
+            f"could not read {tag} back from origin, so it is not known to be reserved and nothing "
+            f"was built:\n{refusal or error.stderr.strip()}"
+        ) from None
+    held = [line.split()[0] for line in listed.splitlines() if line.split()[1:] == [f"refs/tags/{tag}"]]
+    if held == [mine]:
+        return True
+    distribute.git("tag", "-d", tag, repo=repo)
+    if held:
+        return False
+    raise SystemExit(
+        f"could not push {tag}, so it is not reserved and nothing was built:\n"
+        f"{refusal or 'the push reported success, and origin does not hold the tag'}"
+    )
+
+
+def reserve_number(sha: str, versions: dict[str, str]) -> int:
+    """Choose the next build number and make it this run's by claiming its tag.
+
+    The claim is the lock. Two runs that chose the same N — a laptop and an agent
+    a minute apart — cannot both hold `build/N`, so the loser learns it here, in
     seconds, and chooses again, rather than at upload after an archive.
+    `next_build_number` fetches tags first, so the winner's tag moves it on.
     """
     shipping = ", ".join(f"{platform} v{version}" for platform, version in versions.items())
     for attempt in range(1, RESERVE_ATTEMPTS + 1):
         number = int(version_helper("next_build_number"))
         tag = f"build/{number}"
-        distribute.git(
-            "tag", "-a", tag, sha,
-            "-m", f"build {number}: {shipping}",
-            "-m", "Reserved by scripts/submit_build.py before archiving this commit. The number is "
-            "spent whether or not an upload follows; the run's record says what reached Apple.",
-        )
-        try:
-            distribute.git("push", "--quiet", "origin", f"refs/tags/{tag}")
+        if claim(tag, sha, f"build {number}: {shipping}"):
             return number
-        except subprocess.CalledProcessError as refusal:
-            distribute.git("tag", "-d", tag)
-            if distribute.git("ls-remote", "--tags", "origin", f"refs/tags/{tag}").strip():
-                print(f"  {tag} was taken by another run (attempt {attempt} of {RESERVE_ATTEMPTS}); choosing again")
-                continue
-            raise SystemExit(
-                f"could not push {tag}, so build {number} is not reserved and nothing was built:\n"
-                f"{refusal.stderr.strip()}"
-            ) from None
+        print(f"  {tag} was taken by another run (attempt {attempt} of {RESERVE_ATTEMPTS}); choosing again")
     raise SystemExit(f"lost the build-number race {RESERVE_ATTEMPTS} times running; something else is shipping")
 
 
@@ -400,7 +528,14 @@ def write_record(path: Path, record: dict) -> None:
 
 
 def ship_platform(platform: str, version: str, number: int, work: Path, entry: dict, save, archive_only: bool) -> bool:
-    """One platform from archive to confirmed delivery, recording every stage."""
+    """One platform from archive to confirmed delivery, recording every stage.
+
+    **Nothing but an interrupt escapes it.** A platform that stops for a reason
+    no stage anticipated — an App Store Connect error the wait could not ride
+    out, an archive with no Info.plist — is recorded as failing in the stage it
+    was in, with the recovery that applies from there, and the run goes on to
+    the next platform. Until 2026-09-10 such an error ended the whole run.
+    """
     scheme = PLATFORMS[platform]["scheme"]
 
     def failed(stage: str, detail: str, recovery: str | None = None) -> bool:
@@ -415,56 +550,76 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         entry.update({"stage": stage, **extra})
         save()
 
-    archive = work / f"{scheme}.xcarchive"
-    derived = REPO / "tmp" / "DerivedData" / f"Ship-{platform}"
-    print(f"\n==> {platform}: archiving {scheme} {version} ({number}) — limit {ARCHIVE_LIMIT / 60:.0f}m")
-    if step(archive_command(platform, number, archive, derived), ARCHIVE_LIMIT):
-        return failed("archive", "xcodebuild archive failed; its own output above says why")
+    def stages() -> bool:
+        archive = work / f"{scheme}.xcarchive"
+        derived = REPO / "tmp" / "DerivedData" / f"Ship-{platform}"
+        print(f"\n==> {platform}: archiving {scheme} {version} ({number}) — limit {ARCHIVE_LIMIT / 60:.0f}m")
+        if step(archive_command(platform, number, archive, derived), ARCHIVE_LIMIT):
+            return failed("archive", "xcodebuild archive failed; its own output above says why")
 
-    problems = bundle_problems(archive, platform, version, number)
-    if problems:
-        return failed("archive", "; ".join(problems))
-    reached("archived")
+        problems = bundle_problems(archive, platform, version, number)
+        if problems:
+            return failed("archive", "; ".join(problems))
+        reached("archived")
 
-    options = work / f"{platform}.exportOptions.plist"
-    options.write_bytes(plistlib.dumps(export_options(upload=not archive_only)))
-    output = work / f"{platform}-export"
-    verb = "exporting" if archive_only else "exporting and uploading"
-    print(f"\n==> {platform}: {verb} — limit {EXPORT_LIMIT / 60:.0f}m")
-    if step(export_command(archive, options, output), EXPORT_LIMIT):
-        return failed(
-            "export",
-            "xcodebuild -exportArchive failed. It prints a digest; Apple's verbatim answer is in "
-            "IDEDistributionProvisioning.log inside the .xcdistributionlogs bundle its first lines name",
-            None if archive_only else
-            f"if App Store Connect shows {platform} build {number} anyway, {recovery_command(platform, number)}",
-        )
+        options = work / f"{platform}.exportOptions.plist"
+        options.write_bytes(plistlib.dumps(export_options(upload=not archive_only)))
+        output = work / f"{platform}-export"
+        verb = "exporting" if archive_only else "exporting and uploading"
+        print(f"\n==> {platform}: {verb} — limit {EXPORT_LIMIT / 60:.0f}m")
+        if step(export_command(archive, options, output), EXPORT_LIMIT):
+            return failed(
+                "export",
+                "xcodebuild -exportArchive failed. It prints a digest; Apple's verbatim answer is in "
+                "IDEDistributionProvisioning.log inside the .xcdistributionlogs bundle its first lines name",
+                recovery_for("archived", platform, number, archive_only),
+            )
 
-    if archive_only:
-        packages = sorted(str(path.relative_to(output)) for path in output.iterdir())
-        print(f"  exported to {output}: {', '.join(packages)}")
-        for package in output.glob("*.pkg"):
-            if step(["pkgutil", "--check-signature", str(package)], 60.0):
-                return failed("export", f"{package.name} carries no valid installer signature")
-        reached("exported")
+        if archive_only:
+            packages = sorted(str(path.relative_to(output)) for path in output.iterdir())
+            print(f"  exported to {output}: {', '.join(packages)}")
+            for package in output.glob("*.pkg"):
+                if step(["pkgutil", "--check-signature", str(package)], 60.0):
+                    return failed("export", f"{package.name} carries no valid installer signature")
+            reached("exported")
+            return True
+
+        reached("uploaded")
+        print(f"\n==> {platform}: waiting for Apple to process build {number} — {EXPECTED_WAIT}")
+        ready, state = await_processing(platform, version, number)
+        if not ready:
+            return failed("processing", state, recovery_command(platform, number))
+        reached("processed", processing=state)
+
+        print(f"\n==> {platform}: delivering build {number} to the internal testers — limit {DELIVERY_LIMIT / 60:.0f}m")
+        delivery = [
+            sys.executable, str(SCRIPTS / "testflight_distribute.py"),
+            "--platform", platform, "--build", str(number), "--apply",
+        ]
+        try:
+            handed = subprocess.run(delivery, cwd=REPO, timeout=DELIVERY_LIMIT).returncode
+        except subprocess.TimeoutExpired:
+            return failed(
+                "delivery",
+                f"testflight_distribute.py ran past {DELIVERY_LIMIT / 60:.0f} minutes and was stopped",
+                recovery_command(platform, number),
+            )
+        if handed:
+            return failed("delivery", "testflight_distribute.py did not confirm the delivery", recovery_command(platform, number))
+        reached("delivered")
         return True
 
-    reached("uploaded")
-    print(f"\n==> {platform}: waiting for Apple to process build {number} — {EXPECTED_WAIT}")
-    ready, state = await_processing(platform, version, number)
-    if not ready:
-        return failed("processing", state, recovery_command(platform, number))
-    reached("processed", processing=state)
-
-    print(f"\n==> {platform}: delivering build {number} to the internal testers")
-    handed = subprocess.run(
-        [sys.executable, str(SCRIPTS / "testflight_distribute.py"), "--platform", platform, "--build", str(number), "--apply"],
-        cwd=REPO,
-    )
-    if handed.returncode:
-        return failed("delivery", "testflight_distribute.py did not confirm the delivery", recovery_command(platform, number))
-    reached("delivered")
-    return True
+    try:
+        return stages()
+    except (SystemExit, Exception) as error:
+        if not isinstance(error, SystemExit):
+            traceback.print_exc()
+        reached_so_far = entry["stage"]
+        return failed(
+            FAILING_STAGE.get(reached_so_far, reached_so_far),
+            str(error).strip() or type(error).__name__,
+            recovery_for(reached_so_far, platform, number, archive_only),
+        )
 
 
 def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> int:
@@ -683,9 +838,139 @@ def selftest() -> int:
     except SystemExit:
         pass
 
+    import contextlib
+    import io
+    import urllib.error
+
+    def muted(call):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return call()
+
+    for error, wanted in (
+        (asc.Refused("GET", "/v1/builds", 503, "Service Unavailable"), True),
+        (asc.Refused("GET", "/v1/builds", 429, "Too Many Requests"), True),
+        (asc.Refused("GET", "/v1/builds", 403, ""), False),
+        (urllib.error.URLError("connection reset by peer"), True),
+        (SystemExit("no private key at ~/.appstoreconnect"), False),
+    ):
+        if transient(error) is not wanted:
+            failures.append(f"{first_line(error)!r} was not judged {'transient' if wanted else 'final'}")
+
+    # The wait and the platform around it, with the tools and Apple replaced.
+    # The review's case, 2026-09-10: iOS uploaded, then an App Store Connect
+    # error. A 503 is ridden out; a 403 is recorded against processing with the
+    # recovery, and returned rather than raised, so macOS still runs.
+    patched = {name: globals()[name] for name in ("processing_state", "step", "bundle_problems", "POLL_SECONDS")}
+    try:
+        globals()["POLL_SECONDS"] = 0.0
+        answers: list = [asc.Refused("GET", "/v1/builds", 503, "Service Unavailable"), (True, "READY_FOR_BETA_TESTING")]
+
+        def scripted(*_):
+            answer = answers.pop(0)
+            if isinstance(answer, BaseException):
+                raise answer
+            return answer
+
+        globals()["processing_state"] = scripted
+        try:
+            rode_it_out = muted(lambda: await_processing("ios", "1.1.4", 10025))[0] is True and not answers
+        except asc.Refused:
+            rode_it_out = False
+        if not rode_it_out:
+            failures.append("a 503 while waiting on Apple ended the wait instead of asking again")
+
+        def forbidden(*_):
+            raise asc.Refused("GET", "/v1/builds", 403, "")
+
+        globals()["processing_state"] = forbidden
+        try:
+            muted(lambda: await_processing("ios", "1.1.4", 10025))
+            failures.append("a 403 while waiting on Apple was not allowed to end the wait")
+        except asc.Refused:
+            pass
+
+        globals()["step"] = lambda command, limit: 0
+        globals()["bundle_problems"] = lambda *_: []
+        with tempfile.TemporaryDirectory() as scratch:
+            entry = {"version": "1.1.4", "stage": "started"}
+            shipped = muted(lambda: ship_platform("ios", "1.1.4", 10025, Path(scratch), entry, lambda: None, False))
+            if shipped is not False or entry.get("failed") != "processing":
+                failures.append(f"an App Store Connect error after the upload escaped or was misplaced: {entry}")
+            if entry.get("recovery") != recovery_command("ios", 10025):
+                failures.append("an upload stranded by an App Store Connect error names no recovery")
+
+            def unreadable(*_):
+                raise FileNotFoundError("Info.plist")
+
+            globals()["bundle_problems"] = unreadable
+            entry = {"version": "1.1.4", "stage": "started"}
+            shipped = muted(lambda: ship_platform("macos", "1.1.4", 10025, Path(scratch), entry, lambda: None, False))
+            if shipped is not False or entry.get("failed") != "archive" or entry.get("recovery") is not None:
+                failures.append(f"a crash before anything was uploaded was not recorded as one: {entry}")
+    finally:
+        globals().update(patched)
+
+    # The reservation, against a throwaway origin and two clones of it, as one
+    # person in one second — the race the review reproduced. The premise is
+    # checked too: identical tag objects both push, so a claim without a line of
+    # its own would hand both runs the number.
+    pinned = {
+        "GIT_AUTHOR_NAME": "selftest", "GIT_AUTHOR_EMAIL": "selftest@example.invalid",
+        "GIT_COMMITTER_NAME": "selftest", "GIT_COMMITTER_EMAIL": "selftest@example.invalid",
+        "GIT_AUTHOR_DATE": "2026-09-10T12:00:00Z", "GIT_COMMITTER_DATE": "2026-09-10T12:00:00Z",
+        "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+    }
+    before = {name: os.environ.get(name) for name in pinned}
+    os.environ.update(pinned)
+    try:
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            origin = root / "origin.git"
+            clones = [root / "laptop", root / "agent"]
+            subprocess.run(["git", "init", "--quiet", "--bare", str(origin)], check=True, capture_output=True)
+            for clone in clones:
+                subprocess.run(["git", "clone", "--quiet", str(origin), str(clone)], check=True, capture_output=True)
+            distribute.git("commit", "--quiet", "--allow-empty", "-m", "the work", repo=clones[0])
+            distribute.git("push", "--quiet", "origin", "HEAD:refs/heads/main", repo=clones[0])
+            distribute.git("fetch", "--quiet", "origin", repo=clones[1])
+            sha = distribute.git("rev-parse", "HEAD", repo=clones[0]).strip()
+
+            try:
+                for clone in clones:
+                    distribute.git("tag", "-a", "build/10024", sha, "-m", "build 10024: ios v1.1.4", repo=clone)
+                    distribute.git("push", "--quiet", "origin", "refs/tags/build/10024", repo=clone)
+            except subprocess.CalledProcessError:
+                failures.append("identical tags no longer both push, so this no longer reproduces the race")
+
+            won = claim("build/10025", sha, "build 10025: ios v1.1.4", repo=clones[0])
+            lost = claim("build/10025", sha, "build 10025: ios v1.1.4", repo=clones[1])
+            if won is not True:
+                failures.append("an uncontested build number was not reserved")
+            if lost is not False:
+                failures.append("two runs reserved one build number in the same second")
+            held = distribute.git("ls-remote", "origin", "refs/tags/build/10025", repo=clones[1]).split()
+            winner = distribute.git("rev-parse", "refs/tags/build/10025", repo=clones[0]).strip()
+            if held[:1] != [winner] or distribute.git("tag", "-l", "build/10025", repo=clones[1]).strip():
+                failures.append("origin does not hold the winner's tag, or the loser kept its own")
+    finally:
+        for name, value in before.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+    settings = (REPO / ".teamcity" / "settings.kts").read_text()
+    timeout = re.search(r"executionTimeoutMin = (\d+)", settings[settings.index('id("Ship")'):])
+    needed = worst_case(len(PLATFORMS)) + RECORD_MARGIN
+    if timeout is None or int(timeout.group(1)) * 60 < needed:
+        failures.append(
+            f"Ship's TeamCity timeout is under this script's worst case of {needed / 60:.0f} minutes, "
+            "so TeamCity could end a run before it records why"
+        )
+
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"submit_build selftest: 29 cases, {len(failures)} failure(s)")
+    print(f"submit_build selftest: 44 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 
