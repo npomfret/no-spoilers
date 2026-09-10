@@ -90,7 +90,12 @@ the right default and stays the default; a named build is the other case, since
 2026-09-06: the build attached to the App Store version was 104, two Xcode Cloud
 runs had landed since, and the testers were meant to try the one Apple would be
 reviewing. Same answer set as the default — unexpired builds of the platform —
-so an expired number is refused rather than delivered.
+so an expired number is refused rather than delivered. It is also how
+`submit_build.py` delivers: always the number it just uploaded, never the newest.
+
+**`--apply` ends by reading back what it wrote**, since 2026-09-10: the groups
+hold the build and the note names it, or the run exits 1 saying which did not.
+Nothing else looks, now that delivery runs unattended.
 
 Usage:
     scripts/testflight_distribute.py                          # what would happen
@@ -281,7 +286,7 @@ def note_commit(
     - **It must be on `main`.** A tag on a commit no branch contains is a tag
       nobody can reach.
     """
-    builds = session.get(asc.builds_path(app_id, PLATFORMS[platform]))["data"]
+    builds = asc.all_pages(session.get, asc.builds_path(app_id, PLATFORMS[platform]))["data"]
     build = next((b for b in builds if b["attributes"]["version"] == version), None)
     if build is None:
         return None
@@ -646,12 +651,59 @@ def gather(session: Session, only: str | None, platform: str, number: str | None
     return {"appId": app_id, "build": target, "plans": plans}
 
 
+def add_to_group(session: Session, build: dict, plan: dict) -> str:
+    """Put the build in the group, and say which way it got there.
+
+    **Apple attaches some builds to an internal group on its own, and then
+    refuses the add.** FunMax, on the same team, measured it: `POST
+    /v1/betaGroups/{id}/relationships/builds` answers `422
+    ENTITY_UNPROCESSABLE`, *"Builds cannot be assigned to this internal
+    group"*, for a build Apple had already attached, and accepts the same call
+    for one it had not. Which builds Apple takes is not known, so neither the
+    add nor the refusal can be skipped, and the refusal is settled against the
+    group's contents. The window is the few seconds after processing ends,
+    which is exactly when `submit_build.py` calls this — FunMax's Ship #5 exited
+    1 having uploaded, processed and delivered its build, for want of this.
+    """
+    try:
+        session.post(
+            f"/v1/betaGroups/{plan['id']}/relationships/builds",
+            {"data": [{"type": "builds", "id": build["id"]}]},
+        )
+        return f"added build {build['version']} to {plan['name']}"
+    except SystemExit:
+        if plan["id"] not in asc.groups_holding(session.get, build["id"]):
+            raise
+        return f"build {build['version']} is in {plan['name']}: Apple added it first"
+
+
+def unconfirmed(session: Session, build: dict, plans: list[dict]) -> list[str]:
+    """What an `--apply` run set out to do that App Store Connect does not show.
+
+    Read back after the writes rather than inferred from their status codes.
+    A 204 from the group add and a 200 from the note are what every other
+    signal in this pipeline already was — success-shaped — and the delivery
+    this exists for is the one nobody is watching: `submit_build.py` runs it
+    unattended and reports what this returns.
+
+    A plan that was refused as not actionable is not demanded here; it has
+    already been counted as blocked. The note is demanded whatever happened to
+    the groups, because a build a tester holds with a note about another
+    commit is the failure `note_names_build` was written for.
+    """
+    gaps = []
+    holding = asc.groups_holding(session.get, build["id"])
+    for plan in plans:
+        if (plan["present"] or plan["actionable"]) and plan["id"] not in holding:
+            gaps.append(f"{plan['name']} does not hold build {build['version']}")
+    note = note_on(session, build["id"])
+    if not note_names_build(note["whatsNew"] if note else None, build["version"]):
+        gaps.append(f"the tester note does not name build {build['version']}")
+    return gaps
+
+
 def deliver(session: Session, build: dict, plan: dict, submit: bool) -> None:
-    session.post(
-        f"/v1/betaGroups/{plan['id']}/relationships/builds",
-        {"data": [{"type": "builds", "id": build["id"]}]},
-    )
-    print(f"  added build {build['version']} to {plan['name']}")
+    print(f"  {add_to_group(session, build, plan)}")
 
     pending = [t for t in plan["testers"] if t["state"] == "NOT_INVITED"]
     if pending:
@@ -787,7 +839,16 @@ def main() -> int:
             continue
         deliver(session, build, plan, arguments.submit)
 
-    return 1 if blocked else 0
+    if not arguments.apply:
+        return 1 if blocked else 0
+
+    print()
+    gaps = unconfirmed(session, build, state["plans"])
+    for gap in gaps:
+        print(f"! not confirmed: {gap}")
+    if not gaps:
+        print(f"confirmed: build {build['version']}'s note names it, and every group given it holds it")
+    return 1 if blocked or gaps else 0
 
 
 def _selftest() -> int:
@@ -1042,6 +1103,64 @@ def _selftest() -> int:
     if ship_commit("not-a-number") is not None:
         failures.append("ship_commit tried to parse a version that is not a build number")
 
+    # Apple's own add, and the 422 it then answers. Settled against the group's
+    # contents both ways: a build that is there arrived however it arrived, and
+    # a refusal for a build no group holds is a real failure.
+    class _RefusesTheAdd:
+        def __init__(self, holding: list[str]) -> None:
+            self.holding = holding
+            self.posts = 0
+
+        def get(self, path: str) -> dict:
+            return {"included": [{"id": group} for group in self.holding]}
+
+        def post(self, path: str, body: dict) -> dict:
+            self.posts += 1
+            raise SystemExit(
+                f"POST {path} -> HTTP 422\n"
+                '{"errors":[{"code":"ENTITY_UNPROCESSABLE","title":'
+                '"Builds cannot be assigned to this internal group."}]}'
+            )
+
+    handed = {"id": "b1", "version": "10025"}
+    internal = {"id": "g1", "name": "Internal", "internal": True}
+    already = _RefusesTheAdd(["g1"])
+    try:
+        said = add_to_group(already, handed, internal)
+        if "Apple added it first" not in said:
+            failures.append(f"an add Apple had already made was not reported as such: {said!r}")
+    except SystemExit as refusal:
+        failures.append(f"a build already in the group failed the delivery: {refusal}")
+    if already.posts != 1:
+        failures.append("the add was not attempted, so a build Apple ignores would strand")
+    try:
+        add_to_group(_RefusesTheAdd([]), handed, internal)
+        failures.append("a refusal was swallowed for a build no group holds")
+    except SystemExit:
+        pass
+
+    # The read-back after --apply. Three shapes: all delivered, a group that
+    # does not hold what it was given, and a note about somebody else's build.
+    class _Delivered:
+        def __init__(self, holding: list[str], whats_new: str | None) -> None:
+            self.holding, self.whats_new = holding, whats_new
+
+        def get(self, path: str) -> dict:
+            if "betaBuildLocalizations" in path:
+                return {"data": [{"id": "loc", "attributes": {"locale": NOTE_LOCALE, "whatsNew": self.whats_new}}]}
+            return {"included": [{"id": group} for group in self.holding]}
+
+    given = [{"id": "g1", "name": "Internal", "present": False, "actionable": True}]
+    refused = {"id": "g2", "name": "Friends", "present": False, "actionable": False}
+    right_note = note_text("the work", "0123456789abcdef", "10025")
+    if unconfirmed(_Delivered(["g1"], right_note), handed, given + [refused]):
+        failures.append("a delivered build with its own note was not confirmed")
+    if not any("Internal does not hold" in gap for gap in unconfirmed(_Delivered([], right_note), handed, given)):
+        failures.append("a group that does not hold the build it was given was confirmed")
+    if not any("note does not name" in gap
+               for gap in unconfirmed(_Delivered(["g1"], note_text("old", "abc", "10024")), handed, given)):
+        failures.append("a note about another build was confirmed")
+
     if "App Manager" not in _hint(403) or ADMIN_KEY_ID not in _hint(403):
         failures.append("the 403 hint does not name the key")
     if _hint(200):
@@ -1075,7 +1194,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"testflight_distribute selftest: 48 cases, {len(failures)} failure(s)")
+    print(f"testflight_distribute selftest: 54 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

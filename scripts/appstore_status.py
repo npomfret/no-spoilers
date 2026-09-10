@@ -425,8 +425,48 @@ def builds_path(app_id: str, platform: str) -> str:
     under Universal Purchase, so without it this returns both interleaved by
     date and the newest upload is as likely to be a Mac build — measured on this
     app, 8 unfiltered against 4 filtered.
+
+    One page of the collection, not the collection: read it with `all_pages`.
     """
     return f"/v1/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={platform}&limit=200"
+
+
+# How many items a paged read may gather before it is refused. Far past any
+# record this app will hold, so reaching it means a cursor that does not end.
+PAGE_CEILING = 5000
+
+
+def all_pages(get: "Callable[[str], dict]", path: str) -> dict:
+    """Every page of one collection: its `data` and its `included`, in order.
+
+    **The first page was being read as the whole answer.** Every build read
+    here asked for `limit=200` and stopped, which is true only while a platform
+    holds fewer. Past that, `highest_build` undercounts — a number Apple then
+    refuses after the archive — and `newest_build` picks from an arbitrary
+    slice, because `/v1/builds` answers in no dependable order and refuses
+    `sort` (FunMax measured two reads minutes apart returning different sets).
+
+    The cursor is followed to its end or the read is refused. Stopping at a
+    ceiling and returning what had arrived would be the truncation this exists
+    to remove, so a runaway cursor is a hard stop, and so is a `next` link to
+    anywhere but the API this signs tokens for.
+    """
+    data: list[dict] = []
+    included: list[dict] = []
+    while True:
+        page = get(path)
+        data.extend(page.get("data") or [])
+        included.extend(page.get("included") or [])
+        following = (page.get("links") or {}).get("next")
+        if not following:
+            return {"data": data, "included": included}
+        if len(data) >= PAGE_CEILING:
+            raise SystemExit(
+                f"{path} was still paging after {len(data)} items; refusing a partial answer"
+            )
+        if not following.startswith(API + "/"):
+            raise SystemExit(f"{path} offered a next page outside {API}: {following}")
+        path = following[len(API):]
 
 
 def platform_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> list[dict]:
@@ -438,7 +478,7 @@ def platform_builds(get: "Callable[[str], dict]", app_id: str, platform: str) ->
             "expired": build["attributes"]["expired"],
             "uploaded": build["attributes"]["uploadedDate"],
         }
-        for build in get(builds_path(app_id, platform))["data"]
+        for build in all_pages(get, builds_path(app_id, platform))["data"]
     ]
 
 
@@ -463,8 +503,9 @@ def train_builds(get: "Callable[[str], dict]", app_id: str, platform: str) -> di
     it. See docs/guides/building.md.
     """
     # `builds_path` already carries the platform filter and the limit; this
-    # adds the join and nothing else.
-    response = get(builds_path(app_id, platform) + "&include=preReleaseVersion")
+    # adds the join and nothing else. Every page carries its own `included`,
+    # which `all_pages` gathers beside the data.
+    response = all_pages(get, builds_path(app_id, platform) + "&include=preReleaseVersion")
     trains = {
         item["id"]: item["attributes"]["version"]
         for item in response.get("included") or []
@@ -1861,6 +1902,42 @@ def _selftest() -> int:
         except SystemExit:
             pass
 
+    # Paging. The first page used to be read as the whole collection, which is
+    # an undercount the moment a platform holds more than one page of builds —
+    # and an undercounted `highest_build` is a number Apple refuses after the
+    # archive. Two pages, the second holding the highest number, is that case.
+    def _paged(path: str) -> dict:
+        second = "cursor=two" in path
+        rows = [("10030", False)] if second else [("10012", False), ("99", True)]
+        return {
+            "data": [
+                {"id": f"b{number}", "attributes": {"version": number, "expired": expired, "uploadedDate": "2026-09-01T00:00:00Z"}}
+                for number, expired in rows
+            ],
+            "included": [{"type": "preReleaseVersions", "id": "t2" if second else "t1"}],
+            "links": {} if second else {"next": f"{API}{path}&cursor=two"},
+        }
+
+    walked_pages = all_pages(_paged, "/v1/builds?limit=2")
+    if [row["id"] for row in walked_pages["data"]] != ["b10012", "b99", "b10030"]:
+        failures.append(f"all_pages did not gather every page's data in order: {walked_pages['data']}")
+    if [row["id"] for row in walked_pages["included"]] != ["t1", "t2"]:
+        failures.append("all_pages dropped a later page's included resources")
+    if highest_build(lambda path: _paged(path) if "IOS" in path else {"data": []}, "123") != 10030:
+        failures.append("highest_build did not count a build on the second page")
+    # A cursor that never ends, and one that leads off the API, are both
+    # refused rather than answered with whatever had arrived.
+    try:
+        all_pages(lambda _: {"data": [{"id": "x"}] * 1000, "links": {"next": f"{API}/v1/builds?cursor=again"}}, "/v1/builds")
+        failures.append("all_pages returned a partial answer from a cursor that never ends")
+    except SystemExit:
+        pass
+    try:
+        all_pages(lambda _: {"data": [], "links": {"next": "https://example.invalid/v1/builds"}}, "/v1/builds")
+        failures.append("all_pages followed a next link away from the API")
+    except SystemExit:
+        pass
+
     # argparse exits 2 on a usage error of its own, so the spent answer cannot
     # also be 2 — a mistyped flag would reach a release script wearing the
     # answer "that build number is taken".
@@ -2075,7 +2152,7 @@ def _selftest() -> int:
 
     for failure in failures:
         print(f"  FAIL {failure}", file=sys.stderr)
-    print(f"appstore_status selftest: 118 cases, {len(failures)} failure(s)")
+    print(f"appstore_status selftest: 123 cases, {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

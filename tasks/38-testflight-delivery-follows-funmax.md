@@ -158,9 +158,35 @@ distribution identity, matching profiles and existing `.p8` files. Use Funmax's
 App Manager key, not necessarily an Admin-role key; do not escalate roles to work
 around a missing local profile without inspecting the actual export error.
 
+**Decisions, 2026-09-10**
+
+- **The Apple engine is Python and Funmax-shaped**: a new `scripts/submit_build.py`, used by
+  a person and by `Ship` alike, reusing `appstore_status`, `asc_write` and
+  `testflight_distribute`. `release.sh` keeps the Developer ID / Homebrew channel only;
+  `ship.sh`, `ship-ios.sh` and `ship-appstore.sh` are retired rather than kept beside it.
+- **The Mac Installer Distribution identity is exported from the laptop** that shipped macOS
+  1.1.4 build 10024, not created anew, so no certificate slot is spent.
+- **A closed train is refused, never opened by `Ship`.** The refusal names the command that
+  commits `open vX.Y.Z`; that commit is verified and shipped like any other.
+- **The nightly ships when green**, matching Funmax.
+
+**Read-back, 2026-09-10** (this machine is `macstudio.local`, which runs all three agents)
+
+- Live TeamCity settings equal `.teamcity/settings.kts`; `Verify #100` green at `0c0db91`.
+- `macstudio-3`'s own `teamcity-build.log` holds Ship #4 (id 4202): the installer identity,
+  the Developer ID identity and the old sibling tap path were missing; two identities listed.
+- The `nickpomfret` keychain holds **no** installer or Developer ID certificate at all.
+  `Apple Distribution` is SHA-1 `6E62FC93…`, embedded in both No Spoilers iOS store profiles.
+- Every provisioning profile on this machine is iOS; **there is no macOS App Store profile**.
+- `build/10024` was tagged by `npomfret`; this machine's git user is `nick pomfret`, so the
+  1.1.4 three-channel ship came from the laptop.
+- `scripts/teamcity.py` does not resolve the plugin here (the cause of Funmax's red
+  selftest); `TEAMCITY_CLI=~/projects/agent-standards/plugins/teamcity/scripts/teamcity.py`
+  works. An agent session's sandbox cannot run `xcodebuild`, so signing is proved by builds.
+
 **Implementation plan**
 
-- [ ] Read back current TeamCity settings, parameters, agent compatibility and latest
+- [x] Read back current TeamCity settings, parameters, agent compatibility and latest
   release logs. Preserve existing configuration identities/history when editing the DSL.
 - [ ] Build an Apple-only entry point following Funmax's archive/upload/wait/distribute
   sequence. Adapt or replace the new No Spoilers orchestration; reuse its working ASC
