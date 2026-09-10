@@ -2,12 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "defaultMode": "acceptEdits",
-    "allow": [
-      "Bash(*)",
-      "WebSearch",
-      "WebFetch",
-      "mcp__gitnexus"
-    ],
+    "allow": ["Bash(*)", "WebSearch", "WebFetch", "mcp__gitnexus"],
     "deny": [
       "Read(~/.appstoreconnect/private_keys/**)",
       "Read(~/projects/appstoreconnect-bot/tmp/curl.txt)",
@@ -35,9 +30,7 @@
       "./scripts/verify-*.sh*"
     ],
     "network": {
-      "allowedDomains": [
-        "*"
-      ],
+      "allowedDomains": ["*"],
       "allowLocalBinding": true,
       "allowAllUnixSockets": true
     },
@@ -65,7 +58,5 @@
     "task-files@npomfret": true,
     "teamcity@npomfret": true
   },
-  "enabledMcpjsonServers": [
-    "gitnexus"
-  ]
+  "enabledMcpjsonServers": ["gitnexus"]
 }
