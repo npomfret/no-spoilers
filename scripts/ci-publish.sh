@@ -51,16 +51,15 @@ cd "${SCRIPT_DIR}/.."
 # iOS app and a Mac App Store app alike.
 IDENTITY="Apple Distribution: Nick Pomfret (6FZN56WC8G)"
 
-# **No local installer identity is asserted, and that is deliberate.** The Mac
-# App Store `.pkg` is signed with *Mac Installer Distribution* ("3rd Party Mac
-# Developer Installer" in a keychain), but no such certificate exists on this
-# team's machines: macOS 1.1.4 build 10024 reached App Store Connect from a
-# laptop without one, exported with automatic signing and
-# `-allowProvisioningUpdates`, which signs with Apple's cloud-managed
-# certificates. Until 2026-09-10 this script refused macOS for want of the
-# local identity, which blocked the one run that could show whether the agent
-# can cloud-sign. `submit_build.py --archive-only` is that proof: it exports
-# the package and checks its signature with `pkgutil`. See task 38.
+# **The Mac App Store needs a second certificate, and only for the package.**
+# The `.app` is signed with the identity above; the `.pkg` that carries it to
+# App Store Connect is signed with *Mac Installer Distribution*, which the
+# keychain calls by its old name. **On an agent it has to be local.** A laptop
+# whose Xcode is signed in as the Account Holder cloud-signs the package; an
+# agent has only the App Manager key, and Ship #8 (2026-09-10) showed Apple
+# refuses that key cloud-managed certificates. This check was removed for that
+# run and put back once the certificate was created on this Mac. See task 38.
+INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Nick Pomfret (6FZN56WC8G)"
 
 # **The Homebrew zip is signed with Developer ID and notarized**; neither
 # identity above produces a build Gatekeeper opens outside the store.
@@ -128,6 +127,11 @@ case "$PLATFORM" in
   "") fail "--platform is required (all, ios, macos or homebrew)" ;;
   *)  fail "unknown platform '${PLATFORM}' (expected all, ios, macos or homebrew)" ;;
 esac
+
+# `if` rather than `[[ … ]] && …`: under `set -e` the second form exits the
+# script whenever the test is false.
+NEEDS_INSTALLER=""
+if [[ "$PLATFORM" == "macos" || "$PLATFORM" == "all" ]]; then NEEDS_INSTALLER="yes"; fi
 
 KEYS="${HOME}/.appstoreconnect/private_keys"
 
@@ -206,6 +210,24 @@ report_gaps() {
 if [[ "$DELIVERY" == "apple" ]]; then
   echo "==> Asserting the signing identity can actually sign..."
   probe_identity "${IDENTITY}" "It signs every Apple archive, on both platforms."
+
+  # A presence check and not a probe: signing a package needs a package, and
+  # `productbuild` has nothing like the throwaway binary. `-p codesigning`
+  # would not list it — an installer identity is not a codesigning one.
+  # `--archive-only` on macOS is the proof that it signs: it exports the
+  # package and checks its signature without uploading anything.
+  if [[ -n "$NEEDS_INSTALLER" ]]; then
+    echo "==> Asserting the Mac installer identity is present..."
+    if ! security find-identity -v | grep -qF "${INSTALLER_IDENTITY}"; then
+      what_the_agent_has
+      refuse "no '${INSTALLER_IDENTITY}' in any keychain this agent can see.
+That is the *Mac Installer Distribution* certificate, and without it the export
+signs no package: the run would archive first and fail after. It has to be local:
+Apple refuses the App Manager key cloud-managed certificates (Ship #8). Create it
+in Xcode's Manage Certificates on the agent machine, in the login keychain of the
+user the agents run as."
+    fi
+  fi
 
   echo "==> Asserting the App Store Connect keys are present..."
   [[ -f "${KEYS}/AuthKey_${READ_KEY_ID}.p8" ]] \

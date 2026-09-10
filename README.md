@@ -192,10 +192,10 @@ xcrun notarytool store-credentials "no-spoilers-notarytool" \
 - App Store Connect keys in `~/.appstoreconnect/private_keys/`: `AuthKey_S394C74APG.p8`, the
   Developer key every read uses, and `AuthKey_ASC6H3SL2D.p8`, the App Manager key that signs,
   uploads and delivers (download once from App Store Connect → Users and Access → Integrations → API)
-- Signing identities: *Apple Distribution* for both apps, *Developer ID Application* for Homebrew.
-  No local *Mac Installer Distribution* identity exists: the laptop's Mac App Store packages were
-  signed by automatic signing's cloud-managed certificates, and an agent's macOS `--archive-only`
-  is still to prove the same there
+- Signing identities: *Apple Distribution* for both apps, *Mac Installer Distribution* ("3rd Party
+  Mac Developer Installer" in the keychain) for the Mac App Store package, *Developer ID Application*
+  for Homebrew. An agent needs the installer identity locally, because Apple refuses the App Manager
+  key cloud-managed certificates
 - Notarization: the keychain profile above, or the App Manager key on an agent
 
 ### Who can install what

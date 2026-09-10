@@ -476,8 +476,22 @@ around a missing local profile without inspecting the actual export error.
      say why.
    - ~~Then press `Ship` with `ship.platform = macos` and `ship.args = --archive-only`.~~ Done as
      `Ship #8`. Apple refused this key cloud-managed certificates, for both the `.pkg` and the `.app`.
-   - **The owner decides between two remedies:**
-     - **Recommended: a Mac Installer Distribution certificate held locally.**
+   - **Of two remedies, the owner chose the first on 2026-09-10:**
+     - **Chosen: a Mac Installer Distribution certificate held locally.**
+       - The owner creates it in Xcode's Manage Certificates on this Mac Studio, where the agents
+         run, having signed Xcode in for the purpose. Its private key is made in this login keychain,
+         so nothing is exported or copied. The team had no Mac Installer Distribution certificate:
+         Manage Certificates listed only Apple Development (this Mac, and the laptop's, not here),
+         Apple Distribution (2026-08-21, here) and the laptop's Developer ID Application.
+       - **Created 2026-09-10, 13:57 BST.**
+         - `security find-identity -v` here lists `018FBCAB… "3rd Party Mac Developer Installer: Nick
+           Pomfret (6FZN56WC8G)"` as a valid identity, beside Apple Development and Apple
+           Distribution.
+         - The login keychain changed at 13:57:02.
+         - `ci-publish.sh`'s presence check is back, with that exact name.
+       - The key's partition list is set, so an agent's non-interactive session can use it without a
+         hidden keychain prompt.
+       - The exact identity name is read back before the presence check is reinstated.
        - Create it in the laptop's Xcode (Settings → Accounts → Manage Certificates → + → Mac
          Installer Distribution), export it with its private key, and import it into
          `nickpomfret`'s login keychain here.
