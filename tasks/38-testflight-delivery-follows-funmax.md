@@ -188,25 +188,25 @@ around a missing local profile without inspecting the actual export error.
 
 - [x] Read back current TeamCity settings, parameters, agent compatibility and latest
   release logs. Preserve existing configuration identities/history when editing the DSL.
-- [ ] Build an Apple-only entry point following Funmax's archive/upload/wait/distribute
+- [x] Build an Apple-only entry point following Funmax's archive/upload/wait/distribute
   sequence. Adapt or replace the new No Spoilers orchestration; reuse its working ASC
   helpers instead of creating duplicate authentication or distribution implementations.
-- [ ] Remove Homebrew from the Apple call graph and preflight. Keep its direct-download
+- [x] Remove Homebrew from the Apple call graph and preflight. Keep its direct-download
   entry point independent. Do not make this task depend on completing Homebrew CI.
-- [ ] Move marketing-version changes before verification. During Ship require a clean,
+- [x] Move marketing-version changes before verification. During Ship require a clean,
   fixed revision, including when a queued build becomes older than main. Either ship
   that verified revision faithfully or explicitly refuse/requeue; never rebase it.
-- [ ] Define build allocation and provenance. Preserve existing tags/history and never
+- [x] Define build allocation and provenance. Preserve existing tags/history and never
   reset the ledger. A coordinated iOS/macOS run may allocate one Apple number, but
   record each platform separately. Existing `build/N` tags can include Homebrew history;
   resolve that namespace explicitly so separating flows introduces neither collisions
   nor an ongoing requirement to release both channels together.
-- [ ] Record commit, marketing version, build number, platform, ASC build ID and stage
+- [x] Record commit, marketing version, build number, platform, ASC build ID and stage
   results in a durable TeamCity release artifact. Support resuming upload/processing/
   distribution as appropriate, including a partial two-platform success.
-- [ ] Use the explicit Funmax export options, bounded waits and clear progress messages.
+- [x] Use the explicit Funmax export options, bounded waits and clear progress messages.
   Verify archive and exported/uploaded versions, including the iOS extension.
-- [ ] Pass the exact build to notes/distribution and read back Internal membership.
+- [x] Pass the exact build to notes/distribution and read back Internal membership.
   Keep explicit-build manual distribution as a recovery command. Do not add automatic
   final App Review submission or external-group distribution.
 - [ ] Provision the missing Mac Installer identity for `nickpomfret`; establish any
@@ -216,13 +216,39 @@ around a missing local profile without inspecting the actual export error.
 - [ ] Include automated delivery in ordinary CLI status reporting; the current
   `.teamcity/cli.json` whitelist hides Ship/TestFlight. Ensure the shared CLI resolves
   on this machine without making unrelated release-script selftests depend on it.
-- [ ] Set the nightly policy explicitly. Recommended default is to match Funmax's
+- [x] Set the nightly policy explicitly. Recommended default is to match Funmax's
   existing successful-verification trigger, including green nightlies. Suppressing
   delivery of unchanged commits is a separate refinement, not an accidental difference.
 - [ ] Validate the new path with a first real delivery, then enable unattended triggering.
   Preserve listing/screenshot tools and manual promotion of an already uploaded build.
-- [ ] Update task 36 and `docs/guides/building.md` to point to the implemented flow;
+- [x] Update task 36 and `docs/guides/building.md` to point to the implemented flow;
   remove contradictory instructions. Add any further reusable lessons to agent-standards.
+
+**Progress, 2026-09-10**
+
+- `101e61c`: `appstore_status.all_pages` follows every `links.next` and refuses a runaway or
+  off-API cursor; `testflight_distribute` settles Apple's own-add 422 and `--apply` reads back group
+  membership and the note, exiting 1 otherwise. Live record then: iOS 105 builds and macOS 85, one
+  page each, so paging was preventive. Dry runs against build 10024 read correctly on both platforms.
+- `03adbbe`: `scripts/submit_build.py`, the Apple engine. Dry run on a clean tree: 1.1.4, build 10025,
+  both trains open. `Verify #102` green at `03adbbe`.
+- Uncommitted at the time of writing: `scripts/open-version.sh`; `ci-publish.sh` split into Apple and
+  `--platform homebrew`; `release.sh` reduced to Developer ID, releasing the committed version and
+  reserving `build/N` before archiving; `ship.sh`, `ship-ios.sh`, `ship-appstore.sh`,
+  `ExportOptions-AppStore.plist` and `version_to_ship` removed; `Ship` running `ci-publish.sh
+  --platform %ship.platform% --tested %ship.args%` with record artifacts, still untriggered;
+  `.teamcity/cli.json` covering `Ship` and `TestFlight`; building guide, README, important-code,
+  Codex rules and task 36 updated.
+- Evidence for that set, gathered in throwaway repositories: `open-version.sh` refused a missing or
+  malformed version, the same, a lower and a tagged version, a dirty tree and a checkout behind origin,
+  and on success set 1.1.5 in all six configurations and pushed only to the throwaway origin;
+  `ci-publish.sh --platform all --check` reported the installer identity as its only gap and
+  `--platform homebrew --check` the Developer ID identity as its only one; `release.sh` refused a
+  version other than the commit's and a missing tap. All six Python selftest suites green.
+- **Blocked on the owner**: the laptop export was `Apple Distribution` and `Apple Development`, not the
+  installer identity. Nothing was imported.
+- `scripts/teamcity.py`'s ssh is sometimes refused by this session's sandbox; the TeamCity token is
+  deliberately not read outside the shared CLI.
 
 **Acceptance criteria**
 

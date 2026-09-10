@@ -21,9 +21,9 @@ and never chased; only being able to install nothing at all is a problem.
 and printed once; the walk that finds the installable build is per platform and
 runs twice.
 
-It issues `GET`s and nothing else. `scripts/release.sh` remains the only thing
-here that uploads or submits anything, and `scripts/testflight_distribute.py`
-the only one that hands a build to a group — it shares the build-selection
+It issues `GET`s and nothing else. `scripts/submit_build.py` is the only thing
+here that uploads, nothing here submits for review, and
+`scripts/testflight_distribute.py` is the only one that hands a build to a group — it shares the build-selection
 helpers below so the two cannot disagree about which build is newest.
 
 **Two required pages cannot be read at all, and are printed as unknown rather
@@ -48,8 +48,8 @@ report can see needs a person, 1 when something does.
 
 Stdlib only. The ES256 token is built from `openssl` and twenty lines of ASN.1
 rather than a Ruby or Python dependency tree, so this runs on a clean machine
-with nothing installed. It uses the same key, issuer and app as
-`scripts/ship-ios.sh`.
+with nothing installed. Every other script here imports its key, issuer and
+app from this one.
 
 Usage:
     scripts/appstore_status.py
@@ -77,9 +77,9 @@ from pathlib import Path
 
 API = "https://api.appstoreconnect.apple.com"
 
-# The same three values `scripts/ship-ios.sh` and `scripts/ship-appstore.sh`
-# pass to `release.sh`. Constants rather than flags because a report that
-# silently described a different app would be worse than one that fails.
+# The app, the Developer key every read uses, and the team's issuer. Constants
+# rather than flags because a report that silently described a different app
+# would be worse than one that fails.
 BUNDLE_ID = "pomocorp.NoSpoilers.NoSpoilersMac"
 KEY_ID = "S394C74APG"
 ISSUER_ID = "69a6de6e-6d3e-47e3-e053-5b8c7c11a4d1"
@@ -291,7 +291,7 @@ class Client:
     def __init__(self) -> None:
         require_key(
             KEY_PATH,
-            "It is the one scripts/ship-ios.sh already uses, downloadable once from "
+            "It is the Developer key every read here uses, downloadable once from "
             "App Store Connect > Users and Access > Integrations.",
         )
         self.bearer = token(ISSUER_ID, KEY_ID, KEY_PATH)
@@ -1282,15 +1282,15 @@ def main() -> int:
         nargs=2,
         metavar=("PLATFORM", "VERSION"),
         help="ask only whether this version is still taking builds on this platform. "
-        f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. What ship.sh's version prompt "
-        "is answering; until 2026-09-06 ci-publish-ios.sh asked it to pick a version itself.",
+        f"Exit 0 open, {SPENT_EXIT} closed, 1 the check failed. submit_build.py asks the same "
+        "question, through closed_train, before it builds anything.",
     )
     parser.add_argument(
         "--next-build",
         action="store_true",
         help="print the next build number: the highest App Store Connect holds on either "
         "platform, in any train, expired builds included, plus one. Exit 0 with the number "
-        "on stdout, 1 the check failed. `release.sh` takes its build number from this.",
+        "on stdout, 1 the check failed. `_version.sh: next_build_number` takes it from this.",
     )
     parser.add_argument(
         "--approved",

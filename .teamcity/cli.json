@@ -5,7 +5,9 @@
     "VerifyPython",
     "VerifyXcode",
     "VerifySwiftTests",
-    "Verify"
+    "Verify",
+    "Ship",
+    "TestFlight"
   ],
   "testLegs": [
     "VerifyPython",

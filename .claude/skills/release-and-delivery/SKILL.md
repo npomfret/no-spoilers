@@ -16,11 +16,16 @@ user-invocable: true
    - read-only status: `scripts/appstore_status.py`
    - App Review conversation or reply: from sibling repo `../appstoreconnect-bot`, run
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
-   - TestFlight distribution: `scripts/testflight_distribute.py --apply`
+   - TestFlight delivery of the current commit, both platforms: `scripts/submit_build.py --platform all --apply`,
+     which TeamCity's `Ship` runs behind `scripts/ci-publish.sh`. It reserves a `build/N` tag
+     before archiving, delivers that exact build, and never commits, rebases or pushes a branch
+   - Handing an uploaded build to testers, or recovering a delivery `Ship` could not finish:
+     `scripts/testflight_distribute.py --platform <p> --build N --apply`, with N from the run's record
    - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
-   - Store or Homebrew release: one of `scripts/ship*.sh`. A run leaves an `open vX.Y.Z` commit
-     only when the version changed and a `build/N` tag on the archived commit; the build number
-     comes from App Store Connect, never from the project file
+   - Opening a new marketing version: `scripts/open-version.sh X.Y.Z`, which commits and pushes
+     `open vX.Y.Z`; nothing that archives changes the version
+   - Homebrew release: `scripts/ship-homebrew.sh`, over `scripts/release.sh`. It releases the
+     version the commit holds and is independent of TestFlight delivery
    - Recording an approval: `scripts/tag_approved.py PLATFORM VERSION --apply` writes
      `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit, run by a person for either
      platform once Apple approves. Never move a

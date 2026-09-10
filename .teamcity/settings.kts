@@ -35,7 +35,8 @@ version = "2026.1"
 // a DSL entity to an existing one by uuid first; without them it can decide
 // these are new configurations, delete the old ones and start their build
 // counters again — 93 builds of history, and the `TestFlight` counter at 3.
-// `Ship` has none because it does not exist yet, and TeamCity will assign it one.
+// `Ship` has none: this file created it, and an entity with no uuid is matched by
+// its id, which has not changed. Do not invent one.
 
 val xcodeLock = "no-spoilers-xcode"
 
@@ -194,10 +195,11 @@ val testFlight = BuildType {
     id("TestFlight")
     uuid = "0c7571cc-7900-4dbd-ae9d-96caedce8cef"
     name = "TestFlight"
-    description = "Sends the newest uploaded build on each platform to the Internal TestFlight " +
-        "testers and writes its What to Test note: scripts/testflight_distribute.py --platform " +
-        "ios, then --platform macos. Manual only. Builds nothing and holds no lock. " +
-        "distribute.args takes --build N, --group NAME or --submit."
+    description = "Recovery for a delivery Ship could not finish: hands a build already on App " +
+        "Store Connect to the Internal testers, writes its What to Test note and reads both back. " +
+        "scripts/testflight_distribute.py --platform ios, then --platform macos. Manual only. " +
+        "Builds nothing and holds no lock. distribute.args takes --build N (the number Ship's " +
+        "record names), --group NAME or --submit; without --build it takes the newest upload."
     vcs {
         root(DslContext.settingsRoot)
     }
@@ -218,21 +220,24 @@ val testFlight = BuildType {
     }
 }
 
-// The release button. One press, one version, one build number, three channels:
-// `ci-publish.sh --platform all` asserts what a build agent breaks and then
-// hands over to `ship.sh`, which is already the thing that picks the version
-// once and the build number once. See docs/guides/building.md.
+// TestFlight delivery. `ci-publish.sh` asserts what a build agent breaks and
+// hands over to `submit_build.py`, which archives this exact revision, uploads
+// it, waits for Apple, and delivers that build to the Internal testers. Apple
+// only: the Homebrew channel is `ci-publish.sh --platform homebrew`, has no
+// configuration here, and can no longer stop this one. See task 38 and
+// docs/guides/building.md.
 val ship = BuildType {
     id("Ship")
     name = "Ship"
-    description = "One press, one version, one build number: Mac App Store, Homebrew and the " +
-        "iOS App Store. Runs scripts/ci-publish.sh --platform all, which asserts what a build " +
-        "agent breaks and then hands over to scripts/ship.sh. Manual only. ship.args takes " +
-        "--check or an explicit X.Y.Z."
+    description = "TestFlight, iOS then macOS under one build number: scripts/ci-publish.sh " +
+        "--platform (ship.platform) --tested, which asserts the agent and hands over to " +
+        "scripts/submit_build.py. Archives the verified revision, uploads it, waits for Apple " +
+        "and delivers that exact build to the Internal testers. Manual until its first real " +
+        "delivery. ship.args takes --check or --archive-only."
     onTheAgent()
 
-    // It archives twice, so it takes the write lock: no compile may run beside
-    // a release, and no release beside a compile.
+    // It archives, so it takes the write lock: no compile runs beside a
+    // delivery, and no delivery beside a compile.
     features {
         sharedResources {
             writeLock(xcodeLock)
@@ -240,22 +245,32 @@ val ship = BuildType {
     }
 
     params {
-        // Empty by default, and it must be put back empty. `publish.args` left
-        // holding a stale value is how four presses on 2026-09-05 each archived
-        // and uploaded a version Apple had already approved.
+        // `all` is iOS then macOS under one build number; `ios` or `macos` is
+        // one. Both go back to their defaults after a custom run: `publish.args`
+        // left holding a stale value is how four presses on 2026-09-05 each
+        // uploaded a version Apple had already approved.
+        param("ship.platform", "all")
         param("ship.args", "")
     }
 
     steps {
         script {
             name = "ship"
-            scriptContent = "scripts/ci-publish.sh --platform all %ship.args%"
+            // `--tested` is true only because of the snapshot dependency on
+            // `Verify` below, which is why it is spelled here and nowhere else.
+            scriptContent = "scripts/ci-publish.sh --platform %ship.platform% --tested %ship.args%"
         }
     }
 
-    // Unlike `TestFlight`, this one archives, so it must build a revision that
-    // passed. `reuseBuilds = SUCCESSFUL` rather than `NO`: the point here is to
-    // ship a commit the chain already proved, not to prove it again.
+    // The run's record, and the export's own logs, which hold Apple's verbatim
+    // answer when signing or an upload is refused.
+    artifactRules = """
+        %system.teamcity.build.tempDir%/no-spoilers-ship/*/record.json => ship
+        %system.teamcity.build.tempDir%/*.xcdistributionlogs => ship/distribution-logs
+    """.trimIndent()
+
+    // `reuseBuilds = SUCCESSFUL` rather than `NO`: the point is to ship a
+    // revision the chain already proved, not to prove it again.
     dependencies {
         snapshot(verify) {
             onDependencyFailure = FailureAction.CANCEL
@@ -264,22 +279,19 @@ val ship = BuildType {
     }
 
     failureConditions {
-        // Two archives, two uploads, and an unbounded wait on Apple's notary
-        // service in the middle of the second one.
-        executionTimeoutMin = 120
+        // Two archives, two uploads, and a wait on Apple that `submit_build.py`
+        // bounds at an hour per platform.
+        executionTimeoutMin = 180
     }
 
-    // Only ever one release at a time. A second press during a run would take
-    // the next build number from App Store Connect and race the first one's
-    // tag push.
+    // One delivery at a time. A second would be refused its build number by the
+    // tag push rather than collide, but it would queue two archives for nothing.
     maxRunningBuilds = 1
 
-    // **No trigger, and that is the decision rather than an omission.** A
-    // release is a person choosing to make one. Xcode Cloud archived and
-    // uploaded on every push to `main`, which is how four days of an approved,
-    // closed train were uploaded and refused by email without anyone deciding
-    // anything. FunMax's `Ship` fires on every green `Verdict`; this one must
-    // not.
+    // **No trigger yet, and that is temporary.** Decided 2026-09-10: like
+    // FunMax's `Ship`, this follows every green `Verify`, the nightly included.
+    // The trigger goes on once a press has delivered to TestFlight end to end;
+    // until then an automatic run could only rediscover what that press will.
 
     requirements {
         exists("tools.xcode.home")

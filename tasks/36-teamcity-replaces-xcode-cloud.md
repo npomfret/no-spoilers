@@ -1,6 +1,12 @@
 # Task 36: TeamCity replaces Xcode Cloud
 
-**Status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository. The
+**Status: SUPERSEDED on 2026-09-10 by [task 38](38-testflight-delivery-follows-funmax.md).** Its
+release design — one button, three channels, one number — is gone: `Ship` is TestFlight delivery
+through `scripts/submit_build.py`, Homebrew is its own flow through `release.sh`, and `ship.sh` is
+deleted. `docs/guides/building.md` describes what replaced it. What follows is the migration
+record, kept for its evidence.
+
+**Former status: IN PROGRESS. Raised 2026-09-09. Xcode Cloud is off and out of the repository. The
 `Ship` button now exists on TeamCity and the whole project is versioned settings in
 `.teamcity/settings.kts` — verified against the server as 0 field differences on the five
 existing configurations, with build history intact. The button has been pressed twice, and the

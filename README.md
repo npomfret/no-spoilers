@@ -142,44 +142,44 @@ Required entitlement (iOS app and widget extension):
 
 ### Releasing
 
-Four wrapper scripts handle distribution, all over the one engine `scripts/release.sh`. Each
-suggests the next version, runs the Core tests as a gate, archives, and only then commits and pushes
-the version bump — so a failed archive leaves no bump behind. Releases run on your machine, or on a
-TeamCity agent by pressing `Publish`. An uploaded build reaches no tester until it is handed over:
-locally with `scripts/testflight_distribute.py --apply`, or by pressing `TestFlight` on TeamCity,
-which runs it for both platforms. See *Shipping from TeamCity* in
-`docs/guides/building.md`.
+Two deliveries, independent of each other: TestFlight on both platforms, and Homebrew. Full detail,
+including why they were separated, is *Continuous delivery* in `docs/guides/building.md`.
 
-| Script | What it does |
-|--------|-------------|
-| `scripts/ship.sh` | All three channels in one run, version-locked (recommended) |
-| `scripts/ship-homebrew.sh` | Homebrew / Developer ID only |
-| `scripts/ship-appstore.sh` | Mac App Store only |
-| `scripts/ship-ios.sh` | iOS App Store only |
-
-The suggested version is one patch above the higher of the newest `vX.Y.Z` tag and the project's
-`MARKETING_VERSION`. It needs both: opening a version train without shipping it moves the
-project ahead of the tags, and a suggestion
-based on tags alone would walk the project backwards, since `release.sh` sets `MARKETING_VERSION`
-to whatever it is given.
-
-**Release to both channels (normal flow):**
+**TestFlight: `scripts/submit_build.py`.** It refuses a dirty tree, a commit not on `origin/main` and
+a version Apple has already approved; runs the Core tests; reserves the next build number as a
+`build/N` tag; and then, for iOS and then macOS, archives, uploads, waits for Apple and hands that
+exact build to the Internal testers with its *What to Test* note, reading both back.
 
 ```bash
-scripts/ship.sh
+scripts/submit_build.py --platform all                                # dry run: what would happen
+scripts/submit_build.py --platform all --apply                        # do it
+scripts/submit_build.py --platform macos --apply --archive-only       # prove signing; upload nothing
 ```
 
-Bumps the version, archives once, then:
-- Developer ID path: notarizes, staples, creates GitHub release, updates homebrew-tap
-- App Store path: exports `.pkg`, uploads to App Store Connect
+On TeamCity this is `Ship`, which runs `scripts/ci-publish.sh`: it asserts the agent can sign and
+push, then runs the same thing against the revision `Verify` passed. Submitting for App Review is
+still a person pressing Submit in App Store Connect.
 
-**Release to Homebrew only:**
+A run that uploaded a build and could not finish delivering it names the recovery in its log and its
+record — the same command, for that build only:
 
 ```bash
-scripts/ship-homebrew.sh
+scripts/testflight_distribute.py --platform ios --build 10025 --apply
 ```
 
-Requires the keychain profile `no-spoilers-notarytool` to be configured for notarization. To set it up:
+**Opening a new version: `scripts/open-version.sh X.Y.Z`.** Once Apple approves a version, its train
+takes no more builds and `submit_build.py` refuses it, naming these two commands. The second commits
+`open vX.Y.Z` and pushes it, and that commit is verified and shipped like any other; nothing that
+archives changes the version.
+
+```bash
+scripts/tag_approved.py ios 1.1.4 --apply    # record which build users got
+scripts/open-version.sh 1.1.5
+```
+
+**Homebrew: `scripts/ship-homebrew.sh`**, over `scripts/release.sh`. It releases the version the
+commit holds — a notarized zip, a GitHub release and the cask — on its own cadence. Notarization uses
+the keychain profile `no-spoilers-notarytool`. To set it up:
 
 ```bash
 xcrun notarytool store-credentials "no-spoilers-notarytool" \
@@ -188,51 +188,26 @@ xcrun notarytool store-credentials "no-spoilers-notarytool" \
   --password APP_SPECIFIC_PASSWORD
 ```
 
-**Release to App Store only:**
-
-```bash
-scripts/ship-appstore.sh
-```
-
-Reads the App Store Connect API key from `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8`.
-After upload, go to App Store Connect and submit for review.
-
 **Credentials needed:**
-- Notarization: keychain profile `no-spoilers-notarytool` (set up once via `xcrun notarytool store-credentials`)
-- App Store upload: `~/.appstoreconnect/private_keys/AuthKey_S394C74APG.p8` (download once from App Store Connect → Users and Access → Integrations → API)
+- App Store Connect keys in `~/.appstoreconnect/private_keys/`: `AuthKey_S394C74APG.p8`, the
+  Developer key every read uses, and `AuthKey_ASC6H3SL2D.p8`, the App Manager key that signs,
+  uploads and delivers (download once from App Store Connect → Users and Access → Integrations → API)
+- Signing identities: *Apple Distribution* for both apps, *Mac Installer Distribution* for the Mac
+  App Store package, *Developer ID Application* for Homebrew
+- Notarization: the keychain profile above, or the App Manager key on an agent
 
-### Shipping an iOS build to TestFlight
-
-Press `Publish` on TeamCity, or run `scripts/ship-ios.sh` locally. **The build then reaches no
-tester until you hand it over.** That is a command rather than an automatic step, so that shipping
-several times a day does not notify every tester several times a day.
-
-```bash
-# press Publish on ci.snowmonkey.co.uk, or: scripts/ship-ios.sh
-scripts/testflight_distribute.py             # dry run — says what it would do
-scripts/testflight_distribute.py --apply     # give the newest build to the internal group
-```
-
-`--apply` also writes the *What to Test* note from the commit that was built. It touches internal
-groups only: `--group NAME` is needed for any other, and `--submit` sends an external build for Beta
-App Review.
-
-To see who can install what:
+### Who can install what
 
 ```bash
 scripts/appstore_status.py                   # the TESTFLIGHT section
 ```
 
-It reports both platforms, because a release ships both and a Mac build has to be handed over
-separately. `testers can install build 12, 1 build behind build 13` is the ordinary state after a
-ship, not a warning — the newest build sits undistributed until you run the command
-above. Only "testers can install nothing" is reported as a problem.
+It reports both platforms, because a release ships both and a Mac build is delivered separately.
+`testers can install build 12, 1 build behind build 13` is the ordinary state while a build is
+processing, not a warning. Only "testers can install nothing" is reported as a problem.
 
 The record holds two build-number bands: 1 to 125 from Xcode Cloud, which built this app until
-2026-09-09, and 10000 up from `release.sh`, which builds it now. The number in the app's About
-screen says which one shipped it.
-
-Full detail, including why delivery is manual: the TestFlight section of `docs/guides/building.md`.
+2026-09-09, and 10000 up since. The number in the app's About screen says which one shipped it.
 
 ### Asking what App Store Connect holds
 
@@ -245,7 +220,7 @@ Universal Purchase, so their versions, listings, screenshots and review
 submissions are separate and nothing in the UI shows them together. It reports
 the current version and state for each, the listing text and screenshot counts
 per locale, the App Review contact, and every review submission. `GET`s only,
-using the same key as `scripts/ship-appstore.sh`; it exits 0 when nothing it can
+using the Developer key `S394C74APG`; it exits 0 when nothing it can
 see is waiting on you.
 
 That is worth running before a release: on 2026-08-09 the macOS 1.0.21 was on

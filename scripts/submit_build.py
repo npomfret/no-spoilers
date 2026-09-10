@@ -487,7 +487,7 @@ def run(requested: list[str], apply: bool, tested: bool, archive_only: bool) -> 
             f"{platform} {version} is closed to new builds: it is {state}. Nothing will be built for {platform}.\n"
             "  Record the approval and open the next version; that commit then ships like any other:\n"
             f"    scripts/tag_approved.py {platform} {version} --apply\n"
-            f"    scripts/open_version.sh {version_helper('suggest_next_version')}",
+            f"    scripts/open-version.sh {version_helper('suggest_next_version')}",
             file=sys.stderr,
         )
     refused = [platform for platform in requested if platform not in open_platforms]

@@ -64,7 +64,7 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = [["./scripts/release-mac.sh", "./scripts/ship-appstore.sh", "./scripts/ship-homebrew.sh", "./scripts/ship.sh"]],
+    pattern = [["./scripts/submit_build.py", "./scripts/ci-publish.sh", "./scripts/open-version.sh", "./scripts/release.sh", "./scripts/ship-homebrew.sh"]],
     decision = "prompt",
     justification = "This script deploys or destroys state; confirm first.",
 )
