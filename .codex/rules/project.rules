@@ -4,12 +4,6 @@
 
 # ---- git: everything except merge / push ----
 prefix_rule(
-    pattern = ["git"],
-    decision = "allow",
-    justification = "Local git work is unrestricted in this project.",
-)
-
-prefix_rule(
     pattern = ["git", ["merge", "push"]],
     decision = "forbidden",
     justification = "Merging and pushing (all remote write operations) are reserved for the human.",
@@ -39,12 +33,6 @@ prefix_rule(
 )
 
 # ---- gh: GitHub CLI ----
-prefix_rule(
-    pattern = ["gh", "issue"],
-    decision = "allow",
-    justification = "Reading and filing issues is expected agent work.",
-)
-
 prefix_rule(
     pattern = ["gh", "issue", "delete"],
     decision = "forbidden",

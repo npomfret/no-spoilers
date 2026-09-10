@@ -13,8 +13,8 @@ Keep the Claude Code setup useful for long-running work: concise root memory, ex
 ## Required flow
 
 1. Inspect `CLAUDE.md`, the relevant `.claude/` files, their consumers, and recent configuration
-   history. Read `docs/guides/claude-code-setup.md` when changing the layer model, permissions,
-   routing, or lifecycle rather than correcting one local fact.
+   history. Permissions and the sandbox are not this repo's to design: the baseline is written by
+   `agent-standards/sync.py` and only the `deny` list is project-owned.
 2. Identify one authoritative owner before editing:
    - `CLAUDE.md` for crucial, broadly applicable facts or instructions Claude cannot infer
    - `.claude/rules/` for always-on or path-scoped rules
