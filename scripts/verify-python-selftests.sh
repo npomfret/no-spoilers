@@ -24,7 +24,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 status=0
-for script in appstore_status testflight_distribute tag_approved appstore_listing appstore_screenshots; do
+for script in appstore_status testflight_distribute tag_approved appstore_listing appstore_screenshots submit_build; do
   if ! python3 "scripts/${script}.py" --selftest; then
     status=1
   fi
