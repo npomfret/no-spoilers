@@ -5,11 +5,14 @@
   step, and the fixes from a review of them.
 - **Proven on TeamCity, iOS:** `Ship #7` delivered iOS 1.1.4 build 10025 from `4aa77e3` to
   `Internal` end to end on `macstudio-3`, in about four and a half minutes, with a confirmed note.
-- **Not yet done:** macOS; the automatic trigger; the composite `Verify`; `macstudio-1` and `-2`.
-- **Next:** macOS. There is no Mac Installer Distribution certificate on the laptop to export, and
-  the laptop's own macOS uploads needed none. `ci-publish.sh`'s installer check is dropped, so the
-  next press is `Ship` with `ship.platform = macos` and `ship.args = --archive-only`, to see whether
-  an agent can cloud-sign the package.
+- **Proven on TeamCity, macOS signing:** `Ship #10` archived and exported a signed Mac App Store
+  package on `macstudio-3` without uploading. The app is signed with Apple Distribution and the
+  `No Spoilers Mac App Store` profile, and the package with a local Mac Installer Distribution
+  identity.
+- **Not yet done:** a real macOS delivery; the automatic trigger; the composite `Verify`;
+  `macstudio-1` and `-2`.
+- **Next:** with the owner's approval, a real macOS delivery, pressing `Ship` with
+  `ship.platform = macos` and empty `ship.args`.
 
 See *Progress*, *Learned while driving TeamCity* and *Next, in order*.
 
@@ -462,6 +465,27 @@ around a missing local profile without inspecting the actual export error.
   - **So the key can create profiles;** only cloud-managed certificates are refused to it.
   - **It still has to be installed** in `~/Library/Developer/Xcode/UserData/Provisioning Profiles/`
     on this Mac. This session's sandbox cannot write there, so the owner copies it in.
+  - The owner copied it in. Read back there, it is `No Spoilers Mac App Store`, `OSX`, expiring
+    2027-08-21, with certificate `6E62FC93`.
+- **`Ship #10`, 2026-09-10 13:21 UTC, `macstudio-3`, `fbdb260`, `ship.platform = macos`,
+  `--archive-only`. Green: an agent signs the Mac App Store package.**
+  - The checks passed, the installer identity included.
+  - The archive took 15 seconds and the export 12, producing `NoSpoilersMac.pkg`. The record reads
+    `stage: exported`, with nothing reserved.
+  - **`pkgutil --check-signature`** shows the chain "3rd Party Mac Developer Installer: Nick Pomfret
+    (6FZN56WC8G)", Apple Worldwide Developer Relations CA, Apple Root CA. Its "(Development)"
+    status wording is normal for Mac App Store installer certificates.
+  - **The app inside, unpacked on this Mac:**
+    - `Authority=Apple Distribution: Nick Pomfret (6FZN56WC8G)`;
+    - embedded profile `No Spoilers Mac App Store` (`dac94353`);
+    - `codesign --verify --deep --strict` valid;
+    - universal `x86_64 arm64`, build 10026, version 1.1.4.
+
+    The export's `DistributionSummary.plist` agrees, and lists only `app-sandbox` and
+    `network.client` besides the identifiers.
+  - **The partition list works:** both private keys were used from the agent's non-interactive
+    session without a prompt.
+  - **The distribution logs published at last:** eight files under `ship/distribution-logs`.
 
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
@@ -550,8 +574,15 @@ around a missing local profile without inspecting the actual export error.
      - **Cloud-managed certificate access for the key the agents use**, granted by the Account Holder
        or an Admin. No certificate file on any machine, but the agents would hold a key that can do
        more.
-   - Then `--archive-only` again, with the log bundles now kept as artifacts, then a real macOS
-     delivery.
+   - ~~Then `--archive-only` again, with the log bundles now kept as artifacts.~~ Done as `Ship #9`
+     (red: no Mac App Store profile) and `Ship #10` (green, after the manual-signing change and the
+     `No Spoilers Mac App Store` profile).
+   - **Next, with the owner's approval: a real macOS delivery.** Press `Ship` with
+     `ship.platform = macos` and empty `ship.args`. It reserves the next `build/N`, uploads the
+     package, waits for Apple, and delivers to `Internal`.
+   - **Renewal to remember:** the profile and the Apple Distribution certificate both expire on
+     2027-08-21, and the installer certificate on 2027-09-10. The profile has to be regenerated
+     with the renewed certificate and installed on the agent machine again.
 5. Add the `finishBuildTrigger` on `Verify` (nightly included), then the composite `Verify`,
    Release compilation and test reporting.
 
