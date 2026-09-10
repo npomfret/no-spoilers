@@ -27,6 +27,7 @@
       "scp *",
       "rsync *",
       "python3 scripts/teamcity.py *",
+      "./scripts/teamcity.py *",
       "./scripts/verify-*.sh*"
     ],
     "network": {
@@ -34,6 +35,7 @@
       "allowLocalBinding": true,
       "allowAllUnixSockets": true
     },
+    "enableWeakerNetworkIsolation": true,
     "filesystem": {
       "allowWrite": [
         "~/.npm",
@@ -41,6 +43,7 @@
         "~/Library/Caches",
         "~/Library/Developer/Xcode/DerivedData",
         "~/.gitnexus",
+        "~/.docker/buildx",
         "/var/folders"
       ],
       "allowRead": [
