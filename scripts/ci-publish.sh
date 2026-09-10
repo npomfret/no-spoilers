@@ -39,11 +39,11 @@ set -euo pipefail
 #
 # The price is what the agent has to hold: on top of the App Store
 # certificates, a *Developer ID Application* certificate, notarization
-# credentials, an authenticated `gh`, and a `homebrew-tap` checkout beside the
-# build directory. Every one of them is asserted below before anything is
-# built, because the Homebrew half fails at the *end* of a run — after the
-# archive, the notarization and a public GitHub release — where there is no way
-# to finish and no way back.
+# credentials, an authenticated `gh`, and SSH access to `homebrew-tap`, which
+# is cloned fresh for every run. Every one of them is asserted below before
+# anything is built, because the Homebrew half fails at the *end* of a run —
+# after the archive, the notarization and a public GitHub release — where
+# there is no way to finish and no way back.
 #
 # Usage:
 #   scripts/ci-publish.sh --platform all            # the whole release, one build number
@@ -105,6 +105,8 @@ DEVID_IDENTITY="Developer ID Application: Nick Pomfret (6FZN56WC8G)"
 
 API_KEY_ID="S394C74APG"
 PUSH_REMOTE="git@github.com:npomfret/no-spoilers.git"
+# Over SSH for the same reason as `PUSH_REMOTE`: this run pushes the cask.
+HOMEBREW_TAP_REMOTE="git@github.com:npomfret/homebrew-tap.git"
 
 # **A second key, and it has to be a second one.** `API_KEY_ID` uploads;
 # this one lets `xcodebuild` create the provisioning profile, which is a write
@@ -217,7 +219,10 @@ if [[ "$PLATFORM" == "all" ]]; then NEEDS_DEVID="yes"; fi
 # real question, where `find-identity` answers a different one that looks the
 # same in a green log.
 
-PROBE="$(mktemp -d)"
+# An explicit template, because macOS `mktemp -d` without one ignores `TMPDIR`
+# and writes to the per-user folder under /var/folders instead of the build's
+# temp directory — measured 2026-09-10.
+PROBE="$(mktemp -d "${TMPDIR:-/tmp}/ci-publish-probe.XXXXXX")"
 trap 'rm -rf "${PROBE}"' EXIT
 printf 'int main(void){return 0;}\n' > "${PROBE}/probe.c"
 # `fail` and not `refuse`: an agent whose compiler is broken has no certificate
@@ -336,10 +341,11 @@ git remote set-url --push origin "${PUSH_REMOTE}"
 # What ssh said is printed on failure. A check that reports "cannot authenticate"
 # and hides the reason sends the next person to look at GitHub permissions, which
 # is where this one was not.
+GITHUB_SSH_WORKS=""
 GITHUB_SAYS="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
   -T git@github.com 2>&1 || true)"
 case "${GITHUB_SAYS}" in
-  *"successfully authenticated"*) ;;
+  *"successfully authenticated"*) GITHUB_SSH_WORKS="yes" ;;
   *) refuse "this agent cannot authenticate to GitHub, so the version bump could not be pushed.
 GitHub said: ${GITHUB_SAYS}" ;;
 esac
@@ -369,18 +375,29 @@ if [[ -n "$NEEDS_DEVID" ]]; then
 The SSH key checked above pushes git; it does not authenticate the GitHub API."
   fi
 
-  # The same path `release.sh` resolves, computed the same way rather than
-  # assumed: it is a sibling of the *checkout*, and a TeamCity checkout lives
-  # under the agent's work directory, not beside a laptop's projects.
-  TAP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)/homebrew-tap"
-  if [[ ! -f "${TAP_DIR}/Casks/no-spoilers.rb" ]]; then
-    refuse "no Homebrew cask at ${TAP_DIR}/Casks/no-spoilers.rb.
-The Developer ID channel commits the cask to a checkout beside this one. Clone
-npomfret/homebrew-tap there — over SSH, because this run pushes it."
-  elif ! git -C "${TAP_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
-    refuse "${TAP_DIR} is not a git checkout, so the cask update could not be pushed"
-  elif ! git -C "${TAP_DIR}" push --dry-run --quiet; then
-    refuse "${TAP_DIR} cannot push, so the cask update would be committed and stranded"
+  # **A fresh clone for every run, never a checkout left on the agent.** Until
+  # 2026-09-10 this looked for `homebrew-tap` beside the checkout, which on an
+  # agent means inside one agent's `work/` directory: a hand-made clone every
+  # other agent lacks, that TeamCity is free to clean, and that goes stale the
+  # moment a laptop publishes a cask. A clone made here is current by
+  # construction and needs nothing on any agent but the SSH key asserted above.
+  # It lives under `TMPDIR` — named explicitly, see `PROBE` — which `Ship`
+  # points at the build's own temp directory, so TeamCity clears it before the
+  # next build. `release.sh` is
+  # handed it as `--homebrew-tap` below; a laptop run keeps its sibling checkout.
+  #
+  # Skipped when the SSH check above failed: the clone would fail for the same
+  # reason, and that gap is already reported once.
+  if [[ -n "$GITHUB_SSH_WORKS" ]]; then
+    TAP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ci-publish-tap.XXXXXX")/homebrew-tap"
+    if ! TAP_SAYS="$(git clone --quiet "${HOMEBREW_TAP_REMOTE}" "${TAP_DIR}" 2>&1)"; then
+      echo "  git said: ${TAP_SAYS}" >&2
+      refuse "could not clone ${HOMEBREW_TAP_REMOTE}, so the cask update would have nowhere to go"
+    elif [[ ! -f "${TAP_DIR}/Casks/no-spoilers.rb" ]]; then
+      refuse "${HOMEBREW_TAP_REMOTE} has no Casks/no-spoilers.rb, so there is no cask to update"
+    elif ! git -C "${TAP_DIR}" push --dry-run --quiet; then
+      refuse "${TAP_DIR} cannot push, so the cask update would be committed and stranded"
+    fi
   fi
 fi
 
@@ -472,8 +489,8 @@ echo "==> Preflight passed. Shipping ${PLATFORM} ${VERSION} via scripts/${WRAPPE
 echo ""
 
 # The credentials, in the shape every wrapper already forwards to `release.sh`.
-# Notarization is added only where it is used, so an iOS run cannot be handed a
-# key for a step it does not have.
+# Notarization and the tap clone are added only where they are used, so an iOS
+# run cannot be handed a key for a step it does not have.
 CREDENTIALS=(
   --signing-key "${KEYS}/AuthKey_${SIGNING_KEY_ID}.p8"
   --signing-key-id "${SIGNING_KEY_ID}"
@@ -484,6 +501,7 @@ if [[ -n "$NEEDS_DEVID" ]]; then
     --notarytool-key "${KEYS}/AuthKey_${NOTARY_KEY_ID}.p8"
     --notarytool-key-id "${NOTARY_KEY_ID}"
     --notarytool-issuer "${ASC_ISSUER}"
+    --homebrew-tap "${TAP_DIR}"
   )
 fi
 

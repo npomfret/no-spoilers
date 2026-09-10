@@ -24,6 +24,9 @@ export PATH="/usr/bin:/bin:${PATH}"
 #   developer-id  Notarized zip → GitHub release → homebrew tap (macos only)
 #     --notarytool-key /path/to.p8 --notarytool-key-id KEY_ID --notarytool-issuer ISSUER_ID
 #     (omit flags to use keychain profile "no-spoilers-notarytool")
+#     --homebrew-tap DIR   the tap checkout the cask is committed to; omit to use
+#                          the sibling ../homebrew-tap. A build agent passes a
+#                          fresh clone — see ci-publish.sh.
 #
 #   app-store     Signed pkg/ipa → App Store Connect upload
 #     --api-key /path/to.p8 --api-key-id KEY_ID --api-issuer ISSUER_ID
@@ -106,6 +109,7 @@ ALLOW_DIRTY=""
 NOTARYTOOL_KEY=""
 NOTARYTOOL_KEY_ID=""
 NOTARYTOOL_ISSUER=""
+HOMEBREW_TAP=""
 API_KEY=""
 API_KEY_ID=""
 API_ISSUER=""
@@ -122,6 +126,7 @@ while [[ $# -gt 0 ]]; do
     --notarytool-key)     NOTARYTOOL_KEY="$2";    shift 2 ;;
     --notarytool-key-id)  NOTARYTOOL_KEY_ID="$2"; shift 2 ;;
     --notarytool-issuer)  NOTARYTOOL_ISSUER="$2"; shift 2 ;;
+    --homebrew-tap)       HOMEBREW_TAP="$2";      shift 2 ;;
     --api-key)            API_KEY="$2";            shift 2 ;;
     --api-key-id)         API_KEY_ID="$2";         shift 2 ;;
     --api-issuer)         API_ISSUER="$2";         shift 2 ;;
@@ -221,12 +226,15 @@ bring_tap_current() {
 }
 
 if [[ "$CHANNEL" == "developer-id" || "$CHANNEL" == "both" ]]; then
-  HOMEBREW_TAP_DIR="$(dirname "$(realpath "$0")")/../../homebrew-tap"
+  # A laptop's tap is the sibling checkout. A build agent's is a fresh clone
+  # `ci-publish.sh` makes for this run and passes in, because a checkout left
+  # on an agent by hand lives in one agent's work directory and goes stale.
+  HOMEBREW_TAP_DIR="${HOMEBREW_TAP:-$(dirname "$(realpath "$0")")/../../homebrew-tap}"
   CASK_FILE="${HOMEBREW_TAP_DIR}/Casks/no-spoilers.rb"
 
   if [[ ! -f "${CASK_FILE}" ]]; then
     echo "No Homebrew cask at ${CASK_FILE}" >&2
-    echo "The developer-id channel publishes to a sibling homebrew-tap checkout; clone it beside this repo." >&2
+    echo "The developer-id channel publishes to a homebrew-tap checkout: clone it beside this repo, or pass --homebrew-tap DIR." >&2
     exit 1
   fi
   if ! git -C "${HOMEBREW_TAP_DIR}" rev-parse --git-dir >/dev/null 2>&1; then

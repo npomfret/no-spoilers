@@ -4,9 +4,9 @@
 `Ship` button now exists on TeamCity and the whole project is versioned settings in
 `.teamcity/settings.kts` — verified against the server as 0 field differences on the five
 existing configurations, with build history intact. The button has been pressed twice, and the
-preflight stopped both presses in a second: what is outstanding is entirely credentials on the
-agent — two certificates, a notarization key that has never been exercised, `gh` login and a
-`homebrew-tap` checkout. Until those exist the button cannot get past its own preflight, and a
+preflight stopped every press in seconds. What is outstanding is two certificates on the agent:
+the notarization key and `gh` were proven by `Ship #3`, and the tap is cloned by every run. Until
+those exist the button cannot get past its own preflight, and a
 release is a `scripts/ship.sh` run on a laptop, which is how 1.1.4 went out on 2026-09-09.
 The one thing the presses did settle is the question this whole file was written around: the
 agent's login keychain is unlocked in its own session, and the certificate it holds can sign.**
@@ -68,7 +68,7 @@ as `nickpomfret`, and it holds an *Apple Distribution* certificate and nothing e
 | *Developer ID Application* | the Homebrew zip | **missing** |
 | `AuthKey_ASC6H3SL2D.p8` reaching the notary service | notarization | **proven 2026-09-09** — `notarytool history` authenticated |
 | `gh auth status` | the GitHub release | **proven 2026-09-09** |
-| `homebrew-tap` beside the checkout | the cask commit | **missing**, and the path is `/Users/nickpomfret/teamcity-agent-3/work/homebrew-tap` |
+| `homebrew-tap` to commit the cask to | the cask commit | **not an agent prerequisite** — every run clones it fresh, since 2026-09-10 |
 
 Nothing in this repository can create any of them. Each is asserted by `ci-publish.sh --check`
 before anything is built, and one `--check` run names every gap rather than one per press — which
@@ -251,9 +251,8 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
    - install a *Mac Installer Distribution* certificate;
    - install a *Developer ID Application* certificate;
    - `gh auth login`;
-   - `git clone git@github.com:npomfret/homebrew-tap.git` **beside the build checkout** — the
-     path `release.sh` resolves is a sibling of the repository, which on an agent is under
-     `work/`, not beside a laptop's projects.
+   - ~~clone `homebrew-tap` beside the build checkout~~ — **not needed since 2026-09-10**: every
+     run clones it fresh. See *A fresh tap for every run*.
 3. ~~Turn on **Versioned Settings** for `NoSpoilers`~~ — **done 2026-09-09**, see *Enabled
    2026-09-09* above. Original instructions kept because they are the recipe for the next
    project: turn on Versioned Settings for `NoSpoilers` — VCS root `NoSpoilers_Main`, format
@@ -304,7 +303,8 @@ Task files 26, 34 and 35 are records of what happened and are not rewritten.
     team's submissions and changes nothing, so the credentials that will notarize are the
     credentials that were tested;
   - `gh auth status`, because the SSH key checked for git does not authenticate the API;
-  - the sibling `homebrew-tap` checkout, and `git push --dry-run` on it.
+  - a fresh clone of `homebrew-tap`, and `git push --dry-run` on it — a sibling checkout until
+    2026-09-10.
 - **Notarization is given a key, not the `no-spoilers-notarytool` keychain profile.** A profile
   is created interactively by `notarytool store-credentials` and lives in the login keychain,
   so it is one more thing that is present and unusable when that keychain is locked — the
@@ -359,9 +359,21 @@ conflicting rebase so the tap is left as it was. Called in preflight and again i
 before the cask is edited. A failure at that second call prints the `version` and `sha256` the
 cask needs, since the release is already public by then. `docs/guides/building.md` says the same.
 
-**Still open:** whether `macstudio-2` can take a `Ship` build. The keychain is per user, so the
-certificates would reach it; a tap cloned under `teamcity-agent-3/work/` would not. Every press so
-far has landed on `macstudio-3`.
+### A fresh tap for every run, 2026-09-10
+
+The fix above made a stale tap safe; it did not make a hand-made one right. A clone left under
+`teamcity-agent-3/work/` belongs to one agent, is TeamCity's to clean, and would have to be
+repeated on every agent that can take `Ship`. So `ci-publish.sh` now clones
+`git@github.com:npomfret/homebrew-tap.git` into a fresh directory under `TMPDIR` — which `Ship`
+points at the build's own temp directory, cleared by TeamCity before the next build — asserts the
+cask is there and that `push --dry-run` succeeds, and hands the path to `release.sh` as
+`--homebrew-tap`. `ship.sh` already forwards everything after the version to both of its
+`release.sh` invocations, so nothing between them changed. `release.sh` run without the option,
+which is every laptop run, keeps using `../homebrew-tap`.
+
+The clone is skipped when the GitHub SSH check failed, so one gap is still one message. Which agent
+takes the build no longer matters to the tap, and the certificates live in the `nickpomfret` user's
+keychain rather than in any agent's directory.
 
 ## Verification
 
@@ -411,6 +423,19 @@ far has landed on `macstudio-3`.
       a conflicting unpushed commit is refused with no rebase left in progress and the tap on its
       own commit. The second call, at the tail, is the same function and has not run end to end.
       `bash -n` clean.
+- [x] **Every run clones its own tap**, 2026-09-10 — `ci-publish.sh --platform all --check` against
+      local fake remotes with a stub `ssh`: a remote with the cask gives no tap gap and leaves the
+      clone inside the `TMPDIR` the run was given; a remote without the cask and an unreachable one
+      each give one gap; a failed GitHub SSH check gives its own gap and no clone attempt.
+      `ship.sh`, with `release.sh` stubbed, hands `--homebrew-tap` — a path containing a space — to
+      both invocations. `release.sh` uses the path it is given, names the option when no tap is
+      found, and accepts it on an iOS run.
+- [x] **macOS `mktemp -d` ignores `TMPDIR` without a template**, found by that test: the first
+      clones landed under `/var/folders/…/T`, where TeamCity would never clear them. Both of
+      `ci-publish.sh`'s temp folders now name `${TMPDIR}` explicitly; on the re-run no new folder
+      appeared under `/var/folders`. `bash -n` clean on both scripts.
+- [ ] **The clone has not run on the agent.** It needs the agent's own SSH key against the real
+      `homebrew-tap`; the next `Ship --check` press exercises it.
 - [ ] **The notarization credential is unverified even in principle from here.** The `.p8` keys
       are outside what this session may read, so `notarytool history` has not been run with
       `ASC6H3SL2D` anywhere. If the App Manager key turns out not to carry notary access, the
@@ -469,13 +494,13 @@ four of the passes had never been executed anywhere:
 - **`gh` is installed and logged in**, and the SSH push remote authenticates to GitHub.
 - Both App Store Connect keys are on disk, and `git user.name` / `user.email` are set.
 
-Three things remain, all of them on the machine:
+Two things remain, both on the machine:
 
 1. A *Mac Installer Distribution* certificate in the agent's login keychain.
 2. A *Developer ID Application* certificate in the same keychain.
-3. `git clone git@github.com:npomfret/homebrew-tap.git` at
-   `/Users/nickpomfret/teamcity-agent-3/work/homebrew-tap` — the path the run resolved and
-   printed, rather than the one this task inferred.
+
+The third gap `Ship #3` reported — no `homebrew-tap` beside the checkout — is gone rather than
+fixed: every run now clones the tap for itself. See *A fresh tap for every run*.
 
 ## Residual risk
 
