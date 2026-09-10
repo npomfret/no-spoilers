@@ -216,9 +216,13 @@ around a missing local profile without inspecting the actual export error.
   macOS profile requirements. Prove signing/export in each eligible agent session.
 - [ ] Convert Verify to a composite, add Release compilation, publish test results,
   and make successful verification trigger Apple Ship with matching revisions.
-- [ ] Include automated delivery in ordinary CLI status reporting; the current
+- [x] Include automated delivery in ordinary CLI status reporting; the current
   `.teamcity/cli.json` whitelist hides Ship/TestFlight. Ensure the shared CLI resolves
   on this machine without making unrelated release-script selftests depend on it.
+  Done 2026-09-10:
+  - `cli.json` lists both, and `status` reports them;
+  - the CLI resolves from the `npomfret` marketplace clone with no `TEAMCITY_CLI`;
+  - none of the six selftest suites calls it.
 - [x] Set the nightly policy explicitly. Recommended default is to match Funmax's
   existing successful-verification trigger, including green nightlies. Suppressing
   delivery of unchanged commits is a separate refinement, not an accidental difference.
@@ -257,11 +261,23 @@ around a missing local profile without inspecting the actual export error.
   was created by the DSL and its id has not changed since. Confirm after the `6e0c2df` sync that
   Ship's history (#1–#4) survived.
 - `.teamcity/cli.json` now reports `Ship` and `TestFlight` (`status` showed both after the change).
-  The shared CLI still does not resolve here without `TEAMCITY_CLI`, so that checklist item stays
-  open.
-- **Not yet observed, as of the push of `6e0c2df`**: TeamCity had synced neither the new `Ship`
-  settings nor run `Verify` on that revision. The watcher polling for the sync ended without an
-  answer: the sandbox refused its ssh on every poll, so the server was never asked.
+- **How the shared CLI resolves here.** The watchers for the `6e0c2df` sync and its `Verify` ended
+  without an answer: the sandbox refused ssh on every poll. The cause was two things together:
+  - the `teamcity@npomfret` plugin was enabled in `.claude/settings.json` but its marketplace was never
+    added, so `scripts/teamcity.py` found the CLI only through `TEAMCITY_CLI`;
+  - a `TEAMCITY_CLI=…` prefix stops the command matching the sandbox exclusion
+    `python3 scripts/teamcity.py *`, so ssh stayed sandboxed.
+
+  Once the owner ran `claude plugin marketplace add npomfret/agent-standards`, plain
+  `python3 scripts/teamcity.py status` found the CLI in the marketplace clone and reached the server.
+- **Observed 2026-09-10, once TeamCity could be read:**
+  - `Verify #103` green at `6e0c2df`, and `Verify #104` green at `cd64e4b`, all three legs.
+  - `97f96d5` touched only `.claude/` and `.mcp.json`, outside `Verify`'s trigger rules, so it
+    correctly has no build.
+  - `Ship`'s live settings match `cd64e4b`: the `ci-publish.sh --platform %ship.platform% --tested
+    %ship.args%` step, a 360-minute timeout, both artifact rules, the write lock, the snapshot
+    dependency on `Verify` taking successful builds only, and no trigger.
+  - `Ship #4` (on `ced967a`, before this task) is still listed, so its history survived the DSL.
 - **A review of `86b6277..37e0ef0` raised four findings; all four were confirmed in the code and
   fixed:**
   1. **An App Store Connect error after an upload ended the whole run.** macOS never ran, and the
@@ -298,7 +314,8 @@ around a missing local profile without inspecting the actual export error.
 
 **Next, in order**
 
-1. Confirm the `6e0c2df` settings sync and a green `Verify` on it.
+1. ~~Confirm the `6e0c2df` settings sync and a green `Verify` on it.~~ Done: `Verify #103` and
+   `#104`, and `Ship`'s live settings match `cd64e4b`.
 2. Press `Ship` with `ship.args = --check`: proves this agent session signs, then dry-runs
    `submit_build.py` against App Store Connect. Expect the installer identity as the one gap on `all`.
 3. With explicit owner approval, press `Ship` with `ship.platform = ios`: the first real delivery.
