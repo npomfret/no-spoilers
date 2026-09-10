@@ -1,20 +1,27 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS. Raised 2026-09-10.**
-- **On `main` (`101e61c` to `bc0c742`):** the Apple engine, the Homebrew separation, the new `Ship`
-  step, and the fixes from a review of them.
+**Status: IN PROGRESS. Raised 2026-09-10. Both platforms now deliver to TestFlight through `Ship`,
+pressed by hand. Unattended delivery is not switched on yet.**
+- **On `main` (`101e61c` to `7aa08c3`):**
+  - the Apple engine, the Homebrew separation and the `Ship` step;
+  - the fixes from a code review, and the `--check` fix;
+  - capture of Xcode's distribution logs;
+  - macOS manual signing.
 - **Proven on TeamCity, iOS:** `Ship #7` delivered iOS 1.1.4 build 10025 from `4aa77e3` to
-  `Internal` end to end on `macstudio-3`, in about four and a half minutes, with a confirmed note.
-- **Proven on TeamCity, macOS signing:** `Ship #10` archived and exported a signed Mac App Store
-  package on `macstudio-3` without uploading. The app is signed with Apple Distribution and the
-  `No Spoilers Mac App Store` profile, and the package with a local Mac Installer Distribution
-  identity.
-- **Not yet done:** a real macOS delivery; the automatic trigger; the composite `Verify`;
-  `macstudio-1` and `-2`.
-- **Next:** with the owner's approval, a real macOS delivery, pressing `Ship` with
-  `ship.platform = macos` and empty `ship.args`.
+  `Internal` in about four and a half minutes, with a confirmed note.
+- **Proven on TeamCity, macOS:** `Ship #11` delivered macOS 1.1.4 build 10026 from `7aa08c3` to
+  `Internal` the same way, and the owner got TestFlight's notification. It signs with a local Mac
+  Installer Distribution identity and the API-created `No Spoilers Mac App Store` profile.
+- **Not yet done:**
+  - the automatic trigger on a green `Verify`;
+  - a combined `ship.platform = all` run;
+  - the composite `Verify`, with Release compilation and test reporting;
+  - any proof on `macstudio-1` or `-2`.
 
-See *Progress*, *Learned while driving TeamCity* and *Next, in order*.
+  See *Follow-ups*.
+- **Next:** the owner's review of the work so far, then the trigger.
+
+See *Progress*, *Learned while driving TeamCity*, *Next, in order* and *Follow-ups*.
 
 Make No Spoilers use the proven Super Funmax Music deployment pattern on the shared
 TeamCity agents: verify a commit, archive that exact commit, upload it, wait for Apple
@@ -181,6 +188,12 @@ around a missing local profile without inspecting the actual export error.
 - ~~**The Mac Installer Distribution identity is exported from the laptop** that shipped macOS
   1.1.4 build 10024, not created anew, so no certificate slot is spent.~~ *Superseded the same day:
   the laptop holds no such certificate, and its macOS uploads were cloud-signed. See Progress.*
+- **macOS is signed with local certificates, not the cloud** (owner, 2026-09-10).
+  - Apple refuses the App Manager key cloud-managed certificates, and the owner declined to widen
+    the agents' key.
+  - So a Mac Installer Distribution certificate was created in Xcode on this Mac Studio.
+  - The macOS export signs manually, with the API-created `No Spoilers Mac App Store` profile. iOS
+    stays on automatic signing.
 - **A closed train is refused, never opened by `Ship`.** The refusal names the command that
   commits `open vX.Y.Z`; that commit is verified and shipped like any other.
 - **The nightly ships when green**, matching Funmax.
@@ -192,7 +205,9 @@ around a missing local profile without inspecting the actual export error.
   the Developer ID identity and the old sibling tap path were missing; two identities listed.
 - The `nickpomfret` keychain holds **no** installer or Developer ID certificate at all.
   `Apple Distribution` is SHA-1 `6E62FC93…`, embedded in both No Spoilers iOS store profiles.
+  *Since changed: a Mac Installer Distribution identity was created here later that day.*
 - Every provisioning profile on this machine is iOS; **there is no macOS App Store profile**.
+  *Since changed: `No Spoilers Mac App Store` was installed later that day.*
 - `build/10024` was tagged by `npomfret`; this machine's git user is `nick pomfret`, so the
   1.1.4 three-channel ship came from the laptop.
 - `scripts/teamcity.py` did not resolve the plugin here (the cause of Funmax's red
@@ -226,9 +241,10 @@ around a missing local profile without inspecting the actual export error.
   Keep explicit-build manual distribution as a recovery command. Do not add automatic
   final App Review submission or external-group distribution.
 - [ ] Establish how macOS packages are signed on an agent; prove signing and export in each eligible
-  agent session. *Revised 2026-09-10:* no Mac Installer certificate exists to import, and the laptop's
-  uploads were cloud-signed, so first try cloud signing with the App Manager key through a macOS
-  `--archive-only`.
+  agent session.
+  - *Established 2026-09-10:* a local Mac Installer Distribution identity and a named Mac App Store
+    profile, with manual signing at export, because cloud signing is refused to the App Manager key.
+  - Proven on `macstudio-3` (`Ship #10` and `#11`). Still open for `macstudio-1` and `-2` only.
 - [ ] Convert Verify to a composite, add Release compilation, publish test results,
   and make successful verification trigger Apple Ship with matching revisions.
 - [x] Include automated delivery in ordinary CLI status reporting; the current
@@ -243,6 +259,7 @@ around a missing local profile without inspecting the actual export error.
   delivery of unchanged commits is a separate refinement, not an accidental difference.
 - [ ] Validate the new path with a first real delivery, then enable unattended triggering.
   Preserve listing/screenshot tools and manual promotion of an already uploaded build.
+  *First real deliveries done 2026-09-10:* iOS `Ship #7`, macOS `Ship #11`. The trigger is not on.
 - [x] Update task 36 and `docs/guides/building.md` to point to the implemented flow;
   remove contradictory instructions. Add any further reusable lessons to agent-standards.
 
@@ -267,8 +284,9 @@ around a missing local profile without inspecting the actual export error.
   `ci-publish.sh --platform all --check` reported the installer identity as its only gap and
   `--platform homebrew --check` the Developer ID identity as its only one; `release.sh` refused a
   version other than the commit's and a missing tap. All six Python selftest suites green.
-- **Blocked on the owner**: the laptop export was `Apple Distribution` and `Apple Development`, not the
-  installer identity. Nothing was imported.
+- **Blocked on the owner** at the time: the laptop export was `Apple Distribution` and `Apple
+  Development`, not the installer identity, so nothing was imported. *Resolved later that day by
+  creating the identity on this Mac; see below.*
 - `scripts/teamcity.py`'s ssh was refused by this session's sandbox. Why, and the fix, are under
   "How the shared CLI resolves here" below. The TeamCity token is deliberately not read outside the
   shared CLI.
@@ -418,14 +436,14 @@ around a missing local profile without inspecting the actual export error.
     - **Fixed the same day.** After every export, whether it passed or failed,
       `submit_build.py: keep_distribution_logs` copies that export's bundles into the run's
       directory. It selects them by `<scheme>_` prefix and by time, and `Ship`'s artifact rule now
-      reads `no-spoilers-ship/*/*.xcdistributionlogs`. A failure to copy is reported and does not
-      fail the run.
+      reads `no-spoilers-ship/*/*.xcdistributionlogs/**` (the `/**` was added after `Ship #9`). A
+      failure to copy is reported and does not fail the run.
     - **Evidence:**
       - All six selftest suites green, 261 cases (`submit_build` 49). Two new cases cover choosing
         this scheme's bundles from this export only, and both fail when the prefix is ignored.
       - Run against this Mac's real temp directory, it kept `Ship #8`'s `NoSpoilers_` bundle with
         all seven logs. It skipped the older `NoSpoilersApp_` bundle from `Ship #7`.
-      - Not yet observed on TeamCity.
+      - Observed on TeamCity from `Ship #10` onwards: eight files under `ship/distribution-logs`.
 - **`Ship #9`, 2026-09-10 13:04–13:05 UTC, `macstudio-3`, `cb057f8`, `ship.platform = macos`,
   `--archive-only`. Red at export again, one step further on.**
   - The installer check passed, and the "No signing certificate 'Mac Installer Distribution'" error
@@ -486,6 +504,24 @@ around a missing local profile without inspecting the actual export error.
   - **The partition list works:** both private keys were used from the agent's non-interactive
     session without a prompt.
   - **The distribution logs published at last:** eight files under `ship/distribution-logs`.
+- **`Ship #11`, 2026-09-10 13:27–13:32 UTC, `macstudio-3`, `7aa08c3`, `ship.platform = macos`. The
+  first real macOS delivery through the new path. Green, and the owner's TestFlight notification
+  arrived.**
+  - `Verify #113` ran first, on the task-only `7aa08c3`. The checks passed, the installer identity
+    included.
+  - It reserved `build/10026` on `7aa08c3`. The tag carries `Reservation: 20157ae1-… on
+    macstudio.local`.
+  - **Timings:** archive 12 seconds, export and upload 1 minute 25, Apple's processing 2.3 minutes,
+    delivery 8 seconds.
+  - **Apple put the build in `Internal` itself** (`IN_BETA_TESTING`), as it did for iOS, so the add
+    was skipped.
+  - **The note** was empty and now reads `Build 10026 from 7aa08c3fe946`, taken from the tag. The
+    read-back confirmed it, and `Internal` membership.
+  - **The record** reads `stage: delivered`, `processing: IN_BETA_TESTING`, `reserved: build/10026`.
+  - **Afterwards, from this machine,** `testflight_distribute.py --platform macos --build 10026`
+    agreed. Its first attempt died inside `urlopen` before App Store Connect answered, and a retry
+    succeeded.
+  - **Follow-up:** that script has no retry of its own for network errors.
 
 **Learned while driving TeamCity from an agent session, 2026-09-10**
 
@@ -508,8 +544,11 @@ around a missing local profile without inspecting the actual export error.
   is the way to reach the dry run.
 - **A local `submit_build.py` dry run refuses a commit that is not on `origin/main`.** Push before
   dry-running a fix.
-- **All three presses so far (`Ship #5` to `#7`) ran on `macstudio-3`.** Nothing yet decides which
-  agent a press gets, and `macstudio-1` and `-2` are unproven for signing.
+- **All seven presses so far (`Ship #5` to `#11`) ran on `macstudio-3`.**
+  - Nothing yet shows why, or decides which agent a press gets.
+  - `macstudio-1` and `-2` are unproven for signing.
+  - All three run as the same user on the same Mac, so they share the keychain and the profiles
+    folder. A difference is unlikely, but not proven.
 - **Why an agent session cannot watch a build, and what would let it.**
   - Every command this session runs is sandboxed, and its policy forbids running one outside the
     sandbox.
@@ -527,84 +566,91 @@ around a missing local profile without inspecting the actual export error.
 
 1. ~~Confirm the `6e0c2df` settings sync and a green `Verify` on it.~~ Done: `Verify #103` and
    `#104`, and `Ship`'s live settings match `cd64e4b`.
-2. ~~Press `Ship` with `ship.args = --check`~~ Done as `Ship #5`: on `all` the installer identity
+2. ~~Press `Ship` with `ship.args = --check`.~~ Done as `Ship #5`: on `all` the installer identity
    was the one gap, so the dry run never started. The iOS `--check` that followed is `Ship #6`: green,
    and it planned build 10025. It also exposed the dropped `--tested`, fixed in `bc0c742`.
 3. ~~With explicit owner approval, the first real iOS delivery.~~ Done as `Ship #7`: iOS build 10025
    from `4aa77e3` is in `Internal`, and its note names the build and its commit.
-4. **macOS, without a local installer certificate.**
-   - ~~With the owner's agreement, drop or relax `ci-publish.sh`'s installer check.~~ Dropped with
-     the owner's agreement on 2026-09-10. `ci-publish.sh` asserts no installer identity for any
-     platform. The building guide, README, important-code and `submit_build.py`'s docstring now
-     say why.
-   - ~~Then press `Ship` with `ship.platform = macos` and `ship.args = --archive-only`.~~ Done as
-     `Ship #8`. Apple refused this key cloud-managed certificates, for both the `.pkg` and the `.app`.
-   - **Of two remedies, the owner chose the first on 2026-09-10:**
-     - **Chosen: a Mac Installer Distribution certificate held locally.**
-       - The owner creates it in Xcode's Manage Certificates on this Mac Studio, where the agents
-         run, having signed Xcode in for the purpose. Its private key is made in this login keychain,
-         so nothing is exported or copied. The team had no Mac Installer Distribution certificate:
-         Manage Certificates listed only Apple Development (this Mac, and the laptop's, not here),
-         Apple Distribution (2026-08-21, here) and the laptop's Developer ID Application.
-       - **Created 2026-09-10, 13:57 BST.**
-         - `security find-identity -v` here lists `018FBCAB… "3rd Party Mac Developer Installer: Nick
-           Pomfret (6FZN56WC8G)"` as a valid identity, beside Apple Development and Apple
-           Distribution.
-         - The login keychain changed at 13:57:02.
-         - `ci-publish.sh`'s presence check is back, with that exact name.
-         - **The owner set the login keychain's partition list** in their own Terminal:
-           `security set-key-partition-list -S apple-tool:,apple: -s <login keychain>`, prompting
-           for the password.
-           - The first attempt was refused, "The user name or passphrase you entered is not
-             correct", because the placeholder had been typed literally. Nothing changed then.
-           - The prompted second attempt succeeded.
-           - The partition list cannot be read back from an agent session without the password.
-             The next macOS export proves it: a missing entry would hang rather than fail.
-       - The key's partition list is set, so an agent's non-interactive session can use it without a
-         hidden keychain prompt.
-       - The exact identity name is read back before the presence check is reinstated.
-       - Create it in the laptop's Xcode (Settings → Accounts → Manage Certificates → + → Mac
-         Installer Distribution), export it with its private key, and import it into
-         `nickpomfret`'s login keychain here.
-       - The key's access stays as it is.
-       - Then reinstate a presence check in `ci-publish.sh`, so a missing identity is named in
-         seconds.
-       - A Mac App Store profile for `pomocorp.NoSpoilers.NoSpoilersMac` may still be needed; the
-         next `--archive-only` will show.
-     - **Cloud-managed certificate access for the key the agents use**, granted by the Account Holder
-       or an Admin. No certificate file on any machine, but the agents would hold a key that can do
-       more.
-   - ~~Then `--archive-only` again, with the log bundles now kept as artifacts.~~ Done as `Ship #9`
-     (red: no Mac App Store profile) and `Ship #10` (green, after the manual-signing change and the
-     `No Spoilers Mac App Store` profile).
-   - **Next, with the owner's approval: a real macOS delivery.** Press `Ship` with
-     `ship.platform = macos` and empty `ship.args`. It reserves the next `build/N`, uploads the
-     package, waits for Apple, and delivers to `Internal`.
-   - **Renewal to remember:** the profile and the Apple Distribution certificate both expire on
-     2027-08-21, and the installer certificate on 2027-09-10. The profile has to be regenerated
-     with the renewed certificate and installed on the agent machine again.
-5. Add the `finishBuildTrigger` on `Verify` (nightly included), then the composite `Verify`,
-   Release compilation and test reporting.
+4. ~~macOS.~~ Done, by this route:
+   - **`Ship #8`** (`--archive-only`, red): the installer check had been dropped to try cloud
+     signing, and Apple refused the App Manager key cloud-managed certificates.
+   - **The owner chose local certificates over widening the key.** They created a Mac Installer
+     Distribution identity in Xcode's Manage Certificates on this Mac Studio (13:57 BST), and set the
+     login keychain's partition list. The installer check came back in `cb057f8`.
+   - **`Ship #9`** (`--archive-only`, red): the identity was found, but no Mac App Store profile
+     listed the local Apple Distribution certificate.
+   - **With the owner's approval,** `No Spoilers Mac App Store` was created through the API and
+     installed, and the macOS export switched to manual signing (`fbdb260`).
+   - **`Ship #10`** (`--archive-only`, green) proved the signing, and **`Ship #11`** delivered macOS
+     build 10026 to `Internal`.
+5. **The owner reviews what has been done** (asked for on 2026-09-10).
+6. **With the owner's approval, turn on unattended delivery.**
+   - Add the `finishBuildTrigger` on `Verify`, the nightly included, as decided.
+   - Before that, one `ship.platform = all` press would prove the two-platform run under one number,
+     which nothing has exercised yet.
+7. The composite `Verify`, Release compilation and test reporting.
+
+**Follow-ups, found along the way**
+
+- **Renewal.** The profile and the Apple Distribution certificate expire on 2027-08-21, and the Mac
+  Installer Distribution certificate on 2027-09-10. The profile must then be regenerated with the
+  renewed certificate and installed on the agent machine again.
+- **`macstudio-1` and `-2`** have never run `Ship`; see *Learned*.
+- **`testflight_distribute.py` has no retry for network errors.** A read from this machine died
+  inside `urlopen` once. Inside `Ship` such a failure is recorded with its recovery command, but the
+  script could ride out a transient error on its own.
+- **The distributor's `uploaded` time drops its offset** (it cuts to 16 characters), so iOS 10025
+  printed `03:54` for 10:54 UTC.
+- **`add_to_group`'s 422 path is still unexercised:** Apple added both builds to `Internal` itself.
+- **Profile churn.** The portal holds 292 Xcode-managed profiles for this bundle id, the newest from
+  2026-09-09. Worth understanding, and perhaps pruning, before it becomes a limit.
+- **Lessons for agent-standards, and for Funmax, which shares these agents:**
+  - Funmax's `Ship` timeout, 90 minutes, is under its own 40/40/60 step limits.
+  - Xcode writes `.xcdistributionlogs` to `getconf DARWIN_USER_TEMP_DIR` and ignores `TMPDIR`. An
+    artifact rule for a directory needs `/**`. Funmax captures none of these logs.
+  - An App Manager key is refused cloud-managed certificates. On an agent, a Mac App Store package
+    needs a local installer identity and a profile that lists a local distribution certificate.
+  - A new keychain key needs its partition list set before a background agent can use it.
+- **Agent tooling.** A blocking `wait --build N` in the shared TeamCity CLI would let an agent session
+  follow a build; see *Learned*. Letting an agent start builds would need a separate `Ship`-only
+  token.
+- **Homebrew** still needs App Store Connect to choose a build number. The agents hold no Developer ID
+  Application identity, so the Homebrew channel cannot yet run on an agent.
+- **Owner housekeeping:** delete `~/Desktop/certs.p12`, which holds two signing private keys.
 
 **Acceptance criteria**
 
 - [ ] A relevant main-branch push that passes verification produces an installable
   internal TestFlight build on both iOS and macOS without another distribution button.
+  *Each platform has delivered from a press (`Ship #7` and `#11`); the trigger is not on.*
 - [ ] A failed verification prevents delivery. The archived SHA equals the verified SHA,
   even when main advances while Ship is queued or running.
-- [ ] Both platform builds have correct versions, signing/provisioning, tester notes
+  *Observed: `#7` and `#11` archived the revisions `Verify #108` and `#113` had just passed. A red
+  `Verify` cancelling `Ship`, and `main` moving during the queue, have not been observed.*
+- [x] Both platform builds have correct versions, signing/provisioning, tester notes
   naming the archived commit, and confirmed internal-group membership.
-- [ ] A missing or failing Homebrew setup cannot block Apple delivery. Apple delivery
+  *iOS 10025 and macOS 10026, both 1.1.4. Each note's `Build N from <sha>` line was read back, and
+  both builds are in `Internal`.*
+- [x] A missing or failing Homebrew setup cannot block Apple delivery. Apple delivery
   neither publishes a GitHub release nor edits the cask.
+  *The agent holds no Developer ID Application identity, yet `#7` and `#11` delivered. The Apple
+  path calls nothing in `release.sh`.*
 - [ ] Processing delays, rejection and timeouts produce useful diagnostics. Recovery
   selects the recorded build, does not duplicate an accepted upload, and does not
   relabel some newer build with an older commit's notes.
-- [ ] Build selection/allocation handles pagination, expired builds and concurrent
+  *Diagnostics were observed on `#8` and `#9` (records and logs). Recovery is covered by selftests
+  only.*
+- [x] Build selection/allocation handles pagination, expired builds and concurrent
   release attempts. Existing release provenance remains readable.
+  *Paging and expired builds are in `appstore_status`. The same-second reservation race is reproduced
+  and closed in `submit_build`'s selftest. The real reservations `build/10025` and `10026` carry
+  their `Reservation:` lines.*
 - [ ] Signing and macOS package export work on all agents eligible for Apple Ship;
   the design does not rely on a hand-made sibling checkout in one agent's `work/`.
+  *Proven on `macstudio-3` only.*
 - [ ] Final App Review submission remains manual. Homebrew can release independently,
   on a different cadence and without matching Apple version/build numbers.
+  *Nothing here submits for review. Homebrew has not released since the separation.*
 
 **Validation already completed**
 
@@ -612,10 +658,13 @@ around a missing local profile without inspecting the actual export error.
 - [x] Read live TeamCity settings and successful/failed release logs; inspected local
   LaunchAgent configuration and distribution-profile metadata.
 - [x] Read live App Store Connect status for both apps.
-- [x] No Spoilers' five Python selftest suites passed: 196 cases total.
+- [x] No Spoilers' five Python selftest suites passed: 196 cases total. *(That was at the
+  investigation. There are six suites and 261 cases at `fbdb260`.)*
 - [x] Funmax's submit_build and testflight_distribute selftests passed.
-- [ ] No fresh archive, export, upload or device installation was performed by this
-  investigation. Those remain implementation acceptance work, not established results.
+- [x] ~~No fresh archive, export, upload or device installation was performed by this
+  investigation.~~ Superseded by the implementation. `Ship #7` and `#11` archived, exported and
+  uploaded on both platforms, and `#10`'s exported package was verified on this Mac. No agent has
+  checked a device installation; the owner received TestFlight's notification.
 
 **Related records**
 
