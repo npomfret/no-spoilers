@@ -7,8 +7,9 @@
   `Internal` end to end on `macstudio-3`, in about four and a half minutes, with a confirmed note.
 - **Not yet done:** macOS; the automatic trigger; the composite `Verify`; `macstudio-1` and `-2`.
 - **Next:** macOS. There is no Mac Installer Distribution certificate on the laptop to export, and
-  the laptop's own macOS uploads needed none. So the owner decides whether to drop `ci-publish.sh`'s
-  installer check and try a macOS `--archive-only`.
+  the laptop's own macOS uploads needed none. `ci-publish.sh`'s installer check is dropped, so the
+  next press is `Ship` with `ship.platform = macos` and `ship.args = --archive-only`, to see whether
+  an agent can cloud-sign the package.
 
 See *Progress*, *Learned while driving TeamCity* and *Next, in order*.
 
@@ -434,7 +435,10 @@ around a missing local profile without inspecting the actual export error.
 3. ~~With explicit owner approval, the first real iOS delivery.~~ Done as `Ship #7`: iOS build 10025
    from `4aa77e3` is in `Internal`, and its note names the build and its commit.
 4. **macOS, without a local installer certificate.**
-   - With the owner's agreement, drop or relax `ci-publish.sh`'s installer check.
+   - ~~With the owner's agreement, drop or relax `ci-publish.sh`'s installer check.~~ Dropped with
+     the owner's agreement on 2026-09-10. `ci-publish.sh` asserts no installer identity for any
+     platform. The building guide, README, important-code and `submit_build.py`'s docstring now
+     say why.
    - Then press `Ship` with `ship.platform = macos` and `ship.args = --archive-only`. That signs and
      packages on an agent and uploads nothing.
    - If cloud signing is refused, the `.xcdistributionlogs` artifact holds Apple's answer. The

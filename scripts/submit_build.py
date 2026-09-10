@@ -61,7 +61,7 @@ nothing else. Uploading again would only be refused as a duplicate.
 
 `--archive-only` archives and exports locally with `destination=export`. It
 reserves no number and contacts App Store Connect only to choose one, so it
-proves signing — including the Mac installer identity, via `pkgutil
+proves signing — including the Mac package's installer signature, via `pkgutil
 --check-signature` — without spending anything.
 
 Signing is automatic and authenticated with the App Manager key

@@ -127,8 +127,8 @@ a daily answer.
 **`ci-publish.sh` is deliberately thin.** It asserts what a build agent breaks and the engines
 assume, in seconds, before anything expensive, and then hands over. For an Apple platform: that
 *Apple Distribution* can **sign** a throwaway binary (a locked login keychain lists identities
-happily and then refuses), that the *Mac Installer Distribution* identity is present for macOS, that
-both App Store Connect keys are there, and that the checkout can push a tag over SSH with an author.
+happily and then refuses), that both App Store Connect keys are there, and that the checkout can push
+a tag over SSH with an author.
 For `homebrew`: *Developer ID Application* by probe, `notarytool history` as a read that proves the
 notarization key, `gh auth status`, and a fresh clone of `homebrew-tap` under the build's own temp
 directory with a `push --dry-run`. `--check` reports every gap in one run rather than one per press,
@@ -136,10 +136,18 @@ and for an Apple platform then runs `submit_build.py` without `--apply`, which a
 everything a real run would and changes nothing. A missing certificate prints the identities the
 agent does hold.
 
-The `.app` on both platforms is signed with *Apple Distribution*; the Mac App Store `.pkg` with *Mac
-Installer Distribution*; the Homebrew zip with *Developer ID Application*, notarized. An identity
-installed for the `nickpomfret` user reaches all three agents, and only a build step can prove the
-agent's session can use it.
+The `.app` on both platforms is signed with *Apple Distribution*; the Homebrew zip with *Developer ID
+Application*, notarized. An identity installed for the `nickpomfret` user reaches all three agents,
+and only a build step can prove the agent's session can use it.
+
+**The Mac App Store `.pkg` has no local installer identity, and `ci-publish.sh` no longer asks for
+one.** No *Mac Installer Distribution* certificate exists on this team's machines. macOS 1.1.4 build
+10024 still reached App Store Connect from a laptop, exported with automatic signing and
+`-allowProvisioningUpdates`, which signs with Apple's cloud-managed certificates. Whether an agent,
+with no Xcode account and only the App Manager key, can do the same is proved by `Ship` with
+`ship.platform = macos` and `ship.args = --archive-only`: it exports the package and checks its
+signature with `pkgutil`, uploading nothing. Until 2026-09-10 a presence check refused macOS before
+that proof could run.
 
 **The five verification configurations still hold no credential and must not gain one.** `Ship`
 is separate and holds them.
