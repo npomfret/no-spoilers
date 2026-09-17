@@ -5,7 +5,7 @@ import SwiftUI
 // Text and Button views accept LocalizedStringKey directly, so Text(Strings.Foo.bar)
 // will automatically pick up translations once a Localizable.strings file is added.
 //
-// Dynamic strings (countdowns, "+N more sessions") are centralised as format functions below.
+// Dynamic strings (countdowns, "+N earlier sessions") are centralised as format functions below.
 // Swap to String(localized:) with interpolation when a Localizable.strings file is added.
 
 enum Strings {
@@ -14,7 +14,7 @@ enum Strings {
     }
     enum Widget {
         static let widgetDescription: LocalizedStringKey  = "Grand Prix weekend sessions — never the result."
-        static func moreSessions(_ count: Int) -> String  { "+\(count) more session\(count == 1 ? "" : "s")" }
+        static func earlierSessions(_ count: Int) -> String { "+\(count) earlier session\(count == 1 ? "" : "s")" }
     }
     enum OffSeason {
         static let badge: LocalizedStringKey              = "Off-season"

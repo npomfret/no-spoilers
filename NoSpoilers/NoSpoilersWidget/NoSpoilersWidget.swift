@@ -365,23 +365,33 @@ struct NoSpoilersWidgetEntryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// systemLarge — expanded header, full session list.
+    /// systemLarge — expanded header + the weekend's closing 5 sessions.
+    ///
+    /// **The end of the weekend, not the start of it, since 2026-09-17.** This
+    /// took the first five, so a sprint weekend's six put FP1 on the top row and
+    /// the Grand Prix itself behind "+1 more session" — the one row the family
+    /// exists to show. It now takes the same closing window `mediumView` takes,
+    /// so every family that cannot draw the whole weekend draws the end of it.
+    ///
+    /// **The count moved above the list with the window.** What is hidden is now
+    /// the earliest sessions, and a caption under the race reads as sessions
+    /// still to come.
     @ViewBuilder
     private func largeView(_ weekend: RaceWeekend) -> some View {
-        let visibleSessions = Array(entry.sessions.prefix(5))
+        let visibleSessions = closingSessions(limit: 5)
         let hiddenCount = max(0, entry.sessions.count - visibleSessions.count)
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
             VStack(spacing: Theme.Space.xs) {
-                ForEach(visibleSessions) { session in
-                    widgetSessionRow(session, canvas: .widgetLarge)
-                }
                 if hiddenCount > 0 {
-                    Text(Strings.Widget.moreSessions(hiddenCount))
+                    Text(Strings.Widget.earlierSessions(hiddenCount))
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textSecondary)
                         .padding(.horizontal, Theme.Space.md)
+                }
+                ForEach(visibleSessions) { session in
+                    widgetSessionRow(session, canvas: .widgetLarge)
                 }
             }
             Spacer(minLength: 0)
@@ -600,12 +610,16 @@ struct NoSpoilersWidgetEntryView: View {
 
     /// The last `limit` sessions of the weekend, in chronological order.
     ///
+    /// **One window for every family that cannot draw the whole weekend**, which
+    /// is `systemMedium` at three rows and `systemLarge` at five, out of a
+    /// weekend's five or six. `systemExtraLarge` has the height for all of them
+    /// and takes none of this.
+    ///
     /// **The end of the weekend, not the start of what is left.** This used to
-    /// take the first three sessions still to come, which on a Monday is FP1,
-    /// FP2 and FP3 — three practice sessions and no sign of the Grand Prix the
-    /// widget is named after. A `systemMedium` tile has room for three rows out
-    /// of five or six, and the three worth spending them on are the ones the
-    /// weekend builds to: qualifying, the sprint where there is one, the race.
+    /// take the first sessions still to come, which on a Monday is FP1, FP2 and
+    /// FP3 — three practice sessions and no sign of the Grand Prix the widget is
+    /// named after. The rows worth spending are the ones the weekend builds to:
+    /// qualifying, the sprint where there is one, the race.
     ///
     /// The window is fixed to the weekend rather than to `now`, so the rows do
     /// not reshuffle as sessions finish — the race stays on the bottom line
