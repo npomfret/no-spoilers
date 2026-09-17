@@ -1,2 +1,3 @@
 • Fixes a crash on launch that affected some iPhones
+• The medium and large widgets now show the sessions the weekend builds to, rather than the first few of it. Sessions stay in order, earliest at the top
 • No Spoilers now requires iOS 26.4
