@@ -1,8 +1,8 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS. Raised 2026-09-10. Both platforms have delivered to TestFlight through the
-old single `Ship`, pressed by hand. Since the split, `Ship iOS` and `Ship macOS` do it, one platform
-each, and neither has run yet. Unattended delivery is not switched on yet.**
+**Status: IN PROGRESS. Raised 2026-09-10. `Ship iOS` has now delivered for real; `Ship macOS` has
+still never run, and unattended delivery is not switched on.** Both platforms had already delivered
+through the old single `Ship`, pressed by hand, before the split.
 - **On `main` (from `101e61c`):**
   - the Apple engine, the Homebrew separation and the `Ship` step;
   - the fixes from a code review, and the `--check` fix;
@@ -17,14 +17,29 @@ each, and neither has run yet. Unattended delivery is not switched on yet.**
 - **Proven on TeamCity, macOS:** `Ship #11` delivered macOS 1.1.4 build 10026 from `7aa08c3` to
   `Internal` the same way, and the owner got TestFlight's notification. It signs with a local Mac
   Installer Distribution identity and the API-created `No Spoilers Mac App Store` profile.
+- **Proven on TeamCity, `Ship iOS`:** `ShipIos #12` (id 5539) delivered iOS 1.1.4 build 10028 from
+  `d60a8dc` to `Internal` on 2026-09-17, the configuration's first and only build. Record:
+  `stage: delivered`, `IN_BETA_TESTING`, `asc_build_id 6d15b5b1-0ef2-4a75-ae2d-733d9e16cd00`. It
+  pulled its own `Verify #128` at that revision through the snapshot dependency, archived, signed
+  automatically, uploaded, waited for Apple and wrote the note without a hand on it.
 - **Not yet done:**
   - the automatic trigger on a green `Verify`;
-  - a first real run of each of `Ship iOS` and `Ship macOS`;
+  - a first real run of `Ship macOS` — `ShipMacos` has no builds at all, and macOS 10026 and 10027
+    both came from the old combined `Ship`;
   - the composite `Verify`, with Release compilation and test reporting;
   - any proof on `macstudio-1` or `-2`.
 
   See *Follow-ups*.
-- **Next:** with the owner's approval, one press of each new configuration, then the trigger.
+- **Next:** with the owner's approval, one press of `Ship macOS`, then the trigger.
+
+**A listing-only commit gets no `Verify` of its own, learned 2026-09-17.** `Verify`'s trigger rules
+are `+:NoSpoilers/**`, `+:NoSpoilersCore/**` and `+:scripts/**`, so a commit touching only
+`listing/` matches nothing and `teamcity.py status` reports `HEAD` as never tested. That is correct
+— nothing in such a commit can change what the chain tests — and the rules should not gain
+`listing/**`, which would run the Xcode legs for a text file. Queueing `Ship` at that revision is
+what builds it: the snapshot dependency cannot reuse a green `Verify` from an earlier revision, so
+it starts one, which is how 10028 shipped with a green light on the exact commit it was archived
+from.
 
 See *Progress*, *Learned while driving TeamCity*, *Next, in order* and *Follow-ups*.
 

@@ -1,8 +1,13 @@
 # An App Store install crashed before it drew anything
 
-**Status: OPEN, 2026-09-10.** The cause is confirmed from the reporter's crash logs: 1.1.3 imports a
-system symbol iOS 26.2.1 does not have, and dyld refuses to launch it. The call is removed and the
-iOS minimum is now 26.4. Neither is shipped.
+**Status: OPEN, 2026-09-17. iOS is staged for review; macOS is not shipped.** The cause is confirmed
+from the reporter's crash logs: 1.1.3 imports a system symbol iOS 26.2.1 does not have, and dyld
+refuses to launch it. The call is removed and the iOS minimum is now 26.4.
+
+iOS 1.1.4 build 10028, from `d60a8dc`, carries both and is delivered to TestFlight and attached to
+the App Store version record in `PREPARE_FOR_SUBMISSION`. **It closes when a person presses Submit
+and Apple approves it**; until then the crashing 1.1.3 is what the store serves. macOS still carries
+the call in its shipped 1.1.3.
 
 ## The issue
 
@@ -67,10 +72,13 @@ Rejected:
 - [x] **`IPHONEOS_DEPLOYMENT_TARGET` is 26.4** in the project's Debug and Release configurations.
       Read back from `project.pbxproj` through `plutil`: no target sets its own, so the app and the
       widget inherit it. `MACOSX_DEPLOYMENT_TARGET` stays 26.2. `README.md` says so.
-- [ ] **`verify-ios-build.sh`, `verify-mac-build.sh` and `verify-widget-build.sh` could not run
-      2026-09-10**: the agent sandbox's `sandbox_apply: Operation not permitted`, as in task 30.
-      Run them from a normal shell, and confirm the built app's and widget's `MinimumOSVersion`
-      read 26.4.
+- [x] **All three Xcode wrappers ran, 2026-09-17**, from a normal shell. They could not on
+      2026-09-10 — the agent sandbox's `sandbox_apply: Operation not permitted`, as in task 30 —
+      and `4368b69` turned that sandbox off. `verify-ios-build.sh`, `verify-mac-build.sh` and
+      `verify-widget-build.sh` all succeeded, and in `Debug-iphoneos` both `NoSpoilersApp.app` and
+      the embedded `NoSpoilersWidgetExtension.appex` read `MinimumOSVersion 26.4`. The
+      `Debug-iphonesimulator` products still read 26.2 and are stale, from 2026-08-22: these
+      wrappers build `generic/platform=iOS`, and nothing ships from that directory.
 - [x] **The launch-path traps, 2026-09-09.** `BrandTypeface` keeps its three `preconditionFailure`s
       under `#if DEBUG` and in release reports the fault to `LaunchDiagnostics` and falls back to
       `.system(size:weight: .heavy)`. `LaunchDiagnostics` keeps a `starting`/`shown` breadcrumb,
@@ -84,8 +92,17 @@ so 26.2 and 26.3 phones keep a crashing build. Only a couple of people have inst
 
 ## What is left
 
-- [ ] **Ship it.** 1.1.3 and 1.1.4 both carry the call, so the fix needs a new build on both
-      platforms.
+- [x] **iOS is uploaded and staged, 2026-09-17.** `Ship iOS #12` archived `d60a8dc`, uploaded it as
+      1.1.4 build 10028 and delivered it to the Internal group; the run's record reads
+      `stage: delivered`, `IN_BETA_TESTING`, `asc_build_id 6d15b5b1-0ef2-4a75-ae2d-733d9e16cd00`.
+      `appstore_listing.py` created the 1.1.4 version record, wrote the copy and attached 10028.
+- [ ] **A person presses Submit, and Apple approves.** Nothing in this repository submits. Until
+      that lands, `ios/v1.1.3` is what the store serves and it is the crashing build. Record the
+      approval with `scripts/tag_approved.py ios 1.1.4 --apply`.
+- [ ] **macOS still ships the call.** Its 1.1.3 is on sale and `macos/v1.1.4` has never been
+      submitted, so the fix reaches Mac users only through a `Ship macOS` run of a commit at or
+      after `5199f70` and a second Submit. macOS build 10027, from `771a063`, already carries it
+      and is on TestFlight.
 - [ ] **macOS is fixed by the same removal but unverified.** Same `LogChannel`, minimum 26.2, no Mac
       crash reported, and nothing checked what macOS 26.2 exports.
 - [ ] **Unverified on a device**: the banner has never been seen on a phone.
