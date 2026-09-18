@@ -63,10 +63,11 @@ Canonical pattern-governance guide for Swift and Apple-platform code in this rep
   answers an empty result set with **404**, so a blanket status check would log its most routine
   answer as an error.
 
-## Logging
+## Auditing
 
-- **Every log line is one JSON object, written through `LogChannel`.** No string concatenation,
-  no interpolated prose, no `print`. We log data, not sentences.
+The rule is the `auditing` standard's; this is how it is enforced in Swift here.
+
+- **Every line is one JSON object, written through `LogChannel`.** Nothing else emits.
 - Use the channels on `AppLog` (`launch`, `schedule`, `cache`, `store`, `widget`, `session-end`).
   Do not construct a `Logger` directly — `LogChannel` holds the only one, which is what makes the
   rule enforceable rather than advisory.

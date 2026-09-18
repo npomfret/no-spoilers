@@ -40,7 +40,8 @@
   "enabledPlugins": {
     "task-files@npomfret": true,
     "teamcity@npomfret": true,
-    "webstorm@npomfret": true
+    "webstorm@npomfret": true,
+    "auditing@npomfret": true
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"]
 }
