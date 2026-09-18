@@ -16,3 +16,4 @@ DerivedData/
 __pycache__/
 *.pyc
 .gitnexus/
+.codex/config.toml
