@@ -325,7 +325,7 @@ class Client:
 
 # The marks this product may not use, and the one place it must.
 #
-# `CLAUDE.md` makes this a non-negotiable, and it is not an abstract rule: three
+# `AGENTS.md` makes this a non-negotiable, and it is not an abstract rule: three
 # 4.1(a) Copycats rejections came off this app record. The August 2026 sweep
 # removed the terms from the app, the widget and the website, and from the iOS
 # listing — and missed the macOS listing entirely, which then sat live on the

@@ -82,7 +82,7 @@ STRINGS = REPO / "NoSpoilersCore/Sources/NoSpoilersCore/Strings.swift"
 
 # The project's own simulator. Never a stock device name: capturing reboots the
 # device and reinstalls the app, and other projects on this machine share the
-# stock ones. See CLAUDE.md.
+# stock ones. See AGENTS.md.
 DEFAULT_DEVICE = "NoSpoilers-iPhone"
 
 LOG_PREDICATE = 'subsystem == "pomocorp.NoSpoilers" AND category == "alerts"'

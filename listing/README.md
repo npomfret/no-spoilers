@@ -32,7 +32,7 @@ rewrite.
 
 ## The one rule
 
-**No `F1`, `Formula 1` or `Formula One`.** `CLAUDE.md` makes this a non-negotiable and this
+**No `F1`, `Formula 1` or `Formula One`.** `AGENTS.md` makes this a non-negotiable and this
 directory is the surface 4.1(a) is judged on: three Copycats rejections came off this app record.
 `appstore_listing.py` refuses to write copy that trips the check, its selftest fails on copy already
 committed here, and `appstore_status.py` reports any that reaches the store under NEEDS YOU.

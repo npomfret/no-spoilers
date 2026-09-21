@@ -4,7 +4,7 @@ This guide maps the current control plane and the places that define repo standa
 
 ## Current control plane
 
-1. `CLAUDE.md` — concise root contract: product invariants, approval boundaries, and verification entry points; it deliberately does not index `.claude/`.
+1. `AGENTS.md` — concise root contract: product invariants, approval boundaries, and verification entry points; it deliberately does not index `.claude/`.
 2. `.claude/rules/core.md` — repo-wide engineering constraints.
 3. `.claude/rules/apple-platforms.md` — Apple-platform implementation rules.
 4. `.claude/rules/testing.md` — verification and evidence rules.

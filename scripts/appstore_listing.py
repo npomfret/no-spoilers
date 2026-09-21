@@ -365,7 +365,7 @@ def main() -> int:
     if marks := refuse_marks("local", {**wanted, "review notes": notes}):
         print(f"{LISTING.name}/{arguments.platform} uses owned terms:")
         print("\n".join(marks))
-        print("\nNothing was written. See CLAUDE.md — this is the surface 4.1(a) is judged on.")
+        print("\nNothing was written. See AGENTS.md — this is the surface 4.1(a) is judged on.")
         return 1
 
     session = Session()
