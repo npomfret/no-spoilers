@@ -42,7 +42,8 @@
     "teamcity@npomfret": true,
     "webstorm@npomfret": true,
     "auditing@npomfret": true,
-    "typesafe@typesafe-ai": true
+    "typesafe@typesafe-ai": true,
+    "ios-ui-testing@npomfret": true
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"]
 }
