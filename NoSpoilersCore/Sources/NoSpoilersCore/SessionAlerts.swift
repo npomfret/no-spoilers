@@ -267,12 +267,6 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
         }
     }
 
-    /// Drops everything pending. Called when the user turns the last alert off.
-    public func cancelAll() {
-        center.removeAllPendingNotificationRequests()
-        AppLog.alerts.notice("cancelled all pending alerts")
-    }
-
     nonisolated static func request(for alert: SessionAlert, at now: Date) -> UNNotificationRequest? {
         let delay = alert.fireAt.timeIntervalSince(now)
         // Planned in the past between planning and here. Not an error worth a line: the plan was
