@@ -18,6 +18,8 @@ public enum SessionAlertDefaults {
     public static let startLeadMinutesKey    = "alerts.startLeadMinutes"
     public static let announceSafeToWatchKey = "alerts.announceSafeToWatch"
     public static let groupsKey              = "alerts.groups"
+    /// Not a preference: the confirmed finishes already announced or absorbed, by `Session.id`.
+    static let announcedEndDatesKey          = "alerts.announcedSessionEndDates"
 
     public static let remindBeforeStart   = true
     public static let startLeadMinutes    = 30
@@ -102,8 +104,11 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
     public static let pendingLimit = 64
 
     private let center = UNUserNotificationCenter.current()
+    private var announcedEndDates: [String: Date]
+    private var rescheduleTask: Task<Void, Never>?
 
     public override init() {
+        announcedEndDates = UserDefaults.standard.sessionDates(forKey: SessionAlertDefaults.announcedEndDatesKey)
         super.init()
         center.delegate = self
     }
@@ -149,33 +154,67 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
 
     /// Replaces the pending set with what the schedule says it should be now.
     ///
-    /// **Wholesale, never incremental.** A safe-to-watch alert sits at the grace-window estimate
-    /// until OpenF1 publishes the real end, roughly half an hour after the fact, so a session that
-    /// overran is scheduled at the wrong moment when it is first planned. Rebuilding the whole set
-    /// on each launch and activation is what makes that self-correcting; topping up would preserve
-    /// the first, wrong answer for as long as the alert stayed pending.
+    /// Replaces start reminders and clears any estimated all-clears left by an older build.
+    /// Confirmed finishes are delivered immediately and recorded only after the OS accepts them.
+    /// Serialised because launch, activation and confirmed-end callbacks can overlap at awaits.
     public func reschedule(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
+        let previous = rescheduleTask
+        let task = Task {
+            await previous?.value
+            await performReschedule(weekends: weekends, confirmedEndDates: confirmedEndDates)
+        }
+        rescheduleTask = task
+        await task.value
+        if rescheduleTask == task { rescheduleTask = nil }
+    }
+
+    private func performReschedule(weekends: [RaceWeekend], confirmedEndDates: [String: Date]) async {
         await logDelivered()
         await refreshAuthorization()
+        let now = Date()
+        let finishes = SessionAlertPlanner.unannouncedFinishes(
+            at: now, weekends: weekends,
+            confirmedEndDates: confirmedEndDates, announcedEndDates: announcedEndDates
+        )
         guard authorization == .authorized || authorization == .provisional else {
             // Nothing to clear: if we were never allowed to schedule, there is nothing pending.
-            AppLog.alerts.notice("not scheduling", ["authorization": authorization.rawValue])
+            // Finishes nobody could be told about are absorbed, so a later grant does not
+            // deliver the last 24 hours of them at once.
+            recordAnnounced(finishes.map(\.id), confirmedEndDates: confirmedEndDates)
+            AppLog.alerts.notice("not scheduling", ["authorization": authorization.rawValue,
+                                                    "absorbedFinishes": finishes.count])
             return
         }
 
         let alerts = SessionAlertPlanner.plan(
-            at: Date(),
+            at: now,
             weekends: weekends,
             confirmedEndDates: confirmedEndDates,
+            announcedEndDates: announcedEndDates,
             preferences: SessionAlertDefaults.current(),
             limit: Self.pendingLimit
         )
 
+        // Finishes the preferences left out are absorbed for the same reason as above: turning
+        // the safe-to-watch alert on later must not replay them.
+        let planned = Set(alerts.filter { $0.kind == .safeToWatch }.map(\.session.id))
+        let skipped = finishes.map(\.id).filter { !planned.contains($0) }
+        recordAnnounced(skipped, confirmedEndDates: confirmedEndDates)
+        if !skipped.isEmpty {
+            AppLog.alerts.notice("confirmed finishes absorbed", ["sessions": skipped.count])
+        }
+
         center.removeAllPendingNotificationRequests()
         for alert in alerts {
-            guard let request = request(for: alert) else { continue }
+            guard let request = Self.request(for: alert, at: Date()) else { continue }
             do {
                 try await center.add(request)
+                if alert.kind == .safeToWatch {
+                    recordAnnounced([alert.session.id], confirmedEndDates: confirmedEndDates)
+                    AppLog.alerts.notice("confirmed finish announced",
+                                         ["session": alert.session,
+                                          "endedAt": announcedEndDates[alert.session.id]])
+                }
             } catch {
                 AppLog.alerts.error("could not schedule alert",
                                     ["id": alert.id, "error": LogValue.error(error)])
@@ -186,6 +225,18 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
             "planned": alerts.count,
             "pending": await center.pendingNotificationRequests().count,
         ])
+    }
+
+    /// Marks these sessions' current confirmed finishes as dealt with, so no later plan repeats them.
+    private func recordAnnounced(_ sessionIDs: [String], confirmedEndDates: [String: Date]) {
+        guard !sessionIDs.isEmpty else { return }
+        for id in sessionIDs {
+            guard let end = confirmedEndDates[id] else {
+                preconditionFailure("A finish to record requires a confirmed end")
+            }
+            announcedEndDates[id] = end
+        }
+        UserDefaults.standard.setSessionDates(announcedEndDates, forKey: SessionAlertDefaults.announcedEndDatesKey)
     }
 
     /// Writes down when the alerts that have already arrived actually arrived.
@@ -222,11 +273,11 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
         AppLog.alerts.notice("cancelled all pending alerts")
     }
 
-    private func request(for alert: SessionAlert) -> UNNotificationRequest? {
-        let delay = alert.fireAt.timeIntervalSinceNow
+    nonisolated static func request(for alert: SessionAlert, at now: Date) -> UNNotificationRequest? {
+        let delay = alert.fireAt.timeIntervalSince(now)
         // Planned in the past between planning and here. Not an error worth a line: the plan was
         // made microseconds ago and this can only be a session on the very edge of `now`.
-        guard delay > 0 else { return nil }
+        guard alert.kind == .safeToWatch || delay > 0 else { return nil }
 
         let content = UNMutableNotificationContent()
         let name = alert.session.kind.displayName
@@ -250,7 +301,8 @@ public final class SessionAlertScheduler: NSObject, ObservableObject, UNUserNoti
         return UNNotificationRequest(
             identifier: alert.id,
             content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
+            trigger: alert.kind == .safeToWatch ? nil
+                : UNTimeIntervalNotificationTrigger(timeInterval: delay, repeats: false)
         )
     }
 }

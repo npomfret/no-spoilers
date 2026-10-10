@@ -2,9 +2,8 @@ import Foundation
 
 /// A moment at which what the product should be showing — or saying — changes.
 ///
-/// Three things move the picture: a session starting, a session becoming effectively over and
-/// therefore safe to watch, and a finished weekend ageing out of the 24-hour window in which the
-/// app still opens on it.
+/// The scheduled start, an unconfirmed estimated end, an authoritative finish, and calendar
+/// archival are separate events. Passing an estimate never certifies a session as safe to watch.
 ///
 /// **This is deliberately not a bare `Date`.** The widget only needs the instant, and that is all
 /// `TimelinePlanner` takes from it, but anything that speaks to the user — a notification, an
@@ -15,11 +14,11 @@ public struct ScheduleBoundary: Equatable {
     public enum Event: Equatable {
         /// `session` starts at this moment.
         case sessionStart(Session)
-        /// `session` is effectively over: `SessionResolver.effectiveEndDate`, which is the
-        /// confirmed end where OpenF1 has given us one and the end of the grace window otherwise,
-        /// clamped to the next session starting.
+        /// An authoritative end has been recorded for this session.
         case sessionEnd(Session)
-        /// The weekend of this round leaves the 24-hour recently-finished window.
+        /// The calendar estimate passed without a confirmed finish.
+        case sessionUnconfirmed(Session)
+        /// The weekend of this round leaves the 24-hour calendar archive window.
         ///
         /// Carries the round rather than the weekend: it is the only part any caller has wanted,
         /// and a whole `RaceWeekend` in an `Equatable` case makes every comparison walk its
@@ -46,12 +45,12 @@ public enum ScheduleBoundaries {
     ///
     /// Boundaries collide routinely and are **not** deduplicated here, because two different events
     /// landing on the same instant is exactly what a caller may need to tell apart:
-    /// `effectiveEndDate` clamps a session's end to the next session's start, so back-to-back
-    /// sessions put an end and a start on the same second. `TimelinePlanner` dedupes the dates
+    /// An estimated window is capped at the next scheduled start, so back-to-back
+    /// sessions put an uncertainty boundary and a start on the same second. `TimelinePlanner` dedupes the dates
     /// because a timeline entry is a picture and one picture is enough.
     ///
     /// Weekends with no sessions are skipped rather than asked when they ended —
-    /// `RaceWeekendResolver.effectiveEndDate` traps on those by design.
+    /// `RaceWeekendResolver.archiveDate` traps on those by design.
     public static func all(
         after now: Date,
         weekends: [RaceWeekend],
@@ -60,11 +59,7 @@ public enum ScheduleBoundaries {
         var boundaries: [ScheduleBoundary] = []
 
         for weekend in weekends where !weekend.allSessions.isEmpty {
-            let endTime = RaceWeekendResolver.effectiveEndDate(
-                of: weekend,
-                confirmedEndDates: confirmedEndDates
-            )
-            let archived = endTime.addingTimeInterval(24 * 3600)
+            let archived = RaceWeekendResolver.archiveDate(of: weekend, confirmedEndDates: confirmedEndDates)
             if archived > now {
                 boundaries.append(
                     ScheduleBoundary(date: archived, event: .weekendArchived(round: weekend.round))
@@ -72,9 +67,7 @@ public enum ScheduleBoundaries {
             }
         }
 
-        // Flattened across weekends and sorted, not per-weekend: `effectiveEndDate` needs the next
-        // session chronologically, and the last session of one weekend is followed by the first of
-        // the next.
+        // Estimates use the next chronological scheduled start, including across weekends.
         let allSessions = weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
         for index in allSessions.indices {
             let session = allSessions[index]
@@ -86,13 +79,15 @@ public enum ScheduleBoundaries {
                 )
             }
 
-            let end = SessionResolver.effectiveEndDate(
-                for: session,
-                nextSession: nextSession,
-                confirmedEndAt: confirmedEndDates[session.id]
-            )
-            if end > now {
-                boundaries.append(ScheduleBoundary(date: end, event: .sessionEnd(session)))
+            if let confirmed = confirmedEndDates[session.id], confirmed >= session.startsAt {
+                if confirmed > now {
+                    boundaries.append(ScheduleBoundary(date: confirmed, event: .sessionEnd(session)))
+                }
+            } else {
+                let estimate = SessionResolver.estimatedEndDate(for: session, nextSession: nextSession)
+                if estimate > now {
+                    boundaries.append(ScheduleBoundary(date: estimate, event: .sessionUnconfirmed(session)))
+                }
             }
         }
 

@@ -63,7 +63,7 @@ struct SessionActivityWidget: Widget {
             } compactTrailing: {
                 // The compact slot is a few points wide. A clock fits it; "Finished" does not, and
                 // the glyph's colour carries the state until the words are one long-press away.
-                if context.display != .finished {
+                if context.display == .upcoming {
                     SessionActivityClock(state: context.state, display: context.display)
                         .font(.caption2.monospacedDigit())
                         .lineLimit(1)
@@ -76,7 +76,7 @@ struct SessionActivityWidget: Widget {
 }
 
 private extension ActivityViewContext<SessionActivityAttributes> {
-    /// The pushed phase, advanced past the stale date. The one place `isStale` is read.
+    /// The pushed phase, marked unconfirmed past the stale date. The one place `isStale` is read.
     var display: SessionActivityDisplay {
         SessionActivityDisplay(phase: state.phase, isStale: isStale)
     }
@@ -152,9 +152,7 @@ private struct SessionActivityWeekendLine: View {
 
 /// The session, with its state beside it where the state is worth a word.
 ///
-/// Live gets a red dot and `Strings.Schedule.inProgress`, which is what the app, the widget and
-/// the accessory families say too. Finished is muted and says only that, because a finished
-/// activity is still content on a locked screen the reader cannot decline. Upcoming says nothing
+/// The scheduled window and an unconfirmed finish are labelled explicitly. Upcoming says nothing
 /// here: the clock is counting down, and that is the whole message.
 private struct SessionActivitySessionLine: View {
     let attributes: SessionActivityAttributes
@@ -170,16 +168,11 @@ private struct SessionActivitySessionLine: View {
             case .upcoming:
                 EmptyView()
             case .live:
-                HStack(spacing: Theme.Space.xs) {
-                    Circle()
-                        .fill(Theme.Palette.stateLive)
-                        .frame(width: Theme.Space.sm, height: Theme.Space.sm)
-                    Text(NoSpoilersCore.Strings.Schedule.inProgress)
-                        .font(Theme.Typography.eyebrow)
-                        .foregroundStyle(Theme.Palette.stateLive)
-                }
-            case .finished:
-                Text(Strings.Sessions.finished)
+                Text(NoSpoilersCore.Strings.Schedule.inProgress)
+                    .font(Theme.Typography.eyebrow)
+                    .foregroundStyle(.secondary)
+            case .unconfirmed:
+                Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
                     .font(Theme.Typography.eyebrow)
                     .foregroundStyle(.secondary)
             }
@@ -187,26 +180,8 @@ private struct SessionActivitySessionLine: View {
     }
 }
 
-/// The clock, in one line.
-///
-/// **Upcoming counts down to the start; live counts up from it.** Both ends are known instants —
-/// the start is the calendar's, and the elapsed time is arithmetic on it. What this still does not
-/// do is count down to the *end* of a running session: that end is the grace window's estimate
-/// until OpenF1 confirms the real one, roughly half an hour behind the fact, and a clock ticking
-/// down to a guess would read as "nearly over", which is a claim about the session this product
-/// has no business making. `SessionAlertPlanner` places the safe-to-watch alert on the same
-/// estimate for the same reason.
-///
-/// `Text(timerInterval:)` rather than `Text(_:style: .timer)`: on the Lock Screen the latter came
-/// out as *38 minutes* in words, at a width that truncated the Grand Prix beside it, where the
-/// interval form is digits the system keeps ticking without the extension's help. The range's
-/// far end is the phase's own instant — the start while upcoming, the effective end while live —
-/// and the switch is on `display` rather than on the date because the stale-date re-render is
-/// what moves the phase on, and the clock has to agree with the line beside it.
-///
-/// **Finished shows nothing.** The elapsed time of a session that is over is a duration, and
-/// durations are where the finished badge went wrong before (`Finished 4166h`); the word is on the
-/// session line and that is enough.
+/// Upcoming counts down to the scheduled start. After that, the clock shows the labelled scheduled
+/// start time. It never presents a calendar estimate as measured race duration or a finish.
 private struct SessionActivityClock: View {
     let state: SessionActivityAttributes.ContentState
     let display: SessionActivityDisplay
@@ -219,26 +194,24 @@ private struct SessionActivityClock: View {
             Text(timerInterval: state.startsAt.addingTimeInterval(-SessionActivityAttributes.lookAhead)...state.startsAt,
                  countsDown: true)
                 .foregroundStyle(.primary)
-        case .live:
-            Text(timerInterval: state.startsAt...state.endsAt, countsDown: false)
-                .foregroundStyle(.primary)
-        case .finished:
-            EmptyView()
+        case .live, .unconfirmed:
+            VStack(alignment: .trailing, spacing: Theme.Space.xs) {
+                Text(Strings.Sessions.scheduledStart)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(state.startsAt, style: .time)
+                    .foregroundStyle(.primary)
+            }
         }
     }
 }
 
-/// The one glyph the Dynamic Island's small presentations have room for.
-///
-/// Red while the session is running, which is the same signal `smallSessionTime` gives on the Home
-/// Screen, and back to the system's secondary colour once it is over. The accessory widget families
-/// cannot do this — they render in `.accessory` vibrancy mode, which flattens every colour into one
-/// material — but a Live Activity keeps its colours.
+/// A neutral schedule glyph; calendar timing cannot confirm a session is running.
 private struct SessionActivityGlyph: View {
     let display: SessionActivityDisplay
 
     var body: some View {
         Image(systemName: Theme.Icon.sessionCountdown)
-            .foregroundStyle(display == .live ? AnyShapeStyle(Theme.Palette.stateLive) : AnyShapeStyle(.secondary))
+            .foregroundStyle(.secondary)
     }
 }

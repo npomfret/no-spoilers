@@ -90,7 +90,8 @@ public enum Strings {
         public static func roundLabel(_ round: Int) -> String { "R\(round)" }
 
         /// A session happening now. Was in all three targets.
-        public static let inProgress: LocalizedStringKey = "In Progress"
+        public static let inProgress: LocalizedStringKey = "Scheduled session"
+        public static let finishUnconfirmed: LocalizedStringKey = "Finish not confirmed"
 
         /// Heading over the next weekend. Was in all three targets; the widget
         /// stopped drawing it on 2026-09-02, so only the two apps say it now.
@@ -166,8 +167,9 @@ public enum Strings {
     }
 
     public enum MenuBar {
-        public static let live: String                                                          = "now"
-        public static func liveWithSession(_ session: String) -> String                        { "\(session) — now" }
+        public static let live: String                                                          = "scheduled"
+        public static func liveWithSession(_ session: String) -> String                        { "\(session) — scheduled" }
+        public static let finishUnconfirmed: String = "finish unconfirmed"
         public static func countdownDays(_ days: Int) -> String                                { "in \(days)d" }
         public static func countdownHoursMinutes(_ hours: Int, _ minutes: Int) -> String       { "\(hours)h \(minutes)m" }
         public static func countdownMinutes(_ minutes: Int) -> String                          { "\(minutes)m" }
@@ -231,9 +233,17 @@ public enum Strings {
         public static let sectionLabel: LocalizedStringKey    = "Alerts"
         public static let rowTitle: LocalizedStringKey        = "Session alerts"
         public static let screenSubtitle: LocalizedStringKey  = "Session alerts"
-        public static let intro: LocalizedStringKey           = "Be told when a session is about to start, and when it has finished and is safe to watch. Neither ever mentions a result."
+        #if os(iOS)
+        public static let intro: LocalizedStringKey = "Start reminders can arrive while the app is closed. Finish alerts are checked only while the app is open. They require a confirmed finish and won't reliably arrive in the background. Neither ever mentions a result."
+        #else
+        public static let intro: LocalizedStringKey = "Start reminders can arrive while the app is closed. Finish alerts require confirmation and are checked while No Spoilers is running in the menu bar. Neither ever mentions a result."
+        #endif
         public static let remindBeforeStart: LocalizedStringKey = "Before a session starts"
-        public static let announceSafeToWatch: LocalizedStringKey = "When a session is safe to watch"
+        #if os(iOS)
+        public static let announceSafeToWatch: LocalizedStringKey = "Confirmed finishes (while app is open)"
+        #else
+        public static let announceSafeToWatch: LocalizedStringKey = "Confirmed finishes (while app is running)"
+        #endif
         public static let leadTime: LocalizedStringKey        = "How much warning"
         public static func leadMinutes(_ minutes: Int) -> String {
             minutes == 1 ? "1 minute" : "\(minutes) minutes"

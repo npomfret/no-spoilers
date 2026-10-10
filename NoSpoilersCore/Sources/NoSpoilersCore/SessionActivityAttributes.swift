@@ -13,32 +13,23 @@ import Foundation
 public enum SessionActivityPhase: String, Codable, Hashable {
     case upcoming
     case live
+    case unconfirmed
 }
 
-/// What the extension draws for an activity: the phase the app last pushed, advanced by one step
-/// when the clock has passed the content's `staleDate`.
-///
-/// **This is the half of the stale date that was never built.** A Live Activity is updated by the
-/// app from the foreground and by nothing else — no push, no background task — so the phase in the
-/// content state is only true until the instant it names. ActivityKit does not relabel or dim a
-/// stale activity on its own; it re-renders the view with `context.isStale` set and leaves the
-/// drawing to us. Until 2026-09-05 nothing read it, and a Lock Screen said *In Progress* an hour
-/// after the session's grace window closed.
-///
-/// A stale upcoming activity is a session that has started; a stale live one is a session that
-/// has ended. Both are exactly what the Home Screen widget and the safe-to-watch alert say at the
-/// same instants, so drawing them here is consistency rather than a new claim.
+/// Staleness never confirms a start or finish. An upcoming activity switches to a static scheduled
+/// start presentation. A refreshed scheduled window becomes explicitly unconfirmed when stale.
 public enum SessionActivityDisplay: Hashable {
     case upcoming
     case live
-    case finished
+    case unconfirmed
 
     public init(phase: SessionActivityPhase, isStale: Bool) {
         switch (phase, isStale) {
         case (.upcoming, false): self = .upcoming
         case (.upcoming, true):  self = .live
         case (.live, false):     self = .live
-        case (.live, true):      self = .finished
+        case (.live, true):      self = .unconfirmed
+        case (.unconfirmed, _):  self = .unconfirmed
         }
     }
 }
@@ -86,9 +77,7 @@ public struct SessionActivityAttributes: ActivityAttributes, Hashable {
         /// and a range needs both ends even when only one of them is being counted to.
         public let startsAt: Date
 
-        /// `SessionResolver.effectiveEndDate`, never `Session.endsAt`. The distinction is
-        /// user-visible: a race carries a 90-minute grace period, so the scheduled end is not the
-        /// moment anything else in the product calls it over.
+        /// Calendar estimate from `SessionResolver.estimatedEndDate`, used only for staleness.
         public let endsAt: Date
 
         public init(phase: SessionActivityPhase, startsAt: Date, endsAt: Date) {
@@ -106,14 +95,13 @@ public struct SessionActivityAttributes: ActivityAttributes, Hashable {
         /// in" is still saying it a minute after the session began, unless the extension does
         /// something with the fact that it is stale.
         ///
-        /// It does: when this instant passes, ActivityKit re-renders the view with
-        /// `context.isStale` set, and `SessionActivityDisplay` turns that into the next phase —
-        /// upcoming becomes live, live becomes finished. The system itself neither dims nor
-        /// relabels anything; a stale activity that reads only `phase` keeps saying what it said.
+        /// At the scheduled start, stale upcoming content shows the scheduled time. At an
+        /// estimated end, stale live content shows an unconfirmed finish. Neither confirms timing.
         public var staleDate: Date {
             switch phase {
             case .upcoming: return startsAt
             case .live:     return endsAt
+            case .unconfirmed: return endsAt
             }
         }
     }
@@ -151,8 +139,14 @@ public extension FeaturedSession {
     /// knows nothing about ActivityKit — the same split `SessionAlertPlanner` keeps from
     /// `UNUserNotificationCenter`.
     var activityContentState: SessionActivityAttributes.ContentState {
-        SessionActivityAttributes.ContentState(
-            phase: phase == .live ? .live : .upcoming,
+        let activityPhase: SessionActivityPhase
+        switch phase {
+        case .upcoming: activityPhase = .upcoming
+        case .live: activityPhase = .live
+        case .unconfirmed: activityPhase = .unconfirmed
+        }
+        return SessionActivityAttributes.ContentState(
+            phase: activityPhase,
             startsAt: startsAt,
             endsAt: endsAt
         )

@@ -17,9 +17,8 @@ public enum SessionAlertKind: Equatable {
 /// target's `Strings.swift`, so the planner stays a pure function over the schedule and the
 /// wording stays somewhere a translator can find it.
 public struct SessionAlert: Equatable, Identifiable {
-    /// Stable across replannings, because rescheduling is a wholesale replace: the pending set is
-    /// rebuilt on every launch, and an id derived from `Session.id` plus the kind is what stops the
-    /// same moment being delivered twice under two identities.
+    /// Stable across replannings so pending requests retain one identity. The scheduler also
+    /// persists accepted finish timestamps to prevent announcing a delivered finish again.
     public var id: String {
         switch kind {
         case .startingSoon: return "\(session.id)-start"
@@ -76,23 +75,23 @@ public enum SessionAlertPlanner {
 
     /// The alerts that should be pending as of `now`, soonest first.
     ///
-    /// **Replanned wholesale rather than topped up.** A safe-to-watch alert is placed at
-    /// `SessionResolver.effectiveEndDate`, which is an estimate from the grace window until OpenF1
-    /// publishes the real end — roughly half an hour after the fact on the free tier. So the fire
-    /// time of an alert for a session that overran is wrong when it is first scheduled and right
-    /// after the next refresh. Rescheduling everything on each launch and activation is what makes
-    /// that self-correcting; incremental scheduling would leave the first, wrong answer in place.
+    /// Start reminders are scheduled in advance. All-clears are delivered only after a confirmed
+    /// end has arrived, never at the grace-window estimate. Confirmations arrive after the fact,
+    /// so an unannounced recent confirmation is due now. The same 24-hour window used for recently
+    /// finished weekends bounds catch-up; opening the app must not announce the whole season.
     ///
     /// - Parameters:
     ///   - now: the current moment.
     ///   - weekends: the schedule, in any order.
     ///   - confirmedEndDates: authoritative end times by `Session.id`, from `SessionEndConfirmer`.
+    ///   - announcedEndDates: confirmations already accepted by the OS, persisted by the scheduler.
     ///   - preferences: what the user asked to be told.
     ///   - limit: how many to keep. The OS cap belongs to the caller.
     public static func plan(
         at now: Date,
         weekends: [RaceWeekend],
         confirmedEndDates: [String: Date],
+        announcedEndDates: [String: Date],
         preferences: SessionAlertPreferences,
         limit: Int
     ) -> [SessionAlert] {
@@ -118,23 +117,41 @@ public enum SessionAlertPlanner {
                     SessionAlert(fireAt: fireAt, session: session, kind: .startingSoon(lead: lead))
                 )
 
-            case .sessionEnd(let session):
-                guard preferences.announceSafeToWatch,
-                      preferences.kinds.contains(session.kind) else { continue }
-                alerts.append(
-                    SessionAlert(fireAt: boundary.date, session: session, kind: .safeToWatch)
-                )
-
-            case .weekendArchived:
-                // Nothing to say. A weekend ageing out of the recently-finished window changes what
-                // the app opens on and is worth a widget redraw, but waking someone up for it is
-                // not.
+            case .sessionEnd, .sessionUnconfirmed, .weekendArchived:
+                // Neither an estimated end nor weekend archival is proof of a session finish.
                 continue
+            }
+        }
+
+        if preferences.announceSafeToWatch {
+            let finishes = unannouncedFinishes(at: now, weekends: weekends,
+                                               confirmedEndDates: confirmedEndDates,
+                                               announcedEndDates: announcedEndDates)
+            for session in finishes where preferences.kinds.contains(session.kind) {
+                alerts.append(SessionAlert(fireAt: now, session: session, kind: .safeToWatch))
             }
         }
 
         // Sorted again rather than trusted: the boundaries arrive in order but a start alert is
         // moved back by its lead time, which can reorder it past an earlier session's end.
         return Array(alerts.sorted { $0.fireAt < $1.fireAt }.prefix(limit))
+    }
+
+    /// Recent confirmed finishes not yet announced, regardless of preferences.
+    ///
+    /// The scheduler records the ones it could not or was not asked to announce, so turning alerts
+    /// on later does not replay every finish from the last 24 hours at once.
+    public static func unannouncedFinishes(
+        at now: Date,
+        weekends: [RaceWeekend],
+        confirmedEndDates: [String: Date],
+        announcedEndDates: [String: Date]
+    ) -> [Session] {
+        weekends.flatMap(\.allSessions).filter { session in
+            guard let end = confirmedEndDates[session.id] else { return false }
+            return end >= session.startsAt && end <= now
+                && now.timeIntervalSince(end) < SessionEndConfirmer.confirmationWindow
+                && announcedEndDates[session.id] != end
+        }
     }
 }

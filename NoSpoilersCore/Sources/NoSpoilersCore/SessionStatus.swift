@@ -2,26 +2,15 @@ import Foundation
 
 public enum SessionStatus {
     case upcoming
+    /// Inside the scheduled window; not a confirmed actual start.
     case inProgress
+    case unconfirmed
     case finished
 }
 
 public struct SessionResolver {
-    /// Resolve a session's status relative to `now`.
-    ///
-    /// - `nextSession`: the next chronological session; enables the
-    ///   "next session started → this one is finished" override rule.
-    /// - `confirmedEndAt`: authoritative actual end time from an external
-    ///   source (e.g. OpenF1). When provided, replaces the grace-window
-    ///   estimate entirely — the session transitions to `.finished` exactly
-    ///   when `now >= confirmedEndAt`.
-    ///
-    /// Neither parameter is defaulted, deliberately. Both were, and iOS quietly
-    /// omitted `confirmedEndAt` at every call site — so the confirmed end times
-    /// the app was polling for and storing were never actually used to decide
-    /// anything, and two views on the same screen disagreed about whether a
-    /// weekend was over. Passing `nil` is a fine answer; not noticing the
-    /// question is not.
+    /// A scheduled start or a following session's scheduled start cannot prove a finish.
+    /// Only an authoritative end belonging to this session can produce `.finished`.
     public static func status(
         for session: Session,
         at now: Date,
@@ -29,35 +18,31 @@ public struct SessionResolver {
         confirmedEndAt: Date?
     ) -> SessionStatus {
         if now < session.startsAt { return .upcoming }
-        // If the next session has started, this one must be over.
-        if let next = nextSession, now >= next.startsAt { return .finished }
-        // Authoritative end time from external source takes priority.
-        if let confirmed = confirmedEndAt {
+        if let confirmed = confirmedEndAt, confirmed >= session.startsAt {
             return now >= confirmed ? .finished : .inProgress
         }
-        // Conservative fallback: stay inProgress through the grace window.
-        let graceEnd = session.endsAt + session.kind.gracePeriod
-        if now < graceEnd { return .inProgress }
-        return .finished
+        return now < estimatedEndDate(for: session, nextSession: nextSession)
+            ? .inProgress : .unconfirmed
     }
 
-    /// When a session is actually considered over.
-    ///
-    /// This is not `Session.endsAt`, which is only `startsAt + kind.defaultDuration` — the
-    /// *scheduled* end. The effective end is the confirmed end time if we have one, otherwise the
-    /// end of the grace window, and never later than the next session starting.
-    ///
-    /// The distinction is user-visible: the race grace period is 90 minutes, so labelling a
-    /// finished race from `endsAt` said "finished 1h 40m ago" at the moment this considers it just
-    /// over. Both apps used to do exactly that while the widget did it correctly, which is why
-    /// this now lives here and all three call it.
+    /// Calendar boundary for moving from the scheduled window to an unconfirmed finish.
+    /// It is not a finish time and must never be used for a Finished label or an all-clear.
+    public static func estimatedEndDate(for session: Session, nextSession: Session?) -> Date {
+        let estimate = session.endsAt + session.kind.gracePeriod
+        guard let nextSession else { return estimate }
+        return min(nextSession.startsAt, estimate)
+    }
+
+    /// Actual finish timing, used only after status has resolved to `.finished`.
+    /// Refuses an absent or previous-season record instead of supplying an estimate.
     public static func effectiveEndDate(
         for session: Session,
         nextSession: Session?,
         confirmedEndAt: Date?
     ) -> Date {
-        let end = confirmedEndAt ?? (session.endsAt + session.kind.gracePeriod)
-        guard let nextSession else { return end }
-        return min(nextSession.startsAt, end)
+        guard let confirmed = confirmedEndAt, confirmed >= session.startsAt else {
+            preconditionFailure("A finished session requires a valid confirmed end")
+        }
+        return confirmed
     }
 }

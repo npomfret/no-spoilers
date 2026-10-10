@@ -47,7 +47,8 @@ final class RaceWeekendResolverTests: XCTestCase {
             ]
         )
 
-        let resolved = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: [:])
+        let resolved = RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now,
+                                                                  confirmedEndDates: ["4-fp1": finishedPractice.addingTimeInterval(3600)])
 
         XCTAssertEqual(resolved?.kind, .qualifying)
     }

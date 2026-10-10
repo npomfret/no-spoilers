@@ -8,6 +8,7 @@ struct NoSpoilersEntry: TimelineEntry {
     let date: Date
     let weekend: RaceWeekend?
     let sessions: [SessionViewModel]
+    let primarySessionID: String?
     /// True only when the loaded schedule is exhausted — no upcoming sessions at all.
     let isOffSeason: Bool
 }
@@ -24,15 +25,17 @@ struct SessionViewModel: Identifiable {
 enum SessionState {
     case finished(at: Date)
     case live
+    case unconfirmed
     case upcoming(startsAt: Date)
 
-    /// The same three states the rest of the product calls `SessionStatus`,
+    /// The same states the rest of the product calls `SessionStatus`,
     /// minus the dates the widget carries for its relative-time labels. The
     /// bridge exists so colour is decided in one place rather than four.
     var status: SessionStatus {
         switch self {
         case .finished: return .finished
         case .live:     return .inProgress
+        case .unconfirmed: return .unconfirmed
         case .upcoming: return .upcoming
         }
     }
@@ -61,6 +64,8 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
         return .finished(at: effectiveSessionEndDate(for: session, nextSession: nextSession, confirmedEndDates: confirmedEndDates))
     case .inProgress:
         return .live
+    case .unconfirmed:
+        return .unconfirmed
     case .upcoming:
         return .upcoming(startsAt: session.startsAt)
     }
@@ -90,6 +95,7 @@ private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
             SessionViewModel(id: "placeholder-quali", name: SessionKind.qualifying.displayName, shortName: SessionKind.qualifying.shortName, state: .upcoming(startsAt: now.addingTimeInterval(29 * 3600))),
             SessionViewModel(id: "placeholder-race", name: SessionKind.race.displayName, shortName: SessionKind.race.shortName, state: .upcoming(startsAt: now.addingTimeInterval(52 * 3600)))
         ],
+        primarySessionID: "placeholder-fp2",
         isOffSeason: false
     )
 }
@@ -114,14 +120,14 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
                 return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                         state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
             }
-            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, isOffSeason: false)
+            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, primarySessionID: previous.allSessions.last?.id, isOffSeason: false)
         }
     }
 
     // Show the next upcoming weekend — no distance threshold.
     guard let upcoming = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates) else {
         // Schedule exhausted: genuine off-season if we have data, no-data view otherwise.
-        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], isOffSeason: !weekends.isEmpty)
+        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], primarySessionID: nil, isOffSeason: !weekends.isEmpty)
     }
 
     let sorted = upcoming.allSessions
@@ -131,7 +137,7 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
         return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                 state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
     }
-    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, isOffSeason: false)
+    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, primarySessionID: RaceWeekendResolver.firstNonFinishedSession(in: upcoming, at: now, confirmedEndDates: confirmedEndDates)?.id, isOffSeason: false)
 }
 
 /// How far ahead a timeline is built.
@@ -340,6 +346,8 @@ struct NoSpoilersWidgetEntryView: View {
         case .live:
             return Text(NoSpoilersCore.Strings.Schedule.inProgress)
                 .foregroundStyle(Theme.Palette.stateLive)
+        case .unconfirmed:
+            return Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
         case .upcoming(let startsAt):
             return Text(startsAt, style: .relative)
         }
@@ -489,6 +497,8 @@ struct NoSpoilersWidgetEntryView: View {
             return Text(Strings.Sessions.finished) + Text(verbatim: " \u{00B7} ") + Text(endedAt, style: .relative)
         case .live:
             return Text(NoSpoilersCore.Strings.Schedule.inProgress)
+        case .unconfirmed:
+            return Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
         case .upcoming(let startsAt):
             return Text(startsAt, style: .relative)
         }
@@ -602,10 +612,11 @@ struct NoSpoilersWidgetEntryView: View {
     }
 
     private func primarySession() -> SessionViewModel? {
-        entry.sessions.first {
-            if case .finished = $0.state { return false }
-            return true
-        } ?? entry.sessions.last  // all finished: show most recent (Race), not oldest (FP1)
+        guard let id = entry.primarySessionID else { return nil }
+        guard let session = entry.sessions.first(where: { $0.id == id }) else {
+            preconditionFailure("Widget primary session must belong to its entry")
+        }
+        return session
     }
 
     /// The last `limit` sessions of the weekend, in chronological order.
@@ -662,6 +673,12 @@ struct NoSpoilersWidgetEntryView: View {
             NoSpoilersStatusBadge(
                 textKey: NoSpoilersCore.Strings.Schedule.inProgress,
                 style: .live,
+                canvas: canvas
+            )
+        case .unconfirmed:
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.finishUnconfirmed,
+                style: .upcoming,
                 canvas: canvas
             )
         case .upcoming(let startsAt):

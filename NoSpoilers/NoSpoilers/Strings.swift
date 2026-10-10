@@ -20,7 +20,8 @@ enum Strings {
         static func countdownIn(_ units: String) -> String { "in \(units)" }
         static func finishedAgo(_ time: String) -> String    { "Finished \(time)" }
         static func sessionFinished(name: String, ago: String) -> String    { "\(name) finished \(ago) ago" }
-        static func sessionInProgress(_ name: String) -> String             { "\(name) is in progress" }
+        static func sessionInProgress(_ name: String) -> String             { "\(name) is scheduled now" }
+        static func sessionUnconfirmed(_ name: String) -> String { "\(name) finish not confirmed" }
         static func sessionUpcoming(name: String, countdown: String) -> String { "\(name) \(countdown)" }
     }
     enum Navigation {
@@ -70,10 +71,10 @@ enum Strings {
         static let lockScreenFooter: LocalizedStringKey = "The single line goes in the narrow slot above the clock, beside the date."
 
         static let countdownTitle: LocalizedStringKey = "The countdown, once a session is close"
-        static let countdownBody: LocalizedStringKey = "When a session is within a few hours, open No Spoilers and the countdown moves to your Lock Screen on its own — and to the Dynamic Island, if your iPhone has one. It clears itself when the session starts. The first time, iOS will ask whether to allow it."
+        static let countdownBody: LocalizedStringKey = "When a session is within a few hours, open No Spoilers and the countdown moves to your Lock Screen on its own — and to the Dynamic Island, if your iPhone has one. After the scheduled start, it shows that time without claiming the session has started or finished. The first time, iOS will ask whether to allow it."
 
         static let alertsTitle: LocalizedStringKey = "Alerts"
-        static let alertsBody: LocalizedStringKey = "Be told before a session starts, and again when one has finished and is safe to watch. Choose which sessions and how much warning under Session alerts, above."
+        static let alertsBody: LocalizedStringKey = "Start reminders can arrive while the app is closed. Confirmed finish alerts are checked only while No Spoilers is open and won't reliably arrive in the background. Choose sessions and start reminders under Session alerts, above."
 
         static let siriTitle: LocalizedStringKey = "Ask out loud"
         static let siriBody: LocalizedStringKey = "Siri answers without opening the app, and without a signal. It is in Spotlight and Shortcuts too."
@@ -91,7 +92,7 @@ enum Strings {
     /// Core because ActivityKit is iOS-only and the Mac app has no such surface to describe.
     enum Activity {
         static let sectionLabel: LocalizedStringKey = "Lock Screen"
-        static let intro: LocalizedStringKey = "When a session is close, open No Spoilers and the countdown moves to your Lock Screen until the session starts."
+        static let intro: LocalizedStringKey = "When a session is close, open No Spoilers and its countdown moves to your Lock Screen. After the scheduled start, it shows the labelled scheduled time; finish status requires confirmation."
         static let deniedTitle: LocalizedStringKey = "Live Activities are turned off"
         static let deniedBody: LocalizedStringKey = "iOS is holding these back, so the countdown cannot reach your Lock Screen. Turn Live Activities on for No Spoilers in Settings."
     }
@@ -112,7 +113,10 @@ enum Strings {
     /// and follows the ordinary rule.
     enum Intents {
         static func inProgress(session: String, grandPrix: String) -> String {
-            "\(session) is in progress at the \(grandPrix)."
+            "\(session) is scheduled now at the \(grandPrix)."
+        }
+        static func finishUnconfirmed(session: String, grandPrix: String) -> String {
+            "The finish of \(session) at the \(grandPrix) has not been confirmed."
         }
 
         static func startsAt(session: String, grandPrix: String, when: String) -> String {

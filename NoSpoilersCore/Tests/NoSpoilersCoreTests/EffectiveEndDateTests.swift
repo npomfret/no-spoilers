@@ -7,10 +7,10 @@ import XCTest
 final class EffectiveEndDateTests: XCTestCase {
     private let start = Date(timeIntervalSince1970: 1_000_000)
 
-    func testFallsBackToTheGraceWindowWhenNothingIsConfirmed() {
+    func testCalendarEstimateIncludesGraceWithoutCertifyingAFinish() {
         let race = Session(round: 1, grandPrixName: "Australian Grand Prix", location: "Melbourne", kind: .race, startsAt: start)
 
-        let end = SessionResolver.effectiveEndDate(for: race, nextSession: nil, confirmedEndAt: nil)
+        let end = SessionResolver.estimatedEndDate(for: race, nextSession: nil)
 
         XCTAssertEqual(end, race.endsAt + SessionKind.race.gracePeriod)
         XCTAssertEqual(end.timeIntervalSince(race.endsAt), 90 * 60, "the gap the apps were reporting as elapsed time")
@@ -26,18 +26,18 @@ final class EffectiveEndDateTests: XCTestCase {
         )
     }
 
-    func testTheNextSessionStartingCapsTheEnd() {
+    func testTheNextScheduledStartCapsOnlyTheCalendarEstimate() {
         let practice = Session(round: 1, grandPrixName: "Australian Grand Prix", location: "Melbourne", kind: .freePractice1, startsAt: start)
         let next = Session(round: 1, grandPrixName: "Australian Grand Prix", location: "Melbourne", kind: .freePractice2, startsAt: practice.endsAt.addingTimeInterval(5 * 60))
 
         XCTAssertEqual(
-            SessionResolver.effectiveEndDate(for: practice, nextSession: next, confirmedEndAt: nil),
+            SessionResolver.estimatedEndDate(for: practice, nextSession: next),
             next.startsAt,
             "the grace window would otherwise run past the session that followed it"
         )
     }
 
-    func testWeekendEndsWhenItsLastSessionDoes() {
+    func testWeekendCalendarArchivalDoesNotRequireAConfirmedFinish() {
         let weekend = RaceWeekend(
             round: 1,
             name: "Australian",
@@ -47,8 +47,8 @@ final class EffectiveEndDateTests: XCTestCase {
         let race = weekend.allSessions.last!
 
         XCTAssertEqual(
-            RaceWeekendResolver.effectiveEndDate(of: weekend, confirmedEndDates: [:]),
-            race.endsAt + SessionKind.race.gracePeriod
+            RaceWeekendResolver.archiveDate(of: weekend, confirmedEndDates: [:]),
+            race.endsAt + SessionKind.race.gracePeriod + 24 * 3600
         )
     }
 

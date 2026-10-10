@@ -1,7 +1,9 @@
 # Task 30: session boundary changes may not reach every surface
 
-**Status: OPEN, narrowed 2026-09-09. The one known instance is fixed; what is left is the audit
-that finds out whether there are others.**
+**Status: COMPLETE for the authorised Swift-only hardening and review corrections; reviewed by
+Claude and committed 2026-10-10. Shared confirmed-only finish semantics, schedule-based Live Activity
+presentation and explicit iPhone alert wording are implemented and verified. The other review
+fixes are preserved.**
 
 ## The issue
 
@@ -10,76 +12,106 @@ Live Activities each wake or refresh through a different platform mechanism. A b
 while one of those surfaces is inactive may therefore leave that surface showing an older state
 than the others.
 
-The shared rules are not the risk — `SessionResolver`, `ScheduleBoundary` and
-`RaceWeekendResolver` are one implementation and every surface uses them. The risk is entirely in
-the *delivery*: who gets told, by what mechanism, when a boundary moves.
+The Singapore incident exposed both an unsafe shared rule (calendar estimates certified finishes)
+and missed updates. A confirmed finish must reach app views, WidgetKit, alerts and Live Activities;
+when iOS suspends the app, a schedule-only display must remain honest without those updates.
 
-## Fixed, 2026-09-09: a confirmed end never reached WidgetKit
+## Singapore sprint: observed evidence
 
-Raised as this task's known example on 2026-09-05, and it was real. `SessionEndConfirmer` polls
-OpenF1 for an authoritative end and fires `onChange` when it finds one; `ScheduleStore` forwarded
-that to `objectWillChange` and nothing else. So a session OpenF1 said had ended re-rendered the
-open app's views and left the Home Screen widget holding a timeline built from the grace-window
-estimate — still saying *In Progress*, until its next entry. For a race the grace period is 90
-minutes, which is the whole of the window this feature exists to shorten.
+The user reports a rain-delayed sprint, a premature iPhone "Sprint has finished — safe to watch"
+notification at approximately 10:56 UK time, and a desktop card still saying "In Progress" with
+a frozen `55:00` at 14:32 UK time. OpenF1 now confirms the actual start at `09:36:30.869Z` (10:36 UK) and finish at
+`10:16:19.195Z` (11:16 UK). Only session identity and exact session-status timing were queried;
+no results or standings were requested.
 
-`performRefresh`'s reload could never have covered it: that one fires when the fetched *weekends*
-differ, and a confirmed end changes none of them.
+- The live schedule feed fetched on 2026-10-10 gives round 17's sprint start as
+  `2026-10-10T09:00:00Z` (10:00 UK) and qualifying as `2026-10-10T13:00:00Z`.
+  Source: https://raw.githubusercontent.com/sportstimes/f1/main/_db/f1/2026.json.
+The following describes the original incident paths, before this correction:
 
-The callback now reloads timelines as well. Both reload sites log a `reason`, because
-"widget reload requested" from two causes is a log a reader cannot use. The gap had been written
-down on `SessionEndConfirmer.onChange` since 2026-09-05 as "separate task if it is ever seen to
-matter"; that comment is now the contract instead — anything else caching a boundary belongs in
-that callback rather than in a second mechanism beside it.
+- `Session.endsAt` adds the kind's default duration. `SessionKind.sprint` has 30 minutes of
+  duration and 25 minutes of grace. `SessionResolver.effectiveEndDate` therefore estimates
+  `09:55Z` (10:55 UK) without confirmation. `SessionAlertPlanner` schedules the all-clear at
+  that estimate. This explains the reported approximate 10:56 notification; the phone's
+  delivered-notification record was not collected, so the exact trigger is inferred.
+- The desktop card's layout matches `SessionActivityWidget`'s iOS Live Activity, rather than
+  `WeekendPopoverView`'s Mac session list. Apple documents that iPhone Live Activities appear
+  in the Mac menu bar: https://support.apple.com/en-gb/120684. This identifies the likely
+  rendering path from the screenshot and source, not from a phone activity-state dump.
+- `SessionActivityDisplay(phase: .upcoming, isStale: true)` is always `.live`.
+  `ContentState.staleDate` is the scheduled start for an upcoming activity. Unless the app
+  pushes a new phase, it never gains an end transition. `SessionActivityClock` counts up over
+  `startsAt...endsAt`, so it stops at 55 minutes while that label can remain live. A pushed
+  `.live` activity instead becomes `.finished` when stale, also without proof of a finish.
+- `ContentView` updates alerts and activities on initial tasks, schedule changes and activation,
+  but does not observe `store.confirmedEndDates`. `ScheduleStore` forwards a confirmed end to
+  views and WidgetKit, not to those two consumers.
+- `SessionEndConfirmer` polls only inside the estimated grace window. For this sprint it stops
+  at 10:55 UK, even if rain has pushed the actual session later. A refresh before the scheduled
+  end does not arm a future poll; `update` returns when no session is already pending.
+- The exact OpenF1 lookup generated by the app (Sprint, 08:45–09:15Z) returned HTTP 401 around
+  13:32Z. A broader Singapore sprint lookup returned the same response. The response explicitly
+  says global unauthenticated access, including past sessions, is restricted while a live
+  session is in progress. This is present API evidence, not proof of every earlier phone poll.
+- The exact ±15-minute lookup later succeeded with HTTP 200, yielding session key 11383.
+  The provider's `date_start` remains `09:00Z` and `date_end` is `10:00Z`; those session fields
+  are not the actual start/finish events. Exact `SessionStatus` queries returned
+  `SESSION STARTED` at `09:36:30.869Z` and `SESSION FINISHED` at `10:16:19.195Z`.
+  The 10:55 UK estimate was 21 minutes early; the approximate reported notification was
+  20 minutes early. Today's rain delay did not invalidate the existing session-key lookup.
+  Sources: https://api.openf1.org/v1/race_control?session_key=11383&category=SessionStatus&message=SESSION%20STARTED
+  and https://api.openf1.org/v1/race_control?session_key=11383&category=SessionStatus&message=SESSION%20FINISHED.
+- Mac unified-log inspection from 08:00 local time returned zero matching events. Process
+  inspection found no native NoSpoilers process. Those results cannot reconstruct iPhone state.
+  The installed Mac bundle is version 1.1.3, build 104; the iPhone build was not inspected.
 
-- [x] `scripts/verify-core-tests.sh` — 118 tests, 0 failures, 2026-09-09. This is the run that
-      matters for compilation: `ScheduleStore.swift` is the only source changed and the package
-      compiled it, for macOS.
-- [ ] `verify-widget-build.sh`, `verify-ios-build.sh`, `verify-mac-build.sh` — **could not run
-      2026-09-09**, and the blocker is the environment rather than the code: `xcodebuild` resolves
-      package dependencies through `sandbox-exec`, which inside an agent sandbox fails at
-      `sandbox_apply: Operation not permitted` before any compilation starts. All three fail
-      identically and would fail on an unmodified checkout. Run them from a normal shell.
-- [ ] **Not observed on a device, and there is no test that could stand in.**
-      `reloadAllTimelines` is a WidgetKit call with no seam, which is exactly why the neighbouring
-      `ScheduleChangeDetectionTests` test the *decision* to reload rather than the call. What is
-      unproven is the whole point of the change: that the Home Screen widget leaves *In Progress*
-      when OpenF1 confirms an end. It wants a session in its grace window with the app open.
+## Current scope and plan
 
-## What is left
+The user authorised the existing Swift-only hardening, then accepted the review findings and
+requested consistent finish semantics across the entire app. No backend or reliable background
+push delivery is included. Preserve the review's additional notification/storage corrections.
 
-The audit the general issue asks for, which the one fix above does not answer. For each surface —
-app views, Home Screen widget, alerts, Live Activity — and each way a boundary can move — a
-schedule fetch, a confirmed end, the passage of time — does the surface find out?
+1. Only a valid confirmed end may resolve a session to Finished. Calendar estimates and the
+   following session's scheduled start may move a display to Finish not confirmed, not Finished.
+2. Separate calendar expiry from confirmed completion, so unconfirmed historical sessions do
+   not trap the current view on an old weekend. Keep the existing 24-hour calendar archive window.
+3. Use those shared decisions for iPhone/Mac rows, widget families, featured activities, Siri
+   answers and the Mac menu bar. Reopening during a delayed session must retain its activity.
+4. Keep a useful Live Activity after the scheduled start: show the explicitly labelled scheduled
+   start time instead of an unlabelled elapsed clock or an unsupported live claim. An estimated
+   end alone must never make that card Finished.
+5. Make the iPhone finish-alert toggle and explanation state that checks happen while the app
+   is open and cannot reliably deliver in the background. Mac wording reflects its running
+   menu-bar process.
+6. Execute resolver/planner regressions and Core tests, then all three affected target builds.
 
-Measured 2026-09-09 while fixing the widget, and more definite than "unknown". **The same root
-cause reaches two more surfaces**, because both are woken by the same three moments and a
-confirmed end is none of them:
+## Verification
 
-- **Alerts.** `SessionAlerts.reschedule` is called from `.task`, `.onChange(of: store.weekends)`
-  and on an authorization change — `ContentView.swift:129,136,144` and
-  `NoSpoilersMacApp.swift:164,182`. A confirmed end changes `store.weekends` not at all, so none
-  of them fire. The safe-to-watch alert therefore stays pending at the grace-window estimate.
-  **This may be acceptable as designed**: `reschedule` is deliberately wholesale, and its own
-  comment names "each launch and activation" as the thing that makes a wrongly-timed alert
-  self-correcting. What the comment does not say is that the alert can fire, at the wrong time,
-  before the next activation arrives — and the safe-to-watch alert is precisely the one the
-  confirmer exists to make earlier. Deciding that is the audit's job, not a defect to fix on
-  sight.
-- **The Live Activity.** `SessionActivityController.refresh` is called from exactly the same
-  moments (`ContentView.swift:134,137`), so it has the same gap, plus the case the controller
-  cannot see at all: a confirmed end arriving while the phone is locked. The extension's own
-  staleness re-render is the other half of that, and has never been observed on hardware — see
-  `docs/guides/testing.md`.
-- **The widget, for the other two boundary sources.** A schedule fetch is covered
-  (`performRefresh`) and a confirmed end now is. The passage of time is the third case and rests
-  entirely on the timeline's own entries; nothing has checked it.
+Executed on 2026-10-10 against the corrected implementation:
 
-Neither of the first two is a one-line fix in the shape of the widget's. `ScheduleStore` lives in
-Core and cannot reach `alerts` or `activities`, which the app layer owns — so the wiring is a
-design decision about who observes `confirmedEndDates`, which is why it is the audit rather than
-an afterthought to it.
+- `scripts/verify-core-tests.sh`: 147 tests, zero failures, exit 0.
+  Evidence: `tmp/session-consistency-core.log`.
+- `scripts/verify-ios-build.sh`: BUILD SUCCEEDED, exit 0.
+  Evidence: `tmp/session-consistency-ios.log`.
+- `scripts/verify-mac-build.sh`: BUILD SUCCEEDED, exit 0.
+  Evidence: `tmp/session-consistency-mac.log`.
+- `scripts/verify-widget-build.sh`: BUILD SUCCEEDED, exit 0.
+  Evidence: `tmp/session-consistency-widget.log`.
+- `git diff --check`: exit 0.
 
-Each is a read of the wake path, not a change. A defect found here is likely one line in the same
-shape as the fix above, and belongs in whichever callback already exists rather than in a new
-mechanism.
+Regression coverage includes the Singapore estimate preceding the actual finish, absence of
+confirmation after an estimate or next scheduled start, retaining a delayed activity on reopen,
+advancing to the next session after confirmation, calendar archival without inventing finishes,
+and stale activity presentation. Existing alert, confirmation, storage and timeline tests pass.
+
+Builds used approved execution outside the sandbox because Xcode package resolution cannot run
+inside it. No simulator mutations, deployments, releases or Apple-account writes were
+performed. Hardware rendering and OS delivery are not certified by these checks.
+
+## Remaining limits
+
+The on-device confirmer cannot run while iOS suspends the app, and OpenF1 can reject free access
+while another session is live. Alert delivery still depends on app execution and provider access.
+Real-device stale rendering and OS notification delivery require hardware observation beyond
+pure planner tests and compilation. Calendar archival changes relevance, not certainty: historic
+rows without stored confirmation must remain explicitly unconfirmed.

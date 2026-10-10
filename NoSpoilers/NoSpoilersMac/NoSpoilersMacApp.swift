@@ -166,6 +166,15 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
             }
             .store(in: &cancellables)
 
+        store.$confirmedEndDates
+            .removeDuplicates()
+            .sink { [weak self] confirmed in
+                guard let self else { return }
+                Task { await self.alerts.reschedule(weekends: self.store.weekends,
+                                                   confirmedEndDates: confirmed) }
+            }
+            .store(in: &cancellables)
+
         // Granting permission is not a schedule change, so nothing above would notice it. Without
         // this the first alerts would wait for the next hourly refresh — on iOS the same gap meant
         // a granted permission bought nothing until the app was next reopened.

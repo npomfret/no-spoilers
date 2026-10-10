@@ -63,6 +63,11 @@ struct NextSessionIntent: AppIntent {
                 session: featured.session.kind.displayName,
                 grandPrix: featured.session.grandPrixName
             )))
+        case .unconfirmed:
+            return .result(dialog: IntentDialog(stringLiteral: Strings.Intents.finishUnconfirmed(
+                session: featured.session.kind.displayName,
+                grandPrix: featured.session.grandPrixName
+            )))
         case .upcoming:
             return .result(dialog: IntentDialog(stringLiteral: Strings.Intents.startsAt(
                 session: featured.session.kind.displayName,

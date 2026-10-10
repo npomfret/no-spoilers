@@ -1,4 +1,5 @@
 import XCTest
+import UserNotifications
 @testable import NoSpoilersCore
 
 /// What the app will have pending with the OS, decided without a clock.
@@ -32,6 +33,7 @@ final class SessionAlertPlannerTests: XCTestCase {
     private func plan(
         _ weekends: [RaceWeekend],
         confirmed: [String: Date] = [:],
+        announced: [String: Date] = [:],
         preferences prefs: SessionAlertPreferences? = nil,
         limit: Int = 64
     ) -> [SessionAlert] {
@@ -39,6 +41,7 @@ final class SessionAlertPlannerTests: XCTestCase {
             at: now,
             weekends: weekends,
             confirmedEndDates: confirmed,
+            announcedEndDates: announced,
             preferences: prefs ?? preferences(),
             limit: limit
         )
@@ -46,30 +49,91 @@ final class SessionAlertPlannerTests: XCTestCase {
 
     // MARK: - What gets planned
 
-    func testARaceGetsAWarningBeforeItAndAnAllClearAfterIt() {
-        // A race at +4h runs 2h and carries a 90 minute grace period, so it is effectively over
-        // at +7.5h. The warning lands half an hour before the start.
+    func testAnUnconfirmedRaceGetsOnlyItsStartWarning() {
         let alerts = plan([weekend([.race: at(4)])])
 
-        XCTAssertEqual(alerts.map(\.fireAt), [at(3.5), at(7.5)])
-        XCTAssertEqual(alerts.map(\.kind), [.startingSoon(lead: halfAnHour), .safeToWatch])
-        XCTAssertEqual(alerts.map(\.id), ["14-gp-start", "14-gp-safe"])
+        XCTAssertEqual(alerts.map(\.fireAt), [at(3.5)])
+        XCTAssertEqual(alerts.map(\.kind), [.startingSoon(lead: halfAnHour)])
+        XCTAssertEqual(alerts.map(\.id), ["14-gp-start"])
     }
 
-    func testAConfirmedEndMovesTheAllClearToWhenTheSessionActuallyFinished() {
-        // The whole point of the OpenF1 poll: without it the all-clear is an estimate from the
-        // grace window, and a race that overran would be called safe while it was still running.
-        let race = weekend([.race: at(4)])
+    func testAConfirmedPastEndAnnouncesTheFinishNow() {
+        let race = weekend([.race: at(-4)])
         let sessionID = race.allSessions[0].id
-        let alerts = plan([race], confirmed: [sessionID: at(9)])
+        let alerts = plan([race], confirmed: [sessionID: at(-0.5)])
 
-        XCTAssertEqual(alerts.map(\.fireAt), [at(3.5), at(9)])
+        XCTAssertEqual(alerts.map(\.fireAt), [now])
+        XCTAssertEqual(alerts.map(\.kind), [.safeToWatch])
+    }
+
+    func testTheSingaporeSprintEstimateNeverSchedulesAnAllClear() {
+        let startsAt = ISO8601DateFormatter().date(from: "2026-10-10T09:00:00Z")!
+        let singapore = RaceWeekend(round: 17, name: "Singapore", location: "Singapore",
+                                    sessions: [.sprint: startsAt])
+        for minutes in [-60, 55, 56, 272] {
+            let alerts = SessionAlertPlanner.plan(
+                at: startsAt.addingTimeInterval(TimeInterval(minutes * 60)),
+                weekends: [singapore], confirmedEndDates: [:], announcedEndDates: [:],
+                preferences: preferences(), limit: 64
+            )
+            XCTAssertFalse(alerts.contains { $0.kind == .safeToWatch })
+        }
+        // OpenF1's actual finish was 10:16:19.195Z, 21 minutes after the estimated all-clear.
+        // Once historical access returns, the notification must be due now despite that past end.
+        let actualEnd = startsAt.addingTimeInterval(76 * 60 + 19.195)
+        let receivedAt = actualEnd.addingTimeInterval(30 * 60)
+        let confirmed = SessionAlertPlanner.plan(
+            at: receivedAt, weekends: [singapore], confirmedEndDates: ["17-sprint": actualEnd],
+            announcedEndDates: [:], preferences: preferences(), limit: 64
+        )
+        XCTAssertEqual(confirmed.map(\.kind), [.safeToWatch])
+        XCTAssertEqual(confirmed.map(\.fireAt), [receivedAt])
+    }
+
+    func testAnAlreadyAnnouncedConfirmationIsNotRepeated() {
+        let race = weekend([.race: at(-4)])
+        let end = at(-0.5)
+        XCTAssertEqual(plan([race], confirmed: ["14-gp": end], announced: ["14-gp": end]), [])
+    }
+
+    func testAConfirmedFinishDueNowBecomesAnImmediateNotification() {
+        let session = weekend([.sprint: at(-4)]).allSessions[0]
+        let alert = SessionAlert(fireAt: now, session: session, kind: .safeToWatch)
+        let request = SessionAlertScheduler.request(for: alert, at: now.addingTimeInterval(1))
+        XCTAssertNotNil(request)
+        XCTAssertNil(request?.trigger, "A confirmed finish is delivered now, not dropped as a past trigger")
+    }
+
+    func testAMissedStartWarningIsStillDroppedByTheNotificationAdapter() {
+        let session = weekend([.sprint: at(0.5)]).allSessions[0]
+        let alert = SessionAlert(fireAt: now, session: session, kind: .startingSoon(lead: halfAnHour))
+        XCTAssertNil(SessionAlertScheduler.request(for: alert, at: now.addingTimeInterval(1)))
+    }
+
+    func testAFinishTheUserOptedOutOfIsStillReportedSoItCanBeAbsorbed() {
+        // Not planned, but still unannounced: the scheduler records it so that turning alerts on
+        // later does not replay every finish from the last day at once.
+        let race = weekend([.race: at(-4)])
+        let confirmed = ["14-gp": at(-0.5)]
+
+        XCTAssertEqual(plan([race], confirmed: confirmed,
+                            preferences: preferences(announceSafeToWatch: false)), [])
+        XCTAssertEqual(SessionAlertPlanner.unannouncedFinishes(
+            at: now, weekends: [race], confirmedEndDates: confirmed, announcedEndDates: [:]
+        ).map(\.id), ["14-gp"])
+    }
+
+    func testAFutureOrPreviousSeasonEndCannotDeclareTheSessionSafe() {
+        let race = weekend([.race: at(-4)])
+        XCTAssertEqual(plan([race], confirmed: ["14-gp": at(1)]), [])
+        XCTAssertEqual(plan([race], confirmed: ["14-gp": at(-5)]), [])
     }
 
     // MARK: - What the preferences turn off
 
     func testTurningOffTheStartWarningLeavesOnlyTheAllClear() {
-        let alerts = plan([weekend([.race: at(4)])], preferences: preferences(startLead: nil))
+        let alerts = plan([weekend([.race: at(-4)])], confirmed: ["14-gp": at(-0.5)],
+                          preferences: preferences(startLead: nil))
 
         XCTAssertEqual(alerts.map(\.kind), [.safeToWatch])
     }
@@ -90,7 +154,7 @@ final class SessionAlertPlannerTests: XCTestCase {
             preferences: preferences(kinds: [.race])
         )
 
-        XCTAssertEqual(alerts.map(\.session.kind), [.race, .race])
+        XCTAssertEqual(alerts.map(\.session.kind), [.race])
     }
 
     // MARK: - The edges
@@ -100,37 +164,39 @@ final class SessionAlertPlannerTests: XCTestCase {
         // minutes" ten minutes beforehand, which is worse than saying nothing.
         let alerts = plan([weekend([.race: at(1.0 / 6.0)])])
 
-        XCTAssertEqual(alerts.map(\.kind), [.safeToWatch], "the all-clear is still ahead of us")
+        XCTAssertEqual(alerts, [])
     }
 
-    func testASessionAlreadyOverIsNotAnnouncedLate() {
-        // Started 6 hours ago and effectively over 2.5 hours ago. Nothing here is in the future.
+    func testAnUnconfirmedSessionPastItsEstimatedEndIsNotAnnounced() {
+        // Started 6 hours ago and past its estimated end 2.5 hours ago, but nothing confirmed it.
         let alerts = plan([weekend([.race: at(-6)])])
 
         XCTAssertEqual(alerts, [])
     }
 
     func testTheLimitKeepsTheSoonestAlertsAndDropsTheRest() {
-        // iOS keeps 64 pending and silently drops the rest, so the ones kept have to be the near
-        // ones. Four sessions produce eight alerts; the cap takes the first three by fire time.
+        // Four unconfirmed sessions produce four start reminders; the cap keeps the first three.
         let alerts = plan(
             [weekend([.freePractice1: at(1), .freePractice2: at(5), .qualifying: at(9), .race: at(13)])],
             limit: 3
         )
 
-        XCTAssertEqual(alerts.map(\.fireAt), [at(0.5), at(2.5), at(4.5)])
+        XCTAssertEqual(alerts.map(\.fireAt), [at(0.5), at(4.5), at(8.5)])
     }
 
-    func testAWarningPushedBackByItsLeadIsStillPlacedInFireOrder() {
-        // FP2 ends effectively at +6.5h (1h + 30min grace) and the race warning fires at +6h, so
-        // the warning overtakes the earlier session's all-clear. Boundary order is not fire order.
-        let alerts = plan([weekend([.freePractice2: at(5), .race: at(6.5)])])
+    func testAConfirmedFinishPrecedesUpcomingStartWarnings() {
+        let alerts = plan([weekend([.freePractice2: at(-2), .race: at(6.5)])],
+                          confirmed: ["14-fp2": at(-0.5)])
 
         XCTAssertEqual(alerts.map(\.fireAt), alerts.map(\.fireAt).sorted())
-        XCTAssertEqual(alerts.map(\.id).first, "14-fp2-start")
+        XCTAssertEqual(alerts.map(\.id), ["14-fp2-safe", "14-gp-start"])
     }
 
     func testAnEmptyScheduleAsksForNothing() {
         XCTAssertEqual(plan([]), [])
+    }
+
+    func testOldConfirmedFinishesAreNotAnnouncedOnLaunch() {
+        XCTAssertEqual(plan([weekend([.race: at(-30)])], confirmed: ["14-gp": at(-25)]), [])
     }
 }

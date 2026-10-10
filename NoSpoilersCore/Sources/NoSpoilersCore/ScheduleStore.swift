@@ -5,6 +5,8 @@ import WidgetKit
 public class ScheduleStore: ObservableObject {
     @Published public var weekends: [RaceWeekend] = []
     @Published public private(set) var isRefreshing = false
+    /// Published separately so alerts and Live Activities observe confirmation without a feed change.
+    @Published public private(set) var confirmedEndDates: [String: Date] = [:]
 
     private let appGroupID: String?
     private let cache = ScheduleCache()
@@ -16,13 +18,10 @@ public class ScheduleStore: ObservableObject {
     /// anything to show.
     private var inFlightRefresh: Task<Void, Never>?
 
-    /// Confirmed actual end dates for sessions, keyed by `Session.id`.
-    /// Populated by the OpenF1 free-tier poller once data enters the historical window.
-    public var confirmedEndDates: [String: Date] { confirmer.confirmedEndDates }
-
     public init(appGroupID: String? = nil) {
         self.appGroupID = appGroupID
         self.confirmer = SessionEndConfirmer(appGroupID: appGroupID)
+        self.confirmedEndDates = confirmer.confirmedEndDates
         // Eagerly load from cache so UI has data before refresh() completes.
         //
         // Logged rather than `try?`-discarded, for the same reason as the save in `refresh()`:
@@ -38,16 +37,11 @@ public class ScheduleStore: ObservableObject {
         } catch {
             AppLog.cache.error("cache load failed at launch", ["error": LogValue.error(error)])
         }
-        // **A confirmed end has to reach more than the open app.** `objectWillChange` re-renders
-        // the views, and until 2026-09-09 that was the whole of it — so a session OpenF1 said
-        // had ended left the Home Screen widget holding a timeline built from the grace-window
-        // estimate, still saying *In Progress*. The reload in `performRefresh` cannot cover
-        // this: it fires when the fetched *weekends* differ, and a confirmed end changes none of
-        // them. Bounded by the widget's next entry, which is the grace end — 90 minutes after
-        // the scheduled end for a race, which is the whole of the window this feature exists to
-        // shorten.
+        // A confirmed end changes no weekends. Publish it separately for the app's alert/activity
+        // observers and ask WidgetKit to replace its cached estimated boundary.
         confirmer.onChange = { [weak self] in
-            self?.objectWillChange.send()
+            guard let self else { return }
+            self.confirmedEndDates = self.confirmer.confirmedEndDates
             WidgetCenter.shared.reloadAllTimelines()
             AppLog.store.notice("widget reload requested", ["reason": "end confirmed"])
         }
@@ -64,22 +58,15 @@ public class ScheduleStore: ObservableObject {
                 .sorted { $0.session.startsAt < $1.session.startsAt }
     }
 
-    /// The live session if one is in progress, otherwise the next upcoming session.
-    /// Returns nil when there are no live or upcoming sessions.
+    /// The relevant scheduled or finish-unconfirmed session, otherwise the next upcoming one.
     public func liveOrNextSessionPair() -> (session: Session, weekend: RaceWeekend)? {
-        let now = Date()
-        let pairs = sortedSessionPairs()
-        if let live = pairs.indices.first(where: { i in
-            let next = i + 1 < pairs.count ? pairs[i + 1].session : nil
-            let confirmed = confirmer.confirmedEndDates[pairs[i].session.id]
-            return SessionResolver.status(for: pairs[i].session, at: now, nextSession: next, confirmedEndAt: confirmed) == .inProgress
-        }).map({ pairs[$0] }) {
-            return live
+        guard let featured = FeaturedSessionPlanner.plan(
+            at: Date(), weekends: weekends, confirmedEndDates: confirmedEndDates, lookAhead: .infinity
+        ) else { return nil }
+        guard let pair = sortedSessionPairs().first(where: { $0.session.id == featured.session.id }) else {
+            preconditionFailure("The featured session must belong to the current schedule")
         }
-        // No assertion about the country code here. It used to `precondition` on one being present,
-        // which made an unmappable Grand Prix name — round 16 of the live 2026 feed — a crash
-        // rather than a missing flag. See `RaceWeekend.countryCode`.
-        return pairs.first(where: { $0.session.startsAt > now })
+        return pair
     }
 
     public func menuBarLabel(showSession: Bool, showCountdown: Bool) -> String {
@@ -91,7 +78,14 @@ public class ScheduleStore: ObservableObject {
         if showSession { label = pair.session.kind.shortName }
         if showCountdown {
             if isLive {
-                label = label.isEmpty ? Strings.MenuBar.live : Strings.MenuBar.liveWithSession(label)
+                let status = SessionResolver.status(for: pair.session, at: now, nextSession: nil,
+                                                    confirmedEndAt: confirmedEndDates[pair.session.id])
+                if status == .unconfirmed {
+                    label = label.isEmpty ? Strings.MenuBar.finishUnconfirmed
+                        : Strings.MenuBar.sessionWithCountdown(label, Strings.MenuBar.finishUnconfirmed)
+                } else {
+                    label = label.isEmpty ? Strings.MenuBar.live : Strings.MenuBar.liveWithSession(label)
+                }
             } else {
                 // The menu bar has one line and shares it with the app icon, so this stops at
                 // hours where the popover behind it goes down to seconds.

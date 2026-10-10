@@ -199,6 +199,12 @@ struct WeekendPopoverView: View {
                 style: .live,
                 canvas: .macPopover
             )
+        case .unconfirmed:
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.finishUnconfirmed,
+                style: .upcoming,
+                canvas: .macPopover
+            )
         case .upcoming:
             NoSpoilersStatusBadge(
                 text: countdown(to: session.startsAt, from: now),

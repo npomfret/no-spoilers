@@ -145,6 +145,7 @@ struct OpenF1Client {
 }
 
 enum OpenF1Error: Error, Equatable {
+    case invalidEndDate(Date)
     /// Foundation would have rewritten this URL. See `url(_:)`.
     case malformedURL(String)
     case unencodableSessionName(String)

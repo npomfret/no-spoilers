@@ -11,6 +11,8 @@ import SwiftUI
 enum Strings {
     enum Sessions {
         static let finished: LocalizedStringKey           = "Finished"
+        static let statusUnconfirmed: LocalizedStringKey  = "Status unconfirmed"
+        static let scheduledStart: LocalizedStringKey     = "Scheduled start"
     }
     enum Widget {
         static let widgetDescription: LocalizedStringKey  = "Grand Prix weekend sessions — never the result."

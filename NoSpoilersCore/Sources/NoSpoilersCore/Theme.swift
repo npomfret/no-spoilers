@@ -175,6 +175,7 @@ public enum Theme {
             switch status {
             case .finished:   return stateFinished
             case .inProgress: return stateLive
+            case .unconfirmed: return textSecondary
             case .upcoming:   return stateUpcoming
             }
         }

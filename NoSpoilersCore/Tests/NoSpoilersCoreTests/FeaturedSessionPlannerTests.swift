@@ -37,11 +37,11 @@ final class FeaturedSessionPlannerTests: XCTestCase {
         XCTAssertNil(plan([]))
     }
 
-    func testAWeekendEntirelyInThePastShowsNothing() {
+    func testAnArchivedWeekendShowsNothing() {
         // A race at -12h ran 2h and carried a 90 minute grace, so it was over at -8.5h. The only
         // boundary left is the weekend ageing out of the recently-finished window, which says
         // nothing about any session.
-        XCTAssertNil(plan([weekend([.race: at(-12)])]))
+        XCTAssertNil(plan([weekend([.race: at(-96)])]))
     }
 
     func testASessionBeyondTheLookAheadShowsNothing() {
@@ -125,13 +125,22 @@ final class FeaturedSessionPlannerTests: XCTestCase {
         XCTAssertEqual(plan?.endsAt, at(20.0 / 60.0))
     }
 
-    func testAConfirmedEndMovesTheLiveSessionsCountdownToWhenItActuallyFinished() {
-        // The same correction `SessionAlertPlanner` gets from a confirmed end: without it the
-        // countdown runs to a guess made from the grace window.
-        let plan = plan([weekend([.race: at(-1)])], confirmed: ["14-gp": at(1.25)])
+    func testAConfirmedFinishRemovesTheSessionFromTheActivityPlan() {
+        XCTAssertNil(plan([weekend([.race: at(-1)])], confirmed: ["14-gp": at(-0.25)]))
+    }
 
-        XCTAssertEqual(plan?.phase, .live)
-        XCTAssertEqual(plan?.endsAt, at(1.25))
+    func testOpeningTheAppDuringTheDelayedSprintKeepsItsActivity() {
+        let result = plan([weekend([.sprint: at(-2), .qualifying: at(2)])])
+        XCTAssertEqual(result?.session.kind, .sprint)
+        XCTAssertEqual(result?.phase, .unconfirmed)
+        XCTAssertEqual(result?.startsAt, at(-2))
+    }
+
+    func testAConfirmedSprintFinishMovesTheActivityToTheNextSession() {
+        let result = plan([weekend([.sprint: at(-2), .qualifying: at(2)])],
+                          confirmed: ["14-sprint": at(-0.5)])
+        XCTAssertEqual(result?.session.kind, .qualifying)
+        XCTAssertEqual(result?.phase, .upcoming)
     }
 
     func testAnUpcomingSessionsEndIsClampedByTheNextSessionStarting() {

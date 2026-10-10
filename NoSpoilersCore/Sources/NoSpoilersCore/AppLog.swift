@@ -153,6 +153,7 @@ extension SessionStatus: LogRepresentable {
         switch self {
         case .upcoming:   return .text("upcoming")
         case .inProgress: return .text("inProgress")
+        case .unconfirmed: return .text("unconfirmed")
         case .finished:   return .text("finished")
         }
     }

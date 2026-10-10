@@ -7,7 +7,9 @@ public enum RaceWeekendResolver {
         confirmedEndDates: [String: Date]
     ) -> RaceWeekend? {
         sorted(weekends).first { weekend in
-            firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil
+            !weekend.allSessions.isEmpty
+                && now < archiveDate(of: weekend, confirmedEndDates: confirmedEndDates)
+                && firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil
         }
     }
 
@@ -18,7 +20,9 @@ public enum RaceWeekendResolver {
         imminentWindow: TimeInterval = 5 * 86_400
     ) -> RaceWeekend? {
         sorted(weekends).first { weekend in
-            guard firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil else {
+            guard !weekend.allSessions.isEmpty,
+                  now < archiveDate(of: weekend, confirmedEndDates: confirmedEndDates),
+                  firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: confirmedEndDates) != nil else {
                 return false
             }
             guard let firstSession = weekend.allSessions.first else {
@@ -56,12 +60,27 @@ public enum RaceWeekendResolver {
         confirmedEndDates: [String: Date]
     ) -> Session? {
         let sessions = weekend.allSessions
-        guard let index = sessions.indices.first(where: { index in
-            status(for: sessions, index: index, at: now, confirmedEndDates: confirmedEndDates) != .finished
-        }) else {
-            return nil
+        if let index = sessions.indices.last(where: { sessions[$0].startsAt <= now }),
+           status(for: sessions, index: index, at: now, confirmedEndDates: confirmedEndDates) != .finished {
+            return sessions[index]
         }
-        return sessions[index]
+        if let upcoming = sessions.first(where: { $0.startsAt > now }) { return upcoming }
+        return nil
+    }
+
+    /// Calendar expiry keeps old unresolved weekends out of the current view. Archival is not
+    /// evidence of completion; historic session rows retain their unconfirmed status.
+    public static func archiveDate(of weekend: RaceWeekend, confirmedEndDates: [String: Date]) -> Date {
+        guard let last = weekend.allSessions.last else {
+            preconditionFailure("A weekend without sessions has no archive date")
+        }
+        let boundary: Date
+        if let confirmed = confirmedEndDates[last.id], confirmed >= last.startsAt {
+            boundary = confirmed
+        } else {
+            boundary = SessionResolver.estimatedEndDate(for: last, nextSession: nil)
+        }
+        return boundary.addingTimeInterval(24 * 3600)
     }
 
     private static func sorted(_ weekends: [RaceWeekend]) -> [RaceWeekend] {

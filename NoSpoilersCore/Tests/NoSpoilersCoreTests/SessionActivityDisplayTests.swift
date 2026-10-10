@@ -13,7 +13,7 @@ final class SessionActivityDisplayTests: XCTestCase {
         XCTAssertEqual(SessionActivityDisplay(phase: .upcoming, isStale: false), .upcoming)
     }
 
-    func testUpcomingPastItsStartDrawsLive() {
+    func testUpcomingPastItsStartKeepsTheScheduledStartPresentation() {
         XCTAssertEqual(SessionActivityDisplay(phase: .upcoming, isStale: true), .live)
     }
 
@@ -21,7 +21,11 @@ final class SessionActivityDisplayTests: XCTestCase {
         XCTAssertEqual(SessionActivityDisplay(phase: .live, isStale: false), .live)
     }
 
-    func testLivePastItsEndDrawsFinished() {
-        XCTAssertEqual(SessionActivityDisplay(phase: .live, isStale: true), .finished)
+    func testLivePastItsEstimatedEndDoesNotClaimTheSessionFinished() {
+        XCTAssertEqual(SessionActivityDisplay(phase: .live, isStale: true), .unconfirmed)
+    }
+    func testAnUnconfirmedFinishRemainsUnconfirmedInEitherStaleState() {
+        XCTAssertEqual(SessionActivityDisplay(phase: .unconfirmed, isStale: false), .unconfirmed)
+        XCTAssertEqual(SessionActivityDisplay(phase: .unconfirmed, isStale: true), .unconfirmed)
     }
 }

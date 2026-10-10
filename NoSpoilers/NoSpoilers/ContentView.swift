@@ -146,6 +146,10 @@ struct ContentView: View {
             Task { await alerts.reschedule(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
             Task { await activities.refresh(weekends: weekends, confirmedEndDates: store.confirmedEndDates) }
         }
+        .onChange(of: store.confirmedEndDates) { _, confirmed in
+            Task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: confirmed) }
+            Task { await activities.refresh(weekends: store.weekends, confirmedEndDates: confirmed) }
+        }
         // The grant arrives while this view is on screen, underneath the About sheet the prompt
         // was asked from. Dismissing a sheet is not a scene change, so without this the answer
         // costs nothing until the app is next backgrounded and reopened: permission granted,
@@ -487,6 +491,12 @@ struct ContentView: View {
                 style: .live,
                 canvas: .iosApp
             )
+        case .unconfirmed:
+            NoSpoilersStatusBadge(
+                textKey: NoSpoilersCore.Strings.Schedule.finishUnconfirmed,
+                style: .upcoming,
+                canvas: .iosApp
+            )
         case .upcoming:
             NoSpoilersStatusBadge(
                 text: countdown(to: session.startsAt),
@@ -503,6 +513,8 @@ struct ContentView: View {
             return Strings.Sessions.sessionFinished(name: session.kind.displayName, ago: finishedAgo(since: effectiveEnd(of: session, nextSession: nextSession)))
         case .inProgress:
             return Strings.Sessions.sessionInProgress(session.kind.displayName)
+        case .unconfirmed:
+            return Strings.Sessions.sessionUnconfirmed(session.kind.displayName)
         case .upcoming:
             return Strings.Sessions.sessionUpcoming(name: session.kind.displayName, countdown: countdown(to: session.startsAt))
         }
@@ -515,9 +527,7 @@ struct ContentView: View {
         return index + 1 < sessions.count ? sessions[index + 1] : nil
     }
 
-    /// When a session is actually over — the confirmed end if we have one, otherwise the end of
-    /// the grace window. Not `session.endsAt`, which is only the scheduled end and reads 90
-    /// minutes early for a race.
+    /// Called only for a confirmed finished session; estimates cannot produce a finish label.
     private func effectiveEnd(of session: Session, nextSession: Session?) -> Date {
         SessionResolver.effectiveEndDate(
             for: session,
@@ -587,7 +597,10 @@ struct ContentView: View {
             let sessions = weekend.allSessions
             for (i, session) in sessions.enumerated() {
                 let next = i + 1 < sessions.count ? sessions[i + 1] : nil
-                if SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
+                let status = SessionResolver.status(for: session, at: now, nextSession: next,
+                                                     confirmedEndAt: store.confirmedEndDates[session.id])
+                if status == .inProgress || (status == .unconfirmed
+                    && now < RaceWeekendResolver.archiveDate(of: weekend, confirmedEndDates: store.confirmedEndDates)) {
                     return Self.activeRefreshInterval
                 }
                 let untilStart = session.startsAt.timeIntervalSince(now)
@@ -611,7 +624,10 @@ struct ContentView: View {
             let sessions = weekend.allSessions
             for (i, session) in sessions.enumerated() {
                 let next = i + 1 < sessions.count ? sessions[i + 1] : nil
-                if SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: store.confirmedEndDates[session.id]) == .inProgress {
+                let status = SessionResolver.status(for: session, at: now, nextSession: next,
+                                                     confirmedEndAt: store.confirmedEndDates[session.id])
+                if status == .inProgress || (status == .unconfirmed
+                    && now < RaceWeekendResolver.archiveDate(of: weekend, confirmedEndDates: store.confirmedEndDates)) {
                     return index
                 }
             }

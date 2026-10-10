@@ -6,16 +6,13 @@ import Foundation
 /// matters and is not next by any reading. Produced by `FeaturedSessionPlanner.plan(at:...)`,
 /// which is the only thing that constructs one.
 public struct FeaturedSession: Equatable {
-    /// Which half of the session's life the activity is in.
-    ///
-    /// The two are separate because they say different things — "starts in" counts down to
-    /// `startsAt`, "ends in" counts down to `endsAt` — and because the transition between them is
-    /// the one moment this feature cannot render on its own. See `SessionActivityAttributes`.
+    /// Calendar presentation, with an explicit state after the estimated window passes.
     public enum Phase: Equatable {
         /// The session has not started. The interesting instant is `startsAt`.
         case upcoming
-        /// The session is running. The interesting instant is `endsAt`.
+        /// The scheduled window is open; no actual start is asserted.
         case live
+        case unconfirmed
     }
 
     public let session: Session
@@ -32,8 +29,7 @@ public struct FeaturedSession: Equatable {
 
     public let startsAt: Date
 
-    /// `SessionResolver.effectiveEndDate` — the confirmed end where OpenF1 has given us one, the
-    /// end of the grace window otherwise. Never `Session.endsAt`, which is only the scheduled end.
+    /// Calendar estimate, used for staleness only; not proof that a session finished.
     public let endsAt: Date
 
     public init(session: Session, phase: Phase, countryCode: String?, startsAt: Date, endsAt: Date) {
@@ -60,8 +56,8 @@ public struct FeaturedSession: Equatable {
 /// from the foreground and then lives on a Lock Screen the app cannot see, so the only thing that
 /// can be checked at all is the decision to start it.
 ///
-/// It computes no boundary of its own. `ScheduleBoundaries` is the single traversal and
-/// `SessionResolver` the single answer to when a session starts and is over; this reads them.
+/// `SessionResolver` owns status and timing. A passed calendar estimate keeps a session featured
+/// with an unconfirmed finish until confirmation arrives or the weekend leaves the archive window.
 ///
 /// `lookAhead` is a parameter and is not defaulted, because the two callers genuinely differ.
 /// **A Live Activity runs 8 hours active** and stays visible up to 4 more in a stale state, so a
@@ -91,71 +87,36 @@ public enum FeaturedSessionPlanner {
         confirmedEndDates: [String: Date],
         lookAhead: TimeInterval
     ) -> FeaturedSession? {
-        // A weekend ageing out of the recently-finished window changes what the app opens on and
-        // says nothing about any session, so it cannot be the next thing an activity cares about.
-        let sessionEvents = ScheduleBoundaries
-            .all(after: now, weekends: weekends, confirmedEndDates: confirmedEndDates)
-            .filter { boundary in
-                if case .weekendArchived = boundary.event { return false }
-                return true
-            }
-
-        guard let first = sessionEvents.first else { return nil }
-
-        switch first.event {
-        case .sessionEnd(let session):
-            // The next session event being an *end* means that session has already started —
-            // `ScheduleBoundaries` emits a start only for sessions still to come, and
-            // `effectiveEndDate` clamps an end to the next session's start, so no two sessions
-            // overlap and nothing can be running behind this one.
-            return FeaturedSession(
-                session: session,
-                phase: .live,
-                countryCode: countryCode(of: session, in: weekends),
-                startsAt: session.startsAt,
-                endsAt: first.date
-            )
-
-        case .sessionStart(let session):
-            guard first.date.timeIntervalSince(now) <= lookAhead else { return nil }
-            return FeaturedSession(
-                session: session,
-                phase: .upcoming,
-                countryCode: countryCode(of: session, in: weekends),
-                startsAt: first.date,
-                endsAt: effectiveEnd(of: session, in: sessionEvents)
-            )
-
-        case .weekendArchived:
-            preconditionFailure("weekendArchived was filtered out above")
+        let candidates = weekends.compactMap { weekend -> (RaceWeekend, Session)? in
+            guard !weekend.allSessions.isEmpty,
+                  now < RaceWeekendResolver.archiveDate(of: weekend, confirmedEndDates: confirmedEndDates),
+                  let session = RaceWeekendResolver.firstNonFinishedSession(
+                    in: weekend, at: now, confirmedEndDates: confirmedEndDates
+                  ) else { return nil }
+            return (weekend, session)
         }
-    }
-
-    /// The flag of the weekend `session` belongs to.
-    ///
-    /// Traps on a missing weekend for the same reason `effectiveEnd` does: the session was taken
-    /// from one of these weekends a moment ago, so its absence means the schedule changed
-    /// underneath this. A nil *code* is a different thing and passes through — that is the feed
-    /// naming a country the mapping does not know, which `RaceWeekend.countryCode` models.
-    private static func countryCode(of session: Session, in weekends: [RaceWeekend]) -> String? {
-        guard let weekend = weekends.first(where: { $0.round == session.round }) else {
-            preconditionFailure("no weekend for round \(session.round), which \(session.id) came from")
+        let selected = candidates.filter { $0.1.startsAt <= now }.max { $0.1.startsAt < $1.1.startsAt }
+            ?? candidates.filter { $0.1.startsAt > now }.min { $0.1.startsAt < $1.1.startsAt }
+        guard let (weekend, session) = selected else { return nil }
+        let sessions = weekend.allSessions
+        guard let index = sessions.firstIndex(where: { $0.id == session.id }) else {
+            preconditionFailure("Featured session must belong to its weekend")
         }
-        return weekend.countryCode
-    }
-
-    /// The end boundary belonging to `session`.
-    ///
-    /// Traps rather than defaulting. A session whose start is still ahead of `now` has an end
-    /// further ahead still, so `ScheduleBoundaries` has always emitted one; its absence would mean
-    /// the traversal had changed underneath this, and an activity given a made-up end would count
-    /// down to a moment nothing else in the product agrees with.
-    private static func effectiveEnd(of session: Session, in events: [ScheduleBoundary]) -> Date {
-        for boundary in events {
-            if case .sessionEnd(let candidate) = boundary.event, candidate.id == session.id {
-                return boundary.date
-            }
+        let next = index + 1 < sessions.count ? sessions[index + 1] : nil
+        let status = SessionResolver.status(for: session, at: now, nextSession: next,
+                                            confirmedEndAt: confirmedEndDates[session.id])
+        if status == .upcoming && session.startsAt.timeIntervalSince(now) > lookAhead { return nil }
+        let phase: FeaturedSession.Phase
+        switch status {
+        case .upcoming: phase = .upcoming
+        case .inProgress: phase = .live
+        case .unconfirmed: phase = .unconfirmed
+        case .finished: preconditionFailure("A confirmed finished session cannot be featured")
         }
-        preconditionFailure("no end boundary for \(session.id), whose start is still ahead of now")
+        return FeaturedSession(
+            session: session, phase: phase, countryCode: weekend.countryCode,
+            startsAt: session.startsAt,
+            endsAt: SessionResolver.estimatedEndDate(for: session, nextSession: next)
+        )
     }
 }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Polls OpenF1 for authoritative session end times during the overrun grace window.
+/// Polls OpenF1 for authoritative session end times, including delayed sessions past their estimate.
 ///
 /// The free OpenF1 tier makes `SESSION FINISHED` records available approximately
 /// 30 minutes after the actual session end. Once found, the confirmed end date is
@@ -8,10 +8,13 @@ import Foundation
 /// (e.g. the widget) can read it without running a polling loop of their own.
 ///
 /// Usage: call `update(weekends:)` whenever the schedule changes. The confirmer
-/// will start (or restart) a background polling loop only while sessions are in
-/// their overrun grace window and a confirmed end has not yet been found.
+/// arms the next scheduled end and retries recent unconfirmed sessions while the process runs.
+/// It cannot keep an iPhone app executing while suspended.
 @MainActor
 public final class SessionEndConfirmer {
+    /// Matches the product's 24-hour recently-finished window. A delay or a later live session
+    /// blocking free API access must not stop confirmation at the grace-window estimate.
+    nonisolated static let confirmationWindow: TimeInterval = 24 * 3600
     public private(set) var confirmedEndDates: [String: Date] = [:]
 
     /// Called on the main actor whenever a new confirmed end date is stored.
@@ -36,20 +39,16 @@ public final class SessionEndConfirmer {
     public init(appGroupID: String? = nil) {
         self.appGroupID = appGroupID
         // Restore any previously confirmed end dates from shared storage.
-        if let raw = (UserDefaults(suiteName: appGroupID) ?? .standard)
-            .dictionary(forKey: Self.storageKey) as? [String: Double] {
-            confirmedEndDates = raw.mapValues { Date(timeIntervalSince1970: $0) }
-        }
+        confirmedEndDates = Self.loadStoredDates(appGroupID: appGroupID)
     }
 
     // MARK: - Public
 
     /// Call this whenever the weekend schedule changes (e.g. after a refresh).
-    /// Starts or restarts the polling loop if any sessions are in their overrun window.
+    /// Arms future sessions as well as retrying sessions already due for confirmation.
     public func update(weekends: [RaceWeekend]) {
         let sessions = weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
         pollingTask?.cancel()
-        guard !pendingSessions(in: sessions, at: Date()).isEmpty else { return }
         pollingTask = Task { await pollLoop(sessions: sessions) }
     }
 
@@ -58,34 +57,38 @@ public final class SessionEndConfirmer {
     /// Loads confirmed end dates from shared `UserDefaults` without creating an instance.
     /// Intended for widget extension processes that cannot run a live polling loop.
     public nonisolated static func loadStoredDates(appGroupID: String?) -> [String: Date] {
-        guard let raw = (UserDefaults(suiteName: appGroupID) ?? .standard)
-            .dictionary(forKey: storageKey) as? [String: Double]
-        else { return [:] }
-        return raw.mapValues { Date(timeIntervalSince1970: $0) }
+        (UserDefaults(suiteName: appGroupID) ?? .standard).sessionDates(forKey: storageKey)
     }
 
     // MARK: - Private
 
-    /// Sessions that are past their scheduled end, still within the grace window,
-    /// and for which no confirmed end date has been found yet.
-    private func pendingSessions(in sessions: [Session], at now: Date) -> [Session] {
-        sessions.enumerated().compactMap { i, session in
-            guard confirmedEndDates[session.id] == nil else { return nil }
-            guard session.endsAt < now else { return nil }
-            let next = i + 1 < sessions.count ? sessions[i + 1] : nil
-            // `confirmedEndAt` is nil by construction: the guard above already excluded every
-            // session we have a confirmed end for. Those are the ones we no longer need to poll.
-            guard SessionResolver.status(for: session, at: now, nextSession: next, confirmedEndAt: nil) == .inProgress
-            else { return nil }
-            return session
+    nonisolated static func pendingSessions(
+        in sessions: [Session], at now: Date, confirmedEndDates: [String: Date]
+    ) -> [Session] {
+        sessions.filter { session in
+            if let confirmed = confirmedEndDates[session.id], confirmed >= session.startsAt { return false }
+            return session.endsAt <= now
+                && now.timeIntervalSince(session.endsAt) < confirmationWindow
         }
+    }
+
+    nonisolated static func nextScheduledEnd(in sessions: [Session], after now: Date) -> Date? {
+        sessions.map(\.endsAt).filter { $0 > now }.min()
     }
 
     private func pollLoop(sessions: [Session]) async {
         while !Task.isCancelled {
             let now = Date()
-            let pending = pendingSessions(in: sessions, at: now)
-            guard !pending.isEmpty else { break }
+            let pending = Self.pendingSessions(in: sessions, at: now, confirmedEndDates: confirmedEndDates)
+            if pending.isEmpty {
+                // Arm the next scheduled end even when the app refreshed before the session.
+                // Previously update() returned early, leaving no poller until another refresh.
+                guard let nextEnd = Self.nextScheduledEnd(in: sessions, after: now) else { break }
+                do {
+                    try await Task.sleep(for: .seconds(nextEnd.timeIntervalSince(now)))
+                } catch { return } // Cancellation ends this schedule's loop.
+                continue
+            }
 
             for session in pending {
                 guard !Task.isCancelled else { return }
@@ -115,12 +118,21 @@ public final class SessionEndConfirmer {
                 AppLog.sessionEnd.debug("no confirmed end yet", ["session": session, "key": key])
                 return
             }
+            guard !Task.isCancelled else { return }
+            guard endDate >= session.startsAt, endDate <= Date() else {
+                throw OpenF1Error.invalidEndDate(endDate)
+            }
             confirmedEndDates[session.id] = endDate
             persist()
             // `.notice`: this is the moment a session stops being "in progress" ahead of its
             // grace window, which changes what every view and the widget timeline show.
             AppLog.sessionEnd.notice("end confirmed", ["session": session, "endedAt": endDate])
             onChange?()
+        } catch HTTPStatusError.unsuccessful(401) {
+            // OpenF1 refuses every unauthenticated query, past sessions included, while any
+            // session is live (observed 2026-10-10). Expected for hours at a time now that a
+            // finish is retried for 24 hours, so it is not an `.error` every two minutes.
+            AppLog.sessionEnd.debug("lookup refused during a live session", ["session": session])
         } catch {
             // The line this feature never had. The poller retries either way — a transient
             // OpenF1 outage should not abandon a session that is about to be confirmed — but
@@ -132,7 +144,7 @@ public final class SessionEndConfirmer {
     }
 
     private func persist() {
-        let raw = confirmedEndDates.mapValues { $0.timeIntervalSince1970 }
-        (UserDefaults(suiteName: appGroupID) ?? .standard).set(raw, forKey: Self.storageKey)
+        (UserDefaults(suiteName: appGroupID) ?? .standard)
+            .setSessionDates(confirmedEndDates, forKey: Self.storageKey)
     }
 }
