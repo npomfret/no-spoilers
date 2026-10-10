@@ -1,2 +1,3 @@
 • A new app icon
 • A session that runs late is no longer marked finished early. Past its expected end it shows "Finish not confirmed" until the finish is confirmed, and the safe-to-watch alert waits for that too
+• Settings now have their own screen, from the gear at the top
