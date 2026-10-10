@@ -81,13 +81,20 @@ struct OpenF1Client {
     // Writing the encoding out in full means the fixup has nothing to do, which `url(_:)` then
     // enforces outright.
 
+    static let sessionLookupWindow: TimeInterval = 2 * 86_400
+
     static func sessionsURL(for session: Session) throws -> URL {
         let year = Calendar.current.component(.year, from: session.startsAt)
         let fmt = ISO8601DateFormatter()
         fmt.timeZone = TimeZone(secondsFromGMT: 0)
-        // Search ±15 min around our scheduled start to account for minor feed discrepancies.
-        let lo = fmt.string(from: session.startsAt.addingTimeInterval(-15 * 60))
-        let hi = fmt.string(from: session.startsAt.addingTimeInterval( 15 * 60))
+        // The name identifies the session within a weekend; the window only has to pick the
+        // weekend. It was ±15 minutes until 2026-10-10, when the schedule feed had Singapore
+        // qualifying at 13:00Z and OpenF1 had it at 13:30Z: no key was ever found, so the
+        // session stayed "Finish not confirmed" while OpenF1 held its finish. Two days either
+        // side absorbs a feed disagreement or a postponement and still cannot reach the same
+        // session a week away on a back-to-back weekend.
+        let lo = fmt.string(from: session.startsAt.addingTimeInterval(-sessionLookupWindow))
+        let hi = fmt.string(from: session.startsAt.addingTimeInterval( sessionLookupWindow))
         // Was `?? ""`, a sentinel that would have asked OpenF1 for every session of the year
         // named nothing at all, and reported the empty result as "not published yet".
         guard let name = session.kind.openF1SessionName

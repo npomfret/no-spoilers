@@ -24,15 +24,17 @@ final class OpenF1URLTests: XCTestCase {
                 location: "Spa-Francorchamps", kind: kind, startsAt: startsAt)
     }
 
-    func testTheSessionLookupWindowIsFifteenMinutesEitherSideOfTheScheduledStart() throws {
+    func testTheSessionLookupWindowIsTwoDaysEitherSideOfTheScheduledStart() throws {
+        // Was fifteen minutes, which missed Singapore 2026 qualifying: the feed said 13:00Z,
+        // OpenF1 said 13:30Z, and no key was ever found.
         let url = try OpenF1Client.sessionsURL(for: session(.race))
 
         XCTAssertEqual(url.absoluteString,
                        "https://api.openf1.org/v1/sessions"
                        + "?year=2026"
                        + "&session_name=Race"
-                       + "&date_start%3E=2026-08-17T12:45:00Z"
-                       + "&date_start%3C=2026-08-17T13:15:00Z")
+                       + "&date_start%3E=2026-08-15T13:00:00Z"
+                       + "&date_start%3C=2026-08-19T13:00:00Z")
     }
 
     func testAMultiWordSessionNameIsEncodedExactlyOnce() throws {

@@ -8,13 +8,11 @@ import Foundation
 /// (e.g. the widget) can read it without running a polling loop of their own.
 ///
 /// Usage: call `update(weekends:)` whenever the schedule changes. The confirmer
-/// arms the next scheduled end and retries recent unconfirmed sessions while the process runs.
+/// arms the next scheduled end and retries every unconfirmed session of a weekend that is not yet
+/// archived while the process runs.
 /// It cannot keep an iPhone app executing while suspended.
 @MainActor
 public final class SessionEndConfirmer {
-    /// Matches the product's 24-hour recently-finished window. A delay or a later live session
-    /// blocking free API access must not stop confirmation at the grace-window estimate.
-    nonisolated static let confirmationWindow: TimeInterval = 24 * 3600
     public private(set) var confirmedEndDates: [String: Date] = [:]
 
     /// Called on the main actor whenever a new confirmed end date is stored.
@@ -47,9 +45,8 @@ public final class SessionEndConfirmer {
     /// Call this whenever the weekend schedule changes (e.g. after a refresh).
     /// Arms future sessions as well as retrying sessions already due for confirmation.
     public func update(weekends: [RaceWeekend]) {
-        let sessions = weekends.flatMap(\.allSessions).sorted { $0.startsAt < $1.startsAt }
         pollingTask?.cancel()
-        pollingTask = Task { await pollLoop(sessions: sessions) }
+        pollingTask = Task { await pollLoop(weekends: weekends) }
     }
 
     // MARK: - Widget / extension support
@@ -62,24 +59,37 @@ public final class SessionEndConfirmer {
 
     // MARK: - Private
 
+    /// Every ended, unconfirmed session of a weekend still on screen.
+    ///
+    /// Until 2026-10-10 this stopped 24 hours after a session's scheduled end. Singapore FP1 and
+    /// sprint qualifying passed that without a confirmation — OpenF1 refuses unauthenticated
+    /// queries while any session is live, and the app may simply not have been running — and
+    /// then showed "Finish not confirmed" for the rest of the weekend with the finish published.
+    /// The weekend's archive date is the bound instead: as long as a session is shown, it is
+    /// worth confirming, and once its weekend is archived nothing shows it.
     nonisolated static func pendingSessions(
-        in sessions: [Session], at now: Date, confirmedEndDates: [String: Date]
+        in weekends: [RaceWeekend], at now: Date, confirmedEndDates: [String: Date]
     ) -> [Session] {
-        sessions.filter { session in
-            if let confirmed = confirmedEndDates[session.id], confirmed >= session.startsAt { return false }
-            return session.endsAt <= now
-                && now.timeIntervalSince(session.endsAt) < confirmationWindow
-        }
+        weekends
+            .filter { !$0.allSessions.isEmpty
+                && now < RaceWeekendResolver.archiveDate(of: $0, confirmedEndDates: confirmedEndDates) }
+            .flatMap(\.allSessions)
+            .filter { session in
+                if let confirmed = confirmedEndDates[session.id], confirmed >= session.startsAt { return false }
+                return session.endsAt <= now
+            }
+            .sorted { $0.startsAt < $1.startsAt }
     }
 
     nonisolated static func nextScheduledEnd(in sessions: [Session], after now: Date) -> Date? {
         sessions.map(\.endsAt).filter { $0 > now }.min()
     }
 
-    private func pollLoop(sessions: [Session]) async {
+    private func pollLoop(weekends: [RaceWeekend]) async {
+        let sessions = weekends.flatMap(\.allSessions)
         while !Task.isCancelled {
             let now = Date()
-            let pending = Self.pendingSessions(in: sessions, at: now, confirmedEndDates: confirmedEndDates)
+            let pending = Self.pendingSessions(in: weekends, at: now, confirmedEndDates: confirmedEndDates)
             if pending.isEmpty {
                 // Arm the next scheduled end even when the app refreshed before the session.
                 // Previously update() returned early, leaving no poller until another refresh.
@@ -131,7 +141,8 @@ public final class SessionEndConfirmer {
         } catch HTTPStatusError.unsuccessful(401) {
             // OpenF1 refuses every unauthenticated query, past sessions included, while any
             // session is live (observed 2026-10-10). Expected for hours at a time now that a
-            // finish is retried for 24 hours, so it is not an `.error` every two minutes.
+            // finish is retried until its weekend is archived, so it is not an `.error` every
+            // two minutes.
             AppLog.sessionEnd.debug("lookup refused during a live session", ["session": session])
         } catch {
             // The line this feature never had. The poller retries either way — a transient

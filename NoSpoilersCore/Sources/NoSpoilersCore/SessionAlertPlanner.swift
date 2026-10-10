@@ -137,6 +137,10 @@ public enum SessionAlertPlanner {
         return Array(alerts.sorted { $0.fireAt < $1.fireAt }.prefix(limit))
     }
 
+    /// How recent a confirmed finish must be to be announced. Matches the product's 24-hour
+    /// recently-finished window; an older finish is absorbed, never announced late.
+    static let announcementWindow: TimeInterval = 24 * 3600
+
     /// Recent confirmed finishes not yet announced, regardless of preferences.
     ///
     /// The scheduler records the ones it could not or was not asked to announce, so turning alerts
@@ -150,7 +154,7 @@ public enum SessionAlertPlanner {
         weekends.flatMap(\.allSessions).filter { session in
             guard let end = confirmedEndDates[session.id] else { return false }
             return end >= session.startsAt && end <= now
-                && now.timeIntervalSince(end) < SessionEndConfirmer.confirmationWindow
+                && now.timeIntervalSince(end) < announcementWindow
                 && announcedEndDates[session.id] != end
         }
     }
