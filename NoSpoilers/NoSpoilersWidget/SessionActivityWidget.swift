@@ -33,8 +33,8 @@ import NoSpoilersCore
 /// **Schedule identity and a clock, arranged the way a broadcaster's card is.** Put next to the
 /// BBC's football activity on the same Lock Screen, this had no identity and led with the words
 /// *In Progress* at title size — the loudest element and the least informative. It now leads with
-/// the wordmark and round, the flag and the Grand Prix, and a large clock: a countdown to the start
-/// while the session is upcoming, and the time since a known start while it runs. Everything on it
+/// the wordmark and round, the flag and the Grand Prix, and a large clock: a countdown to the
+/// scheduled start while upcoming, then the labelled scheduled time. Everything on it
 /// is already on the Home Screen widget; this is a different arrangement of what is audited, not a
 /// new place to put something.
 struct SessionActivityWidget: Widget {
@@ -48,7 +48,7 @@ struct SessionActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    SessionActivitySessionLine(attributes: context.attributes, display: context.display)
+                    NoSpoilersWordmark(size: .medium)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     SessionActivityClock(state: context.state, display: context.display)
@@ -56,20 +56,36 @@ struct SessionActivityWidget: Widget {
                         .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    SessionActivityWeekendLine(attributes: context.attributes)
+                    VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                        SessionActivityWeekendLine(attributes: context.attributes)
+                        SessionActivitySessionLine(attributes: context.attributes, display: context.display)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             } compactLeading: {
-                SessionActivityGlyph(display: context.display)
+                SessionActivityMark()
             } compactTrailing: {
-                // The compact slot is a few points wide. A clock fits it; "Finished" does not, and
-                // the glyph's colour carries the state until the words are one long-press away.
-                if context.display == .upcoming {
+                switch context.display {
+                case .upcoming:
                     SessionActivityClock(state: context.state, display: context.display)
-                        .font(.caption2.monospacedDigit())
+                        .font(.caption2.weight(.semibold).monospacedDigit())
                         .lineLimit(1)
+                        // A timer otherwise requests the width of its entire possible range.
+                        // This fits H:MM:SS and keeps the island from claiming unused space.
+                        .frame(width: compactClockWidth, alignment: .trailing)
+                        .accessibilityLabel(Strings.Sessions.countdownToScheduledStart)
+                case .live, .unconfirmed:
+                    SessionActivityStatusGlyph(display: context.display)
                 }
             } minimal: {
-                SessionActivityGlyph(display: context.display)
+                SessionActivityMark()
+                    .overlay(alignment: .bottomTrailing) {
+                        if context.display == .unconfirmed {
+                            SessionActivityStatusGlyph(display: context.display)
+                                .font(.caption2.weight(.semibold))
+                                .background(.black, in: Circle())
+                        }
+                    }
             }
         }
     }
@@ -90,6 +106,9 @@ private let flagHeight: CGFloat = 16
 /// Room for `H:MM:SS` at `.title2` semibold, and no more. See the clock's comment in
 /// `SessionActivityLockScreenView` for what happens when the timer text is left to size itself.
 private let clockMaxWidth: CGFloat = 104
+
+/// The compact timer has one small slot beside the camera; details belong in the expanded view.
+private let compactClockWidth: CGFloat = 48
 
 /// The Lock Screen and banner presentation.
 ///
@@ -206,12 +225,38 @@ private struct SessionActivityClock: View {
     }
 }
 
-/// A neutral schedule glyph; calendar timing cannot confirm a session is running.
-private struct SessionActivityGlyph: View {
+/// The existing red-and-white artwork on the island's black ground, without an app-icon container.
+private struct SessionActivityMark: View {
+    var body: some View {
+        Image(Theme.Icon.appIcon, bundle: noSpoilersCoreBundle)
+            .resizable()
+            .scaledToFit()
+            // The artwork has transparent margins. A 32pt asset leaves its visible mark about
+            // 26pt across, inside the minimal island's 36pt height without clipping the artwork.
+            .frame(width: 32, height: 32)
+            .accessibilityLabel(NoSpoilersCore.Strings.AppInfo.name)
+    }
+}
+
+/// Calendar timing cannot confirm a running session. Neutral shapes distinguish schedule and
+/// uncertainty; red belongs to the app mark, not to a claim of live racing.
+private struct SessionActivityStatusGlyph: View {
     let display: SessionActivityDisplay
 
     var body: some View {
-        Image(systemName: Theme.Icon.sessionCountdown)
-            .foregroundStyle(.secondary)
+        switch display {
+        case .upcoming:
+            Image(systemName: Theme.Icon.sessionCountdown)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(Strings.Sessions.countdownToScheduledStart)
+        case .live:
+            Image(systemName: Theme.Icon.sessionScheduled)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(NoSpoilersCore.Strings.Schedule.inProgress)
+        case .unconfirmed:
+            Image(systemName: Theme.Icon.sessionUnconfirmed)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
+        }
     }
 }

@@ -13,6 +13,7 @@ enum Strings {
         static let finished: LocalizedStringKey           = "Finished"
         static let statusUnconfirmed: LocalizedStringKey  = "Status unconfirmed"
         static let scheduledStart: LocalizedStringKey     = "Scheduled start"
+        static let countdownToScheduledStart: LocalizedStringKey = "Countdown to scheduled start"
     }
     enum Widget {
         static let widgetDescription: LocalizedStringKey  = "Grand Prix weekend sessions — never the result."

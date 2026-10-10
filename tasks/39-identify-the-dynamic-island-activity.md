@@ -1,6 +1,6 @@
 # Make the Dynamic Island activity recognisable
 
-Status: In progress. The user authorised committing after verification.
+Status: Complete. The user authorised committing after verification.
 
 ## Issue and scope
 
@@ -16,10 +16,10 @@ notification changes, releases or device/simulator installation are included.
 
 ## Plan
 
-- Reuse the bundled app artwork without an icon container in compact and minimal views.
-- Add the established wordmark to the expanded view; keep session and timing information legible.
-- Bound the compact countdown width and show neutral scheduled/unconfirmed indicators after it.
-- Verify the widget and iPhone builds and shared core tests; inspect layout and record what remains
+- [x] Reuse the bundled app artwork without an icon container in compact and minimal views.
+- [x] Add the established wordmark to the expanded view; keep session and timing information legible.
+- [x] Bound the compact countdown width and show neutral scheduled/unconfirmed indicators after it.
+- [x] Verify the widget and iPhone builds and shared core tests; inspect layout and record what remains
   unverified on hardware.
 
 ## Evidence and constraints
@@ -35,3 +35,18 @@ https://www.uber.com/us/en/blog/live-activity-on-ios/
 The system controls the surrounding status bar. The user supplied no iPhone screenshot of the
 missing clock, so its cause is not established. Actual clock visibility and OS compositing require
 a check on the user's iPhone. Build success alone cannot certify either.
+
+## Verification
+
+- `scripts/verify-core-tests.sh`: 147 tests passed, no failures (`tmp/island-core.log`).
+- `scripts/verify-widget-build.sh`: final build succeeded (`tmp/island-widget.log`).
+- `scripts/verify-ios-build.sh`: final build succeeded (`tmp/island-ios.log`).
+- `git diff --check`: passed.
+- An offscreen SwiftUI render using the production view components was inspected for upcoming,
+  scheduled and unconfirmed compact, minimal and expanded layouts. The 48pt countdown slot fits
+  `7:59:00`; the existing artwork renders with transparent margins and the minimal uncertainty
+  badge stays inside its container. Artifact: `tmp/island-layout.png`. This is a layout check on
+  macOS with a mocked camera gap, not an ActivityKit or iPhone status-bar rendering test.
+
+Remaining hardware check: system-clock visibility, OS layout and coexistence with another Live
+Activity on the user's iPhone. No device/simulator installation or release was performed.

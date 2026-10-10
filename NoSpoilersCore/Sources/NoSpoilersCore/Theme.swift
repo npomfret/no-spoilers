@@ -1026,11 +1026,12 @@ public enum Theme {
         public static let launchProblem = "exclamationmark.triangle.fill"
         /// The Home Screen widget itself, on the iOS install prompt.
         public static let widget = "square.grid.2x2.fill"
-        /// The countdown to a session, wherever there is room for a glyph and not
-        /// a name. The Dynamic Island's minimal presentation is one circle wide,
-        /// and its compact leading slot little more, so the Live Activity says
-        /// "a session is coming" in a symbol there and in words everywhere else.
+        /// The countdown to a scheduled session, used alongside explanatory text.
         public static let sessionCountdown = "timer"
+        /// The scheduled window, without claiming the session actually started.
+        public static let sessionScheduled = "calendar"
+        /// The estimated end has passed without finish confirmation.
+        public static let sessionUnconfirmed = "questionmark.circle"
         /// The Lock Screen, on the iOS help sheet. The accessory widget families
         /// and the Live Activity both live there and neither can be reached from
         /// inside the app, so the help is all the signposting they get.
