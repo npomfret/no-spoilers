@@ -28,6 +28,11 @@ enum Strings {
         static let currentWeekend: LocalizedStringKey     = "Current"
         static let jumpToCurrentWeekend: LocalizedStringKey = "Jump to the current race weekend"
     }
+    enum Settings {
+        /// The gear in the chrome row, read aloud.
+        static let openLabel: LocalizedStringKey      = "Settings"
+        static let screenSubtitle: LocalizedStringKey = "Settings"
+    }
     enum Widget {
         static let installTitle: LocalizedStringKey  = "Put it on your Home Screen"
         static let installBody: LocalizedStringKey   = "The widget shows the next session without opening anything. It is where No Spoilers is meant to live."

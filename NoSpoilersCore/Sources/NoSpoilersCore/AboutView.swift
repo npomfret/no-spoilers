@@ -5,9 +5,9 @@ import SwiftUI
 /// host view owns the navigation model (macOS switches a screen enum; iOS
 /// drives a sheet binding).
 ///
-/// **This is the app's only menu**, so anything a platform needs a permanent
-/// home for and does not want on the main screen goes in the `extra` slot —
-/// iOS puts the widget instructions there. The slot is content the caller
+/// Anything a platform needs a permanent home for, that is neither settings nor
+/// the main screen, goes in the `extra` slot — iOS puts its help there. Settings
+/// are not in it: both platforms give them a screen of their own. The slot is content the caller
 /// builds, in the manner of `NoSpoilersCard` and `NoSpoilersDetailRow`, rather
 /// than a platform flag read from inside: macOS has no Home Screen and the
 /// steps would be wrong there, and the next thing to need this will not be

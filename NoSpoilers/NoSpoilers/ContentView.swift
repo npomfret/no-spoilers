@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var refreshTimer: AnyCancellable?
     @State private var showAbout = false
     @State private var showHelp = false
-    @State private var showAlertSettings = false
+    @State private var showSettings = false
     @State private var widgetInstall: WidgetInstallStatus = .unknown
     /// Whether the user has put the install prompt away. Local to the app, not
     /// the App Group: it is a preference of this screen and no extension has
@@ -53,6 +53,17 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(Strings.Navigation.jumpToCurrentWeekend)
                 }
+                // Settings beside About rather than inside it, as the macOS popover has them.
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: Theme.Icon.settings)
+                        .font(.title3)
+                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Strings.Settings.openLabel)
                 Button {
                     showAbout = true
                 } label: {
@@ -109,10 +120,7 @@ struct ContentView: View {
         .background(backgroundGradient)
         .sheet(isPresented: $showAbout) {
             AboutView(onDone: { showAbout = false }) {
-                VStack(alignment: .leading, spacing: 0) {
-                    helpSection
-                    alertSettingsSection
-                }
+                helpSection
             }
             // Attached inside the About sheet rather than beside it: this is the
             // presenter, and a second `.sheet` on the root would have to wait for
@@ -120,9 +128,9 @@ struct ContentView: View {
             .sheet(isPresented: $showHelp) {
                 HelpSheet(onDone: { showHelp = false })
             }
-            .sheet(isPresented: $showAlertSettings) {
-                SessionAlertsView(onDone: { showAlertSettings = false })
-            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(onDone: { showSettings = false })
         }
         .onAppear {
             // The launch reached the screen. Until this is written, `LaunchDiagnostics` treats the
@@ -150,7 +158,7 @@ struct ContentView: View {
             Task { await alerts.reschedule(weekends: store.weekends, confirmedEndDates: confirmed) }
             Task { await activities.refresh(weekends: store.weekends, confirmedEndDates: confirmed) }
         }
-        // The grant arrives while this view is on screen, underneath the About sheet the prompt
+        // The grant arrives while this view is on screen, underneath the Settings sheet the prompt
         // was asked from. Dismissing a sheet is not a scene change, so without this the answer
         // costs nothing until the app is next backgrounded and reopened: permission granted,
         // switches on, and not one alert pending.
@@ -286,24 +294,6 @@ struct ContentView: View {
                 showHelp = true
             } label: {
                 NoSpoilersDetailRow(Strings.Help.rowTitle) {
-                    Image(systemName: Theme.Icon.disclosure)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    /// The alert preferences, in the same slot as the widget instructions.
-    private var alertSettingsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            NoSpoilersSectionLabel(NoSpoilersCore.Strings.Alerts.sectionLabel)
-            Button {
-                showAlertSettings = true
-            } label: {
-                NoSpoilersDetailRow(NoSpoilersCore.Strings.Alerts.rowTitle) {
                     Image(systemName: Theme.Icon.disclosure)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.Palette.textTertiary)

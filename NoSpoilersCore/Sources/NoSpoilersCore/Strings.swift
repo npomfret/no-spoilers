@@ -231,8 +231,6 @@ public enum Strings {
         // MARK: Settings
 
         public static let sectionLabel: LocalizedStringKey    = "Alerts"
-        public static let rowTitle: LocalizedStringKey        = "Session alerts"
-        public static let screenSubtitle: LocalizedStringKey  = "Session alerts"
         #if os(iOS)
         public static let intro: LocalizedStringKey = "Start reminders can arrive while the app is closed. Finish alerts are checked only while the app is open. They require a confirmed finish and won't reliably arrive in the background. Neither ever mentions a result."
         #else

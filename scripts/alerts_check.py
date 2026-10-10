@@ -46,7 +46,7 @@ is missing.
 
 There is no `simctl` verb for it — `simctl privacy` covers location, photos and
 contacts, and notifications are not among them. The app asks the first time an
-alert is switched on, which is `About > Session alerts`, and someone has to
+alert is switched on, which is the Settings screen (the gear), and someone has to
 press Allow. This script says so at the point it matters rather than waiting
 silently for a line that will never come.
 
@@ -152,7 +152,7 @@ def push(udid: str, which: str) -> None:
     print("\nNothing was scheduled — the app was not asked for anything and nothing is pending.")
     print("If no banner appeared, notifications have not been allowed yet: simctl accepts the")
     print("push either way and iOS displays it nowhere.")
-    print("\n  In the app:  ⓘ  >  Session alerts  >  turn one on  >  Allow")
+    print("\n  In the app:  ⚙  >  turn an alert on  >  Allow")
 
 
 def observe(udid: str, seconds: int) -> list[dict]:

@@ -21,7 +21,7 @@ import NoSpoilersCore
 /// after which `areActivitiesEnabled` is false, `refresh` returns having done nothing, and the
 /// feature is inert for the life of the install while every log line reads as normal. The lesson
 /// from that one was that a silent refusal has to become something the user can see —
-/// `activitiesEnabled` is published for exactly that, and `SessionAlertsView` draws it.
+/// `activitiesEnabled` is published for exactly that, and `SettingsView` draws it.
 ///
 /// What is still true is that there is nothing to *request*: no `requestAuthorization` exists, the
 /// prompt is iOS's own and comes with the first activity, and a refusal is only reversible in

@@ -89,8 +89,8 @@ private struct HelpSection<Content: View>: View {
 /// in the first place. The install nudge on the main screen stays: it is a prompt about a specific
 /// missing thing, not a menu.
 ///
-/// Same frame as `AboutView` and `SessionAlertsView` — shared screen header, scrolling body, Done
-/// footer — because it is presented the same way and from the same place.
+/// Same frame as `AboutView` and `SettingsView` — shared screen header, scrolling body, Done
+/// footer — because it is presented the same way.
 struct HelpSheet: View {
     let onDone: () -> Void
 
