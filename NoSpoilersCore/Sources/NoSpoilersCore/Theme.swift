@@ -1005,7 +1005,7 @@ public enum Theme {
         /// the macOS menu bar. Always loaded from `noSpoilersCoreBundle`.
         public static let appIcon = "nospoilers-icon"
 
-        /// A 32pt asset at 1x/2x for the Dynamic Island. The full-resolution app icon is too
+        /// A 32pt asset at 1x/2x/3x for the Dynamic Island. The full-resolution app icon is too
         /// large for ActivityKit's compact image presentation even when resized in SwiftUI.
         public static let activityMark = "nospoilers-activity-mark"
 
