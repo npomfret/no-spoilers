@@ -32,7 +32,10 @@ and since 2026-10-11 each follows every green `Verify`.** Every build goes throu
   - any proof on `macstudio-1` or `-2`.
 
   See *Follow-ups*.
-- **Next:** confirm the settings sync and the first triggered `Ship` of each platform.
+- **First triggered deliveries, 2026-10-11:** `Verify #165` passed on `ad2a77b` and started both
+  with no press. `ShipMacos #4` delivered macOS 1.1.6 build 10035 and `ShipIos #16` iOS 1.1.6 build
+  10036, queued behind each other on the write lock; `appstore_status.py` shows testers can install
+  both.
 
 **A listing-only commit gets no `Verify` of its own, learned 2026-09-17.** `Verify`'s trigger rules
 are `+:NoSpoilers/**`, `+:NoSpoilersCore/**` and `+:scripts/**`, so a commit touching only
@@ -680,8 +683,8 @@ around a missing local profile without inspecting the actual export error.
 8. ~~One press of `Ship iOS` and one of `Ship macOS`.~~ Done: `ShipIos #12` and `ShipMacos #3`, the
    latter's record flat and carrying `asc_build_id`.
 9. ~~Turn on unattended delivery.~~ Done 2026-10-11 with the owner's approval: a
-   `finishBuildTrigger` on `Verify` in `ship(...)`. **Still to confirm:** the DSL sync, and the first
-   triggered run of each platform.
+   `finishBuildTrigger` on `Verify` in `ship(...)`. Synced (live as `buildDependencyTrigger` on
+   `NoSpoilers_Verify`, successful only), and both first triggered runs delivered.
 10. The composite `Verify`, Release compilation and test reporting.
 11. **Funmax, later:** rename its `Ship` to `Ship iOS`, the name only, so the two projects match.
 
@@ -715,10 +718,10 @@ around a missing local profile without inspecting the actual export error.
 
 **Acceptance criteria**
 
-- [ ] A relevant main-branch push that passes verification produces an installable
+- [x] A relevant main-branch push that passes verification produces an installable
   internal TestFlight build on both iOS and macOS without another distribution button.
-  *Both configurations have delivered from a press (`ShipIos #12`, `ShipMacos #3`). The trigger is on
-  from 2026-10-11; a triggered delivery has not yet been observed.*
+  *Observed 2026-10-11: the push of `ad2a77b` passed `Verify #165`, which started `ShipMacos #4`
+  (build 10035) and `ShipIos #16` (build 10036); both are installable in `Internal`.*
 - [ ] A failed verification prevents delivery. The archived SHA equals the verified SHA,
   even when main advances while Ship is queued or running.
   *Observed: `#7` and `#11` archived the revisions `Verify #108` and `#113` had just passed. A red
