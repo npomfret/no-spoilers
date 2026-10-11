@@ -1,8 +1,8 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS. Raised 2026-09-10. `Ship iOS` has now delivered for real; `Ship macOS` has
-still never run, and unattended delivery is not switched on.** Both platforms had already delivered
-through the old single `Ship`, pressed by hand, before the split.
+**Status: IN PROGRESS. Raised 2026-09-10. Both `Ship iOS` and `Ship macOS` have delivered for real,
+and since 2026-10-11 each follows every green `Verify`.** Every build goes through TeamCity; a local
+`submit_build.py --apply` is no longer a release route.
 - **On `main` (from `101e61c`):**
   - the Apple engine, the Homebrew separation and the `Ship` step;
   - the fixes from a code review, and the `--check` fix;
@@ -22,15 +22,17 @@ through the old single `Ship`, pressed by hand, before the split.
   `stage: delivered`, `IN_BETA_TESTING`, `asc_build_id 6d15b5b1-0ef2-4a75-ae2d-733d9e16cd00`. It
   pulled its own `Verify #128` at that revision through the snapshot dependency, archived, signed
   automatically, uploaded, waited for Apple and wrote the note without a hand on it.
+- **Proven on TeamCity, `Ship macOS`:** `ShipMacos #3` (id 11308) delivered macOS 1.1.5 build 10032
+  from `c37b484` on 2026-10-10. Record: flat shape, `stage: delivered`, `IN_BETA_TESTING`,
+  `asc_build_id 1561b5c1-4d04-4a63-adcb-c134c9994493`.
+- **Unattended delivery on, 2026-10-11:** a `finishBuildTrigger` on `Verify` in `ship(...)`,
+  successful builds of the default branch only, so both configurations have it, the nightly included.
 - **Not yet done:**
-  - the automatic trigger on a green `Verify`;
-  - a first real run of `Ship macOS` — `ShipMacos` has no builds at all, and macOS 10026 and 10027
-    both came from the old combined `Ship`;
   - the composite `Verify`, with Release compilation and test reporting;
   - any proof on `macstudio-1` or `-2`.
 
   See *Follow-ups*.
-- **Next:** with the owner's approval, one press of `Ship macOS`, then the trigger.
+- **Next:** confirm the settings sync and the first triggered `Ship` of each platform.
 
 **A listing-only commit gets no `Verify` of its own, learned 2026-09-17.** `Verify`'s trigger rules
 are `+:NoSpoilers/**`, `+:NoSpoilersCore/**` and `+:scripts/**`, so a commit touching only
@@ -252,11 +254,11 @@ around a missing local profile without inspecting the actual export error.
   record each platform separately. Existing `build/N` tags can include Homebrew history;
   resolve that namespace explicitly so separating flows introduces neither collisions
   nor an ongoing requirement to release both channels together.
-- [ ] Record commit, marketing version, build number, platform, ASC build ID and stage
+- [x] Record commit, marketing version, build number, platform, ASC build ID and stage
   results in a durable TeamCity release artifact. Support resuming upload/processing/
   distribution as appropriate, including a partial two-platform success.
   *Unticked after the second review: the record had no ASC build ID. It now carries `asc_build_id`
-  per platform, covered by selftest. Tick once a real `Ship` record shows it.*
+  per platform, covered by selftest. `ShipMacos #3`'s record shows it.*
 - [x] Use the explicit Funmax export options, bounded waits and clear progress messages.
   Verify archive and exported/uploaded versions, including the iOS extension.
 - [x] Pass the exact build to notes/distribution and read back Internal membership.
@@ -279,9 +281,10 @@ around a missing local profile without inspecting the actual export error.
 - [x] Set the nightly policy explicitly. Recommended default is to match Funmax's
   existing successful-verification trigger, including green nightlies. Suppressing
   delivery of unchanged commits is a separate refinement, not an accidental difference.
-- [ ] Validate the new path with a first real delivery, then enable unattended triggering.
+- [x] Validate the new path with a first real delivery, then enable unattended triggering.
   Preserve listing/screenshot tools and manual promotion of an already uploaded build.
-  *First real deliveries done 2026-09-10:* iOS `Ship #7`, macOS `Ship #11`. The trigger is not on.
+  *First real deliveries:* iOS `Ship #7` and macOS `Ship #11` (2026-09-10), then `ShipIos #12` and
+  `ShipMacos #3`. The trigger went on 2026-10-11.
 - [x] Update task 36 and `docs/guides/building.md` to point to the implemented flow;
   remove contradictory instructions. Add any further reusable lessons to agent-standards.
 
@@ -673,13 +676,12 @@ around a missing local profile without inspecting the actual export error.
    overstated checkbox, all fixed (see *Second review*).
 6. ~~With the owner's approval, one `ship.platform = all` press.~~ Superseded by *One `Ship` per
    platform*.
-7. **Confirm the settings sync:** `Ship iOS` and `Ship macOS` present as written, `Ship` and
-   `TestFlight` gone, and a green `Verify` on the commit.
-8. **With the owner's approval, one press of `Ship iOS` and one of `Ship macOS`.** The reviewer's
-   condition for unattended delivery, now per configuration. Each record should show the flat shape
-   and `asc_build_id`.
-9. **With the owner's approval, turn on unattended delivery:** a `finishBuildTrigger` on `Verify` in
-   `ship(...)`, so both configurations get it, the nightly included, as decided.
+7. ~~Confirm the settings sync.~~ Done: `ShipIos` and `ShipMacos` exist and have run.
+8. ~~One press of `Ship iOS` and one of `Ship macOS`.~~ Done: `ShipIos #12` and `ShipMacos #3`, the
+   latter's record flat and carrying `asc_build_id`.
+9. ~~Turn on unattended delivery.~~ Done 2026-10-11 with the owner's approval: a
+   `finishBuildTrigger` on `Verify` in `ship(...)`. **Still to confirm:** the DSL sync, and the first
+   triggered run of each platform.
 10. The composite `Verify`, Release compilation and test reporting.
 11. **Funmax, later:** rename its `Ship` to `Ship iOS`, the name only, so the two projects match.
 
@@ -715,8 +717,8 @@ around a missing local profile without inspecting the actual export error.
 
 - [ ] A relevant main-branch push that passes verification produces an installable
   internal TestFlight build on both iOS and macOS without another distribution button.
-  *Each platform has delivered from a press of the old single `Ship` (`#7` and `#11`). `Ship iOS` and
-  `Ship macOS` have not run, and the trigger is not on.*
+  *Both configurations have delivered from a press (`ShipIos #12`, `ShipMacos #3`). The trigger is on
+  from 2026-10-11; a triggered delivery has not yet been observed.*
 - [ ] A failed verification prevents delivery. The archived SHA equals the verified SHA,
   even when main advances while Ship is queued or running.
   *Observed: `#7` and `#11` archived the revisions `Verify #108` and `#113` had just passed. A red

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Put this commit in front of the TestFlight testers: archive, upload, wait, deliver.
 
-The one Apple delivery path, for a person and for TeamCity's `Ship iOS` and
-`Ship macOS` alike, since 2026-09-10. It is FunMax's `submit_build.py` in shape,
-and task 38 is why: that one has delivered unattended from the same agents for
-weeks, while `release.sh` never once got a TeamCity run as far as an archive.
+The one Apple delivery path since 2026-09-10, run by TeamCity's `Ship iOS` and
+`Ship macOS` after every green `Verify`; every build goes through them. It is
+FunMax's `submit_build.py` in shape, and task 38 is why: that one has delivered
+unattended from the same agents for weeks, while `release.sh` never once got a TeamCity run as far as an archive.
 
 **One platform per run.** Each has its own TeamCity configuration, so a Mac
 signing failure never turns the iPhone light red and either re-runs alone. Until
@@ -76,7 +76,6 @@ the export's copy step with an error that reads like a certificate fault.
 
 Usage:
     scripts/submit_build.py --platform ios                    # what would happen
-    scripts/submit_build.py --platform ios --apply            # a person, with the test gate
     scripts/submit_build.py --platform ios --apply --tested   # what TeamCity's Ship iOS runs
     scripts/submit_build.py --platform macos --apply --archive-only
     scripts/submit_build.py --selftest

@@ -36,8 +36,9 @@ builds. It reset on 2026-09-05, silently, which is how it came back without anyo
 should.
 
 - **TestFlight, both platforms, is `scripts/submit_build.py`**, the one Apple delivery path, **one
-  platform per run**. A person runs it, and TeamCity's `Ship iOS` and `Ship macOS` run it behind
-  `scripts/ci-publish.sh`. It is FunMax's
+  platform per run**. TeamCity's `Ship iOS` and `Ship macOS` run it behind
+  `scripts/ci-publish.sh` after every green `Verify`, and **every build goes through them**; a
+  local `--apply` is not a release route. It is FunMax's
   `submit_build.py` in shape, because that one has delivered unattended from the same agents while
   every press of the old combined button stopped before archiving. In order, and all before anything
   is built:
@@ -137,10 +138,11 @@ commit, which nothing depends on: Apple numbers the platforms separately and the
 per platform. Splitting deleted the old `Ship`'s history, runs #5 to #11; task 38 keeps what they
 proved.
 
-**They have no trigger until each has delivered once, end to end.** Decided 2026-09-10: like FunMax's
-`Ship`, each then follows every successful `Verify`, the nightly included — so an unchanged week
-spends fourteen numbers and puts seven builds of each platform in front of the internal testers,
-which is the accepted trade for a daily answer.
+**Each follows every successful `Verify`, the nightly included**, like FunMax's `Ship`: decided
+2026-09-10, switched on 2026-10-11 once each had delivered end to end (`ShipIos #12`,
+`ShipMacos #3`). An unchanged week spends fourteen numbers and puts seven builds of each platform in
+front of the internal testers, which is the accepted trade for a daily answer. A commit outside
+`Verify`'s trigger rules, such as one touching only `listing/`, ships by pressing `Ship`.
 
 **`ci-publish.sh` is deliberately thin.** It asserts what a build agent breaks and the engines
 assume, in seconds, before anything expensive, and then hands over. For an Apple platform: that

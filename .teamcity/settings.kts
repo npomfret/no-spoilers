@@ -1,5 +1,6 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import jetbrains.buildServer.configs.kotlin.triggers.schedule
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
@@ -217,7 +218,8 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     description = "TestFlight for $label: scripts/ci-publish.sh --platform $platform --tested, which " +
         "asserts the agent and hands over to scripts/submit_build.py. Archives the verified " +
         "revision, uploads it, waits for Apple and delivers that exact build to the Internal " +
-        "testers. Manual until the trigger goes on. ship.args takes --check or --archive-only."
+        "testers. Follows every green Verify, the nightly included. ship.args takes --check or " +
+        "--archive-only."
     onTheAgent()
 
     // It archives, so it takes the write lock: no compile runs beside a
@@ -281,11 +283,17 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     // archives for nothing.
     maxRunningBuilds = 1
 
-    // **No trigger yet, and that is temporary.** Decided 2026-09-10: like
-    // FunMax's `Ship`, each follows every green `Verify`, the nightly included.
-    // The trigger goes on once each configuration has delivered to TestFlight
-    // end to end; until then an automatic run could only rediscover what that
-    // press will.
+    // **Each follows every green `Verify`, the nightly included**, like FunMax's
+    // `Ship`. Decided 2026-09-10, and switched on once each configuration had
+    // delivered to TestFlight end to end (`ShipIos #12`, `ShipMacos #3`). The
+    // snapshot dependency above pins the run to the revision that `Verify` passed.
+    triggers {
+        finishBuildTrigger {
+            buildType = "${verify.id}"
+            successfulOnly = true
+            branchFilter = "+:<default>"
+        }
+    }
 
     requirements {
         exists("tools.xcode.home")

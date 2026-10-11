@@ -16,9 +16,12 @@ user-invocable: true
    - read-only status: `scripts/appstore_status.py`
    - App Review conversation or reply: from sibling repo `../appstoreconnect-bot`, run
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
-   - TestFlight delivery of the current commit: `scripts/submit_build.py --platform <p> --apply`, one
-     platform per run, which TeamCity's `Ship iOS` and `Ship macOS` run behind `scripts/ci-publish.sh`. It reserves a `build/N` tag
-     before archiving, delivers that exact build, and never commits, rebases or pushes a branch
+   - TestFlight delivery: TeamCity's `Ship iOS` and `Ship macOS`, which follow every green
+     `Verify` and run `scripts/submit_build.py` behind `scripts/ci-publish.sh`, one platform per
+     run. It reserves a `build/N` tag before archiving, delivers that exact build, and never
+     commits, rebases or pushes a branch. Do not run `submit_build.py --apply` locally: every build
+     goes through TeamCity. A commit `Verify` does not trigger on, such as listing-only, ships by a
+     press of `Ship` on TeamCity
    - Handing an uploaded build to testers, or recovering a delivery `Ship` could not finish:
      `scripts/testflight_distribute.py --platform <p> --build N --apply`, with N from the run's record
    - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
