@@ -70,8 +70,10 @@ struct SessionActivityWidget: Widget {
                     SessionActivityClock(state: context.state, display: context.display)
                         .font(.caption2.weight(.semibold).monospacedDigit())
                         .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         // A timer otherwise requests the width of its entire possible range.
-                        // This fits H:MM:SS and keeps the island from claiming unused space.
+                        // iOS can allocate less than this slot; shrink H:MM:SS rather than
+                        // truncating it or taking more space from the system status bar.
                         .frame(width: compactClockWidth, alignment: .trailing)
                         .accessibilityLabel(Strings.Sessions.countdownToScheduledStart)
                 case .live, .unconfirmed:
@@ -228,11 +230,12 @@ private struct SessionActivityClock: View {
 /// The existing red-and-white artwork on the island's black ground, without an app-icon container.
 private struct SessionActivityMark: View {
     var body: some View {
-        Image(Theme.Icon.appIcon, bundle: noSpoilersCoreBundle)
+        Image(Theme.Icon.activityMark, bundle: noSpoilersCoreBundle)
+            .renderingMode(.original)
             .resizable()
             .scaledToFit()
-            // The artwork has transparent margins. A 32pt asset leaves its visible mark about
-            // 26pt across, inside the minimal island's 36pt height without clipping the artwork.
+            // This asset is already 32pt at each scale. SwiftUI resizing alone does not make
+            // a large source image safe for the Live Activity host.
             .frame(width: 32, height: 32)
             .accessibilityLabel(NoSpoilersCore.Strings.AppInfo.name)
     }
