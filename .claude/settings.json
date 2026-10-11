@@ -19,7 +19,7 @@
       "mcp__webstorm__create_new_file",
       "mcp__webstorm__reformat_file",
       "Read(~/.appstoreconnect/private_keys/**)",
-      "Read(~/projects/appstoreconnect-bot/tmp/curl.txt)",
+      "Read(~/projects/apple-appstoreconnect-api/tmp/curl.txt)",
       "Bash(git reset --hard *)",
       "Bash(git checkout -- *)",
       "Bash(git clean *)",

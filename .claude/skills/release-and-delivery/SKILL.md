@@ -14,7 +14,7 @@ user-invocable: true
 2. Inspect the working tree, current branch, and the actual wrapper or Python script. Do not infer a release path from an old task or command history.
 3. Classify the requested action before proceeding:
    - read-only status: `scripts/appstore_status.py`
-   - App Review conversation or reply: from sibling repo `../appstoreconnect-bot`, run
+   - App Review conversation or reply: from sibling repo `../apple-appstoreconnect-api`, run
      `node dist/cli.js report 6761343835`; never read its `tmp/curl.txt`
    - TestFlight delivery: TeamCity's `Ship iOS` and `Ship macOS`, which follow every green
      `Verify` and run `scripts/submit_build.py` behind `scripts/ci-publish.sh`, one platform per
