@@ -61,7 +61,11 @@ private struct MenuBarLabelView: View {
 private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
-    private let store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
+    // No app group: the macOS target has no widget to share with and no
+    // application-groups entitlement, so the sandbox refused every read and
+    // write of the group container (Code=257/513 in the cache log) from March
+    // to 2026-10-13. Without one, the cache lives in the app's own Caches.
+    private let store = ScheduleStore()
     private let updateChecker = UpdateChecker()
     private let alerts = SessionAlertScheduler()
     private var labelHostingView: NSHostingView<MenuBarLabelView>!
