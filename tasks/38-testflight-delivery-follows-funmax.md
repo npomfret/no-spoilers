@@ -1,7 +1,7 @@
 # Task 38: TestFlight delivery follows Funmax
 
 **Status: IN PROGRESS. Raised 2026-09-10. Both `Ship iOS` and `Ship macOS` have delivered for real,
-and since 2026-10-11 each follows every green `Verify`.** Every build goes through TeamCity; a local
+and since 2026-10-13 each ships every push to main; the nightly ships nothing.** Every build goes through TeamCity; a local
 `submit_build.py --apply` is no longer a release route.
 - **On `main` (from `101e61c`):**
   - the Apple engine, the Homebrew separation and the `Ship` step;
@@ -27,6 +27,10 @@ and since 2026-10-11 each follows every green `Verify`.** Every build goes throu
   `asc_build_id 1561b5c1-4d04-4a63-adcb-c134c9994493`.
 - **Unattended delivery on, 2026-10-11:** a `finishBuildTrigger` on `Verify` in `ship(...)`,
   successful builds of the default branch only, so both configurations have it, the nightly included.
+- **Nightly no longer ships, 2026-10-13:** the nightly `Verify` at unchanged `a74af77` re-uploaded
+  macOS (`ShipMacos #6`) and failed iOS (`ShipIos #18`: 1.1.6 is `READY_FOR_SALE`). With the owner's
+  approval the VCS trigger moved from `Verify` to `ship(...)` and the `finishBuildTrigger` went;
+  `Verify` keeps only the nightly schedule.
 - **Not yet done:**
   - the composite `Verify`, with Release compilation and test reporting;
   - any proof on `macstudio-1` or `-2`.
@@ -221,7 +225,8 @@ around a missing local profile without inspecting the actual export error.
     stays on automatic signing.
 - **A closed train is refused, never opened by `Ship`.** The refusal names the command that
   commits `open vX.Y.Z`; that commit is verified and shipped like any other.
-- **The nightly ships when green**, matching Funmax.
+- ~~**The nightly ships when green**, matching Funmax.~~ Reversed 2026-10-13: the nightly verifies
+  and ships nothing.
 
 **Read-back, 2026-09-10** (this machine is `macstudio.local`, which runs all three agents)
 

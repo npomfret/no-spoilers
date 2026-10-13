@@ -1,6 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import jetbrains.buildServer.configs.kotlin.triggers.schedule
 import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
@@ -136,8 +135,8 @@ val verify = BuildType {
     uuid = "694fdce7-693a-4880-9733-d999e7f6c1bc"
     name = "Verify"
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
-        "Verify: Xcode and Verify: Swift tests all passed on the same revision. Triggered by " +
-        "every push to main and nightly at 00:00 Europe/London."
+        "Verify: Xcode and Verify: Swift tests all passed on the same revision. Runs for every " +
+        "push to main as Ship's dependency, and alone nightly at 00:00 Europe/London."
     onTheAgent()
 
     // No steps. It exists so one light answers "did this commit pass" without
@@ -171,16 +170,11 @@ val verify = BuildType {
         }
     }
 
+    // **Only the nightly triggers `Verify` directly.** A push reaches it through
+    // the two `Ship` configurations, whose VCS trigger pulls this chain in by
+    // snapshot dependency; the nightly runs it alone, so it compiles an unchanged
+    // repo without shipping it.
     triggers {
-        vcs {
-            branchFilter = "+:<default>"
-            triggerRules = """
-                +:NoSpoilers/**
-                +:NoSpoilersCore/**
-                +:scripts/**
-            """.trimIndent()
-            perCheckinTriggering = true
-        }
         schedule {
             schedulingPolicy = daily {
                 hour = 0
@@ -218,7 +212,7 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     description = "TestFlight for $label: scripts/ci-publish.sh --platform $platform --tested, which " +
         "asserts the agent and hands over to scripts/submit_build.py. Archives the verified " +
         "revision, uploads it, waits for Apple and delivers that exact build to the Internal " +
-        "testers. Follows every green Verify, the nightly included. ship.args takes --check or " +
+        "testers. Triggered by every push to main, through Verify; the nightly does not ship. ship.args takes --check or " +
         "--archive-only."
     onTheAgent()
 
@@ -283,15 +277,22 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     // archives for nothing.
     maxRunningBuilds = 1
 
-    // **Each follows every green `Verify`, the nightly included**, like FunMax's
-    // `Ship`. Decided 2026-09-10, and switched on once each configuration had
-    // delivered to TestFlight end to end (`ShipIos #12`, `ShipMacos #3`). The
-    // snapshot dependency above pins the run to the revision that `Verify` passed.
+    // **Each ships every push to main, and the nightly ships nothing.** The VCS
+    // trigger lives here rather than on `Verify`: a push queues both `Ship`s,
+    // their snapshot dependency queues one `Verify` chain at that revision, and
+    // a red `Verify` cancels them. The nightly is `Verify`'s own schedule, which
+    // no `Ship` follows. Until 2026-10-13 a `finishBuildTrigger` on `Verify`
+    // shipped the nightly too, and so re-uploaded an unchanged commit
+    // (`ShipMacos #6`) or failed on a released version (`ShipIos #18`).
     triggers {
-        finishBuildTrigger {
-            buildType = "${verify.id}"
-            successfulOnly = true
+        vcs {
             branchFilter = "+:<default>"
+            triggerRules = """
+                +:NoSpoilers/**
+                +:NoSpoilersCore/**
+                +:scripts/**
+            """.trimIndent()
+            perCheckinTriggering = true
         }
     }
 

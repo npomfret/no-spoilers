@@ -138,11 +138,13 @@ commit, which nothing depends on: Apple numbers the platforms separately and the
 per platform. Splitting deleted the old `Ship`'s history, runs #5 to #11; task 38 keeps what they
 proved.
 
-**Each follows every successful `Verify`, the nightly included**, like FunMax's `Ship`: decided
-2026-09-10, switched on 2026-10-11 once each had delivered end to end (`ShipIos #12`,
-`ShipMacos #3`). An unchanged week spends fourteen numbers and puts seven builds of each platform in
-front of the internal testers, which is the accepted trade for a daily answer. A commit outside
-`Verify`'s trigger rules, such as one touching only `listing/`, ships by pressing `Ship`.
+**Each ships every push to main; the nightly ships nothing.** Unattended delivery was switched on
+2026-10-11 once each had delivered end to end (`ShipIos #12`, `ShipMacos #3`). Since 2026-10-13 the
+VCS trigger sits on the two `Ship` configurations, which pull in one `Verify` chain at the pushed
+revision through their snapshot dependency, and `Verify` keeps only the 00:00 nightly, which no
+`Ship` follows. Before that a nightly at an unchanged commit uploaded it again (`ShipMacos #6`), or
+failed on a released version (`ShipIos #18`). A commit outside the trigger rules, such as one
+touching only `listing/`, ships by pressing `Ship`.
 
 **`ci-publish.sh` is deliberately thin.** It asserts what a build agent breaks and the engines
 assume, in seconds, before anything expensive, and then hands over. For an Apple platform: that
