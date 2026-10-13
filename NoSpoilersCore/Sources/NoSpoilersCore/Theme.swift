@@ -1001,8 +1001,9 @@ public enum Theme {
     /// one spelling that is correct from both sides of the package boundary,
     /// and it is now the only one in the product.
     public enum Icon {
-        /// The app's own icon, drawn at 56pt on the screen header and 16pt in
-        /// the macOS menu bar. Always loaded from `noSpoilersCoreBundle`.
+        /// The app's own icon, drawn at 56pt on the screen header, 16pt in the
+        /// macOS menu bar, and as tall as the link rows in the macOS popover's
+        /// footer. Always loaded from `noSpoilersCoreBundle`.
         public static let appIcon = "nospoilers-icon"
 
         /// A 32pt asset at 1x/2x/3x for the Dynamic Island. The full-resolution app icon is too

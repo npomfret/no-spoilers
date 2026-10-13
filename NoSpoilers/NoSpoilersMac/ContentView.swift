@@ -32,6 +32,7 @@ struct WeekendPopoverView: View {
     let openAbout: () -> Void
     @State private var now: Date = Date()
     @State private var brewCopied = false
+    @State private var footerRowsHeight: CGFloat = 0
 
     var body: some View {
         let now = self.now
@@ -56,35 +57,47 @@ struct WeekendPopoverView: View {
                 updateBanner
             }
             Divider()
-            VStack(spacing: 0) {
-                Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
-                    Label(Strings.Popover.website, systemImage: Theme.Icon.website)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .top, spacing: Theme.Space.md) {
+                VStack(spacing: 0) {
+                    Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
+                        Label(Strings.Popover.website, systemImage: Theme.Icon.website)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowButtonStyle())
+                    Button { openAbout() } label: {
+                        Label(Strings.Popover.about, systemImage: Theme.Icon.about)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowButtonStyle())
+                    Button { openSettings() } label: {
+                        Label(Strings.Popover.settings, systemImage: Theme.Icon.settings)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowButtonStyle())
+                    Button { NSApplication.shared.terminate(nil) } label: {
+                        Label(Strings.Popover.quit, systemImage: Theme.Icon.quit)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowButtonStyle())
                 }
-                .buttonStyle(MenuRowButtonStyle())
-                Button { openAbout() } label: {
-                    Label(Strings.Popover.about, systemImage: Theme.Icon.about)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(MenuRowButtonStyle())
-                Button { openSettings() } label: {
-                    Label(Strings.Popover.settings, systemImage: Theme.Icon.settings)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(MenuRowButtonStyle())
-                Button { NSApplication.shared.terminate(nil) } label: {
-                    Label(Strings.Popover.quit, systemImage: Theme.Icon.quit)
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(MenuRowButtonStyle())
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerRowsHeight = $0 }
+                // The app's own mark, filling the corner the left-aligned rows
+                // leave: as tall as the rows, so it never makes the footer taller.
+                // Decorative, so VoiceOver skips it.
+                Image(Theme.Icon.appIcon, bundle: noSpoilersCoreBundle)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: footerRowsHeight, height: footerRowsHeight)
+                    .accessibilityHidden(true)
+                    .padding(.trailing, Theme.Space.md)
             }
             .padding(.horizontal, Theme.Space.xs)
             .padding(.vertical, Theme.Space.xs)
