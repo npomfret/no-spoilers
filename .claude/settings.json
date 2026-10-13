@@ -43,7 +43,8 @@
     "webstorm@npomfret": true,
     "auditing@npomfret": true,
     "typesafe@typesafe-ai": true,
-    "ios-ui-testing@npomfret": true
+    "ios-ui-testing@npomfret": true,
+    "scripting@npomfret": true
   },
   "enabledMcpjsonServers": ["gitnexus", "webstorm"]
 }
