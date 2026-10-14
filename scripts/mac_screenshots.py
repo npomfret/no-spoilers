@@ -42,18 +42,18 @@ The first version wrote `schedule-cache.json` into the App Group container and
 expected the app to draw it. **Neither capture ever showed the fixture** — both
 showed the live calendar, which was put down to the fetch winning the race.
 
-The real reason surfaced on 2026-08-23, in the app's own log:
+The app's own log said why, and was read on 2026-08-23:
 
     cache load failed at launch   Code=257  file couldn't be opened
     cache save failed             Code=513  you don't have permission to save
 
-The Mac app is sandboxed and this script is not. A file written into a group
-container by an unsandboxed process is one the sandboxed app can neither read
-nor replace, so the seed was invisible to the app and, worse, **it displaced the
-cache the app maintains**: from the moment of the first run the Mac app had no
-readable cache and could not write a new one. It carried on working — it refetches
-on launch and keeps published state when the cache fails — which is why nothing
-looked wrong for a day.
+That was blamed on this script's seed, and **the diagnosis was wrong.** Deleting
+the seed on 2026-10-13 changed nothing: the Mac app had no application-groups
+entitlement, so the sandbox refused it the group container whatever was in it,
+and had since March. It carried on working — it refetches on launch and keeps
+published state when the cache fails — which is why nothing looked wrong. Since
+`e1f1939` the Mac app keeps its cache in its own sandbox Caches, which no
+process outside the app writes to.
 
 So the seeding is gone rather than fixed. Making it work means writing the file
 *as the app*, which means the app growing a way to be told what to hold, which is
