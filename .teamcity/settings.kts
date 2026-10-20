@@ -5,11 +5,6 @@ import jetbrains.buildServer.configs.kotlin.triggers.vcs
 
 version = "2026.1"
 
-// No `buildFeatures.sharedResources` import: `sharedResources` resolves from the
-// wildcard above in this DSL version, and importing it explicitly does not
-// compile — "Unresolved reference: sharedResources", plus one error per use.
-// That is how the first import of this file failed on 2026-09-09.
-
 // The `No Spoilers` project, as code.
 //
 // **Every configuration this project has is here, and that is not optional.**
@@ -42,18 +37,11 @@ version = "2026.1"
 // is matched by its id. Do not invent one, and do not change their ids, or
 // TeamCity deletes the configuration and its history and starts a new one.
 
-val xcodeLock = "no-spoilers-xcode"
-
-// Both Xcode legs take a *read* lock, so they run beside each other and only
-// collide on the CPU. The quota below has to be at least as large as the number
-// of legs holding one.
-fun BuildType.sharesTheXcodeBox() {
-    features {
-        sharedResources {
-            readLock(xcodeLock)
-        }
-    }
-}
+// No lock: nothing here boots a simulator, and the server's one shared lock,
+// `ios_simulator` on the Root project, is for legs that do (user decision,
+// 2026-10-20). A leg added here that boots one takes `readLock("ios_simulator")`.
+// `sharedResources` needs no import of its own; importing it explicitly did not
+// compile on 2026-09-09.
 
 fun BuildType.onTheAgent() {
     vcs {
@@ -88,9 +76,8 @@ val verifyXcode = BuildType {
     name = "Verify: Xcode"
     description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
         "the Mac app, the iOS app and the widget extension all compile, unsigned. One " +
-        "configuration rather than three because they queue behind the same Xcode lock anyway."
+        "configuration rather than three because they share one checkout and one agent."
     onTheAgent()
-    sharesTheXcodeBox()
     steps {
         script {
             name = "mac"
@@ -118,7 +105,6 @@ val verifySwiftTests = BuildType {
         "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
         "Xcode target would hide a test result it cannot affect."
     onTheAgent()
-    sharesTheXcodeBox()
     steps {
         script {
             name = "core"
@@ -216,15 +202,6 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
         "--archive-only."
     onTheAgent()
 
-    // It archives, so it takes the write lock: no compile runs beside a
-    // delivery, no delivery beside a compile, and the two platforms queue
-    // behind each other rather than archive at once.
-    features {
-        sharedResources {
-            writeLock(xcodeLock)
-        }
-    }
-
     params {
         // Goes back to empty after a custom run: `publish.args` left holding a
         // stale value is how four presses on 2026-09-05 each uploaded a version
@@ -307,19 +284,6 @@ val shipMacos = ship("macos", "Macos", "macOS")
 
 project {
     description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
-
-    // The Xcode lock. Quota 3 because a read lock takes one unit of it and the
-    // two Xcode verification legs hold read locks; each `Ship` takes the write
-    // lock and so shuts out both legs and the other `Ship`, and they it.
-    features {
-        feature {
-            id = "PROJECT_EXT_4"
-            type = "JetBrains.SharedResources"
-            param("name", xcodeLock)
-            param("type", "quoted")
-            param("quota", "3")
-        }
-    }
 
     buildType(verifyPython)
     buildType(verifyXcode)

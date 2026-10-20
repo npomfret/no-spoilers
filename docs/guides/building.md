@@ -122,9 +122,9 @@ from one `ship(...)` function in `.teamcity/settings.kts`, so they cannot drift 
 `scripts/ci-publish.sh --platform ios|macos --tested %ship.args%`; `ship.args` takes `--check` or
 `--archive-only` and goes back to empty after a custom run. It never takes `--apply`:
 `ci-publish.sh` adds that to a real run itself and refuses one passed in, before any assertion, since
-under `--check` it would turn the dry run into a release. Each takes the **write** lock on
-`no-spoilers-xcode`, where the two Xcode verification legs take read locks, so the two platforms
-queue behind each other rather than archive at once; each has a snapshot dependency on `Verify` with
+under `--check` it would turn the dry run into a release. Neither holds a lock: nothing in this
+project boots a simulator, and the server's one lock, `ios_simulator`, is only for legs that do
+(2026-10-20), so the two platforms may archive at once; each has a snapshot dependency on `Verify` with
 `reuseBuilds = SUCCESSFUL`, which is what makes `--tested` true; one run of each at a time; 210
 minutes, above `submit_build.py`'s own worst case of 180 so that the script and not TeamCity ends a
 slow run and records why, which `submit_build.py --selftest` checks against this file, along with a
