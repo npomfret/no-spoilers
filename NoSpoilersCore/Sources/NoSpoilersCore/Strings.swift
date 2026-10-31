@@ -90,7 +90,7 @@ public enum Strings {
         public static func roundLabel(_ round: Int) -> String { "R\(round)" }
 
         /// A session happening now. Was in all three targets.
-        public static let inProgress: LocalizedStringKey = "Scheduled session"
+        public static let inProgress: LocalizedStringKey = "Scheduled now"
         public static let finishUnconfirmed: LocalizedStringKey = "Finish not confirmed"
 
         /// Heading over the next weekend. Was in all three targets; the widget
