@@ -773,8 +773,8 @@ around a missing local profile without inspecting the actual export error.
 
 **Related records**
 
-- [Task 36](36-teamcity-replaces-xcode-cloud.md): migration history; its combined
-  three-channel release policy is superseded here.
+- Task 36, `tasks/36-teamcity-replaces-xcode-cloud.md` in git history: the migration record; its
+  combined three-channel release policy is superseded here.
 - [Reusable Apple delivery patterns](../../agent-standards/docs/apple-testflight-delivery.md)
 - [Full comparison](../docs/apple-release-comparison-2026-09-10.md)
 - [Shared agent documentation](../../snowmonkey-proxy-common/docs/TEAMCITY-AGENTS.md)
