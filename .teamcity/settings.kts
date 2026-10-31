@@ -43,12 +43,32 @@ version = "2026.1"
 // `sharedResources` needs no import of its own; importing it explicitly did not
 // compile on 2026-09-09.
 
-fun BuildType.onTheAgent() {
+// **Each configuration owns a directory by name, emptied before checkout and
+// removed by the agent after the build, however it ends.** They would otherwise
+// share one directory per agent, named after the VCS settings, with `tmp/`'s
+// DerivedData and module caches carried from build to build. `cleanCheckout`
+// deletes `.git` and ignored files too, so only the exact revision is left.
+// Artifacts publish first: the default mode skips a cancelled or timed-out build,
+// which would lose a stopped Ship's record, so `ALWAYS` is part of owning a
+// workspace. The names are per configuration and each agent has its own work
+// directory, so no two running builds can share one.
+//
+// **No build here needs an exception, and nothing in the directory is a cache.**
+// What outlives a build sits outside it: the agent's git mirror under `system/git`,
+// which is addressed by commit hash and cannot supply a generated file, and the
+// login keychain, profiles and App Store Connect keys `Ship` signs with, which are
+// persistent signing state. The project restores no other cache: it has no package
+// dependencies.
+fun BuildType.onTheAgent(workspace: String) {
+    publishArtifacts = PublishMode.ALWAYS
     vcs {
         root(DslContext.settingsRoot)
+        checkoutDir = "no-spoilers-$workspace"
+        cleanCheckout = true
     }
     params {
         param("env.TMPDIR", "%system.teamcity.build.tempDir%")
+        param("system.teamcity.build.checkoutDir.expireHours", "0")
     }
 }
 
@@ -58,7 +78,7 @@ val verifyPython = BuildType {
     name = "Verify: Python"
     description = "scripts/verify-python-selftests.sh: the offline selftests of the six " +
         "App Store Connect scripts. Starts no Xcode, so it holds no lock and runs beside a compile."
-    onTheAgent()
+    onTheAgent("verify-python")
     steps {
         script {
             name = "selftests"
@@ -77,7 +97,7 @@ val verifyXcode = BuildType {
     description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
         "the Mac app, the iOS app and the widget extension all compile, unsigned. One " +
         "configuration rather than three because they share one checkout and one agent."
-    onTheAgent()
+    onTheAgent("verify-xcode")
     steps {
         script {
             name = "mac"
@@ -104,7 +124,7 @@ val verifySwiftTests = BuildType {
     description = "scripts/verify-core-tests.sh: the shared package's test suite. Deliberately " +
         "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
         "Xcode target would hide a test result it cannot affect."
-    onTheAgent()
+    onTheAgent("verify-swift-tests")
     steps {
         script {
             name = "core"
@@ -123,7 +143,7 @@ val verify = BuildType {
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
         "Verify: Xcode and Verify: Swift tests all passed on the same revision. Runs for every " +
         "push to main as Ship's dependency, and alone nightly at 00:00 Europe/London."
-    onTheAgent()
+    onTheAgent("verify")
 
     // No steps. It exists so one light answers "did this commit pass" without
     // anyone reading three configurations.
@@ -173,6 +193,18 @@ val verify = BuildType {
             // a change.
             withPendingChangesOnly = false
         }
+        // TEMPORARY, removed with the probes: one real chain under the new
+        // workspaces, without waiting for the nightly or shipping anything.
+        schedule {
+            schedulingPolicy = daily {
+                hour = 15
+                minute = 45
+                timezone = "Europe/London"
+            }
+            branchFilter = "+:<default>"
+            triggerBuild = always()
+            withPendingChangesOnly = false
+        }
     }
 }
 
@@ -200,7 +232,7 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
         "revision, uploads it, waits for Apple and delivers that exact build to the Internal " +
         "testers. Triggered by every push to main, through Verify; the nightly does not ship. ship.args takes --check or " +
         "--archive-only."
-    onTheAgent()
+    onTheAgent("ship-$platform")
 
     params {
         // Goes back to empty after a custom run: `publish.args` left holding a
@@ -282,6 +314,98 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
 val shipIos = ship("ios", "Ios", "iOS")
 val shipMacos = ship("macos", "Macos", "macOS")
 
+// TEMPORARY, removed once the evidence is recorded. Each run confirms the exact
+// revision, reports what an earlier run left, then seeds its directory with an
+// untracked file, a changed tracked file, a marker in `.git` and the ignored output
+// this project really produces. Pinned to one agent, or a later run could land on
+// an agent that never saw the seed and prove nothing.
+//   ProbeControl: nothing cleans, so the seed must survive. Without this the other
+//   two could pass only because nothing was ever left to find.
+//   ProbeCleanCheckout: only the emptying before checkout acts.
+//   ProbeBuildCleanup: only the removal after a build acts. It repeats a four-run
+//   cycle: success, a failure on purpose, a self-cancel, then the execution timeout,
+//   each publishing the sentinel, so evidence is shown to leave before the directory
+//   goes. The agent removes expired directories when idle, so `PROBE STALE` here can
+//   mean "not yet": it costs one turn of the cycle, and the next run checks again.
+fun workspaceProbe(
+    probeId: String,
+    probeName: String,
+    clean: Boolean,
+    expireHours: String,
+    seedSurvives: Boolean,
+    endsBadly: Boolean,
+) = BuildType {
+    id(probeId)
+    name = probeName
+    maxRunningBuilds = 1
+    publishArtifacts = PublishMode.ALWAYS
+    artifactRules = "probe-sentinel.txt => evidence"
+    vcs {
+        root(DslContext.settingsRoot)
+        checkoutDir = "no-spoilers-" + probeId.lowercase()
+        cleanCheckout = clean
+    }
+    params {
+        param("system.teamcity.build.checkoutDir.expireHours", expireHours)
+    }
+    requirements {
+        equals("teamcity.agent.name", "macstudio-2")
+    }
+    val ending = if (endsBadly) {
+        "case ${'$'}((%build.counter% %% 4)) in " +
+            "2) echo 'PROBE controlled failure'; exit 1 ;; " +
+            "3) echo \"##teamcity[buildStop comment='PROBE cancels itself' readdToQueue='false']\"; sleep 150; exit 4 ;; " +
+            "0) echo 'PROBE waiting for the execution timeout'; sleep 150; exit 4 ;; " +
+            "esac"
+    } else {
+        ""
+    }
+    steps {
+        script {
+            name = "probe"
+            scriptContent = """
+                set -eu
+                echo "PROBE run=%build.counter% agent=%teamcity.agent.name% dir=%teamcity.build.checkoutDir%"
+                test "${'$'}(git rev-parse HEAD)" = "%build.vcs.number%"
+                echo "PROBE exact revision %build.vcs.number%"
+                leftovers="${'$'}(git status --porcelain --ignored; ls .git/probe-marker 2>/dev/null || true)"
+                echo "PROBE leftovers: [${'$'}leftovers]"
+                if [ %build.counter% -gt 1 ] && [ "$seedSurvives" = "true" ]; then
+                    if [ -z "${'$'}leftovers" ]; then echo "PROBE CONTROL FOUND NOTHING"; exit 3; fi
+                elif [ -n "${'$'}leftovers" ]; then
+                    echo "PROBE STALE"; exit 3
+                fi
+                echo "PROBE as expected"
+                mkdir -p tmp/DerivedData/Stale .build
+                echo stale > probe-sentinel.txt
+                echo stale >> README.md
+                echo stale > .git/probe-marker
+                echo stale > tmp/DerivedData/Stale/output.o
+                echo stale > .build/stale
+                echo "PROBE seeded"
+                $ending
+            """.trimIndent()
+        }
+    }
+    triggers {
+        schedule {
+            schedulingPolicy = cron {
+                minutes = "*/3"
+                hours = "*"
+                dayMonth = "*"
+                month = "*"
+                dayWeek = "?"
+            }
+            branchFilter = "+:<default>"
+            triggerBuild = always()
+            withPendingChangesOnly = false
+        }
+    }
+    failureConditions {
+        executionTimeoutMin = 1
+    }
+}
+
 project {
     description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
 
@@ -291,4 +415,8 @@ project {
     buildType(verify)
     buildType(shipIos)
     buildType(shipMacos)
+
+    buildType(workspaceProbe("ProbeControl", "Probe: control", false, "1", true, false))
+    buildType(workspaceProbe("ProbeCleanCheckout", "Probe: clean checkout", true, "1", false, false))
+    buildType(workspaceProbe("ProbeBuildCleanup", "Probe: build cleanup", false, "0", false, true))
 }
