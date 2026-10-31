@@ -95,8 +95,9 @@ val verifyXcode = BuildType {
     uuid = "7dedfb93-073b-4518-a32c-d8502d321da8"
     name = "Verify: Xcode"
     description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
-        "the Mac app, the iOS app and the widget extension all compile, unsigned. One " +
-        "configuration rather than three because they share one checkout and one agent."
+        "the Mac app, the iOS app and the widget extension all compile, unsigned, and the two " +
+        "apps again in Release, which is what Ship archives. One configuration rather than " +
+        "three because they share one checkout and one agent."
     onTheAgent("verify-xcode")
     steps {
         script {
@@ -110,6 +111,15 @@ val verifyXcode = BuildType {
         script {
             name = "widget"
             scriptContent = "./scripts/verify-widget-build.sh"
+        }
+        // The iOS app embeds the widget, so Release needs no third step.
+        script {
+            name = "mac release"
+            scriptContent = "./scripts/verify-mac-build.sh -configuration Release"
+        }
+        script {
+            name = "ios release"
+            scriptContent = "./scripts/verify-ios-build.sh -configuration Release"
         }
     }
     requirements {
@@ -125,10 +135,21 @@ val verifySwiftTests = BuildType {
         "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
         "Xcode target would hide a test result it cannot affect."
     onTheAgent("verify-swift-tests")
+    artifactRules = "tmp/test-results => test-records"
     steps {
         script {
             name = "core"
             scriptContent = "./scripts/verify-core-tests.sh"
+        }
+    }
+    // Generic rather than the typed builder: a wrong parameter finds no reports
+    // and says so, where a wrong symbol stops the script compiling.
+    features {
+        feature {
+            type = "xml-report-plugin"
+            param("xmlReportParsing.reportType", "junit")
+            param("xmlReportParsing.reportDirs", "+:tmp/test-results/*.xml")
+            param("xmlReportParsing.verboseOutput", "true")
         }
     }
     requirements {
@@ -143,10 +164,14 @@ val verify = BuildType {
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
         "Verify: Xcode and Verify: Swift tests all passed on the same revision. Runs for every " +
         "push to main as Ship's dependency, and alone nightly at 00:00 Europe/London."
-    onTheAgent("verify")
+    type = BuildTypeSettings.Type.COMPOSITE
 
-    // No steps. It exists so one light answers "did this commit pass" without
-    // anyone reading three configurations.
+    // No steps, no agent and no checkout. It exists so one light answers "did this
+    // commit pass" without anyone reading three configurations.
+    vcs {
+        root(DslContext.settingsRoot)
+        showDependenciesChanges = true
+    }
 
     dependencies {
         // Two flags the server holds are left unset because they are already
@@ -192,6 +217,10 @@ val verify = BuildType {
             // The point is to build an unchanged repo, so this must not wait for
             // a change.
             withPendingChangesOnly = false
+            // A composite's nightly would otherwise take yesterday's legs and go
+            // green having run nothing, whatever `reuseBuilds` says.
+            enforceCleanCheckout = true
+            enforceCleanCheckoutForDependencies = true
         }
     }
 }

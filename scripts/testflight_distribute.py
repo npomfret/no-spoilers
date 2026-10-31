@@ -838,7 +838,7 @@ def main() -> int:
     state = gather(session, arguments.group, platform, arguments.build)
     build = state["build"]
     chosen = "named" if arguments.build else "newest"
-    print(f"{chosen} {platform} build {build['version']}, uploaded {build['uploaded'][:16]}")
+    print(f"{chosen} {platform} build {build['version']}, uploaded {build['uploaded']}")
 
     # The note belongs to the build, not to any group, so it is settled once
     # here rather than per group. It is also worth repairing on a build that is

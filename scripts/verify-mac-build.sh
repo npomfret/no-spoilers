@@ -24,6 +24,7 @@ xcodebuild build \
   -destination "generic/platform=macOS" \
   -derivedDataPath "$repo_root/tmp/DerivedData/NoSpoilersMac" \
   -clonedSourcePackagesDirPath "$repo_root/tmp/SourcePackages" \
+  "$@" \
   CODE_SIGNING_ALLOWED=NO \
   COMPILER_INDEX_STORE_ENABLE=NO \
   CLANG_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache" \

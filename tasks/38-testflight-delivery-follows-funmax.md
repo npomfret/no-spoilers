@@ -1,7 +1,7 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS, narrowed 2026-10-31.** Unattended Apple delivery works and is proven. What
-is left is the `Verify` hardening, a recovery proof and a few small follow-ups.
+**Status: IN PROGRESS, 2026-10-31.** Unattended Apple delivery works and is proven. All that is
+left is landing the `Verify` hardening and watching one chain pass it.
 
 Make No Spoilers use the proven Super Funmax Music deployment pattern on the shared TeamCity agents:
 verify a commit, archive that exact commit, upload it, wait for Apple processing, write its tester
@@ -27,32 +27,26 @@ notes, and confirm it is available to internal TestFlight testers.
 - macOS signs manually with a local Mac Installer Distribution identity and the API-created
   `No Spoilers Mac App Store` profile, because Apple refuses the App Manager key cloud-managed
   certificates. iOS signs automatically.
-- `.teamcity/cli.json` names `ShipIos` and `ShipMacos`. The `status` window is the project's newest 40
-  builds and four nightly builds a day push `Ship` out of it, so a quiet week needs
-  `python3 scripts/teamcity.py --count 200 status`.
+- `.teamcity/cli.json` names `ShipIos` and `ShipMacos`. `docs/guides/building.md` explains the `status`
+  window that can still hide them.
 
 **Open work**
 
-- [ ] **Harden `Verify`.** Waits until the clean-checkout task's `.teamcity/settings.kts` change has
-  landed. All three parts remain:
-  - make it a true composite (its live options are still the default);
-  - add Release compilation (`Verify: Xcode` compiles without one; `Ship` is the only Release build);
-  - publish test results (the legs report only "Success", and `verify-core-tests.sh` writes no
-    xUnit output).
-
-  Do not make a finished `Verify` trigger `Ship` again. That is what shipped the nightly:
-  `ShipMacos #6` re-uploaded an unchanged commit and `ShipIos #18` failed on a released version.
-- [ ] **Prove recovery beyond selftests.** No retained `Ship` log since `ShipIos #12` names a recovery,
-  so `testflight_distribute.py --platform P --build N --apply` after a failed delivery has never run
-  for real on this path. It should be proven when a real failure next offers the chance, not staged.
-- [ ] **Commit the pre-reservation retry.** See *Verification*; it is in the working tree only. Any
-  push touching `scripts/**` triggers real deliveries, so it needs the owner's intent.
-- [ ] `testflight_distribute.py` has no retry for network errors of its own. A read from this machine
-  died inside `urlopen` once, and `ShipIos #20` shows the same failure in the wild.
-- [ ] The distributor's `uploaded` time drops its offset (it cuts to 16 characters), so iOS 10025
-  printed `03:54` for 10:54 UTC.
-- [ ] `docs/guides/building.md:138` still says splitting deleted the old `Ship`'s history. It did not:
-  those runs are `ShipIos #1` to `#11`.
+- [ ] **Land the `Verify` hardening.** The DSL is `tmp/task38-verify-hardening.patch`, against the
+  committed `settings.kts`; it could not be compiled locally. It makes `Verify` a composite, adds
+  `mac release` and `ios release` steps to `Verify: Xcode`, and reports JUnit results from
+  `Verify: Swift tests`. The script changes it needs are in the working tree.
+  - **The patch and the scripts must land together, or scripts first.** Today's wrappers ignore
+    arguments, so `-configuration Release` on an old script would compile Debug twice and stay green.
+  - **Pushing touches `scripts/**`, so it triggers real `Ship` deliveries.** `16d158d` is the same.
+    The push needs the owner's intent.
+  - `Verify` is composite with no trigger to `Ship`: that clause of the old plan is struck, because a
+    finished `Verify` starting `Ship` is what shipped the nightly (`ShipMacos #6`, `ShipIos #18`).
+  - Test results are published for `Verify: Swift tests` only: the Python selftests write no JUnit
+    output. The nightly sets both `enforceCleanCheckout` flags, as every sibling composite does.
+- [ ] **Read one chain back after landing:** `Verify` composite with no agent, both Release steps run,
+  149 tests reported on `Verify: Swift tests`, and `Ship` still gated on `Verify`.
+- [ ] Delete `tmp/task38-verify-hardening.patch` once it has landed.
 
 **Decisions, owner, 2026-10-31**
 
@@ -75,9 +69,9 @@ notes, and confirm it is available to internal TestFlight testers.
   confirmed `Internal` membership.
 - [x] A missing or failing Homebrew setup cannot block Apple delivery, and Apple delivery neither
   publishes a GitHub release nor edits the cask.
-- [ ] Processing delays, rejection and timeouts produce useful diagnostics, and recovery selects the
-  recorded build. Diagnostics are observed (`ShipIos #18` names the closed train; the timeout of
-  `#20` is fixed in the working tree). Recovery is selftest-only.
+- [x] Processing delays, rejection and timeouts produce useful diagnostics, and recovery selects the
+  recorded build. `ShipIos #18` names the closed train, and `#20`'s timeout is fixed in `16d158d`.
+  Recovery's read path is proven live; see *Verification*. Its write path is residual risk.
 - [x] Build allocation handles pagination, expired builds and concurrent attempts, and existing
   provenance stays readable.
 - [x] Signing and macOS package export work on every eligible agent, proven by real deliveries:
@@ -88,6 +82,16 @@ notes, and confirm it is available to internal TestFlight testers.
 
 **Verification**
 
+- Recovery, read path, 2026-10-31: `testflight_distribute.py --platform ios --build 10044` and
+  `--platform macos --build 10043`, without `--apply`, exit 0. Both builds are older than the newest
+  on their platform (10046, 10045). Each run chose the named build, found its note names that build
+  and commit, and found it in `Internal`, so nothing would be relabelled. The script has no upload
+  path, so it cannot duplicate an accepted upload.
+- `Verify` hardening, local: `scripts/verify-core-tests.sh` exit 0, with 149 tests and 0 failures in
+  `tmp/test-results/NoSpoilersCore.xml`. `scripts/verify-ios-build.sh -configuration Release` built
+  Release, widget included. A scratch package with one failing XCTest, run with the same flags, exited
+  1 and reported 1 failure of 2. The macOS Release step, the JUnit parsing on TeamCity and the DSL
+  are not proven until a chain runs.
 - `TimeoutError` before reservation: `ShipIos #20` (id 12369, `9757c55`) died on one timed-out read
   in `next_build_number`, with a traceback and no record. Nothing was reserved, and `#21` shipped a
   newer build. `appstore_status.py --next-build` now asks up to three times, five then ten seconds
@@ -102,9 +106,17 @@ notes, and confirm it is available to internal TestFlight testers.
   (`appstore_status` 124 cases, `submit_build` 56). In a scratch copy, each of these fails a selftest:
   dropping `* attempt`, a longer pause, a fourth attempt, a later deadline, a longer `TIMEOUT`, either
   deadline check removed, stderr dropped, and `TimeoutExpired` left uncaught. No real `Ship` has run
-  this code.
+  this code. `16d158d` holds it, unpushed.
 
 **Residual risk**
+
+- **Recovery's write path has never run for real.** Only a real failed delivery can prove
+  `--apply` writing a missing note or group membership; staging one means a real upload left
+  half-delivered, so it is not worth doing. Selftests cover it, and the next push ships a newer build
+  anyway.
+- `testflight_distribute.py` has no retry for network errors, and adding one to `asc_write.Session.get`
+  would change every writer's reads, so it was left. Inside `Ship` such a failure is recorded with its
+  recovery command.
 
 - The write lock went in `8e9d2a5`, so the two `Ship` configurations no longer queue behind each
   other. No `Ship` has run since (`#22`, 2026-10-15), so two archiving together on this Mac, and any
@@ -113,9 +125,6 @@ notes, and confirm it is available to internal TestFlight testers.
 
 **Follow-ups**
 
-- **Renewal.** The profile and the Apple Distribution certificate expire on 2027-08-21, and the Mac
-  Installer Distribution certificate on 2027-09-10; the profile must then be regenerated and installed
-  on the agent machine. The laptop's Developer ID Application certificate expires on 2027-02-01.
 - **Profile churn.** The portal held 292 Xcode-managed profiles for this bundle id on 2026-09-10. Not
   re-read since.
 - **Lessons for agent-standards, and for Funmax:** Funmax's `Ship` timeout was under its own step

@@ -13,9 +13,11 @@ Canonical build and compile policy for this repo.
 ## Current state
 
 - Canonical build wrappers live in `scripts/` and force HOME/Foundation home, DerivedData, SwiftPM scratch space, source packages, and module caches into repo-local `tmp/` paths.
-- Use `scripts/verify-mac-build.sh` for the macOS app build. It builds scheme `NoSpoilers` for `generic/platform=macOS`.
-- Use `scripts/verify-ios-build.sh` for the iOS app build. It builds scheme `NoSpoilersApp` for `generic/platform=iOS`; if that scheme is absent, stop and inspect the real shared schemes before substituting another command.
+- Use `scripts/verify-mac-build.sh` for the macOS app build. It builds scheme `NoSpoilers` for `generic/platform=macOS`. Arguments pass through to `xcodebuild`, so `-configuration Release` compiles what `Ship` archives.
+- Use `scripts/verify-ios-build.sh` for the iOS app build. It builds scheme `NoSpoilersApp` for `generic/platform=iOS`; if that scheme is absent, stop and inspect the real shared schemes before substituting another command. Arguments pass through the same way.
 - Use `scripts/verify-widget-build.sh` for the widget extension build. It builds target `NoSpoilersWidgetExtension` with Debug `iphoneos` settings and target-build-compatible output paths.
+- `scripts/verify-core-tests.sh` writes JUnit-format results to `tmp/test-results/`, which `Verify: Swift tests` reports to TeamCity.
+- `python3 scripts/teamcity.py status` reads only the project's newest 40 builds, and a nightly's four builds a day push `Ship` out of that; after a quiet week use `python3 scripts/teamcity.py --count 200 status`.
 - Do not replace these wrappers with ad-hoc `xcodebuild` invocations unless the wrapper is wrong for the touched scope; update the wrapper instead when a command becomes canonical.
 
 ## Continuous delivery
@@ -135,8 +137,7 @@ configuration for every platform it can ship; and each publishes the run's recor
 a `ship.platform` parameter. Split so a macOS signing failure cannot turn the iPhone light red, so
 either platform re-runs alone, and so each has its own history. The cost is two build numbers per
 commit, which nothing depends on: Apple numbers the platforms separately and the approval tags are
-per platform. Splitting deleted the old `Ship`'s history, runs #5 to #11; task 38 keeps what they
-proved.
+per platform. The old `Ship`'s history survives as `ShipIos #1` to `#11`.
 
 **Each ships every push to main; the nightly ships nothing.** Unattended delivery was switched on
 2026-10-11 once each had delivered end to end (`ShipIos #12`, `ShipMacos #3`). Since 2026-10-13 the
@@ -206,7 +207,13 @@ used to run `testflight_distribute.py` for both platforms; it was deleted with t
 no run TeamCity still listed, and FunMax has none. When a `Ship` run uploaded a build and could not
 finish delivering it, its record and log name
 `scripts/testflight_distribute.py --platform P --build N --apply`; run that from a machine holding
-the App Manager key. Once the trigger is on, the next green `Verify` ships a newer build anyway.
+the App Manager key. Without `--apply` that command changes nothing and reports the note and the
+groups for build N, not the newest. The next push ships a newer build anyway.
+
+**Signing expires.** The `No Spoilers Mac App Store` profile and the Apple Distribution certificate
+expire on 2027-08-21, and the Mac Installer Distribution certificate on 2027-09-10; the profile must
+then be regenerated with the renewed certificate and installed on the agent machine. The laptop's
+Developer ID Application certificate expires on 2027-02-01.
 
 - **Xcode Cloud built this app from 2026-08-08 to 2026-09-09 and no longer does.** It archived both schemes on every push to `main`, uploaded both, and is the origin of every build numbered 1 to 125 on the record. Removed with it: the workflow, the `NoSpoilers/ci_scripts/` hook, `scripts/ci_health.py`, the `ciProducts` lookups, and `set_build_number`, whose only caller the hook had become. What it cost on the way out: it asked none of `release.sh`'s four questions, so once 1.1.3 was approved on 2026-09-07 it went on uploading that closed train on every push — `ITMS-90186` and `ITMS-90062` by email each time, up to run 125 — until the emails were noticed and `MARKETING_VERSION` was moved to 1.1.4.
   - Two of its lessons are load-bearing elsewhere and are kept where they apply, not here: the `10000` band below exists because its run numbers and `release.sh`'s counter had to not collide, and `verify-core-tests.sh` runs inside `release.sh` because that gate lived only in the hook until 2026-08-22 and left the path entirely when Xcode Cloud stopped.
