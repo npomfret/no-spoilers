@@ -127,6 +127,7 @@ MAC_SIGNING = {
     "installer": "3rd Party Mac Developer Installer",
 }
 
+VERSION_HELPER_LIMIT = 300.0
 GATE_LIMIT = 1800.0
 ARCHIVE_LIMIT = 2400.0
 EXPORT_LIMIT = 2400.0
@@ -190,15 +191,24 @@ def version_helper(name: str) -> str:
     number each have one owner, and a second copy is how two callers come to
     disagree about what ships.
     """
-    done = subprocess.run(
+    return helper_answer(
+        name,
         ["bash", "-c", 'source "$1" && "$2"', "_", str(SCRIPTS / "_version.sh"), name],
-        cwd=REPO,
-        capture_output=True,
-        text=True,
-        timeout=300,
+        VERSION_HELPER_LIMIT,
     )
+
+
+def helper_answer(name: str, command: list[str], limit: float) -> str:
+    """What `command` printed, its stderr passed on for the log, or a hard stop."""
+    try:
+        done = subprocess.run(command, cwd=REPO, capture_output=True, text=True, timeout=limit)
+    except subprocess.TimeoutExpired as error:
+        said = (error.stderr or b"").decode(errors="replace").strip()
+        raise SystemExit(f"_version.sh {name} gave no answer within {limit:.1f} seconds:\n{said}") from None
     if done.returncode != 0 or not done.stdout.strip():
         raise SystemExit(f"_version.sh {name} gave no answer:\n{done.stderr.strip()}")
+    if done.stderr.strip():
+        print(done.stderr.strip(), file=sys.stderr)
     return done.stdout.strip()
 
 
@@ -407,22 +417,6 @@ def worst_case() -> float:
     return OUTSIDE_THE_STEPS + ARCHIVE_LIMIT + EXPORT_LIMIT + PROCESSING_CEILING + DELIVERY_LIMIT
 
 
-def transient(error: BaseException) -> bool:
-    """Whether a failed App Store Connect read is worth asking again.
-
-    A 429 or a 5xx is Apple briefly unable to answer, and so is a connection
-    that dropped or timed out. A 401, 403 or 404 will answer the same way in
-    forty-five seconds, and an hour of asking would only bury it.
-    """
-    if isinstance(error, asc.Refused):
-        return error.status == 429 or error.status >= 500
-    return isinstance(error, OSError)
-
-
-def first_line(error: BaseException) -> str:
-    return (str(error).strip().splitlines() or [type(error).__name__])[0]
-
-
 def processing_state(platform: str, version: str, number: int) -> tuple[str | None, str | None]:
     """One look: App Store Connect's id for this build once it shows it, and its internal state.
 
@@ -460,9 +454,9 @@ def await_processing(platform: str, version: str, number: int) -> tuple[bool, st
             build_id, state = processing_state(platform, version, number)
             verdict, reason = wait_verdict(state)
         except (asc.Refused, OSError) as error:
-            if not transient(error):
+            if not asc.transient(error):
                 raise
-            verdict, reason = "wait", f"App Store Connect did not answer ({first_line(error)}); asking again"
+            verdict, reason = "wait", f"App Store Connect did not answer ({asc.first_line(error)}); asking again"
         elapsed = time.monotonic() - started
         print(f"  [{elapsed / 60:5.1f}m / {PROCESSING_CEILING / 60:.0f}m] {platform} {number}: {reason}")
         if verdict == "ready":
@@ -510,7 +504,7 @@ def keep_distribution_logs(scheme: str, since: float, work: Path) -> None:
             shutil.copytree(bundle, work / bundle.name, dirs_exist_ok=True)
             print(f"  kept {bundle.name} for the run's artifacts")
     except (OSError, subprocess.CalledProcessError) as error:
-        print(f"  could not keep the export's distribution logs: {first_line(error)}", file=sys.stderr)
+        print(f"  could not keep the export's distribution logs: {asc.first_line(error)}", file=sys.stderr)
 
 
 def step(command: list[str], limit: float) -> int:
@@ -941,10 +935,28 @@ def selftest() -> int:
         (asc.Refused("GET", "/v1/builds", 429, "Too Many Requests"), True),
         (asc.Refused("GET", "/v1/builds", 403, ""), False),
         (urllib.error.URLError("connection reset by peer"), True),
+        (TimeoutError("The read operation timed out"), True),
         (SystemExit("no private key at ~/.appstoreconnect"), False),
     ):
-        if transient(error) is not wanted:
-            failures.append(f"{first_line(error)!r} was not judged {'transient' if wanted else 'final'}")
+        if asc.transient(error) is not wanted:
+            failures.append(f"{asc.first_line(error)!r} was not judged {'transient' if wanted else 'final'}")
+
+    # `next_build` must give up on its own before this script's limit ends it, and
+    # a helper past that limit must stop with words, not `ShipIos #20`'s traceback.
+    # A retry that recovers has to reach the log, which only stderr passed on does.
+    if asc.NEXT_BUILD_WORST >= VERSION_HELPER_LIMIT:
+        failures.append(f"next_build can run {asc.NEXT_BUILD_WORST} seconds, past the {VERSION_HELPER_LIMIT} allowed")
+    try:
+        helper_answer("slow", ["bash", "-c", "echo asking again >&2; exec sleep 5"], 0.3)
+        failures.append("a helper past its limit gave an answer")
+    except SystemExit as stopped:
+        for fragment in ("slow gave no answer within 0.3 seconds", "asking again"):
+            if fragment not in str(stopped):
+                failures.append(f"a helper past its limit did not say {fragment!r}: {stopped}")
+    with contextlib.redirect_stderr(io.StringIO()) as passed_on:
+        recovered = helper_answer("next", ["bash", "-c", "echo asking again >&2; echo 10047"], 2.0)
+    if recovered != "10047" or "asking again" not in passed_on.getvalue():
+        failures.append(f"a helper's stderr did not reach the log: {recovered!r}, {passed_on.getvalue()!r}")
 
     # The export's log bundles, from a directory that holds every export this user ever ran: this
     # scheme's, from this export, and nobody else's. Ship #8's were published by no rule at all.
@@ -1005,7 +1017,7 @@ def selftest() -> int:
         try:
             waited = muted(lambda: await_processing("ios", "1.1.4", 10025))
         except SystemExit as error:
-            waited = (False, first_line(error), None)
+            waited = (False, asc.first_line(error), None)
         if waited[0] is not True or len(asked) < 2:
             failures.append(f"a 503 from App Store Connect while waiting ended the wait instead of asking again: {waited}")
         if waited[2] != "asc-10025":

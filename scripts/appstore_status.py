@@ -129,6 +129,17 @@ def require_key(key: Path, absent: str) -> Path:
 TOKEN_LIFETIME = 1200
 TIMEOUT = 30
 
+# Asking for the next build number again when App Store Connect does not answer:
+# three tries, five then ten seconds apart, and no read begins past the deadline.
+# TIMEOUT bounds one socket operation, not one read, so the worst case allows a
+# read begun at the deadline three of them: connect, response and body.
+# `submit_build.py`'s selftest holds NEXT_BUILD_WORST under the limit it puts on
+# the whole of `next_build_number`.
+NEXT_BUILD_ATTEMPTS = 3
+NEXT_BUILD_PAUSE = 5.0
+NEXT_BUILD_DEADLINE = 180.0
+NEXT_BUILD_WORST = NEXT_BUILD_DEADLINE + 3 * TIMEOUT
+
 # Screenshot display types are one Apple enum covering every device Apple has
 # shipped, and the smaller sizes are derived from the largest in each family, so
 # what matters is whether a family has any images at all. Grouped by platform
@@ -298,6 +309,22 @@ class Refused(SystemExit):
     def __init__(self, method: str, path: str, status: int, detail: str) -> None:
         super().__init__(f"{method} {path} -> HTTP {status}\n{detail}")
         self.status = status
+
+
+def transient(error: BaseException) -> bool:
+    """Whether a failed App Store Connect read is worth asking again.
+
+    A 429 or a 5xx is Apple briefly unable to answer, and so is a connection
+    that dropped or timed out. A 401, 403 or 404 will answer the same way in
+    forty-five seconds, and an hour of asking would only bury it.
+    """
+    if isinstance(error, Refused):
+        return error.status == 429 or error.status >= 500
+    return isinstance(error, OSError)
+
+
+def first_line(error: BaseException) -> str:
+    return (str(error).strip().splitlines() or [type(error).__name__])[0]
 
 
 class Client:
@@ -573,6 +600,50 @@ def highest_build(get: "Callable[[str], dict]", app_id: str) -> int:
     if not numbers:
         raise SystemExit("App Store Connect holds no builds at all; refusing to guess a first number")
     return max(numbers)
+
+
+def next_build(
+    get: "Callable[[str], dict]",
+    sleep: "Callable[[float], None]",
+    clock: "Callable[[], float]",
+) -> int:
+    """The number after the highest App Store Connect holds, asking again if it does not answer.
+
+    **A read that fails transiently is asked again, then named.** This runs
+    before any tag is claimed, so nothing is spent by a failure here, but on
+    2026-10-13 one timed-out read ended `Ship iOS` #20 with a bare traceback and
+    no build for that commit. What `transient` refuses stops at once, and
+    NEXT_BUILD_DEADLINE bounds the whole question. Progress goes to stderr:
+    stdout carries the number and nothing else.
+    """
+    started = clock()
+    deadline = started + NEXT_BUILD_DEADLINE
+
+    def read(path: str) -> dict:
+        if clock() >= deadline:
+            raise TimeoutError(f"the {NEXT_BUILD_DEADLINE:.0f}-second deadline passed")
+        return get(path)
+
+    for attempt in range(1, NEXT_BUILD_ATTEMPTS + 1):
+        try:
+            return highest_build(read, find_app(read)["id"]) + 1
+        except (Refused, OSError) as error:
+            if not transient(error):
+                raise
+            pause = NEXT_BUILD_PAUSE * attempt
+            if attempt == NEXT_BUILD_ATTEMPTS or clock() + pause >= deadline:
+                raise SystemExit(
+                    f"App Store Connect did not answer after {attempt} attempts in "
+                    f"{clock() - started:.0f} seconds ({first_line(error)}), "
+                    "so no build number was chosen"
+                ) from error
+            print(
+                f"App Store Connect did not answer ({first_line(error)}); "
+                f"asking again (attempt {attempt} of {NEXT_BUILD_ATTEMPTS})",
+                file=sys.stderr,
+            )
+            sleep(pause)
+    raise AssertionError("NEXT_BUILD_ATTEMPTS is not positive")
 
 
 def store_version(get: "Callable[[str], dict]", app_id: str, platform: str, version: str) -> dict | None:
@@ -1331,9 +1402,7 @@ def main() -> int:
         raise SystemExit(f"{' and '.join(questions)} are {len(questions)} questions; ask one")
 
     if arguments.next_build:
-        client = Client()
-        app_id = find_app(client.get)["id"]
-        print(highest_build(client.get, app_id) + 1)
+        print(next_build(Client().get, time.sleep, time.monotonic))
         return 0
 
     if arguments.approved:
@@ -1474,6 +1543,8 @@ def _fixture(**overrides) -> dict:
 
 def _selftest() -> int:
     """Offline. No key, no network — signing uses a throwaway key."""
+    import contextlib
+    import io
     import tempfile
 
     failures: list[str] = []
@@ -1917,6 +1988,96 @@ def _selftest() -> int:
         except SystemExit:
             pass
 
+    # `next_build` faces what `Ship iOS` #20 met: a read that times out before
+    # any number is reserved. Each case scripts the answers to successive reads.
+    def _flaky(*answers: object):
+        record = _record([("10012", False)], [("10030", False)])
+        queue = list(answers)
+        asked: list[str] = []
+
+        def get(path: str) -> dict:
+            asked.append(path)
+            answer = queue.pop(0) if queue else None
+            if isinstance(answer, BaseException):
+                raise answer
+            return {"data": [{"id": "123", "attributes": {"bundleId": BUNDLE_ID}}]} if path.startswith("/v1/apps?") else record(path)
+
+        return get, asked
+
+    slept: list[float] = []
+    for name, failure in (
+        ("a timed-out read", TimeoutError("The read operation timed out")),
+        ("a 503", Refused("GET", "/v1/apps", 503, "Service Unavailable")),
+        ("a 429", Refused("GET", "/v1/apps", 429, "Too Many Requests")),
+    ):
+        slept.clear()
+        retried, _ = _flaky(failure)
+        with contextlib.redirect_stderr(io.StringIO()) as said:
+            answer = next_build(retried, slept.append, lambda: 0.0)
+        if answer != 10031 or slept != [5.0]:
+            failures.append(f"next_build did not ride out {name}: {answer}, pauses {slept}")
+        if "asking again" not in said.getvalue():
+            failures.append(f"next_build asked again after {name} without saying so")
+
+    slept.clear()
+    timed_out = TimeoutError("The read operation timed out")
+    silent, asked = _flaky(timed_out, timed_out, timed_out, timed_out)
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            next_build(silent, slept.append, lambda: 0.0)
+            failures.append("next_build answered when every attempt timed out")
+        except Refused:
+            failures.append("next_build dressed a timeout up as an HTTP refusal")
+        except SystemExit as stopped:
+            for fragment in ("after 3 attempts", "timed out", "no build number was chosen"):
+                if fragment not in str(stopped):
+                    failures.append(f"next_build's last word does not say {fragment!r}: {stopped}")
+    if len(asked) != 3 or slept != [5.0, 10.0]:
+        failures.append(f"next_build asked {len(asked)} times with pauses {slept}, not 3 with 5 then 10")
+
+    forbidden, asked = _flaky(Refused("GET", "/v1/apps", 403, "Forbidden"))
+    try:
+        next_build(forbidden, slept.append, lambda: 0.0)
+        failures.append("next_build answered through a 403")
+    except Refused as stopped:
+        if stopped.status != 403 or len(asked) != 1:
+            failures.append(f"next_build asked {len(asked)} times through a 403, which will not change")
+
+    # The deadline, on a clock each read moves on by a hundred seconds: one
+    # case gives up rather than pause past it, the other starts no read past it.
+    def _slow(failure: BaseException | None):
+        now = [0.0]
+        answers, _ = _flaky()
+        reads: list[str] = []
+
+        def get(path: str) -> dict:
+            reads.append(path)
+            now[0] += 100.0
+            if failure is not None:
+                raise failure
+            return answers(path)
+
+        def sleep(seconds: float) -> None:
+            now[0] += seconds
+
+        return get, sleep, (lambda: now[0]), reads
+
+    for name, failure, pieces in (
+        ("stop asking when the next pause passes the deadline", timed_out, ("after 2 attempts in 205 seconds",)),
+        ("start no read past the deadline", None, ("after 1 attempts in 200 seconds", "180-second deadline passed")),
+    ):
+        get, sleep, clock, reads = _slow(failure)
+        with contextlib.redirect_stderr(io.StringIO()):
+            try:
+                next_build(get, sleep, clock)
+                failures.append(f"next_build did not {name}: it answered")
+            except SystemExit as stopped:
+                for fragment in pieces:
+                    if fragment not in str(stopped):
+                        failures.append(f"next_build did not {name}: {stopped}")
+        if len(reads) != 2:
+            failures.append(f"next_build did not {name}: {len(reads)} reads")
+
     # Paging. The first page used to be read as the whole collection, which is
     # an undercount the moment a platform holds more than one page of builds —
     # and an undercounted `highest_build` is a number Apple refuses after the
@@ -2168,8 +2329,6 @@ def _selftest() -> int:
     # An HTTP error from a read carries its status, so a caller can tell Apple being briefly
     # unavailable from Apple saying no. Until 2026-09-10 only the writer's did, and
     # `submit_build.py`'s wait, which retries a 503, asked once and stopped.
-    import io
-
     opened = urllib.request.urlopen
     reader = Client.__new__(Client)
     reader.bearer = "selftest"

@@ -6,8 +6,8 @@
     "VerifyXcode",
     "VerifySwiftTests",
     "Verify",
-    "Ship",
-    "TestFlight"
+    "ShipIos",
+    "ShipMacos"
   ],
   "testLegs": [
     "VerifyPython",
