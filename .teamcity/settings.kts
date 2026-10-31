@@ -314,14 +314,8 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
 val shipIos = ship("ios", "Ios", "iOS")
 val shipMacos = ship("macos", "Macos", "macOS")
 
-// TEMPORARY, removed once the evidence is recorded. Each run confirms the exact
-// revision, reports what an earlier run left, then seeds its directory with an
-// untracked file, a changed tracked file, a marker in `.git` and the ignored output
-// this project really produces. Pinned to one agent, or a later run could land on
-// an agent that never saw the seed and prove nothing.
-//   ProbeControl: nothing cleans, so the seed must survive. Without this the other
-//   two could pass only because nothing was ever left to find.
-//   ProbeCleanCheckout: only the emptying before checkout acts.
+// TEMPORARY, removed once the evidence is recorded. Pinned to one agent, or a later
+// run could land on an agent that never saw the seed and prove nothing.
 //   ProbeBuildCleanup: only the removal after a build acts. It repeats a four-run
 //   cycle: success, a failure on purpose, a self-cancel, then the execution timeout,
 //   each publishing the sentinel, so evidence is shown to leave before the directory
@@ -406,6 +400,92 @@ fun workspaceProbe(
     }
 }
 
+// TEMPORARY, with the probe above. The agent's free-disk cleaner deletes idle
+// workspaces when the shared disk runs low, which left a separate control red and
+// made a clean result vacuous, so this is one chain in one directory with no gap to
+// clean in. ProbeSeed plants an untracked file, a changed tracked file, a marker in
+// `.git` and ignored output. ProbeSeedSurvives shows with no cleaning that every seed
+// is there. ProbeCleanCheckout shows none reaches a build once the directory is
+// emptied. A run counts only when it starts straight after the green survival check.
+fun chainProbe(probeId: String, probeName: String, clean: Boolean, expected: String, after: BuildType?) = BuildType {
+    id(probeId)
+    name = probeName
+    maxRunningBuilds = 1
+    vcs {
+        root(DslContext.settingsRoot)
+        checkoutDir = "no-spoilers-probe-chain"
+        cleanCheckout = clean
+    }
+    params {
+        param("system.teamcity.build.checkoutDir.expireHours", "1")
+    }
+    requirements {
+        equals("teamcity.agent.name", "macstudio-2")
+    }
+    if (after != null) {
+        dependencies {
+            snapshot(after) {
+                reuseBuilds = ReuseBuilds.NO
+            }
+        }
+    }
+    steps {
+        script {
+            name = "probe"
+            scriptContent = """
+                set -eu
+                echo "PROBE agent=%teamcity.agent.name% expected=$expected"
+                test "${'$'}(git rev-parse HEAD)" = "%build.vcs.number%"
+                echo "PROBE exact revision %build.vcs.number%"
+                wrong=0
+                for f in .git/probe-marker probe-sentinel.txt tmp/DerivedData/Stale/output.o .build/stale; do
+                    if [ -e "${'$'}f" ]; then found=yes; else found=no; fi
+                    echo "PROBE ${'$'}f found=${'$'}found"
+                    if [ "$expected" = "all" ] && [ "${'$'}found" = "no" ]; then wrong=1; fi
+                    if [ "$expected" = "none" ] && [ "${'$'}found" = "yes" ]; then wrong=1; fi
+                done
+                changes="${'$'}(git status --porcelain --ignored)"
+                echo "PROBE status: [${'$'}changes]"
+                if [ "$expected" = "none" ] && [ -n "${'$'}changes" ]; then wrong=1; fi
+                if [ "$expected" = "all" ] && [ -z "${'$'}changes" ]; then wrong=1; fi
+                mkdir -p tmp/DerivedData/Stale .build
+                echo stale > .git/probe-marker
+                echo stale > probe-sentinel.txt
+                echo stale >> README.md
+                echo stale > tmp/DerivedData/Stale/output.o
+                echo stale > .build/stale
+                echo "PROBE seeded"
+                if [ "${'$'}wrong" = "1" ]; then echo "PROBE UNEXPECTED"; exit 3; fi
+                echo "PROBE as expected"
+            """.trimIndent()
+        }
+    }
+    if (expected == "none") {
+        triggers {
+            schedule {
+                schedulingPolicy = cron {
+                    seconds = "0"
+                    minutes = "*/10"
+                    hours = "*"
+                    dayOfMonth = "*"
+                    month = "*"
+                    dayOfWeek = "?"
+                }
+                branchFilter = "+:<default>"
+                triggerBuild = always()
+                withPendingChangesOnly = false
+            }
+        }
+    }
+    failureConditions {
+        executionTimeoutMin = 1
+    }
+}
+
+val probeSeed = chainProbe("ProbeSeed", "Probe: seed", false, "any", null)
+val probeSeedSurvives = chainProbe("ProbeSeedSurvives", "Probe: seed survives", false, "all", probeSeed)
+val probeCleanCheckout = chainProbe("ProbeCleanCheckout", "Probe: clean checkout", true, "none", probeSeedSurvives)
+
 project {
     description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
 
@@ -416,7 +496,8 @@ project {
     buildType(shipIos)
     buildType(shipMacos)
 
-    buildType(workspaceProbe("ProbeControl", "Probe: control", false, "1", true, false))
-    buildType(workspaceProbe("ProbeCleanCheckout", "Probe: clean checkout", true, "1", false, false))
+    buildType(probeSeed)
+    buildType(probeSeedSurvives)
+    buildType(probeCleanCheckout)
     buildType(workspaceProbe("ProbeBuildCleanup", "Probe: build cleanup", false, "0", false, true))
 }
