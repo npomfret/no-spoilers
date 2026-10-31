@@ -392,9 +392,9 @@ fun workspaceProbe(
             schedulingPolicy = cron {
                 minutes = "*/3"
                 hours = "*"
-                dayMonth = "*"
+                dayOfMonth = "*"
                 month = "*"
-                dayWeek = "?"
+                dayOfWeek = "?"
             }
             branchFilter = "+:<default>"
             triggerBuild = always()
