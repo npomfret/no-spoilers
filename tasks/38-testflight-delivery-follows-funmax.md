@@ -1,7 +1,6 @@
 # Task 38: TestFlight delivery follows Funmax
 
-**Status: IN PROGRESS, 2026-10-31.** Unattended Apple delivery works and is proven. All that is
-left is landing the `Verify` hardening and watching one chain pass it.
+**Status: DONE, 2026-10-31.** Unattended Apple delivery works and is proven, and `Verify` is hardened.
 
 Make No Spoilers use the proven Super Funmax Music deployment pattern on the shared TeamCity agents:
 verify a commit, archive that exact commit, upload it, wait for Apple processing, write its tester
@@ -30,23 +29,18 @@ notes, and confirm it is available to internal TestFlight testers.
 - `.teamcity/cli.json` names `ShipIos` and `ShipMacos`. `docs/guides/building.md` explains the `status`
   window that can still hide them.
 
-**Open work**
+**Verify hardening, landed in `c12e6a7`**
 
-- [ ] **Land the `Verify` hardening.** The DSL is `tmp/task38-verify-hardening.patch`, against the
-  committed `settings.kts`; it could not be compiled locally. It makes `Verify` a composite, adds
-  `mac release` and `ios release` steps to `Verify: Xcode`, and reports JUnit results from
-  `Verify: Swift tests`. The script changes it needs are in the working tree.
-  - **The patch and the scripts must land together, or scripts first.** Today's wrappers ignore
-    arguments, so `-configuration Release` on an old script would compile Debug twice and stay green.
-  - **Pushing touches `scripts/**`, so it triggers real `Ship` deliveries.** `16d158d` is the same.
-    The push needs the owner's intent.
-  - `Verify` is composite with no trigger to `Ship`: that clause of the old plan is struck, because a
-    finished `Verify` starting `Ship` is what shipped the nightly (`ShipMacos #6`, `ShipIos #18`).
-  - Test results are published for `Verify: Swift tests` only: the Python selftests write no JUnit
-    output. The nightly sets both `enforceCleanCheckout` flags, as every sibling composite does.
-- [ ] **Read one chain back after landing:** `Verify` composite with no agent, both Release steps run,
-  149 tests reported on `Verify: Swift tests`, and `Ship` still gated on `Verify`.
-- [ ] Delete `tmp/task38-verify-hardening.patch` once it has landed.
+`Verify` is a composite, `Verify: Xcode` also compiles both apps in Release, and `Verify: Swift tests`
+reports JUnit results. The Python selftests write no JUnit output, so that leg reports none. A finished
+`Verify` does not start `Ship`: that clause of the old plan is struck, because it shipped the nightly.
+
+Read back from `Verify #193` (22011) at `4442dee`, started by a temporary schedule with the nightly's
+flags, so on an unchanged revision: run by the build server with no agent; `Verify: Xcode #195` (22009)
+ran all five steps, both Release steps under `Products/Release`; `Verify: Swift tests #193` (22010)
+reported 149 tests passed. `Verify #192` at `c12e6a7` was queued before the settings applied, so it
+ran the old steps and does not count. `ShipIos #24` (10050) and `ShipMacos #12` (10049) delivered from
+it.
 
 **Decisions, owner, 2026-10-31**
 
@@ -118,21 +112,13 @@ notes, and confirm it is available to internal TestFlight testers.
   would change every writer's reads, so it was left. Inside `Ship` such a failure is recorded with its
   recovery command.
 
+- **`Ship` behind the composite is read, not observed:** the live dependency on `Verify` still has
+  `CANCEL`, `sync-revisions` and successful builds only, and the next relevant push exercises it.
 - The write lock went in `8e9d2a5`, so the two `Ship` configurations no longer queue behind each
-  other. No `Ship` has run since (`#22`, 2026-10-15), so two archiving together on this Mac, and any
-  overlap with Funmax's `Ship`, is unobserved. Reservation races are closed by `claim`.
+  other. Two archiving together, and any overlap with Funmax's `Ship`, is unobserved. Reservation races are closed by `claim`.
 - `teamcity.py builds` hides cancelled builds, so `ShipMacos #2` is unaccounted for.
 
-**Follow-ups**
-
-- **Profile churn.** The portal held 292 Xcode-managed profiles for this bundle id on 2026-09-10. Not
-  re-read since.
-- **Lessons for agent-standards, and for Funmax:** Funmax's `Ship` timeout was under its own step
-  limits on 2026-09-10; Xcode writes `.xcdistributionlogs` to `getconf DARWIN_USER_TEMP_DIR` and
-  ignores `TMPDIR`; an artifact rule for a directory needs `/**`; a new keychain key needs its partition
-  list set before a background agent can use it.
-- **Owner housekeeping:** confirm `~/Desktop/certs.p12`, which held two signing private keys, is gone
-  from the Mac Studio. It is not on the laptop; the Mac Studio was not read.
+Follow-ups moved to `tasks/2026-10-31-testflight-follow-ups.md`.
 
 **Related records**
 

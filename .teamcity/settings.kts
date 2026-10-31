@@ -222,19 +222,6 @@ val verify = BuildType {
             enforceCleanCheckout = true
             enforceCleanCheckoutForDependencies = true
         }
-        // TEMPORARY: one chain under the hardened settings, without shipping.
-        schedule {
-            schedulingPolicy = daily {
-                hour = 19
-                minute = 29
-                timezone = "Europe/London"
-            }
-            branchFilter = "+:<default>"
-            triggerBuild = always()
-            withPendingChangesOnly = false
-            enforceCleanCheckout = true
-            enforceCleanCheckoutForDependencies = true
-        }
     }
 }
 
