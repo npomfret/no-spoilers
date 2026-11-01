@@ -95,7 +95,7 @@ so an expired number is refused rather than delivered. It is also how
 
 **`--apply` ends by reading back what it wrote**, since 2026-09-10: the groups
 hold the build and the note names it, or the run exits 1 saying which did not.
-Nothing else looks, now that delivery runs unattended.
+Nothing else looks, since nobody watches a `Ship` run once it is pressed.
 
 Usage:
     scripts/testflight_distribute.py                          # what would happen

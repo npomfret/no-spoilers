@@ -2,7 +2,7 @@
 """Put this commit in front of the TestFlight testers: archive, upload, wait, deliver.
 
 The one Apple delivery path since 2026-09-10, run by TeamCity's `Ship iOS` and
-`Ship macOS` after every green `Verify`; every build goes through them. It is
+`Ship macOS` when a person presses them; every build goes through them. It is
 FunMax's `submit_build.py` in shape, and task 38 is why: that one has delivered
 unattended from the same agents for weeks, while `release.sh` never once got a TeamCity run as far as an archive.
 
@@ -1111,7 +1111,7 @@ def selftest() -> int:
                 os.environ[name] = value
 
     # One `ship(...)` function makes every Ship configuration, so its timeout is theirs, and a
-    # platform this script can ship that no configuration names would never ship unattended.
+    # platform this script can ship that no configuration names could never ship at all.
     settings = (REPO / ".teamcity" / "settings.kts").read_text()
     shipping = settings[settings.index("fun ship("):]
     timeout = re.search(r"executionTimeoutMin = (\d+)", shipping)

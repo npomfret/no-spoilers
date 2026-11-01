@@ -9,7 +9,7 @@ set -euo pipefail
 # closed train, and names this command — it never opens a version itself,
 # because a version changed by the thing that archives is an archive of a
 # commit nothing verified. Opened here, the change is an ordinary commit:
-# TeamCity verifies it and `Ship` delivers it like any other.
+# TeamCity verifies it like any other, and it ships when `Ship` is pressed.
 #
 # **The version only moves forward.** A lower or equal version, or one any
 # version tag already claims, is refused: `release.sh` used to set whatever it
@@ -70,4 +70,4 @@ if ! git push --quiet origin HEAD:main; then
   echo "reset it (git reset --hard origin/main after fetching), pull, and run this again." >&2
   exit 1
 fi
-echo "Pushed. TeamCity verifies it, and Ship delivers ${VERSION} once Verify is green."
+echo "Pushed. TeamCity verifies it; press Ship iOS and Ship macOS to deliver ${VERSION}."
