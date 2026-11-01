@@ -169,7 +169,7 @@ scripts/testflight_distribute.py --platform ios --build 10025 --apply
 
 **Opening a new version: `scripts/open-version.sh X.Y.Z`.** Once Apple approves a version, its train
 takes no more builds and `submit_build.py` refuses it, naming these two commands. The second commits
-`open vX.Y.Z` and pushes it, and that commit is verified and shipped like any other; nothing that
+`open vX.Y.Z` and pushes it, and that commit is verified like any other and ships when `Ship` is pressed; nothing that
 archives changes the version.
 
 ```bash

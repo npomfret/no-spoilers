@@ -163,7 +163,7 @@ val verify = BuildType {
     name = "Verify"
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
         "Verify: Xcode and Verify: Swift tests all passed on the same revision. Runs for every " +
-        "push to main as Ship's dependency, and alone nightly at 00:00 Europe/London."
+        "push to main and nightly at 00:00 Europe/London. Neither ships anything."
     type = BuildTypeSettings.Type.COMPOSITE
 
     // No steps, no agent and no checkout. It exists so one light answers "did this
@@ -201,11 +201,19 @@ val verify = BuildType {
         }
     }
 
-    // **Only the nightly triggers `Verify` directly.** A push reaches it through
-    // the two `Ship` configurations, whose VCS trigger pulls this chain in by
-    // snapshot dependency; the nightly runs it alone, so it compiles an unchanged
-    // repo without shipping it.
+    // **`Verify` holds every trigger in this project, and nothing follows it.** A
+    // push runs this chain at the pushed revision, and the nightly compiles an
+    // unchanged repo. `Ship` is pressed by a person; see its own note.
     triggers {
+        vcs {
+            branchFilter = "+:<default>"
+            triggerRules = """
+                +:NoSpoilers/**
+                +:NoSpoilersCore/**
+                +:scripts/**
+            """.trimIndent()
+            perCheckinTriggering = true
+        }
         schedule {
             schedulingPolicy = daily {
                 hour = 0
@@ -247,7 +255,7 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     description = "TestFlight for $label: scripts/ci-publish.sh --platform $platform --tested, which " +
         "asserts the agent and hands over to scripts/submit_build.py. Archives the verified " +
         "revision, uploads it, waits for Apple and delivers that exact build to the Internal " +
-        "testers. Triggered by every push to main, through Verify; the nightly does not ship. ship.args takes --check or " +
+        "testers. Manual only: nothing triggers it, so it runs when a person presses it. ship.args takes --check or " +
         "--archive-only."
     onTheAgent("ship-$platform")
 
@@ -303,24 +311,11 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     // archives for nothing.
     maxRunningBuilds = 1
 
-    // **Each ships every push to main, and the nightly ships nothing.** The VCS
-    // trigger lives here rather than on `Verify`: a push queues both `Ship`s,
-    // their snapshot dependency queues one `Verify` chain at that revision, and
-    // a red `Verify` cancels them. The nightly is `Verify`'s own schedule, which
-    // no `Ship` follows. Until 2026-10-13 a `finishBuildTrigger` on `Verify`
-    // shipped the nightly too, and so re-uploaded an unchanged commit
-    // (`ShipMacos #6`) or failed on a released version (`ShipIos #18`).
-    triggers {
-        vcs {
-            branchFilter = "+:<default>"
-            triggerRules = """
-                +:NoSpoilers/**
-                +:NoSpoilersCore/**
-                +:scripts/**
-            """.trimIndent()
-            perCheckinTriggering = true
-        }
-    }
+    // **Manual only, since 2026-10-31: this configuration has no trigger, and
+    // must not gain one.** A delivery happens because a person pressed `Ship`
+    // (user decision). The snapshot dependency holds each press to a green `Verify`
+    // at that revision, and a red one cancels the run. Unattended delivery ran from
+    // 2026-10-11 to 2026-10-31, the last two weeks of it on a VCS trigger here.
 
     requirements {
         exists("tools.xcode.home")

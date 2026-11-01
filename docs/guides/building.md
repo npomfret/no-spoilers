@@ -39,7 +39,7 @@ should.
 
 - **TestFlight, both platforms, is `scripts/submit_build.py`**, the one Apple delivery path, **one
   platform per run**. TeamCity's `Ship iOS` and `Ship macOS` run it behind
-  `scripts/ci-publish.sh` after every green `Verify`, and **every build goes through them**; a
+  `scripts/ci-publish.sh` when a person presses them, and **every build goes through them**; a
   local `--apply` is not a release route. It is FunMax's
   `submit_build.py` in shape, because that one has delivered unattended from the same agents while
   every press of the old combined button stopped before archiving. In order, and all before anything
@@ -99,7 +99,7 @@ should.
 - **A version is opened by `scripts/open-version.sh X.Y.Z`**, and by nothing that archives. It sets
   `MARKETING_VERSION` in every configuration, commits `open vX.Y.Z` and pushes it, refusing a dirty
   tree, a checkout that is not exactly `origin/main`, and a version that does not move forward or
-  that a tag already claims. That commit is verified and shipped like any other.
+  that a tag already claims. That commit is verified like any other, and ships when `Ship` is pressed.
 - **Homebrew is `scripts/release.sh`**, through `scripts/ship-homebrew.sh` on a laptop or
   `ci-publish.sh --platform homebrew` on an agent: the Developer ID zip, notarization, a GitHub
   release and the cask. **It releases the version the commit holds** and changes nothing on `main`:
@@ -139,13 +139,11 @@ either platform re-runs alone, and so each has its own history. The cost is two 
 commit, which nothing depends on: Apple numbers the platforms separately and the approval tags are
 per platform. The old `Ship`'s history survives as `ShipIos #1` to `#11`.
 
-**Each ships every push to main; the nightly ships nothing.** Unattended delivery was switched on
-2026-10-11 once each had delivered end to end (`ShipIos #12`, `ShipMacos #3`). Since 2026-10-13 the
-VCS trigger sits on the two `Ship` configurations, which pull in one `Verify` chain at the pushed
-revision through their snapshot dependency, and `Verify` keeps only the 00:00 nightly, which no
-`Ship` follows. Before that a nightly at an unchanged commit uploaded it again (`ShipMacos #6`), or
-failed on a released version (`ShipIos #18`). A commit outside the trigger rules, such as one
-touching only `listing/`, ships by pressing `Ship`.
+**Delivery is manual: nothing ships until a person presses `Ship`.** Neither `Ship` configuration
+has a trigger, and neither may gain one. `Verify` holds the VCS trigger and the 00:00 nightly, and no
+`Ship` follows it. The snapshot dependency holds each press to a green `Verify` at that revision,
+and a red one cancels the run. Unattended delivery ran from 2026-10-11 to 2026-10-31; before 2026-10-13 it also shipped the nightly, which uploaded an unchanged commit
+again (`ShipMacos #6`) or failed on a released version (`ShipIos #18`).
 
 **`ci-publish.sh` is deliberately thin.** It asserts what a build agent breaks and the engines
 assume, in seconds, before anything expensive, and then hands over. For an Apple platform: that
@@ -208,7 +206,7 @@ no run TeamCity still listed, and FunMax has none. When a `Ship` run uploaded a 
 finish delivering it, its record and log name
 `scripts/testflight_distribute.py --platform P --build N --apply`; run that from a machine holding
 the App Manager key. Without `--apply` that command changes nothing and reports the note and the
-groups for build N, not the newest. The next push ships a newer build anyway.
+groups for build N, not the newest. The next press of `Ship` ships a newer build anyway.
 
 **Signing expires.** The `No Spoilers Mac App Store` profile and the Apple Distribution certificate
 expire on 2027-08-21, and the Mac Installer Distribution certificate on 2027-09-10; the profile must
