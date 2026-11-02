@@ -10,7 +10,6 @@ import NoSpoilersCore
 
 private struct MenuBarLabelView: View {
     @ObservedObject var store: ScheduleStore
-    @ObservedObject var updateChecker: UpdateChecker
     var onSizeChange: ((CGSize) -> Void)?
 
     @AppStorage("menuBar.showFlag")      private var showFlag:      Bool = false
@@ -39,11 +38,6 @@ private struct MenuBarLabelView: View {
                 Text(label)
                     .font(.system(size: 12, weight: .medium))
             }
-            if updateChecker.isUpdateAvailable {
-                Circle()
-                    .fill(Theme.Palette.attention)
-                    .frame(width: 5, height: 5)
-            }
         }
         .fixedSize()
         .background(GeometryReader { g in
@@ -66,7 +60,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     // write of the group container (Code=257/513 in the cache log) from March
     // to 2026-10-13. Without one, the cache lives in the app's own Caches.
     private let store = ScheduleStore()
-    private let updateChecker = UpdateChecker()
     private let alerts = SessionAlertScheduler()
     private var labelHostingView: NSHostingView<MenuBarLabelView>!
     private var cancellables = Set<AnyCancellable>()
@@ -77,7 +70,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     private func makePopoverContentController() -> NSHostingController<MenuBarPopoverRootView> {
         let popoverView = MenuBarPopoverRootView(
             store: store,
-            updateChecker: updateChecker,
             alerts: alerts,
             dismissPopover: { [weak self] in
                 self?.popover.performClose(nil)
@@ -104,7 +96,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         statusItem.autosaveName = "NoSpoilersMenuBarItem"
 
         // Create label view — FlagImage renders live here (real NSHostingView context)
-        let labelView = MenuBarLabelView(store: store, updateChecker: updateChecker) { [weak self] size in
+        let labelView = MenuBarLabelView(store: store) { [weak self] size in
             guard let self else { return }
             // Defer frame update to avoid layoutSubtreeIfNeeded recursion —
             // GeometryReader fires during layout; resizing the NSHostingView here
@@ -138,7 +130,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         // Initial data load
         Task {
             await store.refresh()
-            await updateChecker.check()
         }
 
         // Periodic refresh every hour
@@ -209,7 +200,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
             // Refresh data when popover opens
             Task {
                 await store.refresh()
-                await updateChecker.check()
             }
         }
     }

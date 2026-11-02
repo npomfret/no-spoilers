@@ -22,9 +22,10 @@ Canonical build and compile policy for this repo.
 
 ## Continuous delivery
 
-**Two deliveries, independent of each other, since 2026-09-10** (task 38). Neither waits for the
-other, neither's prerequisites are asserted by the other, and their version and build numbers need
-not match.
+**TestFlight delivery runs separately for iOS and macOS.** The App Store is the installation
+channel. The former Homebrew/Developer ID channel was retired on 2026-11-02; its publishing engine,
+notarization configuration and in-app GitHub update checker have been removed. Historical release
+and build-provenance evidence below describes the old tooling, not an available publishing path.
 
 **Xcode Cloud is gone, removed on 2026-09-09.** It archived and uploaded on every push
 to `main`, and it asked none of the four questions `release.sh` asks first — so when 1.1.3 was
@@ -60,8 +61,7 @@ should.
     lock: two runs that chose the same N cannot both hold it, and the loser chooses again in seconds
     rather than colliding at upload. **Every tag carries a `Reservation:` line of its own, and origin
     is read back after the push**, because without one two runs tagging one commit as one person in
-    one second wrote identical tag objects and both pushes succeeded. `release.sh` reserves the same
-    way. A reserved number that never reaches Apple is harmless. A run is one platform, one number and
+    one second wrote identical tag objects and both pushes succeeded. A reserved number that never reaches Apple is harmless. A run is one platform, one number and
     one upload, so one commit shipped to both platforms spends two numbers: until 2026-09-10 an `all`
     run shipped both under one.
   - Then a Release archive with `CURRENT_PROJECT_VERSION=N` on the command
@@ -100,14 +100,6 @@ should.
   `MARKETING_VERSION` in every configuration, commits `open vX.Y.Z` and pushes it, refusing a dirty
   tree, a checkout that is not exactly `origin/main`, and a version that does not move forward or
   that a tag already claims. That commit is verified like any other, and ships when `Ship` is pressed.
-- **Homebrew is `scripts/release.sh`**, through `scripts/ship-homebrew.sh` on a laptop or
-  `ci-publish.sh --platform homebrew` on an agent: the Developer ID zip, notarization, a GitHub
-  release and the cask. **It releases the version the commit holds** and changes nothing on `main`:
-  until 2026-09-10 it set `MARKETING_VERSION` to whatever it was given and pushed that, which on its
-  own cadence would walk the project back under the Apple train. It refuses a commit not on
-  `origin/main`, runs the gate, and reserves `build/N` before archiving exactly as
-  `submit_build.py` does, so the two cannot stamp one number on two builds. It has no TeamCity
-  configuration yet.
 - **What went, on 2026-09-10, and why.** `scripts/ship.sh`, `ship-ios.sh` and `ship-appstore.sh`,
   `release.sh`'s `app-store` and `both` channels, `_version.sh: version_to_ship`, and
   `NoSpoilers/ExportOptions-AppStore.plist` with its deprecated `app-store` method. Every press of
@@ -150,15 +142,13 @@ assume, in seconds, before anything expensive, and then hands over. For an Apple
 *Apple Distribution* can **sign** a throwaway binary (a locked login keychain lists identities
 happily and then refuses), that the *Mac Installer Distribution* identity is present for macOS, that
 both App Store Connect keys are there, and that the checkout can push a tag over SSH with an author.
-For `homebrew`: *Developer ID Application* by probe, `notarytool history` as a read that proves the
-notarization key, `gh auth status`, and a fresh clone of `homebrew-tap` under the build's own temp
-directory with a `push --dry-run`. `--check` reports every gap in one run rather than one per press,
-and for an Apple platform then runs `submit_build.py` without `--apply`, which asks App Store Connect
+`--check` reports every gap in one run rather than one per press,
+and then runs `submit_build.py` without `--apply`, which asks App Store Connect
 everything a real run would and changes nothing. A missing certificate prints the identities the
 agent does hold.
 
-The `.app` on both platforms is signed with *Apple Distribution*; the Homebrew zip with *Developer ID
-Application*, notarized. An identity installed for the `nickpomfret` user reaches all three agents,
+The `.app` on both platforms is signed with *Apple Distribution*.
+An identity installed for the `nickpomfret` user reaches all three agents,
 and only a build step can prove the agent's session can use it.
 
 **The Mac App Store `.pkg` is signed with a local *Mac Installer Distribution* identity**, "3rd Party
@@ -210,19 +200,19 @@ groups for build N, not the newest. The next press of `Ship` ships a newer build
 
 **Signing expires.** The `No Spoilers Mac App Store` profile and the Apple Distribution certificate
 expire on 2027-08-21, and the Mac Installer Distribution certificate on 2027-09-10; the profile must
-then be regenerated with the renewed certificate and installed on the agent machine. The laptop's
-Developer ID Application certificate expires on 2027-02-01.
+then be regenerated with the renewed certificate and installed on the agent machine.
 
 - **Xcode Cloud built this app from 2026-08-08 to 2026-09-09 and no longer does.** It archived both schemes on every push to `main`, uploaded both, and is the origin of every build numbered 1 to 125 on the record. Removed with it: the workflow, the `NoSpoilers/ci_scripts/` hook, `scripts/ci_health.py`, the `ciProducts` lookups, and `set_build_number`, whose only caller the hook had become. What it cost on the way out: it asked none of `release.sh`'s four questions, so once 1.1.3 was approved on 2026-09-07 it went on uploading that closed train on every push — `ITMS-90186` and `ITMS-90062` by email each time, up to run 125 — until the emails were noticed and `MARKETING_VERSION` was moved to 1.1.4.
-  - Two of its lessons are load-bearing elsewhere and are kept where they apply, not here: the `10000` band below exists because its run numbers and `release.sh`'s counter had to not collide, and `verify-core-tests.sh` runs inside `release.sh` because that gate lived only in the hook until 2026-08-22 and left the path entirely when Xcode Cloud stopped.
+  - Two of its lessons are load-bearing elsewhere and are kept where they apply, not here: the `10000` band below exists because its run numbers and `release.sh`'s counter had to not collide, and `verify-core-tests.sh` runs inside `submit_build.py` because the former gate lived only in the hook until 2026-08-22.
   - The rest is history and is in git: that `GET /v1/ciProducts` is a cache which lies in both directions; that Integrate → Create Workflow seized the sibling project's product three times between 2026-08-08 and 2026-08-12, renaming it and repointing it, invisibly from the victim's side; that a product must therefore be found by the app it builds and never by its name; and that deleting and recreating one restarts `CI_BUILD_NUMBER` at 1 against numbers already spent, which does not fail the build — it goes green and dies by email.
-- **The two upload paths are kept apart by the `10000` band.** `release.sh` counted up from a committed `CURRENT_PROJECT_VERSION` of `10000` until 2026-09-05 (10001 … 10022, one step per ship run rather than one per platform), and since 2026-09-05 takes the next number from App Store Connect itself — the highest build the record holds on either platform, plus one — so the band continues from wherever the record is without a file remembering it. Xcode Cloud uses its run number. The committed value is frozen at `10022` and is not a build setting the archive reads; do not lower it, because a local Xcode build stamps it into a bundle and build numbers only ever increase. **The separation has been observed on the real app record**, measured 2026-08-16: the macOS 1.1.1 train holds `10001` beside Xcode Cloud's 15, 16 and 17, and the iOS 1.1.1 train holds `10002` beside its 1 through 17. Nothing collided. The current `release.sh` has since shipped the iOS channel twenty times and the macOS App Store channel once (`10006`, 2026-08-23). **The first three-channel `ship.sh` run since the rewrite went out on 2026-09-09**: 1.1.4, build 10024, `build/10024` on `ba243f1`, the GitHub release `v1.1.4` and the cask bumped to 1.1.4 — the Developer ID channel's first run under this engine, and the first time one number reached all three channels rather than one per platform.
+- **The two upload paths are kept apart by the `10000` band.** `release.sh` counted up from a committed `CURRENT_PROJECT_VERSION` of `10000` until 2026-09-05 (10001 … 10022, one step per ship run rather than one per platform), and since 2026-09-05 takes the next number from App Store Connect itself — the highest build the record holds on either platform, plus one — so the band continues from wherever the record is without a file remembering it. Xcode Cloud uses its run number. The committed value is frozen at `10022` and is not a build setting the archive reads; do not lower it, because a local Xcode build stamps it into a bundle and build numbers only ever increase. **The separation has been observed on the real app record**, measured 2026-08-16: the macOS 1.1.1 train holds `10001` beside Xcode Cloud's 15, 16 and 17, and the iOS 1.1.1 train holds `10002` beside its 1 through 17. Nothing collided. The former `release.sh` shipped the iOS channel twenty times and the macOS App Store channel once (`10006`, 2026-08-23). **The first three-channel `ship.sh` run since the rewrite went out on 2026-09-09**: 1.1.4, build 10024, `build/10024` on `ba243f1`, the GitHub release `v1.1.4` and the cask bumped to 1.1.4 — the Developer ID channel's first run under this engine, and the first time one number reached all three channels rather than one per platform.
 
-- **Three tag families, since 2026-09-05, and each means one thing.** Before it there was one, `vX.Y.Z`, written at the *first* upload of a train, which is not the build users got: `v1.1.2` marks `bump to v1.1.2 (build 10003)` and the build on sale is 10012. Those bare tags are left where they are — the Homebrew cask and the GitHub releases point at them — and mean "first upload of that train". Four of them did not, and were deleted on 2026-09-09: `v1.1.2` and `v1.1.3`, written by that old rule at an *App Store* upload and never released through the Developer ID channel — left in place they would have been silently reused by `tag_version`, which skips a name that already exists — and `v1.0.10` and `v1.0.11`, two gaps in the dense run of releases made on 2026-03-29. **The invariant that leaves is worth keeping: every bare `vX.Y.Z` tag has a GitHub release of the same name, and every release has its tag — 22 of each, checked 2026-09-09.** A bare tag with nothing behind it is now a defect, not history. The family ends at `v1.1.1` (2026-08-12), the last Developer ID release. Going forward:
-  - `build/N` — build number N was reserved for an archive of this commit. One per run of `submit_build.py` or `release.sh`, annotated, **pushed before the archive**, because the push is what makes the number that run's. A number reserved and never uploaded is harmless; the run's record says which platforms reached App Store Connect. A second run on an unchanged commit reserves a new number and puts a second tag on the same commit.
+- **Current build and approval tags, with historical bare version tags retained.** Bare `vX.Y.Z`
+  tags came from the retired release engine; they are provenance, not a current delivery trigger.
+  - `build/N` — build number N was reserved for an archive of this commit. One per run of `submit_build.py`, annotated, **pushed before the archive**, because the push is what makes the number that run's. A number reserved and never uploaded is harmless; the run's record says which platforms reached App Store Connect. A second run on an unchanged commit reserves a new number and puts a second tag on the same commit.
   - `ios/vX.Y.Z` and `macos/vX.Y.Z` — the build of X.Y.Z Apple approved for that platform, on that build's commit. Written by `scripts/tag_approved.py PLATFORM VERSION --apply`, which asks `appstore_status.py --approved` for the build number and `ship_commit` for its commit (`build/N`, or the bump commit for 10001–10022). Two names because the platforms are approved at different builds — iOS 1.1.2 at 10012, macOS 1.1.2 not yet submitted. A person runs it once Apple approves; `submit_build.py`'s closed-train refusal names it, beside `open-version.sh`. It never moves a tag: one already on the right commit is kept, one on a different commit stops the run.
-  - `vX.Y.Z` — the macOS Developer ID release, that channel only, annotated. Kept under the bare name because the cask downloads `releases/download/v#{version}/…`. The App Store channels no longer tag a version at upload.
-  - `suggest_next_version` reads all three version families, so a version approved on the store under `ios/` is not offered again. **Tags have to be fetched wherever they are read** — a TeamCity checkout carries none — and `next_build_number`, `submit_build.py`, `release.sh`, `testflight_distribute.py` and `tag_approved.py` each fetch before asking.
+  - `vX.Y.Z` — historical version/release tags only. New App Store deliveries do not write them.
+  - `suggest_next_version` reads all three version families, so a version approved on the store under `ios/` is not offered again. **Tags have to be fetched wherever they are read** — a TeamCity checkout carries none — and `next_build_number`, `submit_build.py`, `testflight_distribute.py` and `tag_approved.py` each fetch before asking.
   - **`suggest_next_version` opens the *next* train, and nothing ships with it.** It takes the highest version anything claims — tags or `MARKETING_VERSION` — and steps past it, which is the version to open once a train has closed. Until 2026-09-10 `version_to_ship` chose between it and the project's own version for `ship.sh` and `ci-publish.sh`; now nothing that archives chooses a version at all. `submit_build.py` ships the committed version or refuses a closed train, and names `open-version.sh` with this function's answer.
 
 - **The cost of the bands is that the newest build looks missing in TestFlight.** TestFlight orders builds by number within a version train, so a `10000`-band build outranks every Xcode Cloud build in that train permanently. Observed 2026-08-17: iOS 1.1.1 read `[10002, 18, 17, … 1]` with `10002` uploaded 12 August and `18` uploaded 16 August — the newest build four days newer and nineteenth in the list. macOS 1.1.1 was the same shape. Nothing is broken and testers can install the newest build; it just is not where anyone looks for it.

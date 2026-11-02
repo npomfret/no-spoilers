@@ -68,40 +68,6 @@
       color: var(--text-tertiary);
     }
 
-    .install-cmd {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      align-self: stretch;
-      gap: 10px;
-      background: linear-gradient(135deg, var(--smoke), var(--deep-maroon));
-      color: var(--on-dark);
-      border-radius: var(--radius-lg);
-      padding: 14px 20px;
-      box-shadow: 0 14px 30px rgba(31, 26, 26, 0.22);
-    }
-
-    .install-cmd code {
-      font-family: var(--mono);
-      font-size: 0.95rem;
-      white-space: nowrap;
-    }
-
-    .copy-btn {
-      background: none;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      color: var(--on-dark-quiet);
-      border-radius: var(--radius-sm);
-      padding: 4px 10px;
-      font-size: 0.75rem;
-      cursor: pointer;
-      font-family: var(--mono);
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .copy-btn:hover { border-color: var(--on-dark-strong); color: var(--on-dark-strong); }
-    .copy-btn.copied { border-color: var(--success-green); color: var(--success-bright); }
-
     .install-note {
       font-size: 0.82rem;
       color: var(--text-tertiary);
@@ -121,28 +87,6 @@
 
     .app-store-link:hover { transform: translateY(-1px); opacity: 0.92; }
     .app-store-link img { height: 48px; width: auto; display: block; }
-
-    .install-or {
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--text-tertiary);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      max-width: 340px;
-      margin: 4px auto;
-    }
-
-    .install-or::before,
-    .install-or::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
 
     /* ── Divider ─────────────────────────────────────────── */
     .divider {
@@ -274,7 +218,6 @@
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 480px) {
       .hero h1 { font-size: 2rem; }
-      .install-cmd code { font-size: 0.82rem; }
     }
   </style>
 </head>
@@ -293,32 +236,6 @@
       </a>
       <span class="install-note">iOS version coming soon</span>
 
-      <span class="install-or">or</span>
-
-      <span class="install-label">Install with Homebrew</span>
-      <div class="install-cmd">
-        <code id="brew-cmd">brew install --cask npomfret/tap/no-spoilers</code>
-        <button class="copy-btn" onclick="copyCmd(this)" aria-label="Copy install command">copy</button>
-      </div>
-      <span class="install-note">
-        macOS Sequoia 15+
-        &nbsp;·&nbsp;
-        <a href="https://brew.sh" target="_blank" rel="noopener">Get Homebrew</a>
-        &nbsp;·&nbsp;
-        <a href="https://github.com/npomfret/homebrew-tap" target="_blank" rel="noopener">Tap</a>
-      </span>
-      <span class="install-note" style="margin-top:4px">Then open <strong>No Spoilers</strong> from your Applications folder to start it.</span>
-      <img src="applications-folder.png" alt="No Spoilers in the Applications folder" style="max-width:320px;border-radius:var(--radius-lg);box-shadow:0 8px 24px rgba(31,26,26,0.18);margin-top:4px">
-      <span class="install-label" style="margin-top:8px">Update</span>
-      <div class="install-cmd">
-        <code id="update-cmd">brew update && brew upgrade --cask npomfret/tap/no-spoilers</code>
-        <button class="copy-btn" onclick="copyUpdate(this)" aria-label="Copy update command">copy</button>
-      </div>
-      <span class="install-label" style="margin-top:8px">Uninstall</span>
-      <div class="install-cmd">
-        <code id="uninstall-cmd">brew uninstall --cask npomfret/tap/no-spoilers</code>
-        <button class="copy-btn" onclick="copyUninstall(this)" aria-label="Copy uninstall command">copy</button>
-      </div>
     </div>
   </section>
 
@@ -419,40 +336,6 @@
     </p>
   </footer>
 
-  <script>
-    function copyUpdate(btn) {
-      const text = document.getElementById('update-cmd').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'copied!';
-        btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
-      });
-    }
-
-    function copyUninstall(btn) {
-      const text = document.getElementById('uninstall-cmd').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.textContent = 'copy';
-          btn.classList.remove('copied');
-        }, 2000);
-      });
-    }
-
-    function copyCmd(btn) {
-      const text = document.getElementById('brew-cmd').textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = 'copied!';
-        btn.classList.add('copied');
-        setTimeout(() => {
-          btn.textContent = 'copy';
-          btn.classList.remove('copied');
-        }, 2000);
-      });
-    }
-  </script>
 
 </body>
 </html>

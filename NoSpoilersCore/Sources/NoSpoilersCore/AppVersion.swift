@@ -4,18 +4,15 @@ import Foundation
 ///
 /// Both keys are always present in a built bundle, so a missing one is a build
 /// configuration fault and not a runtime condition — this crashes rather than
-/// substituting a placeholder. The two call sites this replaced each had their
-/// own fallback, and they disagreed: the About screen showed `—`, while the
-/// update check substituted `"0"`, which compares older than every published
-/// release and would have shown a permanent "update available" banner instead
-/// of reporting the real fault.
+/// substituting a placeholder. The About screen must report the version of the
+/// running bundle rather than conceal a missing build setting.
 public enum AppVersion {
     /// `CFBundleShortVersionString` — the marketing version, e.g. `1.0.22`.
     public static var marketing: String { value(for: "CFBundleShortVersionString") }
 
     /// `CFBundleVersion` — the build number, and the only thing that tells two
-    /// builds of the same marketing version apart. `release.sh` writes it, from
-    /// the highest number App Store Connect holds plus one. Builds 1 to 125 came
+    /// builds of the same marketing version apart. `submit_build.py` reserves it
+    /// against App Store Connect and the build tags before archiving. Builds 1 to 125 came
     /// from Xcode Cloud, which wrote its run number here until that path was
     /// removed; see `docs/guides/building.md` for why the two bands are apart.
     public static var build: String { value(for: "CFBundleVersion") }

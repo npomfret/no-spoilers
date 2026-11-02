@@ -35,7 +35,7 @@ public enum Theme {
     /// Activity each follow their own host without anything being injected at
     /// three roots. Every call site keeps reading a static constant. The roles
     /// that do not change — the three session states, `attention`,
-    /// `confirmation`, `hoverFill` — are the ones that were measured and found
+    /// `hoverFill` — are the ones that were measured and found
     /// to clear the same contrast bar on charcoal as on ivory, or are already
     /// system colours.
     ///
@@ -111,25 +111,12 @@ public enum Theme {
             dark: Color(red: 0.1137, green: 0.1059, blue: 0.1059)
         )
 
-        /// "There is something new here" — the update banner and the dot on
-        /// the menu bar that leads to it.
+        /// The launch-problem banner telling the user something needs attention.
         ///
         /// **Orange, and not a brand colour.** It is deliberately outside this
         /// product's red/green/blue vocabulary, because it means neither a
         /// session state nor the brand: it is the app talking about itself.
-        /// Naming it changes nothing on screen and stops it being three
-        /// unrelated `Color.orange` literals in two files.
         public static let attention = Color.orange
-
-        /// A control confirming it did the thing — the popover's copy button
-        /// for two seconds after it copies.
-        ///
-        /// **This is `Color.green`, not `successGreen`.** The two are
-        /// different colours and always have been; the system green is what
-        /// this button has always flashed, and swapping it for the brand's
-        /// finished-session green would both change what is on screen and
-        /// borrow a colour that means "this session is over".
-        public static let confirmation = Color.green
 
         /// The fill under a menu row while the pointer is over it.
         ///
@@ -958,27 +945,18 @@ public enum Theme {
     /// How fast the product feels.
     ///
     /// **Every one of these is a macOS site today** — the hover and press
-    /// transitions on the menu row button style, and the "Copied!" flash on the
-    /// update banner. Nothing on iOS or in the widget animates at all, and the
+    /// transitions on the menu row button style. Nothing on iOS or in the widget
+    /// animates at all, and the
     /// iOS pager deliberately runs its own interactive transition rather than an
     /// `.animation(_:value:)` (see `NoSpoilers/ContentView.swift`).
     ///
-    /// So this is a vocabulary of four with three speakers, which is worth
-    /// naming precisely because the next thing that wants to animate should be
-    /// choosing from a list rather than typing a number.
+    /// These two transitions keep menu row feedback consistent.
     public enum Motion {
         /// Pointer entering or leaving a menu row.
         public static let hover: Animation = .easeInOut(duration: 0.12)
         /// Press-down feedback — faster than `hover`, because a press should
         /// feel like it has already happened.
         public static let press: Animation = .easeInOut(duration: 0.08)
-        /// A control confirming it did the thing: the copy button turning green.
-        public static let confirm: Animation = .easeInOut(duration: 0.15)
-        /// How long a confirmation stays up before reverting. Distinct from
-        /// `confirm`, which is how long the change itself takes to draw — the
-        /// two were 0.15 and 2 seconds sitting 270 lines apart with nothing
-        /// saying they were related.
-        public static let confirmationHold: TimeInterval = 2
     }
 
     /// Every symbol the product draws, named for what it means rather than what
@@ -1058,8 +1036,6 @@ public enum Theme {
         public static let website = "globe"
         public static let settings = "gear"
         public static let quit = "power"
-        /// A newer build is available on the Homebrew tap.
-        public static let updateAvailable = "arrow.up.circle.fill"
 
         /// Drawn when a country has no flag asset — **an emoji, not a symbol**,
         /// which is why it belongs here rather than being left where a symbol

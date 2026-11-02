@@ -86,8 +86,8 @@ public enum AppLog {
     /// Local notifications: what was planned, what the OS accepted, and whether it was allowed
     /// to at all.
     ///
-    /// Written only by the iOS target, and declared here with the others for the reason `update`
-    /// is. It needs a channel for the same reason `widget` does: **an alert that never arrives is
+    /// Written only by the iOS target, and declared here so one predicate reaches every channel.
+    /// It needs a channel for the same reason `widget` does: **an alert that never arrives is
     /// indistinguishable from a weekend where nothing happened.** Nobody reports a notification
     /// they did not get, so the count planned, the count pending and the authorization state are
     /// the only evidence that the feature is working at all.
@@ -109,17 +109,6 @@ public enum AppLog {
     /// no screen to leave a mark on. If the answer is wrong, or the schedule read comes back
     /// empty, this line is the only place it will ever be visible.
     public static let intents = LogChannel(subsystem: subsystem, category: "intents")
-
-    /// The menu-bar app asking GitHub whether there is a newer release.
-    ///
-    /// Written only by the macOS target, and still declared here with the others: a second
-    /// `LogChannel` built inside an app target is the drift this type exists to prevent, and one
-    /// predicate has to reach everything the product writes.
-    ///
-    /// It needs a channel at all because the outcome is otherwise invisible. "You are up to date"
-    /// and "this app has not successfully checked in three months" both render as nothing in the
-    /// menu bar, and the second is how a Homebrew user stays on an old build indefinitely.
-    public static let update = LogChannel(subsystem: subsystem, category: "update")
 
     /// One line, at the top of a process, naming the build that wrote everything after it.
     ///

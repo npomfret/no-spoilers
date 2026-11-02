@@ -26,12 +26,10 @@ user-invocable: true
    - App Store listing copy or version metadata: edit `listing/<platform>/*.txt`, then `scripts/appstore_listing.py --platform <p> --apply`
    - Opening a new marketing version: `scripts/open-version.sh X.Y.Z`, which commits and pushes
      `open vX.Y.Z`; nothing that archives changes the version
-   - Homebrew release: `scripts/ship-homebrew.sh`, over `scripts/release.sh`. It releases the
-     version the commit holds and is independent of TestFlight delivery
    - Recording an approval: `scripts/tag_approved.py PLATFORM VERSION --apply` writes
      `ios/vX.Y.Z` or `macos/vX.Y.Z` on the approved build's commit, run by a person for either
-     platform once Apple approves. Never move a
-     version tag by hand; the bare `vX.Y.Z` belongs to the Developer ID channel
+     platform once Apple approves. Never move a version tag by hand; historical bare `vX.Y.Z`
+     tags are retained as release provenance
    - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
 4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
 5. Preserve existing boundaries: `appstore_status.py` remains read-only;

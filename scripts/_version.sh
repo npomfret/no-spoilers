@@ -1,44 +1,14 @@
 #!/usr/bin/env bash
 # Sourced helper. Not meant to be executed directly.
 #
-# Provides:
-#   suggest_next_version  Print the next patch version after the highest version
-#                         this repo has already claimed, skipping any version
-#                         that is already tagged. Falls back to 1.0.0 for a
-#                         repo with neither a version tag nor a project version.
-#                         **Opens the next train. Not what a ship should carry.**
-#   next_build_number     Print the build number the next upload should carry.
-#   current_build_number  Print the CURRENT_PROJECT_VERSION the project holds.
+# Reads the committed marketing/build versions, suggests the next marketing
+# version, allocates the next build number, and opens marketing versions.
+# Apple delivery and screenshot tooling share these reads.
 #
-# "Already claimed" is the higher of two sources, and it needs both:
-#
-#   the newest version tag       v*, ios/v* or macos/v* — see below
-#   MARKETING_VERSION            what the project will build right now
-#
-# They come apart whenever a version train is opened without shipping it, which
-# is exactly what starting a fresh Xcode Cloud train does — TestFlight build
-# numbers are unique per train, so a recreated product with its run counter back
-# at 1 needs an unused MARKETING_VERSION and gets one by editing the project, not
-# by tagging. Reading tags alone would then suggest a version *below* the one in
-# the project, and release.sh seds MARKETING_VERSION to whatever it is given, so
-# the suggestion silently walks the project backwards.
-#
-# **Three tag families, since 2026-09-05, and each means one thing.**
-#
-#   build/N       this commit was archived as build N — one per upload, written
-#                 by release.sh on the commit it archived, annotated
-#   ios/vX.Y.Z    the build of X.Y.Z Apple approved for iOS, on that build's
-#   macos/vX.Y.Z  commit — written by scripts/tag_approved.py once App Store
-#                 Connect says the version is on the store
-#   vX.Y.Z        the macOS Developer ID release — written by release.sh on
-#                 that channel only, because the Homebrew cask downloads
-#                 `releases/download/vX.Y.Z/…` and the name cannot change
-#
-# The 26 bare `vX.Y.Z` tags up to and including v1.1.3 predate this and mean
-# "the first upload of that train", which is not the build users got: v1.1.2
-# marks build 10003 while 10012 is the one on sale. They are left where they
-# are — the cask and the GitHub releases point at them — and are history.
-# See docs/guides/building.md.
+# `build/N` reserves an archive number; `ios/vX.Y.Z` and `macos/vX.Y.Z`
+# identify the builds Apple approved. Bare `vX.Y.Z` tags are retained history.
+# All version families remain inputs so an already-used version is not offered
+# again. A version is opened by open-version.sh, never by an archive operation.
 
 pbxproj_path() {
   local PBXPROJ
@@ -73,8 +43,8 @@ current_build_number() {
 current_marketing_version() {
   local PBXPROJ VERSION
   PBXPROJ="$(pbxproj_path)" || return 1
-  VERSION=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" \
-    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+  VERSION=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" |
+    grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
   if [[ -z "$VERSION" ]]; then
     echo "could not read MARKETING_VERSION from ${PBXPROJ}" >&2
     return 1
@@ -87,9 +57,9 @@ current_marketing_version() {
 # matches, which under a caller's `set -e -o pipefail` would kill it one line
 # before the "nothing tagged yet" case is handled.
 tagged_versions() {
-  git tag -l 'v*' 'ios/v*' 'macos/v*' \
-    | sed -E 's#^(ios/|macos/)?v##' \
-    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true
+  git tag -l 'v*' 'ios/v*' 'macos/v*' |
+    sed -E 's#^(ios/|macos/)?v##' |
+    grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' || true
 }
 
 # Whether any of the three families already claims this version.
@@ -105,15 +75,15 @@ suggest_next_version() {
   TAGGED=$(tagged_versions | sort -V | tail -1)
   PROJECT=$(grep -m1 -oE 'MARKETING_VERSION = [0-9]+\.[0-9]+\.[0-9]+;' "$PBXPROJ" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 
-  BASE=$(printf '%s\n%s\n' "${TAGGED}" "${PROJECT}" \
-    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+  BASE=$(printf '%s\n%s\n' "${TAGGED}" "${PROJECT}" |
+    grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
 
   if [[ -z "$BASE" ]]; then
     printf '%s' "1.0.0"
     return
   fi
 
-  IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+  IFS='.' read -r MAJOR MINOR PATCH <<<"$BASE"
   PATCH=$((PATCH + 1))
   SUGGESTED="${MAJOR}.${MINOR}.${PATCH}"
   while version_tagged "${SUGGESTED}"; do
@@ -139,9 +109,8 @@ suggest_next_version() {
 # job was to remember it.
 #
 # **The build/ tags are the second source, and it needs both.** A number is
-# tagged here the moment the archive exists and reaches App Store Connect only
-# if the upload then succeeds — a Developer ID release never uploads at all —
-# so a number the record has not seen may still be taken. The higher of the
+# reserved here before archiving and reaches App Store Connect only if the
+# upload succeeds, so a number the record has not seen may still be taken. The higher of the
 # two, plus one, is free by both accounts. Tags are fetched first because a
 # TeamCity checkout does not carry them, and a stale answer here costs an
 # archive: the number would be refused at `git tag`, after the build.

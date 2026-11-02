@@ -125,14 +125,6 @@ Both apps are on the App Store under one listing:
 [apps.apple.com/gb/app/id6761343835](https://apps.apple.com/gb/app/id6761343835). The iPhone app
 went live on 2026-09-02.
 
-The macOS menu bar app is also on Homebrew:
-
-```bash
-brew install --cask npomfret/tap/no-spoilers
-```
-
-Updates via `brew upgrade`.
-
 ## Development
 
 Open in Xcode. No dependencies beyond the Swift standard library and Apple frameworks.
@@ -142,8 +134,8 @@ Required entitlement (iOS app and widget extension):
 
 ### Releasing
 
-Two deliveries, independent of each other: TestFlight on both platforms, and Homebrew. Full detail,
-including why they were separated, is *Continuous delivery* in `docs/guides/building.md`.
+TestFlight delivery runs separately for iOS and macOS. Full detail is in *Continuous delivery*
+in `docs/guides/building.md`.
 
 **TestFlight: `scripts/submit_build.py`.** It refuses a dirty tree, a commit not on `origin/main` and
 a version Apple has already approved; runs the Core tests; reserves the next build number as a
@@ -177,26 +169,14 @@ scripts/tag_approved.py ios 1.1.4 --apply    # record which build users got
 scripts/open-version.sh 1.1.5
 ```
 
-**Homebrew: `scripts/ship-homebrew.sh`**, over `scripts/release.sh`. It releases the version the
-commit holds — a notarized zip, a GitHub release and the cask — on its own cadence. Notarization uses
-the keychain profile `no-spoilers-notarytool`. To set it up:
-
-```bash
-xcrun notarytool store-credentials "no-spoilers-notarytool" \
-  --apple-id YOUR_APPLE_ID \
-  --team-id 6FZN56WC8G \
-  --password APP_SPECIFIC_PASSWORD
-```
-
 **Credentials needed:**
 - App Store Connect keys in `~/.appstoreconnect/private_keys/`: `AuthKey_S394C74APG.p8`, the
   Developer key every read uses, and `AuthKey_ASC6H3SL2D.p8`, the App Manager key that signs,
   uploads and delivers (download once from App Store Connect → Users and Access → Integrations → API)
 - Signing identities: *Apple Distribution* for both apps, *Mac Installer Distribution* ("3rd Party
-  Mac Developer Installer" in the keychain) for the Mac App Store package, *Developer ID Application*
-  for Homebrew. An agent needs the installer identity locally, because Apple refuses the App Manager
+  Mac Developer Installer" in the keychain) for the Mac App Store package.
+  An agent needs the installer identity locally, because Apple refuses the App Manager
   key cloud-managed certificates
-- Notarization: the keychain profile above, or the App Manager key on an agent
 
 ### Who can install what
 

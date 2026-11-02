@@ -17,8 +17,8 @@ of what the archive was reported to be.
 
 Two names rather than one bare `vX.Y.Z`, because the platforms are approved at
 different builds — iOS 1.1.2 at 10012, macOS 1.1.2 not yet submitted — and one
-tag cannot point at both. The bare name stays with the macOS Developer ID
-release, whose Homebrew cask downloads by it.
+tag cannot point at both. Bare version tags are historical release records;
+new App Store approvals use the platform-prefixed names.
 
 A person runs this for either platform once Apple approves; until 2026-09-06
 `ci-publish-ios.sh` ran it for iOS when it found a train closed. Idempotent:

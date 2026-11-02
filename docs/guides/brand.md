@@ -28,9 +28,9 @@ surface and text role in §2 has a light value and a dark one, and the host pick
 platform dynamic colour (`Theme.Palette.adaptive`), which resolves against whatever appearance is
 current when it is drawn. That is what keeps this inside the rule above — the menu bar label, the
 widget, the Live Activity and the app all read the same static constant and each follows its own
-host, and nothing reads `\.colorScheme`. The three state colours, `attention`, `confirmation` and
+host, and nothing reads `\.colorScheme`. The three state colours, `attention` and
 `hoverFill` do not change: the first three were measured on charcoal and clear the same bar they
-clear on ivory, the other three are already system colours. Nothing forces `.preferredColorScheme`
+clear on ivory, the other two are already system colours. Nothing forces `.preferredColorScheme`
 any more. It took a Guideline 4 rejection to get here: in April 2026 (`398258c`) the reviewer ran
 the macOS popover in dark mode and its system text went white on the light gradient, the fix was to
 pin the subtree light, and the pins came off on 2026-09-05 once every surface had a dark value.
@@ -121,7 +121,6 @@ roles are the seam dark mode hangs from, and the only place a light and a dark c
 | Live session | `Theme.Palette.stateLive` | — | signal red | same |
 | Upcoming session | `Theme.Palette.stateUpcoming` | — | upcoming blue | same |
 | The app talking about itself | `Theme.Palette.attention` | — | system orange ² | system |
-| A control confirming it acted | `Theme.Palette.confirmation` | — | system green ² | system |
 | Pointer over a menu row | `Theme.Palette.hoverFill` | — | system secondary at 10% ² | system |
 
 `surfaceLift` and `surfaceTinted` are bases, not finished surfaces: the card multiplies the lift by
@@ -134,8 +133,7 @@ naming the base is what let one edit give all of them a dark value. `NoSpoilersB
 `--card` is white at 88% where `surfaceRaised` is 65%, because a web card sits on a photograph.
 
 ² Not in the palette and not brand colours, on purpose. `attention` means neither a session state
-nor the brand. `confirmation` is the *system* green and deliberately not `successGreen`, which
-means "this session is over". Naming them is what makes them findable.
+nor the brand; `hoverFill` is a neutral system wash behind a menu row.
 
 **`Theme.Palette.state(_:)` is the only place a `SessionStatus` becomes a colour.** It replaced
 three implementations that disagreed on hue *and* opacity, including a macOS row that drew a blue
@@ -271,14 +269,11 @@ down is about 4.1(a) rather than about letterforms.
 
 ## 7. Motion
 
-`Theme.Motion` — `hover` 0.12s, `press` 0.08s, `confirm` 0.15s, `confirmationHold` 2s.
+`Theme.Motion` — `hover` 0.12s and `press` 0.08s.
 
 Press is faster than hover, because a press should feel like it has already happened.
-`confirmationHold` is how long a confirmation stays up, as distinct from how long the change takes
-to draw — the two sat 270 lines apart with nothing saying they were related.
-
 **Every call site is macOS.** Nothing on iOS or in the widget animates: the iOS pager runs its own
-interactive transition rather than an `.animation(_:value:)`. This is a vocabulary of four with one
+interactive transition rather than an `.animation(_:value:)`. This is a vocabulary of two with one
 speaker, named so that the next thing wanting to animate picks from a list.
 
 ## 8. Icons

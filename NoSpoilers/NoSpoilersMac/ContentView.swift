@@ -27,11 +27,9 @@ private struct MenuRowButtonStyle: ButtonStyle {
 
 struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
-    @ObservedObject var updateChecker: UpdateChecker
     let openSettings: () -> Void
     let openAbout: () -> Void
     @State private var now: Date = Date()
-    @State private var brewCopied = false
     @State private var footerRowsHeight: CGFloat = 0
 
     var body: some View {
@@ -51,10 +49,6 @@ struct WeekendPopoverView: View {
                 } else {
                     noDataView
                 }
-            }
-            if updateChecker.isUpdateAvailable {
-                Divider()
-                updateBanner
             }
             Divider()
             HStack(alignment: .top, spacing: Theme.Space.md) {
@@ -277,41 +271,6 @@ struct WeekendPopoverView: View {
         return Text(parts.joined(separator: " "))
     }
 
-    private var updateBanner: some View {
-        HStack(spacing: Theme.Space.sm) {
-            Image(systemName: Theme.Icon.updateAvailable)
-                .foregroundStyle(Theme.Palette.attention)
-                .font(.system(size: 12))
-            VStack(alignment: .leading, spacing: Theme.Space.xxs) {
-                Text(Strings.Popover.updateAvailable)
-                    .font(.caption)
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                if !updateChecker.latestVersion.isEmpty {
-                    Text("v\(updateChecker.currentVersion) → v\(updateChecker.latestVersion)")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                }
-            }
-            Spacer()
-            Button {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(Strings.Popover.brewUpgradeCommand, forType: .string)
-                brewCopied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + Theme.Motion.confirmationHold) { brewCopied = false }
-            } label: {
-                Text(brewCopied ? Strings.Popover.copied : Strings.Popover.copyCommand)
-                    .font(.caption2)
-                    .foregroundStyle(brewCopied ? Theme.Palette.confirmation : Theme.Palette.textTertiary)
-                    .animation(Theme.Motion.confirm, value: brewCopied)
-            }
-            .buttonStyle(.plain)
-            .help(Strings.Popover.brewUpgradeCommand)
-        }
-        .padding(.horizontal, Theme.Space.xxl)
-        .padding(.vertical, Theme.Space.md)
-        .background(Theme.Palette.attention.opacity(0.08))
-    }
-
     private var noDataView: some View {
         NoSpoilersMessageCard(
             title: Text(Strings.Popover.offSeason),
@@ -330,7 +289,6 @@ struct MenuBarPopoverRootView: View {
     }
 
     @ObservedObject var store: ScheduleStore
-    @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var alerts: SessionAlertScheduler
     let dismissPopover: () -> Void
     @State private var screen: Screen = .weekend
@@ -341,7 +299,6 @@ struct MenuBarPopoverRootView: View {
             case .weekend:
                 WeekendPopoverView(
                     store: store,
-                    updateChecker: updateChecker,
                     openSettings: { screen = .settings },
                     openAbout: { screen = .about }
                 )

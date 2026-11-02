@@ -43,20 +43,6 @@
   --text-secondary: #5f5754;
   --text-tertiary: #827876;
 
-  /* ── Foregrounds on the dark install block ───────────────
-   * Four literals that used to be typed inline. They are a ramp on one dark
-   * surface rather than palette entries, which is why they are named for the
-   * surface they sit on. Close to `--ivory` and `--blush` but not equal to
-   * them, and left at their own values rather than snapped onto the palette —
-   * that would move pixels, and this pass is meant not to.
-   */
-  --on-dark: #fdf8f6;
-  --on-dark-quiet: #f3dedd;
-  --on-dark-strong: #fff;
-  /* The copy button for the two seconds after it has copied. A lightened
-   * `--success-green`, invented inline for that one state. */
-  --success-bright: #9df3c7;
-
   /* ── Surfaces and structure ──────────────────────────────
    * `--card`, `--border` and `--bg` are roles the Swift side does not have
    * names for yet. The vocabulary is worth keeping: `docs/guides/brand.md` is
@@ -87,7 +73,6 @@
   --radius-xl: 12px;
   --radius-xxl: 16px;
 
-  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
 
   /* The product's own face. Applied to the wordmark and nothing else, exactly as
    * `BrandTypeface.wordmark` is in Swift — spreading a display face into the

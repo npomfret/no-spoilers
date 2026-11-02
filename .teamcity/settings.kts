@@ -236,9 +236,7 @@ val verify = BuildType {
 // TestFlight delivery, **one configuration per platform**. `ci-publish.sh`
 // asserts what a build agent breaks and hands over to `submit_build.py`, which
 // archives this exact revision, uploads it, waits for Apple, and delivers that
-// build to the Internal testers. Apple only: the Homebrew channel is
-// `ci-publish.sh --platform homebrew`, has no configuration here, and can no
-// longer stop this one. See task 38 and docs/guides/building.md.
+// build to the Internal testers. See docs/guides/building.md.
 //
 // **Two configurations rather than one `all` run, since 2026-09-10.** A macOS
 // signing failure no longer turns the iPhone light red, either platform re-runs

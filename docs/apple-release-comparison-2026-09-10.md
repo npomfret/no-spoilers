@@ -1,5 +1,7 @@
 Apple release comparison — 10 September 2026
 
+> Historical audit from September 2026. The Homebrew/Developer ID channel described here was retired on 2 November 2026; its recommendations are not current delivery instructions. Current delivery is documented in `guides/building.md`.
+
 The recommended solution is to make No Spoilers follow Funmax's existing TeamCity → verified commit → signed upload → processing wait → internal TestFlight delivery pattern. Keep Homebrew independent. Retain No Spoilers' platform-specific listing and approval tools, because Funmax does not currently automate a public App Store release.
 
 Confirmed scope: automation ends at TestFlight. The final App Review submission button remains manual. Reusable findings are also recorded in [agent-standards/docs/apple-testflight-delivery.md](../../agent-standards/docs/apple-testflight-delivery.md).

@@ -1,13 +1,13 @@
 # Remove Homebrew distribution
 
-Status: preparation complete on 2 November 2026. Removal remains unexecuted. Only this task was
-rewritten and renamed; the evidence files are ignored under `tmp/logs/`.
+Status: implementation verified and remote distribution removed on 2 November 2026.
+Plan committed as `afeb40f`. Publishing the checked website changes is the remaining step.
 
 ## Issue and authorized scope
 
 On 2 November 2026 the owner asked to find all references to the Homebrew installation and prepare
 to delete it all. This replaces the outstanding work to prove an independent Homebrew release.
-Preparation is authorized; execution of removal is not yet requested.
+The owner then instructed "commit it, then do it", authorizing execution of the removal plan.
 
 The inventory covers No Spoilers' Homebrew installation, the Developer ID download channel that
 supplies its cask, the macOS update banner, documentation, automation and the external tap.
@@ -48,7 +48,7 @@ Exact matching lines are in `tmp/logs/homebrew-reference-audit.txt`.
 | `scripts/ci-publish.sh:15` | Remove the `homebrew` platform, channel-only constants and prerequisites, tap clone and final wrapper invocation. Keep iOS/macOS signing, both App Store Connect keys, tag push checks, `--check` and the early `--apply` refusal. |
 | `NoSpoilers/NoSpoilersMac/UpdateChecker.swift:1` | Delete the GitHub latest-release client, receipt detection and version comparison. |
 | `NoSpoilers/NoSpoilersMac/ContentView.swift:30` | Remove both injected checker properties, update banner, `brewCopied` state, clipboard action and confirmation callback. Preserve schedule refresh and other popover screens. |
-| `NoSpoilers/NoSpoilersMac/NoSpoilersMacApp.swift:13` | Remove checker construction/injection, menu bar update dot, launch check at 141 and wake check at 212. Preserve both schedule refreshes. |
+| `NoSpoilers/NoSpoilersMac/NoSpoilersMacApp.swift:13` | Remove checker construction/injection, menu bar update dot, launch check at 141 and popover-open check at 212. Preserve both schedule refreshes. |
 | `NoSpoilers/NoSpoilersMac/Strings.swift:13` | Remove `updateAvailable`, `brewUpgradeCommand`, `copyCommand`, `copied`; all belong to this banner. |
 | `NoSpoilersCore/Sources/NoSpoilersCore/Theme.swift:132` | Banner-only symbols: `Palette.confirmation`, `Motion.confirm`, `Motion.confirmationHold`, `Icon.updateAvailable` (1062). Remove their declarations and corresponding comments with their only consumer. |
 | `NoSpoilersCore/Sources/NoSpoilersCore/AppLog.swift:89` | Remove the `update` channel and its explanation (113–122); rewrite the alerts comment that refers to it. All channel writes are in `UpdateChecker`. Load the auditing skill before editing. |
@@ -97,40 +97,72 @@ file entry to remove from `project.pbxproj`.
   inspected. Do not revoke certificates or delete either shared App Store Connect API key as part
   of removing this channel; both keys remain in the Apple delivery path.
 
-## Decisions before deletion
+## Execution scope
 
-1. Confirm retirement of the complete Developer ID download channel together with Homebrew.
-   The current cask and GitHub updater are supplied by that same channel; keeping direct downloads
-   would require a different agreed update policy, outside this removal plan.
-2. Choose whether the 23 already-published GitHub releases/assets are retained as history or
-   deleted too. Cask retirement alone does not remove direct download links. Existing installed
+1. Retire the complete publishing channel together with the Homebrew cask and GitHub updater.
+2. The owner explicitly chose "Delete the releases and zip downloads too". All 23 releases and
+   their assets have been deleted; git tags remain. Existing installed
    copies continue running and retain their old GitHub updater; changing source does not migrate
    them. Deleting every release leaves that updater without a latest release to fetch.
-3. Choose whether factual historical references in the dated audit and build-provenance comments
-   remain, clearly identified as history. Removing current installation instructions does not
-   require erasing that evidence. Preserve `build/*`, `ios/v*` and `macos/v*`; deletion of historical
+3. Retain factual historical references in the dated audit and build-provenance comments, clearly
+   identified as history. Preserve `build/*`, `ios/v*` and `macos/v*`; deletion of historical
    bare `v*` tags or either whole repository is not implied by cask removal.
 
-## Execution plan after the scope is confirmed
+## Execution verification and remaining work
 
-- [ ] Make the local deletions and edits listed above in one coherent change, keeping App Store
+- [x] Make the local deletions and edits listed above in one coherent change, keeping App Store
   installation and Apple publishing operational. Do not run a release to validate removal.
-- [ ] Re-run the source/reference searches. No current install command, Homebrew platform option,
+- [x] Re-run the source/reference searches. No current install command, Homebrew platform option,
   GitHub update request or caller of a deleted file should remain. Classify any retained historical
   or developer-tool match explicitly.
-- [ ] Verify serially: `scripts/verify-core-tests.sh`, `scripts/verify-python-selftests.sh`,
+- [x] Verify serially: `scripts/verify-core-tests.sh`, `scripts/verify-python-selftests.sh`,
   `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, `scripts/verify-widget-build.sh`.
   Confirm no controlled test process is active before starting; each runner must use one worker.
   Preserve existing limits. Inspect the landing page at desktop and mobile widths.
-- [ ] Preserve the existing `submit_build.py` selftest proving that `ci-publish.sh --apply` and
+- [x] Preserve the existing `submit_build.py` selftest proving that `ci-publish.sh --apply` and
   `--check --apply` are refused before preflight. No dedicated updater/banner tests were found;
   the nearby HTTP, version and log tests exercise shared behavior that must survive.
-- [ ] Have the significant implementation reviewed by an agent before committing; answer all real
+- [x] Have the significant implementation reviewed by an agent before committing; answer all real
   findings. This preparation changes only a task file and requires no implementation review.
-- [ ] Immediately before an authorized external removal, re-read the owning automation, remote
+- [x] Immediately before an authorized external removal, re-read the owning automation, remote
   cask and exact release/asset IDs. Apply only the confirmed external deletions; verify the cask is
   absent and the agreed release disposition matches remote state. No local package-manager
   uninstall or user-data deletion is part of retiring distribution.
+- [ ] Publish the source changes to the existing GitHub Pages source (`main:/docs`) and confirm
+  that the public page no longer advertises Homebrew installation.
+
+## Execution evidence
+
+- Core suite: 149 cases, zero failures, run with the wrapper's one worker.
+  `tmp/logs/remove-homebrew-core-tests.log`; XML: `tmp/test-results/NoSpoilersCore.xml`.
+- Python selftests: 269 cases, zero failures (124 status, 59 distribution, 7 approval tags,
+  15 listing, 8 screenshots, 56 submission). `tmp/logs/remove-homebrew-python-selftests.log`.
+- macOS, iPhone and widget commands each exited 0 and reported `** BUILD SUCCEEDED **`.
+  Logs: `tmp/logs/remove-homebrew-mac-build.log`, `remove-homebrew-ios-build.log`,
+  `remove-homebrew-widget-build.log`. All suites/builds ran serially; no other controlled test was
+  active. An unrelated project's UI test was observed and left untouched.
+- `shellcheck scripts/ci-publish.sh scripts/_version.sh`, `shfmt -d -i 2 -ci` on those scripts,
+  and `git diff --check` passed. `ci-publish.sh --platform homebrew --check` exited 1 with
+  "unknown platform 'homebrew' (expected ios or macos; one Apple platform per run)" before preflight.
+- Desktop (1280×900) and mobile (390×844) Playwright inspection passed. App Store badge,
+  feature content and trademark disclaimer remain; no install/update/uninstall command remains.
+  Screenshots: `tmp/logs/remove-homebrew-website-desktop.png` and
+  `tmp/logs/remove-homebrew-website-mobile.png`.
+- The agent review inspected the supplied full implementation patch and cask deletion, callers,
+  shared helpers, Apple forwarding and documentation. It reported no real findings and ran no
+  tests/builds. Signed delivery and deployment were outside that review; no app was released.
+- Live cask deletion: `npomfret/homebrew-tap` commit
+  `4a4b928c894917acd81424d37d250f84466a3e6b`. Remote `main` now has an empty tree.
+  Merged that commit into the sibling checkout, preserving its existing unpublished CI-task
+  commit and `.DS_Store`; the unrelated local task commit was not pushed.
+- Re-read the exact 23 releases/assets immediately before deletion. `gh release delete TAG
+  --repo npomfret/no-spoilers --yes` succeeded for each, without `--cleanup-tag`. Fresh GitHub
+  releases response is empty; all 23 asset API URLs return HTTP 404. Before/after remote tag
+  listings are byte-identical. Evidence: `tmp/logs/remove-homebrew-release-deletion-results.json`,
+  `remove-homebrew-asset-*.log`, and `remove-homebrew-tags-before.txt`/`after.txt`.
+- Current Homebrew installation and publishing instructions are removed. Remaining references
+  explain historical provenance, the dated audit, or developer tooling; ignored research and IDE
+  state were not product changes. Shared Apple keys/certificates and build/approval tags remain.
 
 ## Preparation verification
 

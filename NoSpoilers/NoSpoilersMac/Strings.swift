@@ -10,10 +10,6 @@ import SwiftUI
 
 enum Strings {
     enum Popover {
-        static let updateAvailable: LocalizedStringKey = "Update available"
-        static let brewUpgradeCommand               = "brew update && brew upgrade --cask npomfret/tap/no-spoilers"
-        static let copyCommand: LocalizedStringKey  = "Copy"
-        static let copied: LocalizedStringKey       = "Copied!"
         static let offSeason: LocalizedStringKey    = "Off season"
         static let noSessions: LocalizedStringKey   = "No upcoming sessions found"
         static let website: LocalizedStringKey      = "Website"
