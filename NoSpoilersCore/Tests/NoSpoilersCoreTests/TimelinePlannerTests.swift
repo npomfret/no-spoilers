@@ -29,7 +29,9 @@ final class TimelinePlannerTests: XCTestCase {
             weekends: weekends,
             confirmedEndDates: confirmed,
             horizon: horizon ?? self.horizon,
-            maxEntries: maxEntries
+            maxEntries: maxEntries,
+            timeZone: TimeZone(secondsFromGMT: 0)!,
+            decorationConfiguration: DecemberDecoration.Configuration()
         )
     }
 

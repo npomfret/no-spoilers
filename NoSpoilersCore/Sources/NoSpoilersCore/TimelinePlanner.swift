@@ -66,14 +66,18 @@ public enum TimelinePlanner {
         weekends: [RaceWeekend],
         confirmedEndDates: [String: Date],
         horizon: TimeInterval,
-        maxEntries: Int
+        maxEntries: Int,
+        timeZone: TimeZone,
+        decorationConfiguration: DecemberDecoration.Configuration
     ) -> TimelinePlan {
         let horizonDate = now.addingTimeInterval(horizon)
         let boundaries = boundaryDates(
             after: now,
             upTo: horizonDate,
             weekends: weekends,
-            confirmedEndDates: confirmedEndDates
+            confirmedEndDates: confirmedEndDates,
+            timeZone: timeZone,
+            decorationConfiguration: decorationConfiguration
         )
         let kept = Array(boundaries.prefix(maxEntries))
 
@@ -123,14 +127,18 @@ public enum TimelinePlanner {
         after now: Date,
         upTo horizon: Date,
         weekends: [RaceWeekend],
-        confirmedEndDates: [String: Date]
+        confirmedEndDates: [String: Date],
+        timeZone: TimeZone,
+        decorationConfiguration: DecemberDecoration.Configuration
     ) -> [Date] {
         let withinHorizon = ScheduleBoundaries
             .all(after: now, weekends: weekends, confirmedEndDates: confirmedEndDates)
             .map(\.date)
             .filter { $0 <= horizon }
 
-        return Set(([now] + withinHorizon).map(\.timeIntervalSinceReferenceDate))
+        let seasonal = DecemberDecoration.boundaries(after: now, through: horizon, timeZone: timeZone,
+                                                     configuration: decorationConfiguration)
+        return Set(([now] + withinHorizon + seasonal).map(\.timeIntervalSinceReferenceDate))
             .map(Date.init(timeIntervalSinceReferenceDate:))
             .sorted()
     }

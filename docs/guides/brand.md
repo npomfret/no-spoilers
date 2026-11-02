@@ -23,15 +23,26 @@ the menu bar label — an `NSHostingView` built by an `AppDelegate` — and the 
 process with no app environment to inherit — get the same answer as the app without anything being
 injected at three roots. Revisiting that is a rewrite of the plumbing, not an extension of it.
 
-**Dark mode follows the system, on both platforms, with no in-app toggle.** Since 2026-09-05 every
+**December schedule surfaces are a fixed night scene.** `DecemberDecoration` evaluates explicit
+date/time-zone inputs and an immutable date-window configuration supplied by each app/widget root
+in the local Gregorian calendar. Its annual defaults include 1 December through the end of
+26 December, switching off at midnight on 27 December. Within the configured window, the main
+iPhone schedule, Mac weekend popover and full-colour widgets use the seasonal colours below.
+Their shared components receive a `decemberNight` value; there is no theme service, mutable global
+configuration or user-selectable theme. The main app presentation requests dark appearance while
+the night scene is active so system status-bar and page-control content stays legible. Settings,
+About, the menu bar label and Live Activities retain their ordinary colour roles and artwork.
+This treatment is Swift-only and does not change the website.
+
+**Outside the December schedule treatment, dark mode follows the system, with no in-app toggle.** Since 2026-09-05 every
 surface and text role in §2 has a light value and a dark one, and the host picks: the pairing is a
 platform dynamic colour (`Theme.Palette.adaptive`), which resolves against whatever appearance is
 current when it is drawn. That is what keeps this inside the rule above — the menu bar label, the
 widget, the Live Activity and the app all read the same static constant and each follows its own
 host, and nothing reads `\.colorScheme`. The three state colours, `attention` and
 `hoverFill` do not change: the first three were measured on charcoal and clear the same bar they
-clear on ivory, the other two are already system colours. Nothing forces `.preferredColorScheme`
-any more. It took a Guideline 4 rejection to get here: in April 2026 (`398258c`) the reviewer ran
+clear on ivory, the other two are already system colours. Ordinary appearance has no forced colour
+scheme. It took a Guideline 4 rejection to get here: in April 2026 (`398258c`) the reviewer ran
 the macOS popover in dark mode and its system text went white on the light gradient, the fix was to
 pin the subtree light, and the pins came off on 2026-09-05 once every surface had a dark value.
 
@@ -102,6 +113,34 @@ is why the state colours did not need a dark value. **Do not draw `successGreen`
 there fails even the 3:1 bar.
 
 ## 2. Semantic colour roles
+
+### December night
+
+`BrandPalette` owns these fixed colours; the `Theme.Palette` overloads select them from the
+explicit `decemberNight` argument. Ordinary role values and all session-state colours are unchanged.
+
+| Use | Value | Swift palette name |
+| --- | --- | --- |
+| Night ground | `#09121F` | `decemberSky` |
+| Light at the top of the sky | `#23344D` | `decemberSkyTop` |
+| Cards and rows | `#152031` | `decemberPanel` |
+| Primary text | Existing ivory | `ivory` |
+| Supporting and quiet text | `#B1BBCA` | `decemberText` |
+| Wordmark | `#FF454B` | `decemberWordmark` |
+| Warm-white, red, green, blue, amber bulbs | `#FFD687`, `#FF5044`, `#46E88E`, `#53A3FF`, `#FFB142` | `decemberWarm`, `decemberRed`, `decemberGreen`, `decemberBlue`, `decemberAmber` |
+| Snow shadow, snow, snow base | `#A9BFD9`, `#EEF6FF`, `#B7CCE5` | `decemberSnowShadow`, `decemberSnow`, `decemberSnowBase` |
+
+The coloured bulbs are decoration and do not reuse session-state roles. Primary/supporting text
+clears 4.5:1 on the sky and panels in either host appearance; `ThemePaletteContrastTests` checks
+this separately from the ordinary palette. All outcome data remains excluded.
+
+System widgets use still decoration only when full-colour rendering and the container background
+are available. Tinted, clear and background-removed contexts keep their host presentation. The
+rectangular Lock Screen accessory can show a monochrome snowflake when it fits beside the existing
+content; the inline accessory retains its text. Widget timelines include the seasonal transitions
+even during the off-season, inside the existing horizon and entry cap.
+
+### Ordinary appearance
 
 What a colour is *for*. Two values each where the appearance changes it, and the host picks; the
 roles are the seam dark mode hangs from, and the only place a light and a dark colour are paired.
@@ -272,9 +311,14 @@ down is about 4.1(a) rather than about letterforms.
 `Theme.Motion` — `hover` 0.12s and `press` 0.08s.
 
 Press is faster than hover, because a press should feel like it has already happened.
-**Every call site is macOS.** Nothing on iOS or in the widget animates: the iOS pager runs its own
-interactive transition rather than an `.animation(_:value:)`. This is a vocabulary of two with one
-speaker, named so that the next thing wanting to animate picks from a list.
+**Both feedback call sites are macOS.** The iOS pager runs its own interactive transition rather
+than an `.animation(_:value:)`.
+
+`NoSpoilersDecemberDecoration` draws snowfall, independently twinkling bulbs and a growing drift
+on an isolated timeline capped at 30fps. It never publishes frame ticks into schedule state.
+Reduce Motion uses a still scene; inactive iPhone scenes stop animation, and closing the Mac
+popover releases its drawing. The drift stays inside the bottom space reserved by `Theme.December`.
+Widget decoration is always still. These seasonal drawings do not change hover/press timings.
 
 ## 8. Icons
 
@@ -308,7 +352,7 @@ forget; the app will simply tint itself with the old red.
   not move when the palette moves, which is the whole problem, and now that nothing is pinned light
   they would also move when the palette does not. System controls — toggles, buttons, menus — keep
   theirs; that is what following the appearance means.
-- **Do not force a colour scheme.** `.preferredColorScheme(.light)` was how four surfaces survived
+- **Do not force a colour scheme outside the approved December night presentation.** `.preferredColorScheme(.light)` was how four surfaces survived
   the April 2026 rejection before the roles had dark values. A pin now hides a role that is missing
   one; give it the value instead.
 - **A new role that changes with the appearance goes through `adaptive(light:dark:)`**, with both

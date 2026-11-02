@@ -17,6 +17,21 @@ import XCTest
 /// appearance is being ignored somewhere, which is exactly the failure the pins used to hide.
 final class ThemePaletteContrastTests: XCTestCase {
 
+    func testDecemberNightTextStaysReadableInEitherSystemAppearance() {
+        for scheme in [ColorScheme.light, .dark] {
+            for background in [BrandPalette.decemberSky, BrandPalette.decemberSkyTop, BrandPalette.decemberPanel] {
+                for text in [Theme.Palette.textPrimary(decemberNight: true),
+                             Theme.Palette.textSecondary(decemberNight: true),
+                             Theme.Palette.textTertiary(decemberNight: true)] {
+                    XCTAssertGreaterThanOrEqual(ratio(text, on: background, scheme), 4.5)
+                }
+            }
+            for state in [Theme.Palette.stateFinished, Theme.Palette.stateLive, Theme.Palette.stateUpcoming] {
+                XCTAssertGreaterThanOrEqual(ratio(state, on: BrandPalette.decemberPanel, scheme), 3)
+            }
+        }
+    }
+
     func testTextRolesOnTheGroundInLight() {
         XCTAssertEqual(ratio(Theme.Palette.textPrimary, on: Theme.Palette.surface, .light), 16.25, accuracy: 0.02)
         XCTAssertEqual(ratio(Theme.Palette.textSecondary, on: Theme.Palette.surface, .light), 6.66, accuracy: 0.02)

@@ -62,4 +62,19 @@ public enum BrandPalette {
     public static let secondaryTextDark = Color(red: 0.7255, green: 0.6824, blue: 0.6667) // #B9AEAA
     /// Quiet copy on charcoal, 5.06:1 — clears the 4.5:1 its light counterpart misses.
     public static let tertiaryTextDark  = Color(red: 0.5569, green: 0.5176, blue: 0.5020) // #8E8480
+
+    // December's approved night scene. Decorative bulb colours are independent of session state.
+    public static let decemberSkyTop = Color(red: 0.1373, green: 0.2039, blue: 0.3020) // #23344D
+    public static let decemberSky = Color(red: 0.0353, green: 0.0706, blue: 0.1216) // #09121F
+    public static let decemberPanel = Color(red: 0.0824, green: 0.1255, blue: 0.1922) // #152031
+    public static let decemberText = Color(red: 0.6941, green: 0.7333, blue: 0.7922) // #B1BBCA
+    public static let decemberWordmark = Color(red: 1, green: 0.2706, blue: 0.2941) // #FF454B
+    public static let decemberWarm = Color(red: 1, green: 0.8392, blue: 0.5294) // #FFD687
+    public static let decemberRed = Color(red: 1, green: 0.3137, blue: 0.2667) // #FF5044
+    public static let decemberGreen = Color(red: 0.2745, green: 0.9098, blue: 0.5569) // #46E88E
+    public static let decemberBlue = Color(red: 0.3255, green: 0.6392, blue: 1) // #53A3FF
+    public static let decemberAmber = Color(red: 1, green: 0.6941, blue: 0.2588) // #FFB142
+    public static let decemberSnowShadow = Color(red: 0.6627, green: 0.7490, blue: 0.8510) // #A9BFD9
+    public static let decemberSnow = Color(red: 0.9333, green: 0.9647, blue: 1) // #EEF6FF
+    public static let decemberSnowBase = Color(red: 0.7176, green: 0.8000, blue: 0.8980) // #B7CCE5
 }

@@ -56,6 +56,15 @@ public enum Theme {
     /// so the system colours had to be pinned to match it. Naming the roles,
     /// then giving each a dark value, is what let the pins go.
     public enum Palette {
+        // The caller supplies the seasonal choice. No runtime theme or global date lookup.
+        public static func textPrimary(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.ivory : textPrimary }
+        public static func textSecondary(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberText : textSecondary }
+        public static func textTertiary(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberText : textTertiary }
+        public static func surfaceLift(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberPanel : surfaceLift }
+        public static func surfaceTinted(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberPanel : surfaceTinted }
+        public static func surfaceRaised(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberPanel : surfaceRaised }
+        public static func separator(decemberNight: Bool) -> Color { decemberNight ? BrandPalette.decemberText.opacity(0.3) : separator }
+
         public static let textPrimary = adaptive(light: BrandPalette.smoke, dark: BrandPalette.ivory)
         public static let textSecondary = adaptive(light: BrandPalette.secondaryText, dark: BrandPalette.secondaryTextDark)
         public static let textTertiary = adaptive(light: BrandPalette.tertiaryText, dark: BrandPalette.tertiaryTextDark)
@@ -942,15 +951,33 @@ public enum Theme {
         }
     }
 
-    /// How fast the product feels.
-    ///
-    /// **Every one of these is a macOS site today** — the hover and press
-    /// transitions on the menu row button style. Nothing on iOS or in the widget
-    /// animates at all, and the
-    /// iOS pager deliberately runs its own interactive transition rather than an
-    /// `.animation(_:value:)` (see `NoSpoilers/ContentView.swift`).
-    ///
-    /// These two transitions keep menu row feedback consistent.
+    /// Swift-only seasonal drawing geometry. Every canvas has a real schedule surface.
+    public enum December {
+        public static let skyRadius: CGFloat = 650
+        public static func topInset(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp, .macPopover: return 36
+            case .widgetSmall, .widgetMedium: return 0
+            case .widgetLarge: return 8
+            }
+        }
+
+        public static func bottomInset(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .iosApp: return 120
+            case .macPopover: return 96
+            case .widgetSmall, .widgetMedium: return 0
+            case .widgetLarge: return 24
+            }
+        }
+
+        /// Widget content already has the system's margins; app content does not.
+        public static func snowReserve(_ canvas: Canvas, bottomMargin: CGFloat) -> CGFloat {
+            bottomInset(canvas) + bottomMargin
+        }
+    }
+
+    /// Pointer feedback. December's isolated drawing timeline does not animate the pager.
     public enum Motion {
         /// Pointer entering or leaving a menu row.
         public static let hover: Animation = .easeInOut(duration: 0.12)
@@ -1001,6 +1028,7 @@ public enum Theme {
         /// view, the macOS message card, and the default for
         /// `NoSpoilersMessageCard`.
         public static let offSeason = "flag.checkered.2.crossed"
+        public static let snowflake = "snowflake"
         /// The schedule could not be loaded — a failure, not an empty calendar.
         public static let scheduleUnavailable = "calendar.badge.exclamationmark"
         /// `LaunchProblemBanner`: the app failed at something before it could draw. A generic

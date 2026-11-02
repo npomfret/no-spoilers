@@ -50,14 +50,21 @@ public enum NoSpoilersWordmarkSize {
 /// into graphite by night. The stops and the 0.72 are what the light gradient
 /// has always been; only the names moved.
 public struct NoSpoilersBackground: View {
-    public init() {}
+    private let decemberNight: Bool
+
+    public init(decemberNight: Bool = false) { self.decemberNight = decemberNight }
 
     public var body: some View {
-        LinearGradient(
-            colors: [Theme.Palette.surface, Theme.Palette.surfaceTinted.opacity(0.72), Theme.Palette.surfaceLift],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        if decemberNight {
+            RadialGradient(colors: [BrandPalette.decemberSkyTop, BrandPalette.decemberSky],
+                           center: .topLeading, startRadius: 0, endRadius: Theme.December.skyRadius)
+        } else {
+            LinearGradient(
+                colors: [Theme.Palette.surface, Theme.Palette.surfaceTinted.opacity(0.72), Theme.Palette.surfaceLift],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 }
 
@@ -70,13 +77,16 @@ public struct NoSpoilersBackground: View {
 /// surface am I on"; the caller always knows.
 public struct NoSpoilersCard<Content: View>: View {
     private let canvas: Theme.Canvas
+    private let decemberNight: Bool
     private let content: Content
 
     public init(
         canvas: Theme.Canvas,
+        decemberNight: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
         self.canvas = canvas
+        self.decemberNight = decemberNight
         self.content = content()
     }
 
@@ -88,11 +98,11 @@ public struct NoSpoilersCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
-                    .fill(Theme.Palette.surfaceLift.opacity(card.fillOpacity))
+                    .fill(Theme.Palette.surfaceLift(decemberNight: decemberNight).opacity(decemberNight ? 1 : card.fillOpacity))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: card.cornerRadius, style: .continuous)
-                    .stroke(Theme.Palette.separator.opacity(0.55), lineWidth: 1)
+                    .stroke(Theme.Palette.separator(decemberNight: decemberNight).opacity(0.55), lineWidth: 1)
             )
             .shadow(
                 color: BrandPalette.deepMaroon.opacity(card.shadowOpacity),
@@ -115,9 +125,11 @@ public struct NoSpoilersCard<Content: View>: View {
 /// and the only thing it should have an opinion about is size and tracking.
 public struct NoSpoilersWordmark: View {
     private let size: NoSpoilersWordmarkSize
+    private let decemberNight: Bool
 
-    public init(size: NoSpoilersWordmarkSize = .large) {
+    public init(size: NoSpoilersWordmarkSize = .large, decemberNight: Bool = false) {
         self.size = size
+        self.decemberNight = decemberNight
     }
 
     public var body: some View {
@@ -125,7 +137,7 @@ public struct NoSpoilersWordmark: View {
             .textCase(.uppercase)
             .font(BrandTypeface.wordmark(size: size.fontSize))
             .tracking(size.tracking)
-            .foregroundStyle(BrandPalette.signalRed)
+            .foregroundStyle(decemberNight ? BrandPalette.decemberWordmark : BrandPalette.signalRed)
             .fixedSize()
     }
 }
@@ -133,26 +145,29 @@ public struct NoSpoilersWordmark: View {
 public struct NoSpoilersRoundPill: View {
     private let text: Text
     private let isFinished: Bool
+    private let decemberNight: Bool
 
-    public init(_ text: String, isFinished: Bool = false) {
+    public init(_ text: String, isFinished: Bool = false, decemberNight: Bool = false) {
         self.text = Text(verbatim: text)
         self.isFinished = isFinished
+        self.decemberNight = decemberNight
     }
 
-    public init(_ key: LocalizedStringKey, isFinished: Bool = false) {
+    public init(_ key: LocalizedStringKey, isFinished: Bool = false, decemberNight: Bool = false) {
         self.text = Text(key)
         self.isFinished = isFinished
+        self.decemberNight = decemberNight
     }
 
     public var body: some View {
         text
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(isFinished ? Theme.Palette.stateFinished : BrandPalette.signalRed)
+            .foregroundStyle(isFinished ? Theme.Palette.stateFinished : (decemberNight ? BrandPalette.decemberText : BrandPalette.signalRed))
             // 7 and 3 were two of the eleven off-grid literals `Theme.Space`
             // recorded. They round down, like every stray before them.
             .padding(.horizontal, Theme.Space.sm)
             .padding(.vertical, Theme.Space.xxs)
-            .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : Theme.Palette.surfaceTinted.opacity(0.7))
+            .background(isFinished ? Theme.Palette.stateFinished.opacity(0.12) : Theme.Palette.surfaceTinted(decemberNight: decemberNight).opacity(0.7))
             .clipShape(Capsule())
     }
 }
@@ -233,6 +248,7 @@ public struct NoSpoilersStatusBadge: View {
 /// `.widgetMedium` rather than inventing sizes for a line that does not exist.
 public struct NoSpoilersWeekendMeta: View {
     private let canvas: Theme.Canvas
+    private let decemberNight: Bool
     private let round: Int
     private let isFinished: Bool
     private let location: String
@@ -246,9 +262,11 @@ public struct NoSpoilersWeekendMeta: View {
         round: Int,
         isFinished: Bool = false,
         location: String,
-        dateRange: String?
+        dateRange: String?,
+        decemberNight: Bool = false
     ) {
         self.canvas = canvas
+        self.decemberNight = decemberNight
         self.round = round
         self.isFinished = isFinished
         self.location = location
@@ -257,18 +275,18 @@ public struct NoSpoilersWeekendMeta: View {
 
     public var body: some View {
         HStack(alignment: .center, spacing: Theme.Header.metaSpacing(canvas)) {
-            NoSpoilersRoundPill(Strings.Schedule.roundLabel(round), isFinished: isFinished)
+            NoSpoilersRoundPill(Strings.Schedule.roundLabel(round), isFinished: isFinished, decemberNight: decemberNight)
 
             Text(location)
                 .font(Theme.Typography.weekendLocation(canvas))
-                .foregroundStyle(Theme.Palette.textSecondary)
+                .foregroundStyle(Theme.Palette.textSecondary(decemberNight: decemberNight))
 
             Spacer(minLength: 0)
 
             if let dateRange {
                 Text(dateRange)
                     .font(Theme.Typography.weekendDateRange(canvas))
-                    .foregroundStyle(Theme.Palette.textTertiary)
+                    .foregroundStyle(Theme.Palette.textTertiary(decemberNight: decemberNight))
             }
         }
         .lineLimit(Theme.Row.labelLineLimit(canvas))
@@ -410,6 +428,7 @@ public struct NoSpoilersScreenHeader: View {
 /// weekend that has not started yet is the precise opposite of live.
 public struct NoSpoilersNextUpFooter<Trailing: View>: View {
     private let canvas: Theme.Canvas
+    private let decemberNight: Bool
     private let countryCode: String?
     private let name: Text
     private let detail: Text?
@@ -420,9 +439,11 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
         countryCode: String?,
         name: Text,
         detail: Text? = nil,
+        decemberNight: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.canvas = canvas
+        self.decemberNight = decemberNight
         self.countryCode = countryCode
         self.name = name
         self.detail = detail
@@ -435,7 +456,7 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
             VStack(alignment: .leading, spacing: Theme.NextUp.labelGap(canvas)) {
                 Text(Strings.Schedule.comingUp)
                     .font(Theme.Typography.eyebrow)
-                    .foregroundStyle(Theme.Palette.textTertiary)
+                    .foregroundStyle(Theme.Palette.textTertiary(decemberNight: decemberNight))
                     .textCase(.uppercase)
 
                 row
@@ -452,12 +473,12 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
             VStack(alignment: .leading, spacing: Theme.Row.labelSpacing(canvas)) {
                 name
                     .font(Theme.Typography.nextUpName(canvas))
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: decemberNight))
 
                 if let detail {
                     detail
                         .font(Theme.Typography.nextUpDetail(canvas))
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: decemberNight))
                 }
             }
             .lineLimit(Theme.Row.labelLineLimit(canvas))
@@ -490,6 +511,7 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
 /// second line at all, and `.widgetSmall` has no trailing badge.
 public struct NoSpoilersSessionRow<Trailing: View>: View {
     private let canvas: Theme.Canvas
+    private let decemberNight: Bool
     private let status: SessionStatus
     private let name: Text
     private let detail: Text?
@@ -500,9 +522,11 @@ public struct NoSpoilersSessionRow<Trailing: View>: View {
         status: SessionStatus,
         name: Text,
         detail: Text? = nil,
+        decemberNight: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) {
         self.canvas = canvas
+        self.decemberNight = decemberNight
         self.status = status
         self.name = name
         self.detail = detail
@@ -517,7 +541,7 @@ public struct NoSpoilersSessionRow<Trailing: View>: View {
                 .padding(.vertical, surface.verticalPadding)
                 .background(
                     RoundedRectangle(cornerRadius: surface.cornerRadius, style: .continuous)
-                        .fill(Theme.Palette.surfaceRaised)
+                        .fill(Theme.Palette.surfaceRaised(decemberNight: decemberNight))
                 )
         } else {
             content
@@ -533,7 +557,7 @@ public struct NoSpoilersSessionRow<Trailing: View>: View {
             VStack(alignment: .leading, spacing: Theme.Row.labelSpacing(canvas)) {
                 name
                     .font(Theme.Typography.rowLabel(canvas))
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: decemberNight))
 
                 // `Theme.Typography.rowDetail` traps on `.widgetLarge`, which is
                 // safe only because that canvas never passes a detail. Keep it
@@ -541,7 +565,7 @@ public struct NoSpoilersSessionRow<Trailing: View>: View {
                 if let detail {
                     detail
                         .font(Theme.Typography.rowDetail(canvas))
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: decemberNight))
                 }
             }
             .lineLimit(Theme.Row.labelLineLimit(canvas))
@@ -561,9 +585,10 @@ extension NoSpoilersSessionRow where Trailing == EmptyView {
         canvas: Theme.Canvas,
         status: SessionStatus,
         name: Text,
-        detail: Text? = nil
+        detail: Text? = nil,
+        decemberNight: Bool = false
     ) {
-        self.init(canvas: canvas, status: status, name: name, detail: detail) {
+        self.init(canvas: canvas, status: status, name: name, detail: detail, decemberNight: decemberNight) {
             EmptyView()
         }
     }
@@ -583,33 +608,36 @@ public struct NoSpoilersMessageCard: View {
     private let title: Text
     private let bodyText: Text
     private let canvas: Theme.Canvas
+    private let decemberNight: Bool
 
     public init(
         iconName: String = Theme.Icon.offSeason,
         title: Text,
         bodyText: Text,
-        canvas: Theme.Canvas
+        canvas: Theme.Canvas,
+        decemberNight: Bool = false
     ) {
         self.iconName = iconName
         self.title = title
         self.bodyText = bodyText
         self.canvas = canvas
+        self.decemberNight = decemberNight
     }
 
     public var body: some View {
-        NoSpoilersCard(canvas: canvas) {
+        NoSpoilersCard(canvas: canvas, decemberNight: decemberNight) {
             VStack(spacing: Theme.MessageCard.contentSpacing(canvas)) {
                 Image(systemName: iconName)
                     .font(.system(size: Theme.MessageCard.iconSize(canvas)))
                     .foregroundStyle(BrandPalette.signalRed)
                 title
                     .font(.headline)
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: decemberNight))
                 if Theme.MessageCard.showsBody(canvas) {
                     bodyText
                         .font(Theme.MessageCard.bodyFont(canvas))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: decemberNight))
                 }
             }
             .frame(maxWidth: .infinity)

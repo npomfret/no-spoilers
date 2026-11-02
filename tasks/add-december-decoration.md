@@ -33,11 +33,11 @@ multicolour twinkling lights, snowfall and snow accumulating below the schedule.
 
 ## Status
 
-Native implementation, serial verification and agent review are complete. The user approved the
-visual result and requested a commit with the temporary start reverted to 1 December. All three
-roots now use the default configuration; final commit verification/review is in progress. The working tree started
-with only this research task untracked; main already contains two unrelated local completion
-commits. Preserve those commits. No release, deployment or simulator changes are authorised.
+Complete. The user approved the visual result and requested a commit with the temporary start
+reverted to 1 December. All three roots use the default configuration, and final serial
+verification and pre-commit agent review passed. The working tree started with only this
+research task untracked; main already contains two unrelated local completion commits, which
+are preserved. No release, deployment or simulator changes were performed.
 
 ## Design and source evidence
 
@@ -68,12 +68,12 @@ Agent review found no remaining issues. This is design evidence, not native veri
 ## Native verification
 
 - `scripts/verify-core-tests.sh`: 159 tests, zero failures/errors, one worker. Report:
-  `tmp/test-results/NoSpoilersCore.xml`; log: `tmp/logs/december-core-tests-final.log`.
+  `tmp/test-results/NoSpoilersCore.xml`; log: `tmp/logs/december-core-tests-commit.log`.
   Covers inclusive default dates, independent preview configuration, supplied local time zones,
   configured widget transitions, timeline deduplication/cap, seasonal contrast and drift clearance.
-- `scripts/verify-mac-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-mac-build-final.log`.
-- `scripts/verify-ios-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-ios-build-final.log`.
-- `scripts/verify-widget-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-widget-build-final.log`.
+- `scripts/verify-mac-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-mac-build-commit.log`.
+- `scripts/verify-ios-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-ios-build-commit.log`.
+- `scripts/verify-widget-build.sh`: `BUILD SUCCEEDED` in `tmp/logs/december-widget-build-commit.log`.
 - All commands ran serially. No UI tests, device installs, simulator mutation or remote writes.
 - Native SwiftUI `ImageRenderer` proofs of the actual shared drawing/chrome were inspected for
   iPhone, Mac and small/medium/large widget canvases under `tmp/december-decoration/native/`.
@@ -84,4 +84,5 @@ Review fixes already applied: a contrasting surface for the launch warning, pres
 animation start across refreshes, host-supplied widget margins instead of assumed 16pt margins,
 and matching iPhone snow canvas bounds through the bottom safe area. Final agent review of the
 complete native diff and regression tests found no remaining issues; it confirmed the supplied
-configuration reaches both widget decisions and timeline boundaries. This work remains uncommitted.
+configuration reaches both widget decisions and timeline boundaries. A further pre-commit review
+confirmed every runtime root now uses the 1–26 December default, with no temporary override left.

@@ -61,6 +61,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
     // to 2026-10-13. Without one, the cache lives in the app's own Caches.
     private let store = ScheduleStore()
     private let alerts = SessionAlertScheduler()
+    private let decorationConfiguration = DecemberDecoration.Configuration()
     private var labelHostingView: NSHostingView<MenuBarLabelView>!
     private var cancellables = Set<AnyCancellable>()
     private var localClickMonitor: Any?
@@ -71,6 +72,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
         let popoverView = MenuBarPopoverRootView(
             store: store,
             alerts: alerts,
+            clock: { Date() },
+            timeZone: .current,
+            decorationConfiguration: decorationConfiguration,
             dismissPopover: { [weak self] in
                 self?.popover.performClose(nil)
             }
@@ -123,7 +127,6 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
 
         // Create popover
         popover = NSPopover()
-        popover.contentViewController = makePopoverContentController()
         popover.behavior = .applicationDefined
         popover.delegate = self
 
@@ -206,6 +209,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDeleg
 
     func popoverDidClose(_ notification: Notification) {
         stopDismissMonitoring()
+        // The next opening already constructs a fresh root. Releasing this one also releases
+        // its animation timeline while the popover is hidden.
+        popover.contentViewController = nil
     }
 
     private func closePopover() {

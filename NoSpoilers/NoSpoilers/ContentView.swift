@@ -7,7 +7,12 @@ struct ContentView: View {
     @EnvironmentObject private var alerts: SessionAlertScheduler
     @EnvironmentObject private var activities: SessionActivityController
     @Environment(\.scenePhase) private var scenePhase
-    @State private var now = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let clock: () -> Date
+    private let timeZone: TimeZone
+    private let decorationConfiguration: DecemberDecoration.Configuration
+    @State private var now: Date
+    @State private var decorationStartedAt: Date
     @State private var selectedWeekendIndex: Int = 0
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
@@ -24,6 +29,20 @@ struct ContentView: View {
     /// replaced. The steps stay reachable from About.
     @AppStorage("widget.installPromptDismissed") private var installPromptDismissed = false
 
+    init(clock: @escaping () -> Date, timeZone: TimeZone, decorationConfiguration: DecemberDecoration.Configuration) {
+        self.clock = clock
+        self.timeZone = timeZone
+        self.decorationConfiguration = decorationConfiguration
+        let initialDate = clock()
+        _now = State(initialValue: initialDate)
+        _decorationStartedAt = State(initialValue: initialDate)
+    }
+
+    private var isDecemberNight: Bool {
+        DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration)
+    }
+    private var animateDecoration: Bool { !reduceMotion && scenePhase == .active }
+
     var body: some View {
         VStack(spacing: 0) {
             // The app's chrome row: who you are looking at on the left, what you can do on the
@@ -31,7 +50,7 @@ struct ContentView: View {
             // app's own name a property of the weekend — redrawn on all 23 pages, and absent
             // entirely while the first schedule was still loading. It belongs above the pager.
             HStack(spacing: Theme.Space.xl) {
-                NoSpoilersWordmark(size: .large)
+                NoSpoilersWordmark(size: .large, decemberNight: isDecemberNight)
                 Spacer()
                 // Swiping is otherwise the only way between 23 weekends, with page dots as the
                 // only indication of where you are. If a swipe does not take — the thing this
@@ -47,7 +66,7 @@ struct ContentView: View {
                             Text(Strings.Navigation.currentWeekend)
                                 .font(.caption.weight(.semibold))
                         }
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -59,7 +78,7 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: Theme.Icon.settings)
                         .font(.title3)
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -69,7 +88,7 @@ struct ContentView: View {
                 } label: {
                     Image(systemName: Theme.Icon.about)
                         .font(.title3)
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -83,6 +102,12 @@ struct ContentView: View {
             // ordinary run. Above the pager rather than inside it because it is about the app and
             // not about a weekend, and 23 pages would otherwise each need their own copy.
             LaunchProblemBanner()
+                .background {
+                    if isDecemberNight {
+                        RoundedRectangle(cornerRadius: Theme.Radius.medium)
+                            .fill(Theme.Palette.surface)
+                    }
+                }
                 .padding(.horizontal, Theme.Space.xxl)
                 .padding(.bottom, Theme.Space.md)
 
@@ -117,7 +142,18 @@ struct ContentView: View {
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
             }
         }
+        .padding(.top, isDecemberNight ? Theme.December.topInset(.iosApp) : 0)
+        .padding(.bottom, isDecemberNight ? Theme.December.bottomInset(.iosApp) : 0)
         .background(backgroundGradient)
+        .overlay {
+            if isDecemberNight {
+                NoSpoilersDecemberDecoration(canvas: .iosApp, layer: .foreground,
+                                             startedAt: decorationStartedAt, animated: animateDecoration, contentMargins: EdgeInsets())
+                    .ignoresSafeArea(edges: .bottom)
+            }
+        }
+        // The requested night scene also needs light system status-bar/page-control content.
+        .preferredColorScheme(isDecemberNight ? .dark : nil)
         .sheet(isPresented: $showAbout) {
             AboutView(onDone: { showAbout = false }) {
                 helpSection
@@ -133,6 +169,8 @@ struct ContentView: View {
             SettingsView(onDone: { showSettings = false })
         }
         .onAppear {
+            now = clock()
+            decorationStartedAt = now
             // The launch reached the screen. Until this is written, `LaunchDiagnostics` treats the
             // run as unfinished and the next launch will say so — which is the whole mechanism.
             LaunchDiagnostics.shared.launchShown()
@@ -173,12 +211,14 @@ struct ContentView: View {
         // (`countdown` and `finishedAgo` both stop at minutes), so poll at 1 Hz but only publish
         // when the minute rolls over: one invalidation a minute instead of sixty, and status
         // transitions still land within a second of the boundary they belong to.
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            let tick = clock()
             if minuteIndex(of: tick) != minuteIndex(of: now) { now = tick }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
-            now = Date()
+            now = clock()
+            decorationStartedAt = now
             Task { await refresh() }
             // Re-asked on every activation because the answer is a snapshot, and the single most
             // likely thing to have happened while we were backgrounded is the user following the
@@ -218,7 +258,14 @@ struct ContentView: View {
 
     private var backgroundGradient: some View {
         Group {
-            if isCurrentWeekendFinished {
+            if isDecemberNight {
+                ZStack {
+                    NoSpoilersBackground(decemberNight: true).ignoresSafeArea()
+                    NoSpoilersDecemberDecoration(canvas: .iosApp, layer: .background,
+                                                 startedAt: decorationStartedAt, animated: animateDecoration, contentMargins: EdgeInsets())
+                        .ignoresSafeArea(edges: .bottom)
+                }
+            } else if isCurrentWeekendFinished {
                 Theme.Palette.surfaceFinished
                     .ignoresSafeArea()
             } else {
@@ -308,7 +355,7 @@ struct ContentView: View {
         let statusLine = nextSession.map { nextSessionStatus(for: $0, in: sessions) } ?? Strings.Sessions.weekendCompleteStatus()
         let isFinished = nextSession == nil
 
-        return NoSpoilersCard(canvas: .iosApp) {
+        return NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 // Centred rather than pushed to one edge: the wordmark that used to balance it
                 // on the left is now in the chrome row, and the weekend's name below is centred.
@@ -317,7 +364,7 @@ struct ContentView: View {
 
                 Text(weekend.grandPrixName)
                     .font(Theme.Typography.weekendTitle(.iosApp))
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
@@ -326,12 +373,13 @@ struct ContentView: View {
                     round: weekend.round,
                     isFinished: isFinished,
                     location: weekend.location,
-                    dateRange: weekendDateRange(of: sessions)
+                    dateRange: weekendDateRange(of: sessions),
+                    decemberNight: isDecemberNight
                 )
 
                 Text(statusLine)
                     .font(.subheadline)
-                    .foregroundStyle(Theme.Palette.textSecondary)
+                    .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
             }
         }
     }
@@ -343,11 +391,11 @@ struct ContentView: View {
     }
 
     private func sessionCard(sessions: [Session]) -> some View {
-        NoSpoilersCard(canvas: .iosApp) {
+        NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 Text(Strings.Sessions.header)
                     .font(.headline)
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
 
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
@@ -362,7 +410,8 @@ struct ContentView: View {
                         canvas: .iosApp,
                         status: status,
                         name: Text(session.kind.displayName),
-                        detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
+                        detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt)),
+                        decemberNight: isDecemberNight
                     ) {
                         statusBadge(for: session, nextSession: nextSession, status: status)
                     }
@@ -378,14 +427,15 @@ struct ContentView: View {
         // line at all.
         let countdownText = weekend.allSessions.first.map { Text(countdown(to: $0.startsAt)) }
 
-        return NoSpoilersCard(canvas: .iosApp) {
+        return NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
             NoSpoilersNextUpFooter(
                 canvas: .iosApp,
                 countryCode: weekend.countryCode,
                 name: Text(weekend.grandPrixName),
-                detail: countdownText
+                detail: countdownText,
+                decemberNight: isDecemberNight
             ) {
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), decemberNight: isDecemberNight)
             }
         }
     }
@@ -406,7 +456,7 @@ struct ContentView: View {
     /// translator "Sat 00:00" to localise.
     private var skeletonView: some View {
         VStack(spacing: Theme.Space.xxl) {
-            NoSpoilersCard(canvas: .iosApp) {
+            NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
                 VStack(alignment: .leading, spacing: Theme.Space.xl) {
                     HStack {
                         Spacer(minLength: 0)
@@ -418,13 +468,14 @@ struct ContentView: View {
                         canvas: .iosApp,
                         round: 0,
                         location: "Location",
-                        dateRange: "1 Jan – 3 Jan"
+                        dateRange: "1 Jan – 3 Jan",
+                        decemberNight: isDecemberNight
                     )
                     Text(verbatim: "Next session in —")
                         .font(.subheadline)
                 }
             }
-            NoSpoilersCard(canvas: .iosApp) {
+            NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
                 VStack(alignment: .leading, spacing: Theme.Space.xl) {
                     Text(verbatim: "Sessions")
                         .font(.headline)
@@ -433,7 +484,8 @@ struct ContentView: View {
                             canvas: .iosApp,
                             status: .upcoming,
                             name: Text(verbatim: "Free Practice 1"),
-                            detail: Text(verbatim: "Sat 00:00")
+                            detail: Text(verbatim: "Sat 00:00"),
+                            decemberNight: isDecemberNight
                         )
                     }
                 }
@@ -446,7 +498,8 @@ struct ContentView: View {
         NoSpoilersMessageCard(
             title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
             bodyText: Text(Strings.Error.unavailableBody),
-            canvas: .iosApp
+            canvas: .iosApp,
+            decemberNight: isDecemberNight
         )
     }
 
@@ -641,6 +694,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(clock: { Date() }, timeZone: .current, decorationConfiguration: DecemberDecoration.Configuration())
         .environmentObject(ScheduleStore())
 }

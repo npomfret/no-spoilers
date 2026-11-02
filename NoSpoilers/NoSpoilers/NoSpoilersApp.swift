@@ -4,6 +4,8 @@ import NoSpoilersCore
 
 @main
 struct NoSpoilersApp: App {
+    @Environment(\.timeZone) private var timeZone
+    private let decorationConfiguration = DecemberDecoration.Configuration()
     @StateObject private var store = ScheduleStore(appGroupID: NoSpoilersConfig.appGroupID)
     /// Owned here rather than by `ContentView` so it survives the view being rebuilt, and so
     /// nothing about notifications is reachable from the widget extension, which cannot schedule
@@ -33,7 +35,7 @@ struct NoSpoilersApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(clock: { Date() }, timeZone: timeZone, decorationConfiguration: decorationConfiguration)
                 .environmentObject(store)
                 .environmentObject(alerts)
                 .environmentObject(activities)

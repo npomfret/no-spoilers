@@ -29,8 +29,33 @@ struct WeekendPopoverView: View {
     @ObservedObject var store: ScheduleStore
     let openSettings: () -> Void
     let openAbout: () -> Void
-    @State private var now: Date = Date()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let clock: () -> Date
+    private let timeZone: TimeZone
+    private let decorationConfiguration: DecemberDecoration.Configuration
+    @State private var decorationStartedAt: Date
+    @State private var now: Date
+    @State private var decorationVisible = false
     @State private var footerRowsHeight: CGFloat = 0
+
+    init(store: ScheduleStore, clock: @escaping () -> Date, timeZone: TimeZone,
+         decorationConfiguration: DecemberDecoration.Configuration,
+         openSettings: @escaping () -> Void, openAbout: @escaping () -> Void) {
+        self.store = store
+        self.clock = clock
+        self.timeZone = timeZone
+        self.decorationConfiguration = decorationConfiguration
+        self.openSettings = openSettings
+        self.openAbout = openAbout
+        let initialDate = clock()
+        _decorationStartedAt = State(initialValue: initialDate)
+        _now = State(initialValue: initialDate)
+    }
+
+    private var isDecemberNight: Bool {
+        DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration)
+    }
+    private var animateDecoration: Bool { decorationVisible && !reduceMotion }
 
     var body: some View {
         let now = self.now
@@ -56,28 +81,28 @@ struct WeekendPopoverView: View {
                     Button { NSWorkspace.shared.open(URL(string: "https://npomfret.github.io/no-spoilers/")!) } label: {
                         Label(Strings.Popover.website, systemImage: Theme.Icon.website)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .foregroundStyle(Theme.Palette.textTertiary(decemberNight: isDecemberNight))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(MenuRowButtonStyle())
                     Button { openAbout() } label: {
                         Label(Strings.Popover.about, systemImage: Theme.Icon.about)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .foregroundStyle(Theme.Palette.textTertiary(decemberNight: isDecemberNight))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(MenuRowButtonStyle())
                     Button { openSettings() } label: {
                         Label(Strings.Popover.settings, systemImage: Theme.Icon.settings)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .foregroundStyle(Theme.Palette.textTertiary(decemberNight: isDecemberNight))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(MenuRowButtonStyle())
                     Button { NSApplication.shared.terminate(nil) } label: {
                         Label(Strings.Popover.quit, systemImage: Theme.Icon.quit)
                             .font(.system(size: 13))
-                            .foregroundStyle(Theme.Palette.textTertiary)
+                            .foregroundStyle(Theme.Palette.textTertiary(decemberNight: isDecemberNight))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(MenuRowButtonStyle())
@@ -96,9 +121,28 @@ struct WeekendPopoverView: View {
             .padding(.horizontal, Theme.Space.xs)
             .padding(.vertical, Theme.Space.xs)
         }
-        .background(NoSpoilersBackground())
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { tick in
-            self.now = tick
+        .padding(.top, isDecemberNight ? Theme.December.topInset(.macPopover) : 0)
+        .padding(.bottom, isDecemberNight ? Theme.December.bottomInset(.macPopover) : 0)
+        .background {
+            ZStack {
+                NoSpoilersBackground(decemberNight: isDecemberNight)
+                if isDecemberNight {
+                    NoSpoilersDecemberDecoration(canvas: .macPopover, layer: .background,
+                                                 startedAt: decorationStartedAt, animated: animateDecoration, contentMargins: EdgeInsets())
+                }
+            }
+        }
+        .overlay {
+            if isDecemberNight {
+                NoSpoilersDecemberDecoration(canvas: .macPopover, layer: .foreground,
+                                             startedAt: decorationStartedAt, animated: animateDecoration, contentMargins: EdgeInsets())
+            }
+        }
+        .onAppear { decorationVisible = true }
+        .onDisappear { decorationVisible = false }
+        .preferredColorScheme(isDecemberNight ? .dark : nil)
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            self.now = clock()
         }
     }
 
@@ -128,10 +172,11 @@ struct WeekendPopoverView: View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             // Row 1: logo · GP name (centered) · flag
             HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.macPopover)) {
-                NoSpoilersWordmark(size: .medium)
+                NoSpoilersWordmark(size: .medium, decemberNight: isDecemberNight)
                 Spacer()
                 Text(weekend.grandPrixName)
                     .font(Theme.Typography.weekendTitle(.macPopover))
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                     .multilineTextAlignment(.center)
                 Spacer()
                 FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.macPopover))
@@ -141,12 +186,13 @@ struct WeekendPopoverView: View {
                 canvas: .macPopover,
                 round: weekend.round,
                 location: weekend.location,
-                dateRange: weekendDateRange(of: weekend)
+                dateRange: weekendDateRange(of: weekend),
+                decemberNight: isDecemberNight
             )
         }
         .padding(.horizontal, Theme.Space.xxl)
         .padding(.vertical, Theme.Space.xl)
-        .background(Theme.Palette.surfaceTinted.opacity(0.3))
+        .background(Theme.Palette.surfaceTinted(decemberNight: isDecemberNight).opacity(0.3))
     }
 
     /// The span a weekend covers, or nil when it has no sessions to span.
@@ -175,7 +221,8 @@ struct WeekendPopoverView: View {
             canvas: .macPopover,
             status: status,
             name: Text(session.kind.displayName),
-            detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt))
+            detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt)),
+            decemberNight: isDecemberNight
         ) {
             statusBadge(status: status, session: session, nextSession: nextSession, at: now)
         }
@@ -245,9 +292,10 @@ struct WeekendPopoverView: View {
             canvas: .macPopover,
             countryCode: weekend.countryCode,
             name: Text(weekend.grandPrixName),
-            detail: nextRoundDetail(weekend, now: now)
+            detail: nextRoundDetail(weekend, now: now),
+            decemberNight: isDecemberNight
         ) {
-            NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
+            NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), decemberNight: isDecemberNight)
         }
         .padding(.horizontal, Theme.Space.xxl)
         .padding(.vertical, Theme.Space.md)
@@ -275,7 +323,8 @@ struct WeekendPopoverView: View {
         NoSpoilersMessageCard(
             title: Text(Strings.Popover.offSeason),
             bodyText: Text(Strings.Popover.noSessions),
-            canvas: .macPopover
+            canvas: .macPopover,
+            decemberNight: isDecemberNight
         )
         .padding(Theme.Space.xxl)
     }
@@ -290,6 +339,9 @@ struct MenuBarPopoverRootView: View {
 
     @ObservedObject var store: ScheduleStore
     @ObservedObject var alerts: SessionAlertScheduler
+    let clock: () -> Date
+    let timeZone: TimeZone
+    let decorationConfiguration: DecemberDecoration.Configuration
     let dismissPopover: () -> Void
     @State private var screen: Screen = .weekend
 
@@ -299,6 +351,9 @@ struct MenuBarPopoverRootView: View {
             case .weekend:
                 WeekendPopoverView(
                     store: store,
+                    clock: clock,
+                    timeZone: timeZone,
+                    decorationConfiguration: decorationConfiguration,
                     openSettings: { screen = .settings },
                     openAbout: { screen = .about }
                 )

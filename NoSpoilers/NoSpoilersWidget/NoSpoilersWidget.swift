@@ -11,6 +11,7 @@ struct NoSpoilersEntry: TimelineEntry {
     let primarySessionID: String?
     /// True only when the loaded schedule is exhausted — no upcoming sessions at all.
     let isOffSeason: Bool
+    let isDecember: Bool
 }
 
 // MARK: - View Models
@@ -71,7 +72,8 @@ private func sessionState(for session: Session, nextSession: Session?, at now: D
     }
 }
 
-private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
+private func placeholderEntry(at now: Date, timeZone: TimeZone,
+                              decorationConfiguration: DecemberDecoration.Configuration) -> NoSpoilersEntry {
     let placeholderWeekend = RaceWeekend(
         round: 16,
         name: "Japanese",
@@ -96,11 +98,13 @@ private func placeholderEntry(at now: Date = Date()) -> NoSpoilersEntry {
             SessionViewModel(id: "placeholder-race", name: SessionKind.race.displayName, shortName: SessionKind.race.shortName, state: .upcoming(startsAt: now.addingTimeInterval(52 * 3600)))
         ],
         primarySessionID: "placeholder-fp2",
-        isOffSeason: false
+        isOffSeason: false,
+        isDecember: DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration)
     )
 }
 
-private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry {
+private func makeEntry(at now: Date, data: ScheduleSnapshot, timeZone: TimeZone,
+                       decorationConfiguration: DecemberDecoration.Configuration) -> NoSpoilersEntry {
     let weekends = data.weekends
     let confirmedEndDates = data.confirmedEndDates
 
@@ -120,14 +124,16 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
                 return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                         state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
             }
-            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, primarySessionID: previous.allSessions.last?.id, isOffSeason: false)
+            return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, primarySessionID: previous.allSessions.last?.id, isOffSeason: false,
+                                  isDecember: DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration))
         }
     }
 
     // Show the next upcoming weekend — no distance threshold.
     guard let upcoming = RaceWeekendResolver.firstActiveWeekend(in: weekends, at: now, confirmedEndDates: confirmedEndDates) else {
         // Schedule exhausted: genuine off-season if we have data, no-data view otherwise.
-        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], primarySessionID: nil, isOffSeason: !weekends.isEmpty)
+        return NoSpoilersEntry(date: now, weekend: nil, sessions: [], primarySessionID: nil, isOffSeason: !weekends.isEmpty,
+                              isDecember: DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration))
     }
 
     let sorted = upcoming.allSessions
@@ -137,7 +143,8 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot) -> NoSpoilersEntry 
         return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
                                 state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
     }
-    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, primarySessionID: RaceWeekendResolver.firstNonFinishedSession(in: upcoming, at: now, confirmedEndDates: confirmedEndDates)?.id, isOffSeason: false)
+    return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, primarySessionID: RaceWeekendResolver.firstNonFinishedSession(in: upcoming, at: now, confirmedEndDates: confirmedEndDates)?.id, isOffSeason: false,
+                          isDecember: DecemberDecoration.isActive(at: now, timeZone: timeZone, configuration: decorationConfiguration))
 }
 
 /// How far ahead a timeline is built.
@@ -169,18 +176,24 @@ private let maxTimelineEntries = 24
 // MARK: - Provider
 
 struct NoSpoilersTimelineProvider: TimelineProvider {
+    let clock: () -> Date
+    let timeZone: () -> TimeZone
+    let decorationConfiguration: DecemberDecoration.Configuration
+
     func placeholder(in context: Context) -> NoSpoilersEntry {
-        placeholderEntry()
+        placeholderEntry(at: clock(), timeZone: timeZone(), decorationConfiguration: decorationConfiguration)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NoSpoilersEntry) -> Void) {
-        let now = Date()
+        let now = clock()
+        let localTimeZone = timeZone()
         guard !context.isPreview else {
-            completion(placeholderEntry(at: now))
+            completion(placeholderEntry(at: now, timeZone: localTimeZone, decorationConfiguration: decorationConfiguration))
             return
         }
         Task {
-            completion(makeEntry(at: now, data: await ScheduleSnapshotLoader.load()))
+            completion(makeEntry(at: now, data: await ScheduleSnapshotLoader.load(), timeZone: localTimeZone,
+                                 decorationConfiguration: decorationConfiguration))
         }
     }
 
@@ -194,7 +207,8 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
     /// moment into a rendered entry, and hand WidgetKit the result. Every date decision above is
     /// unit-tested in `TimelinePlannerTests`; nothing here re-derives one.
     private func buildTimeline() async -> Timeline<NoSpoilersEntry> {
-        let now = Date()
+        let now = clock()
+        let localTimeZone = timeZone()
         let data = await ScheduleSnapshotLoader.load()
 
         let plan = TimelinePlanner.plan(
@@ -202,9 +216,13 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
             weekends: data.weekends,
             confirmedEndDates: data.confirmedEndDates,
             horizon: timelineHorizon,
-            maxEntries: maxTimelineEntries
+            maxEntries: maxTimelineEntries,
+            timeZone: localTimeZone,
+            decorationConfiguration: decorationConfiguration
         )
-        let entries = plan.entryDates.map { makeEntry(at: $0, data: data) }
+        let entries = plan.entryDates.map {
+            makeEntry(at: $0, data: data, timeZone: localTimeZone, decorationConfiguration: decorationConfiguration)
+        }
 
         // The facts that make a stale widget diagnosable, on one line, at `.notice` so they are
         // still there tomorrow. Nothing is attached when a widget goes wrong: the app is not
@@ -230,9 +248,23 @@ struct NoSpoilersTimelineProvider: TimelineProvider {
 
 // MARK: - Entry View
 
+private func systemCanvas(for family: WidgetFamily) -> Theme.Canvas {
+    switch family {
+    case .systemSmall: return .widgetSmall
+    case .systemLarge, .systemExtraLarge: return .widgetLarge
+    default: return .widgetMedium
+    }
+}
+
 struct NoSpoilersWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
-    var entry: NoSpoilersEntry
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
+    let entry: NoSpoilersEntry
+
+    private var isDecemberNight: Bool {
+        entry.isDecember && renderingMode == .fullColor && showsBackground
+    }
 
     /// Which `Theme.Canvas` this family draws on.
     ///
@@ -246,11 +278,7 @@ struct NoSpoilersWidgetEntryView: View {
     /// `body` routes them away before a canvas is asked for, because they have
     /// no scale on this axis and no palette to resolve against.
     private var canvas: Theme.Canvas {
-        switch family {
-        case .systemSmall:                     return .widgetSmall
-        case .systemLarge, .systemExtraLarge:  return .widgetLarge
-        default:                               return .widgetMedium
-        }
+        systemCanvas(for: family)
     }
 
     /// **Two groups of families, not one list.** The system families draw the
@@ -264,7 +292,10 @@ struct NoSpoilersWidgetEntryView: View {
         switch family {
         case .accessoryRectangular: accessoryRectangularView
         case .accessoryInline:      accessoryInlineView
-        default:                    systemFamilyView
+        default:
+            systemFamilyView
+                .padding(.top, isDecemberNight ? Theme.December.topInset(canvas) : 0)
+                .padding(.bottom, isDecemberNight ? Theme.December.bottomInset(canvas) : 0)
         }
     }
 
@@ -299,7 +330,7 @@ struct NoSpoilersWidgetEntryView: View {
             HStack(alignment: .center, spacing: Theme.Header.contentSpacing(.widgetSmall)) {
                 FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(.widgetSmall))
                 Spacer(minLength: 0)
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), decemberNight: isDecemberNight)
             }
 
             Spacer(minLength: Theme.Space.md)
@@ -307,7 +338,7 @@ struct NoSpoilersWidgetEntryView: View {
             // Hero: GP name fills available vertical space
             Text(weekend.grandPrixName)
                 .font(Theme.Typography.weekendTitle(.widgetSmall))
-                .foregroundStyle(Theme.Palette.textPrimary)
+                .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -327,7 +358,8 @@ struct NoSpoilersWidgetEntryView: View {
             canvas: .widgetSmall,
             status: session.state.status,
             name: Text(session.shortName),
-            detail: smallSessionTime(session.state)
+            detail: smallSessionTime(session.state),
+            decemberNight: isDecemberNight
         )
     }
 
@@ -395,7 +427,7 @@ struct NoSpoilersWidgetEntryView: View {
                 if hiddenCount > 0 {
                     Text(Strings.Widget.earlierSessions(hiddenCount))
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Theme.Palette.textSecondary)
+                        .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
                         .padding(.horizontal, Theme.Space.md)
                 }
                 ForEach(visibleSessions) { session in
@@ -450,8 +482,22 @@ struct NoSpoilersWidgetEntryView: View {
     /// text, so a live session has to say so in words where `smallSessionTime`
     /// can say it in colour. The type is the system's to scale here too, which
     /// is why these are semantic fonts and not a sixth case on the canvas axis.
-    @ViewBuilder
     private var accessoryRectangularView: some View {
+        ViewThatFits(in: .horizontal) {
+            if entry.isDecember {
+                HStack(spacing: Theme.Space.sm) {
+                    Image(systemName: Theme.Icon.snowflake)
+                        .font(.caption)
+                        .accessibilityHidden(true)
+                    accessoryRectangularContent.fixedSize(horizontal: true, vertical: false)
+                }
+            }
+            accessoryRectangularContent
+        }
+    }
+
+    @ViewBuilder
+    private var accessoryRectangularContent: some View {
         if let weekend = entry.weekend, let session = primarySession() {
             VStack(alignment: .leading, spacing: 0) {
                 Text(weekend.grandPrixName)
@@ -525,7 +571,8 @@ struct NoSpoilersWidgetEntryView: View {
             iconName: Theme.Icon.offSeason,
             title: Text(Strings.OffSeason.badge),
             bodyText: Text(Strings.OffSeason.body),
-            canvas: canvas
+            canvas: canvas,
+            decemberNight: isDecemberNight
         )
     }
 
@@ -535,7 +582,8 @@ struct NoSpoilersWidgetEntryView: View {
             iconName: Theme.Icon.scheduleUnavailable,
             title: Text(NoSpoilersCore.Strings.Schedule.unavailableTitle),
             bodyText: Text(Strings.Error.unavailableBody),
-            canvas: canvas
+            canvas: canvas,
+            decemberNight: isDecemberNight
         )
     }
 
@@ -555,10 +603,10 @@ struct NoSpoilersWidgetEntryView: View {
                 FlagImage(countryCode: weekend.countryCode, height: Theme.Header.flagHeight(canvas))
                 Text(weekend.grandPrixName)
                     .font(Theme.Typography.weekendTitle(canvas))
-                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                     .lineLimit(1)
                 Spacer(minLength: 0)
-                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round))
+                NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), decemberNight: isDecemberNight)
             }
         } else {
             HStack(alignment: .center, spacing: Theme.Header.contentSpacing(canvas)) {
@@ -566,13 +614,14 @@ struct NoSpoilersWidgetEntryView: View {
                 VStack(alignment: .leading, spacing: Theme.Space.xxs) {
                     Text(weekend.grandPrixName)
                         .font(Theme.Typography.weekendTitle(canvas))
-                        .foregroundStyle(Theme.Palette.textPrimary)
+                        .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                         .lineLimit(1)
                     NoSpoilersWeekendMeta(
                         canvas: .widgetLarge,
                         round: weekend.round,
                         location: weekend.location,
-                        dateRange: sessionDateRange(for: weekend)
+                        dateRange: sessionDateRange(for: weekend),
+                        decemberNight: isDecemberNight
                     )
                 }
             }
@@ -591,7 +640,8 @@ struct NoSpoilersWidgetEntryView: View {
             canvas: canvas,
             status: session.state.status,
             name: Text(isMedium ? session.shortName : session.name),
-            detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil
+            detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil,
+            decemberNight: isDecemberNight
         ) {
             stateLabel(session.state, canvas: canvas)
         }
@@ -700,25 +750,42 @@ struct NoSpoilersWidgetEntryView: View {
 /// depend on any of those three stripping it for us.
 private struct NoSpoilersWidgetBackdrop: View {
     @Environment(\.widgetFamily) private var family
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.showsWidgetContainerBackground) private var showsBackground
+    @Environment(\.widgetContentMargins) private var contentMargins
+    let isDecember: Bool
+    let date: Date
 
     var body: some View {
         switch family {
         case .accessoryRectangular, .accessoryInline, .accessoryCircular:
             Color.clear
         default:
-            NoSpoilersBackground()
+            let night = isDecember && renderingMode == .fullColor && showsBackground
+            ZStack {
+                NoSpoilersBackground(decemberNight: night)
+                if night {
+                    NoSpoilersDecemberDecoration(canvas: systemCanvas(for: family), layer: .background,
+                                                 startedAt: date, animated: false, contentMargins: contentMargins)
+                    NoSpoilersDecemberDecoration(canvas: systemCanvas(for: family), layer: .foreground,
+                                                 startedAt: date, animated: false, contentMargins: contentMargins)
+                }
+            }
         }
     }
 }
 
 struct NoSpoilersWidget: Widget {
     let kind: String = NoSpoilersConfig.widgetKind
+    private let decorationConfiguration = DecemberDecoration.Configuration()
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: NoSpoilersTimelineProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: NoSpoilersTimelineProvider(
+            clock: { Date() }, timeZone: { .current }, decorationConfiguration: decorationConfiguration
+        )) { entry in
             NoSpoilersWidgetEntryView(entry: entry)
                 .containerBackground(for: .widget) {
-                    NoSpoilersWidgetBackdrop()
+                    NoSpoilersWidgetBackdrop(isDecember: entry.isDecember, date: entry.date)
                 }
         }
         .configurationDisplayName(NoSpoilersCore.Strings.AppInfo.name)
@@ -753,9 +820,10 @@ struct NoSpoilersWidget_Previews: PreviewProvider {
     /// Screen tile that looks right in a preview and wrong on a phone is worse
     /// than no preview.
     private static func preview(_ family: WidgetFamily, _ name: String) -> some View {
-        NoSpoilersWidgetEntryView(entry: placeholderEntry())
+        let entry = placeholderEntry(at: Date(), timeZone: .current, decorationConfiguration: DecemberDecoration.Configuration())
+        return NoSpoilersWidgetEntryView(entry: entry)
             .containerBackground(for: .widget) {
-                NoSpoilersWidgetBackdrop()
+                NoSpoilersWidgetBackdrop(isDecember: entry.isDecember, date: entry.date)
             }
             .previewContext(WidgetPreviewContext(family: family))
             .previewDisplayName(name)
