@@ -160,6 +160,19 @@ certificates (`FORBIDDEN_ERROR`). `Ship macOS` with `ship.args = --archive-only`
 signs: it exports the package and checks its signature with
 `pkgutil`, uploading nothing.
 
+**Provisioning-profile counts need an identity check before cleanup.** On 2026-11-02 the
+bundle/profile relationship returned 293 app rows and 214 widget rows, including repeated profile
+IDs; these are not trustworthy distinct-profile totals. The Xcode-managed rows report no creation
+date. Managed-name queries returned no results in the normal profiles collection, and direct reads
+of one managed profile per type returned 404. The named `No Spoilers Mac App Store` profile remains
+active and expires on 2027-08-21. Apple's
+[profile-management guidance](https://developer.apple.com/help/account/provisioning-profiles/edit-download-or-delete-profiles/)
+explains that Xcode-managed profiles do not appear in the developer account and that automatic
+signing requests a new profile when no suitable cached profile exists. The large relationship
+inventory alone does not prove ongoing churn or identify safe deletion targets. No expired or
+invalid profile was observed, so this review made no portal deletion. Preserve the working manual
+profile and signing identities; do not use the old raw count as a quota or cleanup threshold.
+
 **The five verification configurations still hold no credential and must not gain one.** The two
 `Ship` configurations are separate and hold them.
 
