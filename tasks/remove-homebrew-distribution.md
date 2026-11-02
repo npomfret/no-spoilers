@@ -1,7 +1,7 @@
 # Remove Homebrew distribution
 
-Status: implementation verified and remote distribution removed on 2 November 2026.
-Plan committed as `afeb40f`. Publishing the checked website changes is the remaining step.
+Status: complete on 2 November 2026. Plan committed as `afeb40f`; implementation committed and
+pushed as `a9d0254`. Remote distribution is removed and the public website is updated.
 
 ## Issue and authorized scope
 
@@ -128,7 +128,7 @@ file entry to remove from `project.pbxproj`.
   cask and exact release/asset IDs. Apply only the confirmed external deletions; verify the cask is
   absent and the agreed release disposition matches remote state. No local package-manager
   uninstall or user-data deletion is part of retiring distribution.
-- [ ] Publish the source changes to the existing GitHub Pages source (`main:/docs`) and confirm
+- [x] Publish the source changes to the existing GitHub Pages source (`main:/docs`) and confirm
   that the public page no longer advertises Homebrew installation.
 
 ## Execution evidence
@@ -163,6 +163,10 @@ file entry to remove from `project.pbxproj`.
 - Current Homebrew installation and publishing instructions are removed. Remaining references
   explain historical provenance, the dated audit, or developer tooling; ignored research and IDE
   state were not product changes. Shared Apple keys/certificates and build/approval tags remain.
+- GitHub Pages reports `built` for `a9d0254e11d9ccc6a5609167dd25bc2b5f993114`.
+  A fresh read of `https://npomfret.github.io/no-spoilers/` has no Homebrew text, retains the
+  App Store URL and trademark disclaimer. Saved response: `tmp/logs/remove-homebrew-public-page.html`.
+  No App Store/TestFlight release or write was performed. No required work remains.
 
 ## Preparation verification
 
