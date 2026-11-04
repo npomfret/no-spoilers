@@ -175,3 +175,41 @@ After any significant piece of work, and before committing it, have it reviewed 
 - This adds to any approval the project requires from the user. It never replaces one.
 
 *Generated from `npomfret/agent-standards`. Edit the standard there, not this copy.*
+
+## Interface text
+
+Every word on screen costs the person reading it. Add none they did not need. This applies to web and native apps alike, to every screen, view, dialog, card, empty state and notification.
+
+### Never add
+
+- A heading, subheading, section title, caption, label above a heading, intro sentence, helper line or footnote that the request did not ask for and that does not earn its place under "When a line earns its place" below. A screen, list, form or card does not need a title to say what it is when its content or the screen's own title already says so.
+- Text about how the app works inside: where data comes from, caching, syncing, refreshing, which service, engine, model, database or API is behind it, "Powered by …", "Live data", "Loaded from …", "Updated via …", "Computed on device". The person sees what something is and what it does, never how it is built.
+- Text in a slot only because the slot exists. A `description`, `subtitle`, `hint`, `footer` or `caption` parameter on a component or primitive is optional, and most uses leave it empty. "Box shadow values" under a section titled Shadows, and "Logo and app name visibility" under Header display, are what filling every slot produces.
+- Text that says something already on screen: a subtitle restating the title, an intro restating the heading, a label restating its control, a hint restating the placeholder, a caption restating the numbers above it.
+- Developer output in the shipped interface: record counts, timings, ids, version strings, debug or status lines, unless the request asks for them.
+- In SwiftUI, the same rule covers `Section` headers and footers, `.navigationSubtitle` and caption-styled `Text`. In web code it covers headings, `<small>`, `<figcaption>`, descriptive tooltips and placeholder text.
+
+### What this rule never removes
+
+- Accessible names, the tooltip or `.help` that names an icon-only control, the label of every field, and the `<legend>` or label of a group of controls. The web-factoring standard requires them, and they are not extra text.
+- Text the change makes necessary, as the scope standard says: an error and how to fix it, an empty state and what to do next, the consequence of a destructive action. These need no request of their own.
+
+### When a line earns its place
+
+- Beyond those, a line earns its place only when a person would otherwise be stuck: a field whose format is not obvious, an action whose consequence is not obvious. Name the person and what they could not do without it. If you cannot, leave it out.
+- The test: delete the line and read the screen again. If no fact was lost, only a name for what comes next, the line goes.
+- Say each thing once. Where a heading already explains the state, the text under it adds new information or disappears.
+- Prefer structure to words. Grouping, spacing, order, alignment and an icon show where one part ends and the next begins, without a label.
+- Name things by what the person understands, not by how the system is built: they manage notifications, not webhooks.
+
+### Existing text is not a precedent
+
+- Extra headings and captions already on a screen do not license more on the next one. Do not copy them.
+- Removing existing ones is a change of its own. Do it when asked; otherwise name it in one line at the end of the report.
+- If you think a screen needs a heading or a line of explanation that neither the request nor the two sections above call for, suggest it in one line at the end of the report instead of adding it.
+
+### Finishing
+
+- Read every screen you touched as the person using it. Each heading, caption and line of helper text answers a question they would actually have, and none of it describes the implementation.
+
+*Generated from `npomfret/agent-standards`. Edit the standard there, not this copy.*
