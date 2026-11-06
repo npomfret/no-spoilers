@@ -37,9 +37,10 @@ version = "2026.1"
 // is matched by its id. Do not invent one, and do not change their ids, or
 // TeamCity deletes the configuration and its history and starts a new one.
 
-// No lock: nothing here boots a simulator, and the server's one shared lock,
-// `ios_simulator` on the Root project, is for legs that do (user decision,
-// 2026-10-20). A leg added here that boots one takes `readLock("ios_simulator")`.
+// Locks: nothing here boots a simulator, so no leg takes `ios_simulator`; a leg added
+// here that boots one takes `readLock("ios_simulator")` too. Every compiling leg
+// (Verify: Xcode, Verify: Swift tests, Ship) takes `readLock("high_cpu")`, the
+// server-wide CPU quota on the Root project that keeps heavy legs from starving each other.
 // `sharedResources` needs no import of its own; importing it explicitly did not
 // compile on 2026-09-09.
 
@@ -99,6 +100,11 @@ val verifyXcode = BuildType {
         "apps again in Release, which is what Ship archives. One configuration rather than " +
         "three because they share one checkout and one agent."
     onTheAgent("verify-xcode")
+    features {
+        sharedResources {
+            readLock("high_cpu")
+        }
+    }
     steps {
         script {
             name = "mac"
@@ -145,6 +151,9 @@ val verifySwiftTests = BuildType {
     // Generic rather than the typed builder: a wrong parameter finds no reports
     // and says so, where a wrong symbol stops the script compiling.
     features {
+        sharedResources {
+            readLock("high_cpu")
+        }
         feature {
             type = "xml-report-plugin"
             param("xmlReportParsing.reportType", "junit")
@@ -256,6 +265,11 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
         "testers. Manual only: nothing triggers it, so it runs when a person presses it. ship.args takes --check or " +
         "--archive-only."
     onTheAgent("ship-$platform")
+    features {
+        sharedResources {
+            readLock("high_cpu")
+        }
+    }
 
     params {
         // Goes back to empty after a custom run: `publish.args` left holding a
