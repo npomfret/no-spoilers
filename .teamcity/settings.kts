@@ -37,9 +37,8 @@ version = "2026.1"
 // is matched by its id. Do not invent one, and do not change their ids, or
 // TeamCity deletes the configuration and its history and starts a new one.
 
-// Locks: nothing here boots a simulator, so no leg takes `ios_simulator`; a leg added
-// here that boots one takes `readLock("ios_simulator")` and `readLock("high_cpu")`, the
-// server-wide quota on the Root project that keeps simulator and browser legs from starving
+// Locks: nothing here boots a simulator; a leg added here that boots one takes
+// `readLock("high_cpu")`, the server-wide quota on the Root project that keeps simulator and browser legs from starving
 // each other. No other leg takes `high_cpu`.
 // `sharedResources` needs no import of its own; importing it explicitly did not
 // compile on 2026-09-09.
