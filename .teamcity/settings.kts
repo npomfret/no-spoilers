@@ -343,6 +343,15 @@ val shipMacos = ship("macos", "Macos", "macOS")
 project {
     description = "Native iPhone, macOS and WidgetKit race-weekend timelines."
 
+    // A week of artifacts, as the other repos keep, on a disk shared with the
+    // public sites. Build history keeps the server's default: this rule names
+    // artifacts only.
+    cleanup {
+        baseRule {
+            artifacts(days = 7)
+        }
+    }
+
     buildType(verifyPython)
     buildType(verifyXcode)
     buildType(verifySwiftTests)
