@@ -20,7 +20,15 @@ export CLANG_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache"
 export MODULE_CACHE_DIR="$repo_root/tmp/clang-module-cache"
 export SWIFT_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache"
 
+# **What a failure needs without a re-run**: the full xcodebuild log and Xcode's
+# result bundle, which `Verify: Xcode` publishes. Emptied first, so a local run
+# never leaves an earlier build's evidence behind.
+evidence="$repo_root/tmp/build-evidence/widget"
+rm -rf "$evidence"
+mkdir -p "$evidence"
+
 xcodebuild build \
+  -resultBundlePath "$evidence/build.xcresult" \
   -project "$repo_root/NoSpoilers/NoSpoilers.xcodeproj" \
   -target "NoSpoilersWidgetExtension" \
   -configuration "Debug" \
@@ -34,4 +42,5 @@ xcodebuild build \
   SHARED_PRECOMPS_DIR="$repo_root/tmp/XcodeBuild/NoSpoilersWidget/PrecompiledHeaders" \
   CLANG_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache" \
   MODULE_CACHE_DIR="$repo_root/tmp/clang-module-cache" \
-  SWIFT_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache"
+  SWIFT_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache" \
+  2>&1 | tee "$evidence/xcodebuild.log"

@@ -18,6 +18,8 @@ export CLANG_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache"
 export MODULE_CACHE_DIR="$repo_root/tmp/clang-module-cache"
 export SWIFT_MODULE_CACHE_PATH="$repo_root/tmp/clang-module-cache"
 
+# The run's full output beside its report, in the folder `Verify: Swift tests`
+# publishes: the report names a failing test, the log has what it printed.
 # One worker, so the suite stays serial: SwiftPM writes XCTest's report only in
 # its parallel mode, and without `--parallel` the run passes with no report.
 swift test \
@@ -26,4 +28,5 @@ swift test \
   --scratch-path "$repo_root/tmp/swiftpm/NoSpoilersCore" \
   --parallel --num-workers 1 \
   --xunit-output "$repo_root/tmp/test-results/NoSpoilersCore.xml" \
-  -Xcc "-fmodules-cache-path=$repo_root/tmp/clang-module-cache"
+  -Xcc "-fmodules-cache-path=$repo_root/tmp/clang-module-cache" \
+  2>&1 | tee "$repo_root/tmp/test-results/swift-test.log"

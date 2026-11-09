@@ -23,9 +23,16 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# Each selftest's full output, one log per script, which `Verify: Python`
+# publishes. Emptied first, so a local run never leaves an earlier log behind.
+# `-u`, so a selftest's stdout keeps its order with its stderr through `tee`.
+logs="$repo_root/tmp/selftests"
+rm -rf "$logs"
+mkdir -p "$logs"
+
 status=0
 for script in appstore_status testflight_distribute tag_approved appstore_listing appstore_screenshots submit_build; do
-  if ! python3 "scripts/${script}.py" --selftest; then
+  if ! python3 -u "scripts/${script}.py" --selftest 2>&1 | tee "$logs/${script}.log"; then
     status=1
   fi
 done

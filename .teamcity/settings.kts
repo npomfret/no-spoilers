@@ -79,6 +79,8 @@ val verifyPython = BuildType {
     description = "scripts/verify-python-selftests.sh: the offline selftests of the six " +
         "App Store Connect scripts. Starts no Xcode, so it holds no lock and runs beside a compile."
     onTheAgent("verify-python")
+    // One log per selftest, full output; the clean checkout means none is stale.
+    artifactRules = "tmp/selftests => selftest-logs"
     steps {
         script {
             name = "selftests"
@@ -99,6 +101,13 @@ val verifyXcode = BuildType {
         "apps again in Release, which is what Ship archives. One configuration rather than " +
         "three because they share one checkout and one agent."
     onTheAgent("verify-xcode")
+    // Per build (mac, ios, widget, and the two Releases): the full xcodebuild log,
+    // and the result bundles zipped, since a bundle is a directory. The scripts
+    // write them under `tmp/build-evidence/`, which the clean checkout empties.
+    artifactRules = """
+        tmp/build-evidence/*/xcodebuild.log => xcodebuild-logs
+        tmp/build-evidence/*/build.xcresult/** => xcresult.zip
+    """.trimIndent()
     steps {
         script {
             name = "mac"
@@ -135,6 +144,7 @@ val verifySwiftTests = BuildType {
         "not downstream of Verify: Xcode; it is SwiftPM and builds its own sources, so a broken " +
         "Xcode target would hide a test result it cannot affect."
     onTheAgent("verify-swift-tests")
+    // The JUnit report and `swift-test.log`, the run's full output.
     artifactRules = "tmp/test-results => test-records"
     steps {
         script {
@@ -280,9 +290,15 @@ fun ship(platform: String, slug: String, label: String) = BuildType {
     // nothing on Ship #8, the one run that needed it. The trailing `/**` matters:
     // a bundle is a directory, and a wildcard that ends at a directory name
     // matches no files, which is how Ship #9 kept the bundle and published none.
+    // Beside them, the archive and export's full xcodebuild output and the
+    // archive's result bundle, zipped. Never the `.xcarchive`, the export or its
+    // options: each rule names its files, and the build temp directory is new
+    // per build, so nothing published can be an earlier run's.
     artifactRules = """
         %system.teamcity.build.tempDir%/no-spoilers-ship/*/record.json => ship
         %system.teamcity.build.tempDir%/no-spoilers-ship/*/*.xcdistributionlogs/** => ship/distribution-logs
+        %system.teamcity.build.tempDir%/no-spoilers-ship/*/xcodebuild-*.log => ship/xcodebuild-logs
+        %system.teamcity.build.tempDir%/no-spoilers-ship/*/archive.xcresult/** => ship/archive.xcresult.zip
     """.trimIndent()
 
     // `reuseBuilds = SUCCESSFUL` rather than `NO`: the point is to ship a

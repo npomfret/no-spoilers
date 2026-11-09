@@ -93,6 +93,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import traceback
 import uuid
@@ -507,13 +508,42 @@ def keep_distribution_logs(scheme: str, since: float, work: Path) -> None:
         print(f"  could not keep the export's distribution logs: {asc.first_line(error)}", file=sys.stderr)
 
 
-def step(command: list[str], limit: float) -> int:
-    """Run one Apple tool with its output streaming into the log, bounded."""
-    try:
-        return subprocess.run(command, cwd=REPO, env=tooling_environment(), timeout=limit).returncode
-    except subprocess.TimeoutExpired:
-        print(f"{command[0]} {command[1]} ran past {limit / 60:.0f} minutes and was stopped", file=sys.stderr)
-        return 124
+def step(command: list[str], limit: float, log: Path | None = None) -> int:
+    """Run one Apple tool with its output streaming into the log, bounded.
+
+    With `log`, its output is also written there, stderr included, so the full
+    xcodebuild output is a `Ship` artifact and not only a build log to scroll.
+    """
+    if log is None:
+        try:
+            return subprocess.run(command, cwd=REPO, env=tooling_environment(), timeout=limit).returncode
+        except subprocess.TimeoutExpired:
+            print(f"{command[0]} {command[1]} ran past {limit / 60:.0f} minutes and was stopped", file=sys.stderr)
+            return 124
+    sys.stdout.flush()
+    with log.open("wb") as sink:
+        process = subprocess.Popen(
+            command, cwd=REPO, env=tooling_environment(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+
+        def copy() -> None:
+            for line in process.stdout:
+                sys.stdout.buffer.write(line)
+                sys.stdout.buffer.flush()
+                sink.write(line)
+
+        copier = threading.Thread(target=copy, daemon=True)
+        copier.start()
+        try:
+            code = process.wait(timeout=limit)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            copier.join(10)
+            print(f"{command[0]} {command[1]} ran past {limit / 60:.0f} minutes and was stopped", file=sys.stderr)
+            return 124
+        copier.join()
+        return code
 
 
 def claim(tag: str, sha: str, subject: str, repo: Path = REPO) -> bool:
@@ -613,7 +643,13 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         archive = work / f"{scheme}.xcarchive"
         derived = REPO / "tmp" / "DerivedData" / f"Ship-{platform}"
         print(f"\n==> {platform}: archiving {scheme} {version} ({number}) — limit {ARCHIVE_LIMIT / 60:.0f}m")
-        if step(archive_command(platform, number, archive, derived), ARCHIVE_LIMIT):
+        # The result bundle and the log are the archive's evidence, published by `Ship`; the
+        # `.xcarchive` itself never is. An existing bundle is an xcodebuild error, and a local
+        # `--archive-only` run reuses its number, so an earlier one is removed first.
+        results = work / "archive.xcresult"
+        shutil.rmtree(results, ignore_errors=True)
+        archiving = archive_command(platform, number, archive, derived) + ["-resultBundlePath", str(results)]
+        if step(archiving, ARCHIVE_LIMIT, work / "xcodebuild-archive.log"):
             return failed("archive", "xcodebuild archive failed; its own output above says why")
 
         problems = bundle_problems(archive, platform, version, number)
@@ -628,7 +664,7 @@ def ship_platform(platform: str, version: str, number: int, work: Path, entry: d
         print(f"\n==> {platform}: {verb} — limit {EXPORT_LIMIT / 60:.0f}m")
         # A second early, so a bundle Xcode creates in the second the export starts still counts.
         export_started = time.time() - 1
-        export_failed = step(export_command(archive, options, output), EXPORT_LIMIT)
+        export_failed = step(export_command(archive, options, output), EXPORT_LIMIT, work / "xcodebuild-export.log")
         keep_distribution_logs(scheme, export_started, work)
         if export_failed:
             return failed(
