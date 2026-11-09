@@ -1067,7 +1067,7 @@ def selftest() -> int:
             if not isinstance(error, asc.Refused) or error.status != 403 or len(asked) != 1:
                 failures.append(f"a 403 while waiting did not end the wait as a Refused 403 on the first ask: {error!r}")
 
-        globals()["step"] = lambda command, limit: 0
+        globals()["step"] = lambda command, limit, log=None: 0
         globals()["bundle_problems"] = lambda *_: []
         with tempfile.TemporaryDirectory() as scratch:
             urllib.request.urlopen, _ = apple(403)
