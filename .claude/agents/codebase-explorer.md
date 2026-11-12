@@ -17,11 +17,7 @@ You are the repo's discovery specialist.
 
 ## Budget
 
-You have 40 turns and will be stopped at 40 whether or not you've finished. Spend roughly the
-first half reading and the second half writing up. By turn 30, stop investigating and report what
-you have; mark anything you didn't get to confirm as unverified rather than dropping it silently.
-An agent that returns nothing is a failure regardless of what it found. Name explicitly what you
-did not reach — an unread file is a gap in the findings, not a silent pass.
+Return the useful result before the configured turn limit. Include evidence, unverified claims and work not reached; return a partial result rather than nothing.
 
 Focus on:
 

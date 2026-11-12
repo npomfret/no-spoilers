@@ -45,6 +45,6 @@ user-invocable: true
 
 ## Do not
 
-- Do not introduce a second release engine or put credentials into the five verification jobs.
+- Do not introduce a second release engine or put credentials into the verification jobs.
 - Do not guess credentials, App Store Connect IDs, build numbers, groups, or release channels.
 - Do not treat the highest build number as the newest upload.

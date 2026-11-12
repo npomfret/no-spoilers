@@ -21,7 +21,7 @@ paths:
 - Treat duplicate view models, service layers, helpers, and coordinator patterns as correctness issues when they solve the same problem.
 - Keep shared business logic in plain Swift modules when the repo already does that; keep platform-specific lifecycle and UI behavior in the owning app target.
 - Call out intentional platform divergence between macOS and iOS. Do not let drift happen silently.
-- Prefer the repo's canonical verification path. If the project has not standardized wrappers yet, verify the real entry point first and then use the smallest meaningful `swift` or `xcodebuild` command for the touched scope.
+- Prefer the repo's canonical verification path. Use the existing wrapper for the touched scope rather than raw Swift/Xcode commands.
 - Current canonical wrappers are `scripts/verify-core-tests.sh`, `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, and `scripts/verify-widget-build.sh`.
 - Avoid hand-editing generated project artifacts if the repo uses a generator or managed workflow. Update the source-of-truth files instead.
 - Simulator or device assumptions must be explicit. When a destination matters, name the exact scheme and destination rather than relying on defaults.

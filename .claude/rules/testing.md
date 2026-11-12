@@ -15,5 +15,5 @@ paths:
 - Treat missing verification for a changed behavior or refactor as a correctness gap.
 - If a bug is fixed or behavior changes, rerun the relevant verification before handoff.
 - Report exact commands and pass or fail outcomes.
-- If repeated raw tool invocation would become policy drift, add or propose a shared wrapper instead of normalizing ad-hoc commands.
+- If repeated raw tool invocation would become policy drift, propose a shared wrapper when creating one is outside the task instead of normalizing ad-hoc commands.
 - Do not claim confidence without executed evidence.

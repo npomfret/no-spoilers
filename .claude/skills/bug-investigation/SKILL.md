@@ -1,6 +1,6 @@
 ---
 name: bug-investigation
-description: Use automatically when reproducing, diagnosing, or fixing a bug, flaky test, unexplained runtime behavior, or failed build. Enforces one reversible hypothesis at a time and a clean evidence baseline. Do not use for feature work without an observed failure.
+description: Use when reproducing, diagnosing, or fixing a bug, flaky test, unexplained runtime behavior, or failed build.  Do not use for feature work without an observed failure.
 user-invocable: true
 ---
 

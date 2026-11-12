@@ -16,7 +16,7 @@ Implement or refactor Apple-platform code while preserving architecture and conv
 2. Read `docs/guides/swift-patterns.md` when the task is substantial.
 3. Use `feature-workflow` for non-trivial implementation, behavior change, or refactor work.
 4. Load `pattern-governance-reference` and identify the nearest approved local pattern before editing.
-5. If the concern already exists in multiple places, prefer convergence: refactor toward one shared boundary.
+5. If the concern already exists in multiple places, converge only where the requested change requires it; leave unrelated cleanup for a separate task.
 6. Reuse shared types, helpers, state boundaries, navigation patterns, and persistence access before creating new ones.
 7. If the approved pattern is insufficient, refactor that shared pattern instead of introducing a variant.
 8. If the code path is broad or unclear, delegate discovery to `codebase-explorer`.
@@ -27,5 +27,5 @@ Implement or refactor Apple-platform code while preserving architecture and conv
 
 - Do not introduce a second pattern for an existing concern.
 - Do not add one-off helpers, managers, services, or coordinators when an approved boundary already exists.
-- Do not leave duplicated behavior in place when the task naturally allows consolidation.
+- Keep necessary consolidation within the task; suggest unrelated duplication separately.
 - Do not finish substantial refactor or implementation work without verification evidence.

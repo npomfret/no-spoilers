@@ -26,12 +26,7 @@ already had is how a review spends its turn budget before it has said anything.
 
 ## Budget
 
-You have 40 turns and will be stopped at 40 whether or not you're done. Spend roughly the first
-half reading — the diff, the changed files, their callers and consumers, lateral implementations,
-nearby tests — and the second half writing up findings. By turn 30, stop investigating and report
-what you have; mark anything you didn't get to confirm as unverified rather than dropping it
-silently. An agent that returns nothing is a failure regardless of what it found along the way.
-Name explicitly what you did not reach — an unread file is a gap in the review, not a silent pass.
+Return the useful result before the configured turn limit. Include evidence, unverified claims and work not reached; return a partial result rather than nothing.
 
 Read the changed files, their callers and consumers, lateral implementations, and nearby tests.
 This agent has no shell tool. Consult only the relevant section of a subsystem guide or

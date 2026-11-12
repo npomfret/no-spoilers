@@ -1,6 +1,6 @@
 ---
 name: test-changes
-description: Use automatically when creating, changing, reviewing, or running tests for a feature, fix, refactor, or regression. Enforces readable behavioral tests and the smallest approved verification. Do not use when only compile confidence is needed; use build-verify.
+description: Use when creating, changing, reviewing, or running tests for a feature, fix, refactor, or regression.  Do not use when only compile confidence is needed; use build-verify.
 user-invocable: true
 ---
 

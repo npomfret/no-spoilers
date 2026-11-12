@@ -1,6 +1,6 @@
 ---
 name: feature-workflow
-description: Use automatically for non-trivial features, behavior changes, and refactors. Audits the full path, prepares the design, implements, and verifies without pattern drift. For observed failures, also use bug-investigation. Do not use for documentation-only or mechanical edits.
+description: Use for non-trivial features, behavior changes, and refactors. Audits the full path, prepares the design, implements, and verifies without pattern drift. For observed failures, also use bug-investigation. Do not use for documentation-only or mechanical edits.
 user-invocable: true
 ---
 

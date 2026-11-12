@@ -50,5 +50,14 @@
     "scripting@npomfret": true,
     "apple-hig@npomfret": true
   },
-  "enabledMcpjsonServers": ["gitnexus", "webstorm", "xcode"]
+  "enabledMcpjsonServers": ["gitnexus", "webstorm", "xcode"],
+  "extraKnownMarketplaces": {
+    "npomfret": {
+      "source": {
+        "source": "github",
+        "repo": "npomfret/agent-standards"
+      },
+      "autoUpdate": true
+    }
+  }
 }
