@@ -12,6 +12,6 @@ Use the shared Git policy in AGENTS.md. Infer the upstream from the tracking bra
 - Fetch the upstream, fast-forward when possible, otherwise rebase. Resolve conflicts from both sides' intended behavior and verify the affected result. Do not create merge commits.
 - Keep per-command Git settings local to the operation. Stage only the conflict resolutions that belong to this work.
 - Default to --strict: run relevant verification for the resulting change. --fast may skip extra checks on a conflict-free update. Use project entry points rather than inventing build commands.
-- Do not force-push the default branch. A previously pushed branch of your own may use --force-with-lease after rebase.
+- Do not force-push or create feature branches. Use a detached worktree when isolation is needed.
 
-Report the upstream, resulting revision, update strategy, resolved conflicts and verification. Do not push unless that delivery is authorized.
+Report the upstream, resulting revision, update strategy, resolved conflicts and verification. Task delivery is complete only after its verified commits are landed on the default branch and pushed, as required by the shared Git policy.
