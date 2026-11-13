@@ -9,7 +9,7 @@ disable-model-invocation: true
 Use the shared Git policy in AGENTS.md. Infer the upstream from the tracking branch or remote default when none is supplied; ask if it remains ambiguous.
 
 - Inspect status and incoming changes before updating. Preserve unrelated work; use an isolated worktree rather than stashing it.
-- Fetch the upstream, fast-forward when possible, otherwise rebase. Resolve conflicts from both sides' intended behavior and verify the affected result. Do not create merge commits.
+- Fetch the upstream and rebase onto it; use `git pull --rebase` when pulling the configured upstream. Resolve conflicts from both sides' intended behavior and verify the affected result.
 - Keep per-command Git settings local to the operation. Stage only the conflict resolutions that belong to this work.
 - Default to --strict: run relevant verification for the resulting change. --fast may skip extra checks on a conflict-free update. Use project entry points rather than inventing build commands.
 - Do not force-push or create feature branches. Use a detached worktree when isolation is needed.
