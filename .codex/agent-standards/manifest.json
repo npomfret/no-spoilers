@@ -1269,13 +1269,19 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "8c167cf1744822b5f4be1a60610551f4144c8ca70f1f0ac61dd763209e474f70",
+      "sha256": "dacca214bb2a540a4a340e212053105f1f4e6a37ae4c647633d13a44f7fc91e0",
       "link": false,
       "executable": false
     },
     ".codex/hooks/agent_standards.py": {
       "source": "templates/codex-hooks.py",
-      "sha256": "bf1f3fc6f91e0d576fe0f3bc67af41bb511e65f3d101e008b0646dc3559c29f8",
+      "sha256": "e688549ab9f7d26434b3bc36d572a9df0a5e71f235b344a7b0a3708050057df2",
+      "link": false,
+      "executable": false
+    },
+    ".codex/hooks/rpc_client.py": {
+      "source": "scripts/codex_runtime.py",
+      "sha256": "527a7c956b35b342d4415adfcd0d5a0508c5591b6c118114c10ae797c32c9912",
       "link": false,
       "executable": false
     },
