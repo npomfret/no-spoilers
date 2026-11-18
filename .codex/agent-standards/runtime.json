@@ -1,0 +1,131 @@
+{
+  "plugins": {
+    "apple-hig@npomfret": ".codex/agent-standards/plugins/apple-hig",
+    "auditing@npomfret": ".codex/agent-standards/plugins/auditing",
+    "ios-ui-testing@npomfret": ".codex/agent-standards/plugins/ios-ui-testing",
+    "scripting@npomfret": ".codex/agent-standards/plugins/scripting",
+    "task-files@npomfret": ".codex/agent-standards/plugins/task-files",
+    "teamcity@npomfret": ".codex/agent-standards/plugins/teamcity",
+    "typesafe@typesafe-ai": ".codex/agent-standards/plugins/typesafe",
+    "webstorm@npomfret": ".codex/agent-standards/plugins/webstorm"
+  },
+  "hooks": {
+    "auditing@npomfret": {
+      "PostToolUse": [
+        {
+          "matcher": "Read|Edit|Write|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.py\"",
+              "timeout": 10
+            }
+          ]
+        }
+      ],
+      "SessionStart": [
+        {
+          "matcher": "compact",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.py\" --forget",
+              "timeout": 10
+            }
+          ]
+        }
+      ]
+    },
+    "ios-ui-testing@npomfret": {
+      "PostToolUse": [
+        {
+          "matcher": "Read|Edit|Write|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.py\"",
+              "timeout": 10
+            }
+          ]
+        }
+      ],
+      "SessionStart": [
+        {
+          "matcher": "compact",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.py\" --forget",
+              "timeout": 10
+            }
+          ]
+        }
+      ]
+    },
+    "scripting@npomfret": {
+      "PostToolUse": [
+        {
+          "matcher": "Edit|Write|MultiEdit",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_shell.py\" --hook",
+              "timeout": 30
+            }
+          ]
+        }
+      ]
+    },
+    "webstorm@npomfret": {
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/session_context.py\"",
+              "timeout": 10
+            }
+          ]
+        }
+      ]
+    },
+    "project": {}
+  },
+  "rules": [
+    {
+      "source": ".claude/rules/apple-platforms.md",
+      "paths": [
+        "**/*.swift",
+        "Package.swift",
+        "**/*.xcodeproj/**/*",
+        "**/*.xcworkspace/**/*",
+        "**/*.plist",
+        "**/*.entitlements"
+      ],
+      "body": "# Apple Platform Rules\n\n- Confirm whether the active change lives in a Swift package, Xcode project, workspace, or generator-based setup before editing anything.\n- Do not invent module names, schemes, destinations, products, bundle identifiers, capabilities, URL schemes, plist keys, or entitlement keys. Read the checked-in project files first.\n- Read `docs/guides/swift-patterns.md` for substantial Swift or Apple-platform work.\n- Load `pattern-governance-reference` and identify the nearest approved local pattern before editing.\n- Reuse the existing architectural split. Do not mix new SwiftUI, UIKit, AppKit, or shared-core patterns into the same concern unless the task explicitly changes the standard.\n- If the existing pattern is weak but clearly the repo standard, refactor that shared boundary instead of adding a second approach.\n- Prefer shared reusable boundaries for domain logic, state coordination, navigation helpers, and persistence access when the same concern appears more than once.\n- Treat duplicate view models, service layers, helpers, and coordinator patterns as correctness issues when they solve the same problem.\n- Keep shared business logic in plain Swift modules when the repo already does that; keep platform-specific lifecycle and UI behavior in the owning app target.\n- Call out intentional platform divergence between macOS and iOS. Do not let drift happen silently.\n- Prefer the repo's canonical verification path. Use the existing wrapper for the touched scope rather than raw Swift/Xcode commands.\n- Current canonical wrappers are `scripts/verify-core-tests.sh`, `scripts/verify-mac-build.sh`, `scripts/verify-ios-build.sh`, and `scripts/verify-widget-build.sh`.\n- Avoid hand-editing generated project artifacts if the repo uses a generator or managed workflow. Update the source-of-truth files instead.\n- Simulator or device assumptions must be explicit. When a destination matters, name the exact scheme and destination rather than relying on defaults.\n- Use only this project's named simulators: `NoSpoilers-iPhone` and `NoSpoilers-iPad` for ordinary\n  work; `NoSpoilers-iPhone-65` and `NoSpoilers-iPad-129` for App Store listing dimensions. Never\n  mutate a stock simulator or pass a raw UDID where a project-owned device name is accepted.\n- Never hardcode a user-visible string in view or model code. Every displayed string must go through the target's `Strings.swift`. See `docs/guides/swift-patterns.md` for the full rule and the distinction between shared-core strings and target-private strings.\n"
+    },
+    {
+      "source": ".claude/rules/spoiler-safety.md",
+      "paths": [
+        "NoSpoilersCore/**/*.swift",
+        "NoSpoilers/**/*.swift",
+        "NoSpoilersCore/**/*.json",
+        "NoSpoilers/**/*.json",
+        "scripts/**/*.py",
+        "docs/**/*.html",
+        "listing/**/*.txt",
+        "README.md"
+      ],
+      "body": "# Spoiler Safety Rules\n\n- The product is safe because its data model and storage do not contain results. Never add result, position, points, standings, driver-performance, race-outcome, news, recap, or result-derived fields.\n- Treat every new external input as unsafe until its exact schema and rendered output are inspected. Schedule-only data is the only permitted product data.\n- Do not add source URLs, API parameters, logs, fixtures, screenshots, test names, comments, or UI copy that can reveal an outcome.\n- A session may expose only schedule identity, location, kind, and timing data required by the established domain model. If a requested feature needs more, stop and ask for a product decision.\n- Preserve the package/app boundary: shared schedule domain logic belongs in `NoSpoilersCore`; target-specific lifecycle and presentation remain in their owning target.\n- Use `spoiler-safety-reviewer` for a read-only audit when changing data ingestion, decoding, models, persistence, app-group data, rendered copy, fixtures, or screenshots.\n"
+    },
+    {
+      "source": ".claude/rules/testing.md",
+      "paths": [
+        "NoSpoilersCore/Tests/**/*.swift",
+        "scripts/verify-*.sh",
+        "scripts/**/*test*.py"
+      ],
+      "body": "# Testing Rules\n\n- Use the repo's approved verification commands or scripts.\n- Prefer the canonical wrappers in `scripts/` for current Swift and Xcode verification.\n- Choose the smallest meaningful build, compile, test, or behavior-risk scope first.\n- Distinguish compile or build confidence from changed-behavior confidence. Do not run broader tests when a narrower check answers the question.\n- Treat missing verification for a changed behavior or refactor as a correctness gap.\n- If a bug is fixed or behavior changes, rerun the relevant verification before handoff.\n- Report exact commands and pass or fail outcomes.\n- If repeated raw tool invocation would become policy drift, propose a shared wrapper when creating one is outside the task instead of normalizing ad-hoc commands.\n- Do not claim confidence without executed evidence.\n"
+    }
+  ]
+}

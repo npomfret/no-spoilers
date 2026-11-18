@@ -1,0 +1,10 @@
+{
+  "name": "apple-hig",
+  "description": "Justin Wetch's apple-hig skill (Apple Human Interface Guidelines, distilled), copied from justinwetch/HIGAgentSkills at 2206ff935b4affa9ad249a5399a3e8e29f5f6edd with its /duo command",
+  "version": "1.0.0",
+  "author": {
+    "name": "Justin Wetch"
+  },
+  "homepage": "https://github.com/justinwetch/HIGAgentSkills",
+  "license": "MIT"
+}
