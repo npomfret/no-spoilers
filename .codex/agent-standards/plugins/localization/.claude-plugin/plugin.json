@@ -1,7 +1,7 @@
 {
   "name": "localization",
   "description": "Translating and localizing app text, web or native: catalogues, languages, plurals, placeholders, locale formatting and the translation-maintenance workflow, in projects where localization applies",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": {
     "name": "npomfret"
   }
