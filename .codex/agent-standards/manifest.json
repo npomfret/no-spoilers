@@ -1263,7 +1263,7 @@
     },
     ".codex/agent-standards/plugins/ui/.claude-plugin/plugin.json": {
       "source": "plugin:ui@npomfret/.claude-plugin/plugin.json",
-      "sha256": "65c474d11ac51944aef6e9d5643b3c8a3083b83942fd22ffc3d229410ac8625c",
+      "sha256": "e0c461d6fa7efaeb50e376350d20b70c34b165f64a261d700e0cfcd505e82a75",
       "link": false,
       "executable": false
     },
@@ -1275,7 +1275,7 @@
     },
     ".codex/agent-standards/plugins/ui/skills/ui-implementation/SKILL.md": {
       "source": "plugin:ui@npomfret/skills/ui-implementation/SKILL.md",
-      "sha256": "e43cc9dec363093ad2329cb964c369cc5be3c4601099989dd8a4dbd98402bc06",
+      "sha256": "f472574441905ece0c3d37cdfdeb1a769251d6b18013f24a0e3c02d8652f4ecf",
       "link": false,
       "executable": false
     },
@@ -1413,13 +1413,13 @@
     },
     ".codex/agents/ui-change-reviewer.toml": {
       "source": "plugin:ui@npomfret/agents/ui-change-reviewer.md",
-      "sha256": "30ebdba3c529f78001dcfefd0b1b4ecb55f39bdfb79542b0dff02f689f967152",
+      "sha256": "53cb072e78fe8c59359a64983ca915ed25dd07f6ad03743b194e40099d61df03",
       "link": false,
       "executable": false
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "f6fea8c5ae3dade63916be028eb40f7bc2ec18c657a57b17ab56fd63b556a561",
+      "sha256": "c070198737ca2371160f6adb90c7fd72b9c672ed99a37350db40c00d33ebf11e",
       "link": false,
       "executable": false
     },

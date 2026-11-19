@@ -5,7 +5,7 @@ description: Any visible user interface, web or native (React, SwiftUI, UIKit, A
 
 # UI implementation
 
-Web projects also use `web-factoring`; Apple projects follow the project's Apple HIG skill.
+Web projects also use `web-factoring`; Apple projects follow the project's Apple HIG skill. Before committing a change to screens, components or copy, spawn `ui-change-reviewer` on the diff (Codex: `spawn_agent`; Claude Code: the Agent tool) and resolve its findings.
 
 Keep web and native interfaces concise. Every visible word must help the person understand their task, make a decision or act.
 
