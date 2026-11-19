@@ -1359,7 +1359,7 @@
     },
     ".codex/agent-standards/project-skills/release-and-delivery/SKILL.md": {
       "source": ".claude/skills/release-and-delivery/SKILL.md",
-      "sha256": "6c6fa638e38bf5bb9972acbe7638f369c32a859171766eb8b8bcef0edad41510",
+      "sha256": "0a870951f64b0f0df52f796b5e30e191346e2bf73c07cec08a1b206104f9c17a",
       "link": false,
       "executable": false
     },
@@ -1419,7 +1419,7 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "ccbb7f47d3c0b2d00e45cdb4013b766cb0a1b82b944995bd019a37b423a8cf96",
+      "sha256": "8dee96bff979fe3434c9211397c1b1672d179a7b9093aae72098ca8cbe09403d",
       "link": false,
       "executable": false
     },

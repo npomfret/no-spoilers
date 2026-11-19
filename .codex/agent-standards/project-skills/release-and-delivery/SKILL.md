@@ -30,7 +30,7 @@ description: "Use automatically only when the user explicitly asks to inspect or
      platform once Apple approves. Never move a version tag by hand; historical bare `vX.Y.Z`
      tags are retained as release provenance
    - deterministic listing screenshots: `scripts/screenshots.py` (iOS, simulator) or `scripts/mac_screenshots.py` (macOS, the real app on this machine)
-4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Confirm the exact platform, channel, version, tester group, and release intent from the user when any is ambiguous.
+4. Treat every action other than the two status scripts and screenshot dry runs as an external write. Work out the exact platform, channel, version and tester group from the task and the repo, and state them in your report.
 5. Preserve existing boundaries: `appstore_status.py` remains read-only;
    `testflight_distribute.py` owns TestFlight metadata and groups; `appstore_listing.py` owns listing
    copy and build attachment; `appstore_screenshots.py` owns listing images; `tag_approved.py` owns
