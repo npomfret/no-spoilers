@@ -2,11 +2,16 @@
   "plugins": {
     "apple-hig@npomfret": ".codex/agent-standards/plugins/apple-hig",
     "auditing@npomfret": ".codex/agent-standards/plugins/auditing",
+    "coding@npomfret": ".codex/agent-standards/plugins/coding",
+    "http@npomfret": ".codex/agent-standards/plugins/http",
     "ios-ui-testing@npomfret": ".codex/agent-standards/plugins/ios-ui-testing",
     "scripting@npomfret": ".codex/agent-standards/plugins/scripting",
     "task-files@npomfret": ".codex/agent-standards/plugins/task-files",
     "teamcity@npomfret": ".codex/agent-standards/plugins/teamcity",
-    "webstorm@npomfret": ".codex/agent-standards/plugins/webstorm"
+    "testing@npomfret": ".codex/agent-standards/plugins/testing",
+    "ui@npomfret": ".codex/agent-standards/plugins/ui",
+    "webstorm@npomfret": ".codex/agent-standards/plugins/webstorm",
+    "workflow@npomfret": ".codex/agent-standards/plugins/workflow"
   },
   "hooks": {
     "auditing@npomfret": {
@@ -56,20 +61,6 @@
               "type": "command",
               "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/nudge.py\" --forget",
               "timeout": 10
-            }
-          ]
-        }
-      ]
-    },
-    "scripting@npomfret": {
-      "PostToolUse": [
-        {
-          "matcher": "Edit|Write|MultiEdit",
-          "hooks": [
-            {
-              "type": "command",
-              "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/lint_shell.py\" --hook",
-              "timeout": 30
             }
           ]
         }

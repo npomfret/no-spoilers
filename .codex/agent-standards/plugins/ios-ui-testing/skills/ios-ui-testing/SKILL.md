@@ -1,12 +1,9 @@
 ---
 name: ios-ui-testing
-description: Project conventions for XCUITest UI tests, page objects, stubs and test plans. Read before changing tests that launch an iOS app or investigating their failures and flakiness.
+description: XCUITest for iOS apps. Use when adding or fixing tests that launch the app, screen or page objects, accessibility labels for tests, launch-argument stubs, test plans, simulators in tests, and flaky or failing UI tests, including "add a UI test for this screen". Not for Swift unit tests that never launch the app.
 ---
 
-## iOS UI testing
-
 Use these conventions for XCUITest UI tests, page objects, launch stubs and test plans. Unit tests that do not launch the app are outside this skill. Shared rules and platform notes use the same numbers.
-
 ### Shared UI testing rules
 
 Tests describe user behavior through page objects. The page object model is mandatory for all UI tests. A page object is a test driver that hides interaction mechanics behind meaningful application operations. Keep navigation and element knowledge in those objects so UI changes have one place to update.
@@ -39,7 +36,6 @@ Retain wait timing data for successful tests across builds. Routine screenshots 
 ### Departures
 
 Rules 3, 4 and 7 have no exceptions. Other departures need a comment naming the rule, the concrete constraint and what would remove it. The single-match requirement in rule 2 also has no exception.
-
 ### On iOS
 
 1. **Tests never touch the screen.**
@@ -134,3 +130,5 @@ Rules 3, 4 and 7 have no exceptions. Other departures need a comment naming the 
 10. **Flaky is failing.**
     - "Retry on Failure" stays off in the test plan, and nothing passes `-retry-tests-on-failure` to `xcodebuild`.
     - After a timing fix, run the test with `xcodebuild test -only-testing:<target>/<class>/<test> -test-iterations 20` and report the count that passed.
+
+*Generated from `npomfret/agent-standards`. Edit the standard there, not this copy.*

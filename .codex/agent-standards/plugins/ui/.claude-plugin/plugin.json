@@ -1,0 +1,8 @@
+{
+  "name": "ui",
+  "description": "User-interface implementation for web and native apps: interface wording, shared design system and thin UI layers",
+  "version": "1.0.0",
+  "author": {
+    "name": "npomfret"
+  }
+}
