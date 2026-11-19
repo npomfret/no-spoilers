@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Update from upstream
 
-Use the shared Git policy in AGENTS.md. Infer the upstream from the tracking branch or remote default when none is supplied; ask if it remains ambiguous.
+Use the shared Git policy in AGENTS.md. Infer the upstream from the tracking branch or remote default when none is supplied; use the remote default branch if it remains ambiguous and say so in the report.
 
 - Inspect status and incoming changes before updating. Preserve unrelated work; use an isolated worktree rather than stashing it.
 - Fetch the upstream and rebase onto it; use `git pull --rebase` when pulling the configured upstream. Resolve conflicts from both sides' intended behavior and verify the affected result.

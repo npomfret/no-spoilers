@@ -10,11 +10,12 @@ iPhone app live since 2026-09-02, and releases tagged to v1.1.4.
   UI, logs, tests, or screenshots.
 - Do not add series-owned names, marks, logos, or imagery to product or listing surfaces. Preserve
   the existing legally required trademark disclaimer.
-- Reuse the established pattern. Ask before introducing a dependency, abstraction family, file
-  layout, naming convention, or second implementation style.
+- Reuse the established pattern. When a dependency, abstraction family, file layout, naming
+  convention, or second implementation style is genuinely needed, decide, keep it minimal, and
+  record the decision in the task file or your report.
 - Fail loudly when required data is absent. Do not conceal impossible states with defaults,
   sentinels, or optionality.
-- Do not take destructive actions without approval.
+- Local destructive actions (reset, clean, deleting files) are ordinary work; never delete remote or production data.
 - Planned work and complex unplanned work require one current task file under `tasks/`; the
   lifecycle is the `task-files:task-files` skill.
 - Releases, App Store Connect writes, review replies, and simulator mutation require explicit user

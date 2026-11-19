@@ -9,7 +9,7 @@ description: Repository-wide engineering constraints that apply to every task.
 - For substantial work, identify the affected targets, packages, tests, platforms, and ownership boundaries first.
 - Audit upstream, downstream, and lateral implementations before editing non-trivial code.
 - Refactor for readiness before adding behavior when the current structure cannot cleanly host the requested change.
-- Prefer the established local pattern for the same outcome. If none exists, describe the gap and obtain approval before creating one.
+- Prefer the established local pattern for the same outcome. If none exists, decide on the smallest new one and record it in the task file or your report.
 - If a shared abstraction almost fits, refactor it instead of creating a variant beside it.
 - Remove duplication instead of creating parallel implementations for the same concern.
 - Treat duplicate helpers, parallel flows, alternate architectures, and silent pattern drift as correctness issues.

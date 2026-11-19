@@ -9,5 +9,5 @@ user-invocable: false
 - First identify the nearest established pattern in the touched area before planning edits.
 - Treat the established implementation as the approved pattern unless the task explicitly changes the standard.
 - Reuse or refactor the approved pattern; do not add a second implementation style for the same concern.
-- If no approved pattern fits, stop and propose the new pattern before implementing it.
+- If no approved pattern fits, decide on the smallest new pattern and record it in the task file or your report.
 - Pattern drift, duplicate helpers, and parallel flows are correctness issues and must be called out in implementation and review.

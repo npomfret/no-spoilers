@@ -22,14 +22,14 @@ Deliver non-trivial product or code changes without introducing pattern drift, d
    - nearest tests or task files
 5. Identify the approved local pattern for the touched concern.
 6. Assume the area may not be ready for the requested change. If readiness refactoring is needed, do that first and keep it tied to the requested outcome.
-7. If no approved pattern exists, stop and propose the new standard before implementing it broadly.
+7. If no approved pattern exists, decide on the new standard, record it in the task file, then implement it.
 8. If the task is Apple-platform implementation work, use `implement-apple-change`.
 9. If the task changes behavior, use `test-changes` to add or update coverage and run the smallest meaningful verification before handoff.
 10. If the task needs compile or toolchain confidence, plan the smallest meaningful `build-verify` check before handoff.
 11. Delegate broad discovery to `codebase-explorer`; use `pattern-compliance-reviewer` for a second read-only pass when the change is architectural or cross-cutting.
 12. Record the approved pattern in the task file alongside the plan and verification.
 
-## Stop and ask before
+## Decide and record (do not ask) before
 
 - introducing a new dependency
 - introducing a new architectural pattern, service layer, helper family, file layout, or naming convention
