@@ -1,7 +1,7 @@
 # No Spoilers
 
 Native iPhone, macOS, and WidgetKit race-weekend timelines. Swift and SwiftUI with a shared
-`NoSpoilersCore` package (iOS 17, macOS 14), Python App Store Connect tooling in `scripts/`, and
+`NoSpoilersCore` package (package floor: iOS 17, macOS 14), Python App Store Connect tooling in `scripts/`, and
 TeamCity (`.teamcity/`). Lifecycle: live. README.md records both apps on one App Store listing, the
 iPhone app live since 2026-09-02, and releases tagged to v1.1.4.
 

@@ -1,6 +1,6 @@
 ---
 name: release-and-delivery
-description: Use automatically only when the user explicitly asks to inspect or change App Review, App Store Connect, TestFlight, TeamCity publishing, release delivery, or listing screenshots. Preserves remote read/write boundaries. Do not infer release intent from a successful build or completed feature.
+description: Use when the task involves inspecting or changing App Review, App Store Connect, TestFlight, TeamCity publishing, release delivery, or listing screenshots. Preserves remote read/write boundaries. Do not infer release intent from a successful build or completed feature.
 user-invocable: true
 ---
 
