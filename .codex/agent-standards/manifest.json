@@ -1137,13 +1137,13 @@
     },
     ".codex/agent-standards/plugins/http/.claude-plugin/plugin.json": {
       "source": "plugin:http@npomfret/.claude-plugin/plugin.json",
-      "sha256": "22bef6d772e9582385faf9bf1c0dab1c8eae6c8d9b612583fb62f1ad97f55aee",
+      "sha256": "05d0090238556e4dd9e3698fb978180c1de3a9b1fdfd778d2c84897c2e3fc62b",
       "link": false,
       "executable": false
     },
     ".codex/agent-standards/plugins/http/skills/http-boundaries/SKILL.md": {
       "source": "plugin:http@npomfret/skills/http-boundaries/SKILL.md",
-      "sha256": "96bd406535a87aef1e76e9548480053dd0fcbb92f35e9997684fb7641a37b522",
+      "sha256": "6fa2480e94de1e1bcda8bdabf8409da4262be61c14e078e4717e4897d4c2a119",
       "link": false,
       "executable": false
     },
@@ -1168,6 +1168,18 @@
     ".codex/agent-standards/plugins/ios-ui-testing/skills/ios-ui-testing/SKILL.md": {
       "source": "plugin:ios-ui-testing@npomfret/skills/ios-ui-testing/SKILL.md",
       "sha256": "81aa15f9e1c6cda94fa9e6f1b53c1f579d4d768f17b6a1a58f72eddad7a99e62",
+      "link": false,
+      "executable": false
+    },
+    ".codex/agent-standards/plugins/localization/.claude-plugin/plugin.json": {
+      "source": "plugin:localization@npomfret/.claude-plugin/plugin.json",
+      "sha256": "ff08fd9502a71f49c8c3bf16ac3c467793364c2e53f38fc26e86b450cabbbafc",
+      "link": false,
+      "executable": false
+    },
+    ".codex/agent-standards/plugins/localization/skills/localization/SKILL.md": {
+      "source": "plugin:localization@npomfret/skills/localization/SKILL.md",
+      "sha256": "4fd73dd486ae43b4ec9e451c08f2d617648a47572092b4c3c8fb712ee795cd34",
       "link": false,
       "executable": false
     },
@@ -1239,19 +1251,19 @@
     },
     ".codex/agent-standards/plugins/testing/.claude-plugin/plugin.json": {
       "source": "plugin:testing@npomfret/.claude-plugin/plugin.json",
-      "sha256": "6806b7cd2088b8a2963c8d341da8df75ed38f16a0febf0295afaf4103002948d",
+      "sha256": "f5e3575f9f134a82ee5bdb3ebafddf48e3e371dff43b8d29bfbc9b836e90fc56",
       "link": false,
       "executable": false
     },
     ".codex/agent-standards/plugins/testing/skills/test-design/SKILL.md": {
       "source": "plugin:testing@npomfret/skills/test-design/SKILL.md",
-      "sha256": "55d82544517143c7e165ba4d2fc20ba9de50ffebea26156dcf6cd2dcdf006a2f",
+      "sha256": "14deb09d18dc33d8a2f3361266616213522ac0d03059ad870a819d078b683280",
       "link": false,
       "executable": false
     },
     ".codex/agent-standards/plugins/ui/.claude-plugin/plugin.json": {
       "source": "plugin:ui@npomfret/.claude-plugin/plugin.json",
-      "sha256": "110a0a7f245647afd0ddf764fd0a7bc2d6ac6f5846989c53273a3b30cf2cd22d",
+      "sha256": "d80ab7070ad31e54dc4ff04f89b421f5ece7c5722c486b052d0824d61606ce9c",
       "link": false,
       "executable": false
     },
@@ -1263,7 +1275,7 @@
     },
     ".codex/agent-standards/plugins/ui/skills/ui-implementation/SKILL.md": {
       "source": "plugin:ui@npomfret/skills/ui-implementation/SKILL.md",
-      "sha256": "34ef094c697b8bff7b7584a44729c23f3a0fb558792bde63d0885c6eb767059f",
+      "sha256": "2561d022fb2f10567ce79b97e0af52f45080fa62e9f664d641e2e3492cf25c7f",
       "link": false,
       "executable": false
     },
@@ -1329,7 +1341,7 @@
     },
     ".codex/agent-standards/project-skills/feature-workflow/SKILL.md": {
       "source": ".claude/skills/feature-workflow/SKILL.md",
-      "sha256": "12f951f89897d9e3eac22e520e13e589b7c5b648112feabb822f8451aa2acd75",
+      "sha256": "870259c8016b1925150a83c35950e89861bd3779f9a052eeda49473f0cd8bedb",
       "link": false,
       "executable": false
     },
@@ -1341,7 +1353,7 @@
     },
     ".codex/agent-standards/project-skills/pattern-governance-reference/SKILL.md": {
       "source": ".claude/skills/pattern-governance-reference/SKILL.md",
-      "sha256": "10dd524473b724636cbd88d7ac260dc29039dfc6a03eaf3163ac82a6f4bfdcc0",
+      "sha256": "7ad83a298a87bc5ce13061dfd38548131feb460308fd7ee95c8b072f14063131",
       "link": false,
       "executable": false
     },
@@ -1365,7 +1377,7 @@
     },
     ".codex/agent-standards/runtime.json": {
       "source": "project and enabled-plugin configuration",
-      "sha256": "f557298b83eb6040b1710fee0e01166aab38e9fed2475a945c6e6fe314f4f8dd",
+      "sha256": "b205786f867f7026e28821d4640445ce2152704524dc6c25f918b96fc9bf2885",
       "link": false,
       "executable": false
     },
@@ -1377,7 +1389,7 @@
     },
     ".codex/agents/codebase-explorer.toml": {
       "source": ".claude/agents/codebase-explorer.md",
-      "sha256": "762aad18b3e632c89dceba61454eddff0533e9940c97903bde78aff857c971e7",
+      "sha256": "b67387ab5d5c7ece32afe05909a697cbf689da5e77617ab5ccfd343c932bc571",
       "link": false,
       "executable": false
     },
@@ -1389,7 +1401,7 @@
     },
     ".codex/agents/pattern-compliance-reviewer.toml": {
       "source": ".claude/agents/pattern-compliance-reviewer.md",
-      "sha256": "ec4e695c5cd4483d27ddf293dcc06de3889772fc0be68e2d70cf15e5f5903b9b",
+      "sha256": "8bb4300f5e0304231f7fff7f00b31eea4e2bc1911bf035ada92e163df096bff9",
       "link": false,
       "executable": false
     },
@@ -1401,13 +1413,13 @@
     },
     ".codex/agents/ui-change-reviewer.toml": {
       "source": "plugin:ui@npomfret/agents/ui-change-reviewer.md",
-      "sha256": "27bd866f9c3d7e6739d7be3f4323169df37d74589561422da5a1aa4abe8017fc",
+      "sha256": "ea06ebd4c4f11a1fbbc1d390e263a9d02c5c701a7bcff7cb5cba12af44937473",
       "link": false,
       "executable": false
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "8996b635a1be4abdc2a97c7489064c43e305567a79a9de534473e38607fa372c",
+      "sha256": "5cfb59dc45cee75f1260c24dc70d8866ce125dc5147196ec8a925c6bf6d06563",
       "link": false,
       "executable": false
     },
