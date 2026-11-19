@@ -1,6 +1,6 @@
 ---
 name: localization
-description: Any visible, spoken or accessible text in a web or native app, such as labels, tooltips, toasts, alerts, empty states, permission prompts, notifications, dates, numbers and plurals. Use when adding, rewording, renaming or formatting that text, checking translations are in sync, or for translations, languages, locales, i18n, string catalogues, right-to-left layout and text that must fit longer translations. Not for error mapping, serialization, code transforms or developer logs.
+description: Any visible, spoken or accessible text in a web or native app, such as labels, tooltips, toasts, alerts, empty states, permission prompts, notifications, dates, numbers and plurals. Use when adding, rewording, renaming or formatting that text, checking translations are in sync, or for translations, languages, locales, i18n, string catalogues, right-to-left layout and text that must fit. Not for error mapping, serialization, developer logs, or renaming code identifiers or columns.
 ---
 
 Applies to every user-facing surface of a project where localization applies, on any

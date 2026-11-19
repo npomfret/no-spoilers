@@ -1,6 +1,6 @@
 ---
 name: ui-implementation
-description: Any visible user interface, web or native (React, SwiftUI, UIKit, AppKit). Use when building or changing screens, components, controls, forms, dialogs, copy, labels, headings, icons, tooltips, spacing, colours or accessibility, including small tweaks to a shared control or its text. Covers interface wording, shared design system and thin UI layers. Not for UI tests or server and API work.
+description: Any visible user interface, web or native (React, SwiftUI, UIKit, AppKit). Use when building or changing screens, components, controls, forms, dialogs, copy, labels, headings, icons, tooltips, spacing, colours or accessibility, including a screen's behaviour (purchase, retry, loading, error states) and small tweaks to a shared control or its text. Covers interface wording, shared design system and thin UI layers. Not for UI tests or server and API work.
 ---
 
 # UI implementation
