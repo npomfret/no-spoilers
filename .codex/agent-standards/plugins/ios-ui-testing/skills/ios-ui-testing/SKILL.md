@@ -96,6 +96,8 @@ Rules 3, 4 and 7 have no exceptions. Other departures need a comment naming the 
 4. **Snapshot reads.**
    - `exists`, `isHittable`, `isEnabled`, `isSelected`, `label`, `value`, `count`, `frame` and `snapshot()` are one-off reads. Never branch on one, and never assert one with `XCTAssertTrue(element.exists)` or `XCTAssertEqual(element.label, …)`. Use the waiting APIs from rule 3.
    - Never assert `debugDescription` or the element tree.
+   - Never assert colours. Check each screen in one orientation; rotation is tested only where it is the feature, in its own test.
+   - Attach screenshots, logs and timing records to the result only when a test fails, never on success (see Failure artifacts).
 
 5. **Hand over the next page object.**
    - The entry point is a static `launch(…)` on the first screen's page object. It builds the `XCUIApplication`, sets the locale and supplies stub-configuration file paths (rule 9) through launch arguments, launches, calls `verifyLoaded()` and returns the page object:

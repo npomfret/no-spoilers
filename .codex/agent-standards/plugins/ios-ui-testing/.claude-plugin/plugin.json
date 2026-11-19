@@ -1,7 +1,7 @@
 {
   "name": "ios-ui-testing",
   "description": "iOS UI tests that survive an asynchronous app: tests never touch the screen, page objects do; no change is instant, so every check polls; never force or retry a side effect",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "author": {
     "name": "npomfret"
   }
