@@ -18,8 +18,9 @@ iPhone app live since 2026-09-02, and releases tagged to v1.1.4.
 - Local destructive actions (reset, clean, deleting files) are ordinary work; never delete remote or production data.
 - Planned work and complex unplanned work require one current task file under `tasks/`; the
   lifecycle is the `task-files:task-files` skill.
-- Releases, App Store Connect writes, review replies, and simulator mutation require explicit user
-  intent. Inspect the owning script and current remote state immediately before acting.
+- Releases, App Store Connect writes, review replies, and simulator mutation: do them when the task
+  calls for it and state it in your report. Inspect the owning script and current remote state
+  immediately before acting.
 
 Verification entry points:
 

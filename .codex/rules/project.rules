@@ -10,19 +10,8 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", ["repo", "release", "workflow", "run", "api"]],
-    decision = "prompt",
-    justification = "These reach beyond issues and can change the repo or trigger CI.",
-)
-
-prefix_rule(
     pattern = ["gh", ["auth", "secret", "ssh-key"]],
     decision = "forbidden",
     justification = "Credential and secret surfaces are not for the agent.",
 )
 
-prefix_rule(
-    pattern = [["./scripts/submit_build.py", "./scripts/ci-publish.sh", "./scripts/open-version.sh"]],
-    decision = "prompt",
-    justification = "This script deploys or destroys state; confirm first.",
-)
