@@ -1,22 +1,20 @@
 # No Spoilers
 
-Native iPhone, macOS, and WidgetKit race-weekend timelines. The macOS app is live; iPhone App Store
-acceptance is the current product priority.
+Native iPhone, macOS, and WidgetKit race-weekend timelines. Swift and SwiftUI with a shared
+`NoSpoilersCore` package (iOS 17, macOS 14), Python App Store Connect tooling in `scripts/`, and
+TeamCity (`.teamcity/`). Lifecycle: live. README.md records both apps on one App Store listing, the
+iPhone app live since 2026-09-02, and releases tagged to v1.1.4.
 
 - The spoiler-free guarantee is architectural. Product data may contain schedule identity,
   location, kind, and timing only; outcome-bearing data must never enter models, storage, fixtures,
   UI, logs, tests, or screenshots.
 - Do not add series-owned names, marks, logos, or imagery to product or listing surfaces. Preserve
   the existing legally required trademark disclaimer.
-- For non-trivial work, audit upstream callers, downstream effects, lateral precedent, and nearby
-  tests before editing. Make any structural changes the requirement needs, then implement and verify.
 - Reuse the established pattern. Ask before introducing a dependency, abstraction family, file
   layout, naming convention, or second implementation style.
 - Fail loudly when required data is absent. Do not conceal impossible states with defaults,
   sentinels, or optionality.
-- Preserve unrelated changes. Do not take destructive actions without approval, and do not claim
-  completion without executed command evidence.
-- Work on `main`; do not create branches unless explicitly asked.
+- Do not take destructive actions without approval.
 - Planned work and complex unplanned work require one current task file under `tasks/`; the
   lifecycle is the `task-files:task-files` skill.
 - Releases, App Store Connect writes, review replies, and simulator mutation require explicit user
