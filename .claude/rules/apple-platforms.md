@@ -14,7 +14,7 @@ paths:
 - Confirm whether the active change lives in a Swift package, Xcode project, workspace, or generator-based setup before editing anything.
 - Do not invent module names, schemes, destinations, products, bundle identifiers, capabilities, URL schemes, plist keys, or entitlement keys. Read the checked-in project files first.
 - Read `docs/guides/swift-patterns.md` for substantial Swift or Apple-platform work.
-- Load `pattern-governance-reference` and identify the nearest approved local pattern before editing.
+- Identify the nearest approved local pattern before editing.
 - Reuse the existing architectural split. Do not mix new SwiftUI, UIKit, AppKit, or shared-core patterns into the same concern unless the task explicitly changes the standard.
 - If the existing pattern is weak but clearly the repo standard, refactor that shared boundary instead of adding a second approach.
 - Prefer shared reusable boundaries for domain logic, state coordination, navigation helpers, and persistence access when the same concern appears more than once.

@@ -8,14 +8,14 @@ This guide maps the current control plane and the places that define repo standa
 2. `.claude/rules/core.md` — repo-wide engineering constraints.
 3. `.claude/rules/apple-platforms.md` — Apple-platform implementation rules.
 4. `.claude/rules/testing.md` — verification and evidence rules.
-5. `.claude/skills/pattern-governance-reference/SKILL.md` — pattern-first reference for substantial work.
-6. `.claude/skills/feature-workflow/SKILL.md` — audit-first workflow for non-trivial features, behavior changes, and refactors.
-7. `.claude/skills/implement-apple-change/SKILL.md` — implementation/refactor workflow for Swift and Apple-platform code.
-8. `.claude/skills/build-verify/SKILL.md` — compile, build, and toolchain verification workflow.
-9. `.claude/skills/test-changes/SKILL.md` — targeted behavior-risk verification workflow.
-10. `.claude/skills/review-working-tree/SKILL.md` — read-only correctness and pattern-drift review workflow.
+5. Removed 2026-11-21, with 6–10 and 12: the generic workflow skills for pattern governance, features, Apple-platform changes, build verification, test changes, working-tree review and bug investigation. Their project facts live in `AGENTS.md`, the rules in 2–4, `docs/guides/building.md` and `docs/guides/testing.md`. The numbers are kept so later items still read correctly.
+6. Removed 2026-11-21; see 5.
+7. Removed 2026-11-21; see 5.
+8. Removed 2026-11-21; see 5.
+9. Removed 2026-11-21; see 5.
+10. Removed 2026-11-21; see 5.
 11. `task-files:task-files` and `teamcity:teamcity-builds` (the `task-files@npomfret` and `teamcity@npomfret` plugins, enabled in `.claude/settings.json`) — shared task lifecycle and read-only CI diagnosis. Their wording and the TeamCity REST implementation are edited in `npomfret/agent-standards`, not here; `.teamcity/cli.json` and `scripts/teamcity.py` are the project-owned configuration and locator.
-12. `.claude/skills/bug-investigation/SKILL.md` — controlled, reversible diagnosis for observed failures.
+12. Removed 2026-11-21; see 5.
 13. Removed 2026-09-10: the Claude setup maintenance skill. The permission baseline is written by `agent-standards`, and the rest of `.claude/` needs no workflow of its own. The number is kept so later items still read correctly.
 14. `.claude/agents/codebase-explorer.md` — plan-mode discovery and pattern lookup specialist.
 15. `.claude/agents/pattern-compliance-reviewer.md` — plan-mode duplication and pattern-drift specialist.

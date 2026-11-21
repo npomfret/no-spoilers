@@ -7,8 +7,6 @@ tools:
   - Glob
 permissionMode: plan
 maxTurns: 40
-skills:
-  - pattern-governance-reference
 ---
 
 # Pattern Compliance Reviewer

@@ -17,8 +17,8 @@ disable-model-invocation: true
 Run a read-only review of the current working tree.
 
 - Do not edit, stage, unstage, commit, or delete files.
-- Use `review-working-tree` as the primary workflow.
-- Keep `pattern-governance-reference` active for the whole review.
+- Read `.claude/rules/core.md` and the path rules that match the touched files, and identify the approved local pattern for each touched concern.
+- Treat duplicated implementations and pattern drift as correctness findings, not style.
 - Use `pattern-compliance-reviewer` when the change surface is broad or architectural.
 - Focus on correctness risks, regressions, duplicated implementations, missing verification, and platform drift.
 - Output:
