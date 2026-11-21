@@ -7,51 +7,9 @@
       "link": true,
       "executable": false
     },
-    ".agents/skills/bug-investigation": {
-      "source": ".claude/skills/bug-investigation/SKILL.md",
-      "sha256": "712e86acd778bd0af75d061dd81c58c2bc47438a3faf9039ba9b5418a1de6724",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/build-verify": {
-      "source": ".claude/skills/build-verify/SKILL.md",
-      "sha256": "0358796ec4e16dbc6b3812455a1e47a8a0221234c1e8899805c5d94450aa6deb",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/feature-workflow": {
-      "source": ".claude/skills/feature-workflow/SKILL.md",
-      "sha256": "445c21c31cba3f7d0b581aa9d80a181360d2ab72be703f3c2d4631722d924945",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/implement-apple-change": {
-      "source": ".claude/skills/implement-apple-change/SKILL.md",
-      "sha256": "d139e5f436298ad40d0b0863402e3e1310126c54c7c9baf22e3558d13d7711f7",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/pattern-governance-reference": {
-      "source": ".claude/skills/pattern-governance-reference/SKILL.md",
-      "sha256": "6cdd0d60ae58b9148dea9c8e52ae43c902c192f8d74b1cbe4266e63f4a89ddf1",
-      "link": true,
-      "executable": false
-    },
     ".agents/skills/release-and-delivery": {
       "source": ".claude/skills/release-and-delivery/SKILL.md",
       "sha256": "9fd0b7673b5f1f4afa8b33f6aa7c8774855149a923c212b616389ee9629e98f8",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/review-working-tree": {
-      "source": ".claude/skills/review-working-tree/SKILL.md",
-      "sha256": "b4b457e433151d38195d47a55b322b91fbd9a25513833448ef271bfc5daedf93",
-      "link": true,
-      "executable": false
-    },
-    ".agents/skills/test-changes": {
-      "source": ".claude/skills/test-changes/SKILL.md",
-      "sha256": "5e11878f42606a5b6613c702928fde39b8bb15942f44628f45c20a7913bd59c6",
       "link": true,
       "executable": false
     },
@@ -1327,57 +1285,15 @@
       "link": false,
       "executable": false
     },
-    ".codex/agent-standards/project-skills/bug-investigation/SKILL.md": {
-      "source": ".claude/skills/bug-investigation/SKILL.md",
-      "sha256": "ce7a8f185ae2e6235cee781d2d621142f8d92ee71bb83db62b657aa1a0900155",
-      "link": false,
-      "executable": false
-    },
-    ".codex/agent-standards/project-skills/build-verify/SKILL.md": {
-      "source": ".claude/skills/build-verify/SKILL.md",
-      "sha256": "6b7b30b24e4d79faa514b8cbd168805d53114d28e4ad5183f665cfe38f96410f",
-      "link": false,
-      "executable": false
-    },
-    ".codex/agent-standards/project-skills/feature-workflow/SKILL.md": {
-      "source": ".claude/skills/feature-workflow/SKILL.md",
-      "sha256": "870259c8016b1925150a83c35950e89861bd3779f9a052eeda49473f0cd8bedb",
-      "link": false,
-      "executable": false
-    },
-    ".codex/agent-standards/project-skills/implement-apple-change/SKILL.md": {
-      "source": ".claude/skills/implement-apple-change/SKILL.md",
-      "sha256": "6de7b2b3205512d2b2d78b456623aa5342b5470b242db113e96285e55078f483",
-      "link": false,
-      "executable": false
-    },
-    ".codex/agent-standards/project-skills/pattern-governance-reference/SKILL.md": {
-      "source": ".claude/skills/pattern-governance-reference/SKILL.md",
-      "sha256": "7ad83a298a87bc5ce13061dfd38548131feb460308fd7ee95c8b072f14063131",
-      "link": false,
-      "executable": false
-    },
     ".codex/agent-standards/project-skills/release-and-delivery/SKILL.md": {
       "source": ".claude/skills/release-and-delivery/SKILL.md",
       "sha256": "557cb86c93edff78bff8d4109785d93e0ddea15bd05299e0fb9b2a531dfc1223",
       "link": false,
       "executable": false
     },
-    ".codex/agent-standards/project-skills/review-working-tree/SKILL.md": {
-      "source": ".claude/skills/review-working-tree/SKILL.md",
-      "sha256": "f280225e3076429f95e612b5214ba2e80ada2e48cf8f435a65fbbc2f62a3339b",
-      "link": false,
-      "executable": false
-    },
-    ".codex/agent-standards/project-skills/test-changes/SKILL.md": {
-      "source": ".claude/skills/test-changes/SKILL.md",
-      "sha256": "6ea5293db7763df1122fe31b4321f70ab0b803f713e53cb32c204c9834510243",
-      "link": false,
-      "executable": false
-    },
     ".codex/agent-standards/runtime.json": {
       "source": "project and enabled-plugin configuration",
-      "sha256": "b205786f867f7026e28821d4640445ce2152704524dc6c25f918b96fc9bf2885",
+      "sha256": "e22a640b5d55ef0cc34f2349d19a6e8216345192702e6780505198eed25f6cc3",
       "link": false,
       "executable": false
     },
@@ -1389,7 +1305,7 @@
     },
     ".codex/agents/codebase-explorer.toml": {
       "source": ".claude/agents/codebase-explorer.md",
-      "sha256": "b67387ab5d5c7ece32afe05909a697cbf689da5e77617ab5ccfd343c932bc571",
+      "sha256": "7d2dcd6f0d2ab1c49c2404db4cc03b049047c58ceae0c4ab945208e26f6659c8",
       "link": false,
       "executable": false
     },
@@ -1401,7 +1317,7 @@
     },
     ".codex/agents/pattern-compliance-reviewer.toml": {
       "source": ".claude/agents/pattern-compliance-reviewer.md",
-      "sha256": "8bb4300f5e0304231f7fff7f00b31eea4e2bc1911bf035ada92e163df096bff9",
+      "sha256": "95683cd59d5f2ce4e5f963411d5edcb433e80d4b2b9b62e73be1908a86687bc3",
       "link": false,
       "executable": false
     },
@@ -1419,7 +1335,7 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "8387ec0959fa9164ad03dc098a55c20324bc2bc73182587e768e283ecd46727c",
+      "sha256": "6841d50e4dc5d3ed1673a4fc0a213666ef4863ff28257e82784e26df11ec3062",
       "link": false,
       "executable": false
     },
