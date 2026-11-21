@@ -1335,13 +1335,13 @@
     },
     ".codex/hooks.json": {
       "source": "templates/codex-hooks.py",
-      "sha256": "6841d50e4dc5d3ed1673a4fc0a213666ef4863ff28257e82784e26df11ec3062",
+      "sha256": "aa2e1ea5ebecc8e731b4371a9318050c0f6337c36d5c1c658537b55b4f00ca60",
       "link": false,
       "executable": false
     },
     ".codex/hooks/agent_standards.py": {
       "source": "templates/codex-hooks.py",
-      "sha256": "8e68033b340cf77ed5d105e610a0b8d5afbfb30752a04a67222f6f5abb74c8f3",
+      "sha256": "b5a9d53b58deb3ee7268151ef2ec8bca2c4c691385e42ae6a1e0c7f8d112c3d7",
       "link": false,
       "executable": false
     },
