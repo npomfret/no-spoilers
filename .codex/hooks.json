@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:2f6c8a0576ffd2cf32354942c01476fbad1b8c8f0705dbbab536e35a6b552fab",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:ab2fb73fa95c6f94a28700096f8f2ba611ba6c7a19dcfd101a568c2da5ced3ae",
             "timeout": 600
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:2f6c8a0576ffd2cf32354942c01476fbad1b8c8f0705dbbab536e35a6b552fab",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:ab2fb73fa95c6f94a28700096f8f2ba611ba6c7a19dcfd101a568c2da5ced3ae",
             "timeout": 600
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:2f6c8a0576ffd2cf32354942c01476fbad1b8c8f0705dbbab536e35a6b552fab",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:ab2fb73fa95c6f94a28700096f8f2ba611ba6c7a19dcfd101a568c2da5ced3ae",
             "timeout": 600
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:2f6c8a0576ffd2cf32354942c01476fbad1b8c8f0705dbbab536e35a6b552fab",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel)/.codex/hooks/agent_standards.py\" # agent-standards-content-sha256:ab2fb73fa95c6f94a28700096f8f2ba611ba6c7a19dcfd101a568c2da5ced3ae",
             "timeout": 600
           }
         ]

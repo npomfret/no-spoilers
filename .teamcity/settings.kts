@@ -173,7 +173,7 @@ val verify = BuildType {
     name = "Verify"
     description = "The one light per commit. Runs nothing itself; green when Verify: Python, " +
         "Verify: Xcode and Verify: Swift tests all passed on the same revision. Runs for every " +
-        "push to main and nightly at 00:00 Europe/London. Neither ships anything."
+        "push to main and nightly at 22:00 Europe/London. Neither ships anything."
     type = BuildTypeSettings.Type.COMPOSITE
 
     // No steps, no agent and no checkout. It exists so one light answers "did this
@@ -226,7 +226,7 @@ val verify = BuildType {
         }
         schedule {
             schedulingPolicy = daily {
-                hour = 0
+                hour = 22
                 minute = 0
                 timezone = "Europe/London"
             }

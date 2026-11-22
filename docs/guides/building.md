@@ -131,7 +131,7 @@ commit, which nothing depends on: Apple numbers the platforms separately and the
 per platform. The old `Ship`'s history survives as `ShipIos #1` to `#11`.
 
 **Delivery is manual: nothing ships until a person presses `Ship`.** Neither `Ship` configuration
-has a trigger, and neither may gain one. `Verify` holds the VCS trigger and the 00:00 nightly, and no
+has a trigger, and neither may gain one. `Verify` holds the VCS trigger and the 22:00 nightly, and no
 `Ship` follows it. The snapshot dependency holds each press to a green `Verify` at that revision,
 and a red one cancels the run. Unattended delivery ran from 2026-10-11 to 2026-10-31; before 2026-10-13 it also shipped the nightly, which uploaded an unchanged commit
 again (`ShipMacos #6`) or failed on a released version (`ShipIos #18`).
