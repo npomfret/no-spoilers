@@ -162,28 +162,88 @@ overtakes. Recomputing the inclusive ranges gives 45 + 4 + 1 = 50; 45/50 = 90%.
 
 ## Question 5: Feeling old yet?
 
-**Status:** Draft for user review.
+**Status:** Approved by the user.
 **Year:** 2026, with a connection to 2006.
 
-Kimi Antonelli, the 2026 world champion, was born in 2006. Which driver still on the
-2026 grid won his second world title that very year?
+How many F1 world titles had Fernando Alonso won when Kimi Antonelli was born?
 
-- **A.** Lewis Hamilton
-- **B.** Fernando Alonso
-- **C.** Max Verstappen
-- **D.** Lando Norris
+- **A.** None
+- **B.** One
+- **C.** Two
+- **D.** Three
 
-**Correct answer: B — Fernando Alonso.**
+**Correct answer: B — One.**
 
-The year Antonelli arrived, Alonso collected title number two. Twenty years later,
-they shared the grid.
+Antonelli was born on 25 August 2006. Alonso's second title came on 22 October,
+almost two months later. He was already a champion when Kimi arrived, just not
+yet a double champion.
 
 **Sources checked:** 2026-11-23.
 
-- [Formula 1 — The records Antonelli broke on the way to his maiden title](https://www.formula1.com/en/latest/article/in-numbers-the-records-antonelli-has-broken-on-his-way-to-his-maiden-f1-title.2FB9yQ5qD7XzQ418HNlrfN),
-  published 2 November 2026; the section “First driver born in the 2000s to become World
-  Champion” explicitly connects Antonelli's 2006 birth with active driver Alonso's
-  second championship that year.
+- [Formula 1 — Kimi Antonelli driver profile](https://www.formula1.com/en/drivers/kimi-antonelli):
+  gives his birth date as 25 August 2006.
+- [Autosport — Massa wins in Brazil, Alonso is champion](https://www.autosport.com/f1/news/massa-wins-in-brazil-alonso-is-champion-4406802/4406802/),
+  published 22 October 2006; contemporary report confirms Alonso secured his second title that day.
 
-**Fact-check note:** The connection is the calendar year. Do not suggest Alonso had
-already won his second title on the day Antonelli was born.
+**Fact-check note:** Compare the exact dates, not just the calendar year. “Two” is a
+plausible distractor because Alonso won his second title later in Antonelli's birth year.
+
+## Question 6: One against six
+
+**Status:** Draft for user review.
+**Year:** 2026 — through the Las Vegas Grand Prix, inclusive.
+
+By the end of Las Vegas 2026, which of these countries had scored more drivers'
+championship points than France, Germany and Spain combined — with just one driver?
+
+- **A.** Australia
+- **B.** New Zealand
+- **C.** Monaco
+- **D.** Argentina
+
+**Correct answer: C — Monaco.**
+
+Charles Leclerc had 250 points. France, Germany and Spain's six drivers had 213
+between them. One Monégasque, six opponents, a 37-point advantage.
+
+### Research table: 2026 points grouped by racing nationality
+
+Snapshot checked on 23 November 2026 after Las Vegas. Use the nationality codes and
+season points in the official drivers' standings, including Sprint points and substitute
+drivers. This is a grouping of 25 drivers listed across the season, not the 22-car Vegas
+grid. Racing nationality is distinct from citizenship, birthplace, ancestry and team nationality.
+
+| Racing nationality | Drivers in the season standings | Driver count | Points |
+| --- | --- | ---: | ---: |
+| Great Britain | Lewis Hamilton, George Russell, Lando Norris, Arvid Lindblad, Oliver Bearman | 5 | 856 |
+| Italy | Kimi Antonelli | 1 | 402 |
+| Netherlands | Max Verstappen | 1 | 304 |
+| Monaco | Charles Leclerc | 1 | 250 |
+| France | Isack Hadjar, Pierre Gasly, Esteban Ocon | 3 | 181 |
+| Australia | Oscar Piastri | 1 | 167 |
+| New Zealand | Liam Lawson | 1 | 89 |
+| Argentina | Franco Colapinto | 1 | 35 |
+| Spain | Carlos Sainz, Fernando Alonso | 2 | 18 |
+| Brazil | Gabriel Bortoleto, Rafael Camara | 2 | 14 |
+| Germany | Nico Hulkenberg | 1 | 14 |
+| Thailand | Alexander Albon | 1 | 5 |
+| Japan | Yuki Tsunoda, Ryo Hirakawa | 2 | 2 |
+| Canada | Lance Stroll | 1 | 0 |
+| Finland | Valtteri Bottas | 1 | 0 |
+| Mexico | Sergio Perez | 1 | 0 |
+| **Total** | | **25** | **2,337** |
+
+**Sources checked:** 2026-11-23.
+
+- [Formula 1 — 2026 drivers' standings](https://www.formula1.com/en/results/2026/drivers):
+  controlling source for the 25 driver/nationality/points rows in this snapshot.
+- [STATS F1 — 2026 championship table](https://www.statsf1.com/en/2026.aspx):
+  cross-check of the driver points and the season cutoff; Qatar and Abu Dhabi are blank.
+
+**Calculation and checks:** Group each distinct driver once by the official nationality
+code and sum season points. The 25 unique drivers form 16 nationality groups; both the
+raw and grouped points sum to 2,337. France: 122 + 52 + 7 = 181; Germany: 14; Spain:
+11 + 7 = 18. Comparison: 181 + 14 + 18 = 213, against Leclerc's 250. The other answer
+options have 167, 89 and 35 points respectively, so only Monaco qualifies among them.
+These are derived group totals, not an official championship for nations. Retain the
+after-Vegas cutoff when using the question; later races can change the comparison.

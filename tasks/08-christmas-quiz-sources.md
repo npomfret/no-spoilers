@@ -183,7 +183,12 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   corroborate the unusual one-race career through a driver interview and official editorial.
 - [x] Draft three current-season questions with their sources: Verstappen's Mario Kart
   comparison, the Las Vegas lap-end leadership statistic, and the Antonelli/Alonso birth-year
-  connection. These remain drafts; only questions 1 and 2 have user approval.
+  connection. Questions 3 and 4 remain drafts.
+- [x] Replace question 5 with the user's approved exact-date version: Alonso had one title
+  when Antonelli was born. Record the birth-date and contemporary title-report sources.
+- [x] Group 2026 season points by racing nationality, including substitutes, and draft
+  question 6 from the Leclerc-versus-France/Germany/Spain comparison. Retain the complete
+  25-driver inventory, derived table, calculation and after-Vegas cutoff in the question bank.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -196,20 +201,26 @@ project rules for an existing quiz task/source mechanism and found none there. R
 reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia access;
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. No API result payloads or datasets
-were imported. The question bank contains two approved questions and three current-season
-drafts, each with source links and checked dates; the second question includes
+were imported. Questions 1, 2 and 5 are approved; questions 3, 4 and 6 remain drafts,
+each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).
 The single-race career was corroborated separately; 100% means one race led in one start,
 not a share of laps or an official pole. The Las Vegas lap-end table gives 45 + 4 + 1 = 50;
 35 reported lead changes is a separate measure, not a count of lap-end leader changes.
-The FIA transcript supplies the Mario Kart comparison directly, and the official Antonelli
-records article explicitly supplies the 2006 connection. These changes affect Markdown only; app builds and automated
+The FIA transcript supplies the Mario Kart comparison directly. The revised fifth question
+uses Antonelli's official birth date (25 August 2006) and the contemporary report of Alonso's
+second title (22 October 2006). The nationality analysis uses official season standings,
+not just the latest grid: 25 unique drivers, 16 racing nationalities and 2,337 points,
+including Sprint points and substitutes. STATS F1 agrees on the individual points;
+grouped totals reconcile and the six comparison drivers score 213 against Leclerc's 250.
+These changes affect Markdown only; app builds and automated
 tests are not needed. Retain this task while the planned quiz work remains.
 
-Independent read-only review of the three current-season drafts found no substantive
-issues. The reviewer independently retrieved the FIA and official series passages;
+Independent read-only reviews found no substantive issues. The reviewer independently
+retrieved the FIA and official series passages, checked question 5's exact dates, and
+recomputed the nationality groups from all 25 official standings rows. For question 4,
 STATS F1 returned HTTP 404 through its command-line retrieval, so its review of that
-table relied on the authoring agent's successful web retrieval of the summary and all
-50 lap rows. Source availability differs by access route; the lap-range calculations
-were checked separately.
+lap-end table relied on the authoring agent's successful web retrieval of the summary
+and all 50 lap rows. Source availability differs by access route; the lap-range
+calculations were checked separately.
