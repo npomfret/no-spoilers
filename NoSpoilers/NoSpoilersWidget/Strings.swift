@@ -11,19 +11,33 @@ import NoSpoilersCore
 
 enum Strings {
     enum Sessions {
-        static let sprintQualifyingAbbreviation: LocalizedStringKey = "SQ"
-        static func upcomingTiming(_ startsAt: Date) -> Text {
-            let countdown = Text(
-                .durationOffset(to: startsAt),
-                format: .units(allowed: [.days, .hours, .minutes], width: .narrow,
-                               maximumUnitCount: 2, fractionalPart: .hide(rounded: .towardZero))
-            )
+        static let sprintQualifyingAbbreviation = "SQ"
+        static func shortName(_ kind: SessionKind) -> String {
+            kind == .sprintQualifying ? sprintQualifyingAbbreviation : kind.shortName
+        }
+        static func upcomingTiming(_ startsAt: Date, dateOnNewLine: Bool = false, concise: Bool = false) -> Text {
+            let countdown: Text
+            if concise {
+                countdown = Text(
+                    .currentDate,
+                    format: Date.AnchoredRelativeFormatStyle(
+                        anchor: startsAt, allowedFields: [.day, .hour, .minute],
+                        presentation: .numeric, unitsStyle: .abbreviated,
+                        capitalizationContext: .middleOfSentence
+                    )
+                )
+            } else {
+                countdown = Text("in \(Text(startsAt, style: .relative))")
+            }
             let date = NoSpoilersCore.Strings.Schedule.sessionDateTime(startsAt, style: .widget)
+            if dateOnNewLine {
+                return Text("\(countdown)\n(\(date))")
+            }
             return Text("\(countdown) (\(date))")
         }
         static func sessionUpcomingTiming(_ kind: SessionKind, startsAt: Date) -> Text {
-            let name = kind == .sprintQualifying ? Text(sprintQualifyingAbbreviation) : Text(kind.shortName)
-            return Text("\(name) · \(upcomingTiming(startsAt))")
+            let name = Text(shortName(kind))
+            return Text("\(name) \(upcomingTiming(startsAt, concise: true))")
         }
         static let finished: LocalizedStringKey           = "Finished"
         static let statusUnconfirmed: LocalizedStringKey  = "Status unconfirmed"

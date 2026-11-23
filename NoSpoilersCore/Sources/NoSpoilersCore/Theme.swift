@@ -594,7 +594,7 @@ public enum Theme {
         /// it a finite column rather than asking fixedSize for an ideal width.
         public static func timingColumnWidth(_ canvas: Canvas) -> CGFloat {
             switch canvas {
-            case .widgetMedium, .widgetLarge: return 136
+            case .widgetMedium, .widgetLarge: return 172
             default: preconditionFailure("only list widgets have a fixed timing column")
             }
         }

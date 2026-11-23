@@ -317,13 +317,18 @@ layout footprint. Reduce Motion shows both values statically; accessibility
 exposes both independently of the visual cycle. The iPhone list owns an isolated
 drawing timeline so the half-second cadence does not invalidate its weekend pager.
 Only its selected page animates, while active and without a sheet over it.
-Widgets show a right-aligned live narrow countdown with the local weekday/day
-in parentheses. They use native `TimeDataSource` and narrow duration formatting
-with at most two units, so the clock keeps updating without periodic reloads.
-The native offset is negative until the scheduled start. All widget families use
-short session names. List rows use the canonical caption size and a finite 136pt
+Widgets show a right-aligned native relative countdown prefixed with "in", with
+the local weekday/day in parentheses. The original `Text(date, style: .relative)`
+keeps updating without periodic reloads. All widget families use short session
+names, including SQ for Sprint Qualifying. List rows use the canonical caption size and a finite 172pt
 timing column: archived temporal Text must not request an ideal width with
-`fixedSize`. Numeric content transitions animate updates; incoming row data changes stagger by
+horizontal `fixedSize`. Small widgets put the parenthesised date on its own line.
+The single-line Lock Screen family uses native `Date.AnchoredRelativeFormatStyle`
+for a shorter natural phrase, for example "Sprint in 3 days (Sat 15)"; the detailed
+two-unit relative phrase can otherwise crowd out the date there. Its abbreviated
+unit style also keeps "in 59 min" visible beside the date. Both forms are
+composed by the same widget string factory and keep native clock updates.
+Numeric content transitions animate updates; incoming row data changes stagger by
 `widgetRowStagger` (0.15s). Reduce Motion and reduced luminance suppress explicit
 update animation. WidgetKit controls rendering; there is no repeating flip loop.
 

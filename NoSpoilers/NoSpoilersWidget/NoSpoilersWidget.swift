@@ -20,7 +20,7 @@ struct SessionViewModel: Identifiable {
     let id: String
     let kind: SessionKind
     let state: SessionState
-    var shortName: String { kind.shortName }
+    var shortName: String { Strings.Sessions.shortName(kind) }
 }
 
 enum SessionState: Equatable {
@@ -361,6 +361,8 @@ struct NoSpoilersWidgetEntryView: View {
             status: session.state.status,
             name: Text(session.shortName),
             detail: smallSessionTime(session.state)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .multilineTextAlignment(.trailing),
             decemberNight: isDecemberNight
@@ -386,7 +388,7 @@ struct NoSpoilersWidgetEntryView: View {
         case .unconfirmed:
             Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
         case .upcoming(let startsAt):
-            Strings.Sessions.upcomingTiming(startsAt)
+            Strings.Sessions.upcomingTiming(startsAt, dateOnNewLine: true)
                 .contentTransition(.numericText(countsDown: true))
         }
     }
