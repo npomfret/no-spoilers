@@ -559,9 +559,8 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
                     .font(Theme.Typography.rowLabel(canvas))
                     .foregroundStyle(Theme.Palette.textPrimary(decemberNight: decemberNight))
 
-                // `Theme.Typography.rowDetail` traps on `.widgetLarge`, which is
-                // safe only because that canvas never passes a detail. Keep it
-                // inside the `if let`.
+                // A detail is absent when the canvas has no secondary timing
+                // or label for this particular row.
                 if let detail {
                     detail
                         .font(Theme.Typography.rowDetail(canvas))
@@ -571,9 +570,10 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
             .lineLimit(Theme.Row.labelLineLimit(canvas))
             .frame(minWidth: Theme.Row.labelMinWidth(canvas), alignment: .leading)
 
-            Spacer(minLength: Theme.Space.md)
-
-            trailing
+            if Trailing.self != EmptyView.self {
+                Spacer(minLength: Theme.Space.md)
+                trailing
+            }
         }
     }
 }

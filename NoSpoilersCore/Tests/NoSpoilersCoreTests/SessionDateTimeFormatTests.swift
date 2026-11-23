@@ -80,6 +80,19 @@ final class SessionDateTimeFormatTests: XCTestCase {
         XCTAssertTrue(output.contains("04:00") || output.contains("4:00"), "expected UTC+5:45 in: \(output)")
     }
 
+    func testWidgetPresentationUsesTheLocalDayAndWeekday() {
+        let lateNight = Self.makeUTCDate(year: 2026, month: 6, day: 12, hour: 23, minute: 30)
+        let output = Strings.Schedule.sessionDateTime(
+            lateNight,
+            locale: Locale(identifier: "en_GB"),
+            timeZone: TimeZone(identifier: "Europe/London")!,
+            style: .widget
+        )
+        XCTAssertTrue(output.contains("13"), "expected local day 13 in: \(output)")
+        XCTAssertTrue(output.contains("Sat"), "expected local Saturday in: \(output)")
+        XCTAssertFalse(output.contains("Jun"), "month must not crowd the widget: \(output)")
+    }
+
     private static func makeUTCDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!

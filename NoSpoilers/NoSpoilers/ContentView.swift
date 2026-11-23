@@ -13,6 +13,7 @@ struct ContentView: View {
     private let decorationConfiguration: DecemberDecoration.Configuration
     @State private var now: Date
     @State private var decorationStartedAt: Date
+    @State private var timingStartedAt: Date
     @State private var selectedWeekendIndex: Int = 0
     @State private var weekendsLoaded = false
     @State private var refreshTimer: AnyCancellable?
@@ -36,6 +37,7 @@ struct ContentView: View {
         let initialDate = clock()
         _now = State(initialValue: initialDate)
         _decorationStartedAt = State(initialValue: initialDate)
+        _timingStartedAt = State(initialValue: initialDate)
     }
 
     private var isDecemberNight: Bool {
@@ -134,7 +136,11 @@ struct ContentView: View {
                 TabView(selection: $selectedWeekendIndex) {
                     ForEach(sortedWeekends.indices, id: \.self) { index in
                         ScrollView {
-                            weekendView(sortedWeekends[index]).padding(Theme.Space.xxl)
+                            weekendView(
+                                sortedWeekends[index],
+                                animateTimings: index == selectedWeekendIndex && scenePhase == .active
+                                    && !reduceMotion && !showAbout && !showSettings
+                            ).padding(Theme.Space.xxl)
                         }
                         .tag(index)
                     }
@@ -171,6 +177,7 @@ struct ContentView: View {
         .onAppear {
             now = clock()
             decorationStartedAt = now
+            timingStartedAt = now
             // The launch reached the screen. Until this is written, `LaunchDiagnostics` treats the
             // run as unfinished and the next launch will say so — which is the whole mechanism.
             LaunchDiagnostics.shared.launchShown()
@@ -205,7 +212,9 @@ struct ContentView: View {
         }
         .onChange(of: store.weekends) { _, _ in
             homeSelectionIfNeeded()
+            timingStartedAt = clock()
         }
+        .onChange(of: selectedWeekendIndex) { _, _ in timingStartedAt = clock() }
         // `now` is read by every session row on every page, so writing it invalidates the whole
         // TabView — mid-swipe included. Nothing on this screen renders sub-minute granularity
         // (`countdown` and `finishedAgo` both stop at minutes), so poll at 1 Hz but only publish
@@ -219,6 +228,7 @@ struct ContentView: View {
             guard newPhase == .active else { return }
             now = clock()
             decorationStartedAt = now
+            timingStartedAt = now
             Task { await refresh() }
             // Re-asked on every activation because the answer is a snapshot, and the single most
             // likely thing to have happened while we were backgrounded is the user following the
@@ -299,7 +309,7 @@ struct ContentView: View {
         return RaceWeekendResolver.firstNonFinishedSession(in: weekend, at: now, confirmedEndDates: store.confirmedEndDates) == nil
     }
 
-    private func weekendView(_ weekend: RaceWeekend) -> some View {
+    private func weekendView(_ weekend: RaceWeekend, animateTimings: Bool) -> some View {
         let sessions = weekend.allSessions
         let nextWeekend = RaceWeekendResolver.nextWeekend(after: weekend, in: store.weekends)
         // Resolved once and handed down. The header used to resolve it again for itself, and did
@@ -319,7 +329,7 @@ struct ContentView: View {
                 WidgetInstallCard(onDismiss: { installPromptDismissed = true })
             }
             headerCard(weekend: weekend, sessions: sessions, nextSession: nextSession)
-            sessionCard(sessions: sessions)
+            sessionCard(sessions: sessions, animateTimings: animateTimings)
             if nextSession != nil, let nextWeekend {
                 nextWeekendCard(nextWeekend)
             }
@@ -390,30 +400,51 @@ struct ContentView: View {
         return NoSpoilersCore.Strings.Schedule.dateRange(from: first.startsAt, to: last.startsAt)
     }
 
-    private func sessionCard(sessions: [Session]) -> some View {
+    private func sessionCard(sessions: [Session], animateTimings: Bool) -> some View {
         NoSpoilersCard(canvas: .iosApp, decemberNight: isDecemberNight) {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 Text(Strings.Sessions.header)
                     .font(.headline)
                     .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
 
-                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
-                    let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
-                    let status = SessionResolver.status(
-                        for: session,
-                        at: now,
-                        nextSession: nextSession,
-                        confirmedEndAt: store.confirmedEndDates[session.id]
-                    )
+                // Keep half-second animation ticks inside this list, away from
+                // the pager's minute-gated state and interactive swipe updates.
+                TimelineView(.animation(minimumInterval: Theme.Motion.departureBoardCycle.rowInterval, paused: !animateTimings)) { _ in
+                    let timingNow = clock()
+                    VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                        ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                            let nextSession = index + 1 < sessions.count ? sessions[index + 1] : nil
+                            let status = SessionResolver.status(
+                                for: session,
+                                at: timingNow,
+                                nextSession: nextSession,
+                                confirmedEndAt: store.confirmedEndDates[session.id]
+                            )
 
-                    NoSpoilersSessionRow(
-                        canvas: .iosApp,
-                        status: status,
-                        name: Text(session.kind.displayName),
-                        detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt)),
-                        decemberNight: isDecemberNight
-                    ) {
-                        statusBadge(for: session, nextSession: nextSession, status: status)
+                            NoSpoilersSessionRow(
+                                canvas: .iosApp,
+                                status: status,
+                                name: Text(session.kind.displayName),
+                                detail: Group {
+                                    if status == .upcoming {
+                                        NoSpoilersDepartureBoardText(
+                                            primary: Text(verbatim: countdown(to: session.startsAt)),
+                                            alternate: Text(verbatim: NoSpoilersCore.Strings.Schedule.sessionDateTime(
+                                                session.startsAt, timeZone: timeZone, style: .full
+                                            )),
+                                            face: Theme.Motion.departureBoardCycle.face(
+                                                after: timingNow.timeIntervalSince(timingStartedAt), rowIndex: index, rowCount: sessions.count
+                                            )
+                                        )
+                                    } else {
+                                        Text(verbatim: NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt, timeZone: timeZone))
+                                    }
+                                },
+                                decemberNight: isDecemberNight
+                            ) {
+                                statusBadge(for: session, nextSession: nextSession, status: status)
+                            }
+                        }
                     }
                 }
             }
@@ -541,11 +572,7 @@ struct ContentView: View {
                 canvas: .iosApp
             )
         case .upcoming:
-            NoSpoilersStatusBadge(
-                text: countdown(to: session.startsAt),
-                style: .upcoming,
-                canvas: .iosApp
-            )
+            EmptyView()
         }
     }
 

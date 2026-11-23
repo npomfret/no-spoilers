@@ -124,6 +124,7 @@ public enum Strings {
         public enum SessionDateTimeStyle {
             case compact
             case full
+            case widget
         }
 
         public static func sessionDateTime(
@@ -132,12 +133,14 @@ public enum Strings {
             timeZone: TimeZone = .current,
             style: SessionDateTimeStyle = .compact
         ) -> String {
-            var format = Date.FormatStyle().day().hour().minute()
+            var format: Date.FormatStyle
             switch style {
             case .compact:
-                format = format.weekday(.abbreviated).month(.abbreviated)
+                format = .dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()
             case .full:
-                format = format.month(.wide)
+                format = .dateTime.day().month(.wide).hour().minute()
+            case .widget:
+                format = .dateTime.weekday(.abbreviated).day()
             }
             format.locale = locale
             format.timeZone = timeZone

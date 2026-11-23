@@ -292,19 +292,13 @@ public enum Theme {
             case .macPopover:   return .system(size: 13, weight: .medium)
             case .widgetSmall:  return .caption.weight(.semibold)
             case .widgetMedium: return .caption.weight(.medium)
-            case .widgetLarge:  return .subheadline.weight(.medium)
+            case .widgetLarge:  return .caption.weight(.medium)
             }
         }
 
         /// The second line of a session row, under `rowLabel`.
         ///
-        /// **`widgetLarge` has no second line, so asking for one traps.** The
-        /// large family draws the session's full name on the label line and
-        /// stops; there is no call site to transcribe, and inventing a value
-        /// here would put a font on a role the design does not have. A row on
-        /// that canvas passes no detail, so this is unreachable by construction
-        /// — and if a detail is ever added there, the size is a design decision
-        /// somebody has to make rather than one this file should guess.
+        /// Large widgets put timing in the trailing badge and have no detail line.
         ///
         /// The four canvases that do have one disagree about what it *says* —
         /// an absolute date on iOS and macOS, a secondary session name in the
@@ -317,9 +311,7 @@ public enum Theme {
             case .widgetSmall:  return .caption2
             case .widgetMedium: return .caption2
             case .widgetLarge:
-                preconditionFailure(
-                    "the large widget's session row has no second line — pass no detail on .widgetLarge"
-                )
+                preconditionFailure("the large widget's session row has no second line — pass no detail on .widgetLarge")
             }
         }
 
@@ -598,6 +590,14 @@ public enum Theme {
     /// session's state on the row's second line instead, which is why
     /// `NoSpoilersSessionRow` has an `EmptyView` trailing overload for it.
     public enum Badge {
+        /// Widget temporal Text is horizontally flexible after archiving. Give
+        /// it a finite column rather than asking fixedSize for an ideal width.
+        public static func timingColumnWidth(_ canvas: Canvas) -> CGFloat {
+            switch canvas {
+            case .widgetMedium, .widgetLarge: return 136
+            default: preconditionFailure("only list widgets have a fixed timing column")
+            }
+        }
         /// The base size. Weight is the *style*'s business, not the canvas's —
         /// live is bold where finished and upcoming are medium, on every
         /// surface.
@@ -668,7 +668,7 @@ public enum Theme {
             case .iosApp:       return 32
             case .macPopover:   return 28
             case .widgetSmall:  return 28
-            case .widgetMedium: return 24
+            case .widgetMedium: return 22
             case .widgetLarge:  return 26
             }
         }
@@ -759,7 +759,13 @@ public enum Theme {
                 )
             case .widgetSmall:
                 return nil
-            case .widgetMedium, .widgetLarge:
+            case .widgetMedium:
+                return Surface(
+                    horizontalPadding: Space.md,
+                    verticalPadding: Space.xxs,
+                    cornerRadius: Radius.medium
+                )
+            case .widgetLarge:
                 return Surface(
                     horizontalPadding: Space.md,
                     verticalPadding: Space.xs,
@@ -988,6 +994,8 @@ public enum Theme {
         /// A whole text face turns over before the following schedule row starts.
         public static let departureBoardFlip: Animation = .easeInOut(duration: 0.4)
         public static let departureBoardCycle = DepartureBoardCycle(holdDuration: 5, rowInterval: 0.5)
+        /// Six rows finish updating well within WidgetKit's two-second animation limit.
+        public static let widgetRowStagger: TimeInterval = 0.15
     }
 
     /// Every symbol the product draws, named for what it means rather than what

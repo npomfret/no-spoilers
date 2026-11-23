@@ -18,12 +18,12 @@ struct NoSpoilersEntry: TimelineEntry {
 
 struct SessionViewModel: Identifiable {
     let id: String
-    let name: String
-    let shortName: String
+    let kind: SessionKind
     let state: SessionState
+    var shortName: String { kind.shortName }
 }
 
-enum SessionState {
+enum SessionState: Equatable {
     case finished(at: Date)
     case live
     case unconfirmed
@@ -91,11 +91,11 @@ private func placeholderEntry(at now: Date, timeZone: TimeZone,
         date: now,
         weekend: placeholderWeekend,
         sessions: [
-            SessionViewModel(id: "placeholder-fp1", name: SessionKind.freePractice1.displayName, shortName: SessionKind.freePractice1.shortName, state: .finished(at: now.addingTimeInterval(-42 * 60))),
-            SessionViewModel(id: "placeholder-fp2", name: SessionKind.freePractice2.displayName, shortName: SessionKind.freePractice2.shortName, state: .upcoming(startsAt: now.addingTimeInterval(2 * 3600 + 15 * 60))),
-            SessionViewModel(id: "placeholder-fp3", name: SessionKind.freePractice3.displayName, shortName: SessionKind.freePractice3.shortName, state: .upcoming(startsAt: now.addingTimeInterval(20 * 3600))),
-            SessionViewModel(id: "placeholder-quali", name: SessionKind.qualifying.displayName, shortName: SessionKind.qualifying.shortName, state: .upcoming(startsAt: now.addingTimeInterval(29 * 3600))),
-            SessionViewModel(id: "placeholder-race", name: SessionKind.race.displayName, shortName: SessionKind.race.shortName, state: .upcoming(startsAt: now.addingTimeInterval(52 * 3600)))
+            SessionViewModel(id: "placeholder-fp1", kind: .freePractice1, state: .finished(at: now.addingTimeInterval(-42 * 60))),
+            SessionViewModel(id: "placeholder-fp2", kind: .freePractice2, state: .upcoming(startsAt: now.addingTimeInterval(2 * 3600 + 15 * 60))),
+            SessionViewModel(id: "placeholder-fp3", kind: .freePractice3, state: .upcoming(startsAt: now.addingTimeInterval(20 * 3600))),
+            SessionViewModel(id: "placeholder-quali", kind: .qualifying, state: .upcoming(startsAt: now.addingTimeInterval(29 * 3600))),
+            SessionViewModel(id: "placeholder-race", kind: .race, state: .upcoming(startsAt: now.addingTimeInterval(52 * 3600)))
         ],
         primarySessionID: "placeholder-fp2",
         isOffSeason: false,
@@ -121,7 +121,7 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot, timeZone: TimeZone,
             let sessionVMs = prevSessions.indices.map { i -> SessionViewModel in
                 let s = prevSessions[i]
                 let next = i + 1 < prevSessions.count ? prevSessions[i + 1] : nil
-                return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
+                return SessionViewModel(id: s.id, kind: s.kind,
                                         state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
             }
             return NoSpoilersEntry(date: now, weekend: previous, sessions: sessionVMs, primarySessionID: previous.allSessions.last?.id, isOffSeason: false,
@@ -140,7 +140,7 @@ private func makeEntry(at now: Date, data: ScheduleSnapshot, timeZone: TimeZone,
     let sessionVMs = sorted.indices.map { i -> SessionViewModel in
         let s = sorted[i]
         let next = i + 1 < sorted.count ? sorted[i + 1] : nil
-        return SessionViewModel(id: s.id, name: s.kind.displayName, shortName: s.kind.shortName,
+        return SessionViewModel(id: s.id, kind: s.kind,
                                 state: sessionState(for: s, nextSession: next, at: now, confirmedEndDates: confirmedEndDates))
     }
     return NoSpoilersEntry(date: now, weekend: upcoming, sessions: sessionVMs, primarySessionID: RaceWeekendResolver.firstNonFinishedSession(in: upcoming, at: now, confirmedEndDates: confirmedEndDates)?.id, isOffSeason: false,
@@ -260,6 +260,8 @@ struct NoSpoilersWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     @Environment(\.widgetRenderingMode) private var renderingMode
     @Environment(\.showsWidgetContainerBackground) private var showsBackground
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
     let entry: NoSpoilersEntry
 
     private var isDecemberNight: Bool {
@@ -333,16 +335,16 @@ struct NoSpoilersWidgetEntryView: View {
                 NoSpoilersRoundPill(NoSpoilersCore.Strings.Schedule.roundLabel(weekend.round), decemberNight: isDecemberNight)
             }
 
-            Spacer(minLength: Theme.Space.md)
+            Spacer(minLength: 0)
 
             // Hero: GP name fills available vertical space
-            Text(weekend.grandPrixName)
+            Text(weekend.name)
                 .font(Theme.Typography.weekendTitle(.widgetSmall))
                 .foregroundStyle(Theme.Palette.textPrimary(decemberNight: isDecemberNight))
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Spacer(minLength: Theme.Space.md)
+            Spacer(minLength: 0)
 
             // Bottom: flat session row, no nested card
             if let primary = primarySession() {
@@ -358,7 +360,9 @@ struct NoSpoilersWidgetEntryView: View {
             canvas: .widgetSmall,
             status: session.state.status,
             name: Text(session.shortName),
-            detail: smallSessionTime(session.state),
+            detail: smallSessionTime(session.state)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .multilineTextAlignment(.trailing),
             decemberNight: isDecemberNight
         )
     }
@@ -371,17 +375,19 @@ struct NoSpoilersWidgetEntryView: View {
     /// that, because a style applied to a `Text` wins over one applied to its
     /// container. A live session is the one state this row says in red rather
     /// than in words.
-    private func smallSessionTime(_ state: SessionState) -> Text {
+    @ViewBuilder
+    private func smallSessionTime(_ state: SessionState) -> some View {
         switch state {
         case .finished(let endedAt):
-            return Text(endedAt, style: .relative)
+            Text(endedAt, style: .relative)
         case .live:
-            return Text(NoSpoilersCore.Strings.Schedule.inProgress)
+            Text(NoSpoilersCore.Strings.Schedule.inProgress)
                 .foregroundStyle(Theme.Palette.stateLive)
         case .unconfirmed:
-            return Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
+            Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
         case .upcoming(let startsAt):
-            return Text(startsAt, style: .relative)
+            Strings.Sessions.upcomingTiming(startsAt)
+                .contentTransition(.numericText(countsDown: true))
         }
     }
 
@@ -396,8 +402,8 @@ struct NoSpoilersWidgetEntryView: View {
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             widgetHeader(weekend, canvas: .widgetMedium)
             VStack(spacing: Theme.Space.xs) {
-                ForEach(sessions) { session in
-                    widgetSessionRow(session, canvas: .widgetMedium)
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                    widgetSessionRow(session, canvas: .widgetMedium, rowIndex: index)
                 }
             }
             Spacer(minLength: 0)
@@ -430,8 +436,8 @@ struct NoSpoilersWidgetEntryView: View {
                         .foregroundStyle(Theme.Palette.textSecondary(decemberNight: isDecemberNight))
                         .padding(.horizontal, Theme.Space.md)
                 }
-                ForEach(visibleSessions) { session in
-                    widgetSessionRow(session, canvas: .widgetLarge)
+                ForEach(Array(visibleSessions.enumerated()), id: \.element.id) { index, session in
+                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index)
                 }
             }
             Spacer(minLength: 0)
@@ -454,8 +460,8 @@ struct NoSpoilersWidgetEntryView: View {
             widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
             VStack(spacing: Theme.Space.xs) {
-                ForEach(entry.sessions) { session in
-                    widgetSessionRow(session, canvas: .widgetLarge)
+                ForEach(Array(entry.sessions.enumerated()), id: \.element.id) { index, session in
+                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index)
                 }
             }
             Spacer(minLength: 0)
@@ -503,12 +509,15 @@ struct NoSpoilersWidgetEntryView: View {
                 Text(weekend.grandPrixName)
                     .font(.headline)
                     .lineLimit(1)
-                Text(session.name)
+                Text(session.shortName)
                     .font(.caption)
                     .lineLimit(1)
                 accessoryStateText(session.state)
                     .font(.caption2)
                     .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .multilineTextAlignment(.trailing)
+                    .contentTransition(.numericText(countsDown: true))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
@@ -529,6 +538,9 @@ struct NoSpoilersWidgetEntryView: View {
         guard let session = primarySession() else {
             return Text(accessoryEmptyTitle)
         }
+        if case .upcoming(let startsAt) = session.state {
+            return Strings.Sessions.sessionUpcomingTiming(session.kind, startsAt: startsAt)
+        }
         return Text(session.shortName) + Text(verbatim: " \u{00B7} ") + accessoryStateText(session.state)
     }
 
@@ -546,7 +558,7 @@ struct NoSpoilersWidgetEntryView: View {
         case .unconfirmed:
             return Text(NoSpoilersCore.Strings.Schedule.finishUnconfirmed)
         case .upcoming(let startsAt):
-            return Text(startsAt, style: .relative)
+            return Strings.Sessions.upcomingTiming(startsAt)
         }
     }
 
@@ -630,20 +642,24 @@ struct NoSpoilersWidgetEntryView: View {
 
     /// The medium and large families' session row.
     ///
-    /// **The two families differ in more than size**, which is why this takes a
-    /// canvas rather than the `compact: Bool` it used to: medium shows the short
-    /// session name with the full one underneath when they differ, and large
-    /// shows the full name with no second line at all.
-    private func widgetSessionRow(_ session: SessionViewModel, canvas: Theme.Canvas) -> some View {
-        let isMedium = canvas == .widgetMedium
+    /// The timing badge owns one compact, right-aligned countdown/date reading.
+    private func widgetSessionRow(_ session: SessionViewModel, canvas: Theme.Canvas, rowIndex: Int) -> some View {
         return NoSpoilersSessionRow(
             canvas: canvas,
             status: session.state.status,
-            name: Text(isMedium ? session.shortName : session.name),
-            detail: isMedium && shouldShowSecondaryName(for: session) ? Text(session.name) : nil,
+            name: Text(session.shortName),
+            detail: Optional<Text>.none,
             decemberNight: isDecemberNight
         ) {
             stateLabel(session.state, canvas: canvas)
+                .frame(width: Theme.Badge.timingColumnWidth(canvas), alignment: .trailing)
+                .multilineTextAlignment(.trailing)
+                .contentTransition(.numericText(countsDown: true))
+                .animation(
+                    reduceMotion || isLuminanceReduced ? nil
+                        : Theme.Motion.departureBoardFlip.delay(Double(rowIndex) * Theme.Motion.widgetRowStagger),
+                    value: session.state
+                )
         }
     }
 
@@ -690,19 +706,6 @@ struct NoSpoilersWidgetEntryView: View {
         Array(entry.sessions.suffix(limit))
     }
 
-    private func shouldShowSecondaryName(for session: SessionViewModel) -> Bool {
-        let shortName = normalizedSessionLabel(session.shortName)
-        let fullName = normalizedSessionLabel(session.name)
-        guard !shortName.isEmpty, !fullName.isEmpty else { return false }
-        return !fullName.contains(shortName) && !shortName.contains(fullName)
-    }
-
-    private func normalizedSessionLabel(_ value: String) -> String {
-        value
-            .lowercased()
-            .replacingOccurrences(of: "[^a-z0-9]+", with: "", options: .regularExpression)
-    }
-
     /// **The medium family says "Finished" and stops.** The large one has the
     /// width to say how long ago as well, which is the one place the badge's
     /// *text* varies by family rather than just its size.
@@ -732,7 +735,7 @@ struct NoSpoilersWidgetEntryView: View {
                 canvas: canvas
             )
         case .upcoming(let startsAt):
-            NoSpoilersStatusBadge(text: Text(startsAt, style: .relative), style: .upcoming, canvas: canvas)
+            NoSpoilersStatusBadge(text: Strings.Sessions.upcomingTiming(startsAt), style: .upcoming, canvas: canvas)
         }
     }
 }

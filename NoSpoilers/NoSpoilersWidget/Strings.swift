@@ -1,4 +1,5 @@
 import SwiftUI
+import NoSpoilersCore
 
 // MARK: - Strings
 // All user-facing text in the widget, centralised here for future localisation.
@@ -10,6 +11,20 @@ import SwiftUI
 
 enum Strings {
     enum Sessions {
+        static let sprintQualifyingAbbreviation: LocalizedStringKey = "SQ"
+        static func upcomingTiming(_ startsAt: Date) -> Text {
+            let countdown = Text(
+                .durationOffset(to: startsAt),
+                format: .units(allowed: [.days, .hours, .minutes], width: .narrow,
+                               maximumUnitCount: 2, fractionalPart: .hide(rounded: .towardZero))
+            )
+            let date = NoSpoilersCore.Strings.Schedule.sessionDateTime(startsAt, style: .widget)
+            return Text("\(countdown) (\(date))")
+        }
+        static func sessionUpcomingTiming(_ kind: SessionKind, startsAt: Date) -> Text {
+            let name = kind == .sprintQualifying ? Text(sprintQualifyingAbbreviation) : Text(kind.shortName)
+            return Text("\(name) · \(upcomingTiming(startsAt))")
+        }
         static let finished: LocalizedStringKey           = "Finished"
         static let statusUnconfirmed: LocalizedStringKey  = "Status unconfirmed"
         static let scheduledStart: LocalizedStringKey     = "Scheduled start"

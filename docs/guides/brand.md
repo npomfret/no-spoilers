@@ -191,8 +191,8 @@ second axis beside it, which is what `NoSpoilersCardDensity` and a `compact: Boo
 
 **A role is only added once every canvas that draws it has a real call site to transcribe.** Roles
 that genuinely do not exist on a canvas `preconditionFailure` there rather than returning an
-invented value or an optional — no widget family has a next-up footer, the large one has no second
-line in its session row.
+invented value or an optional — no widget family has a next-up footer, and large widgets keep
+their compact countdown/date text in the trailing badge rather than a second label line.
 
 ## 4. Space
 
@@ -310,12 +310,22 @@ down is about 4.1(a) rather than about letterforms.
 
 `Theme.Motion` — `hover` 0.12s and `press` 0.08s.
 
-The Mac schedule uses `departureBoardFlip` (0.4s ease-in-out) and
+The Mac and iPhone schedules use `departureBoardFlip` (0.4s ease-in-out) and
 `departureBoardCycle` (5s holds, 0.5s between rows). `NoSpoilersDepartureBoardText`
 turns its two text faces around their horizontal centre without changing their
 layout footprint. Reduce Motion shows both values statically; accessibility
-exposes both independently of the visual cycle. iPhone and widgets keep their
-existing static schedule presentation.
+exposes both independently of the visual cycle. The iPhone list owns an isolated
+drawing timeline so the half-second cadence does not invalidate its weekend pager.
+Only its selected page animates, while active and without a sheet over it.
+Widgets show a right-aligned live narrow countdown with the local weekday/day
+in parentheses. They use native `TimeDataSource` and narrow duration formatting
+with at most two units, so the clock keeps updating without periodic reloads.
+The native offset is negative until the scheduled start. All widget families use
+short session names. List rows use the canonical caption size and a finite 136pt
+timing column: archived temporal Text must not request an ideal width with
+`fixedSize`. Numeric content transitions animate updates; incoming row data changes stagger by
+`widgetRowStagger` (0.15s). Reduce Motion and reduced luminance suppress explicit
+update animation. WidgetKit controls rendering; there is no repeating flip loop.
 
 Press is faster than hover, because a press should feel like it has already happened.
 **Both feedback call sites are macOS.** The iOS pager runs its own interactive transition rather
