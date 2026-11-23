@@ -3,7 +3,7 @@
   "composite": "Verify",
   "buildTypes": [
     "VerifyPython",
-    "VerifyXcode",
+    "Compile",
     "VerifySwiftTests",
     "Verify",
     "ShipIos",

@@ -93,13 +93,13 @@ val verifyPython = BuildType {
 }
 
 val verifyXcode = BuildType {
-    id("VerifyXcode")
+    id("Compile")
     uuid = "7dedfb93-073b-4518-a32c-d8502d321da8"
-    name = "Verify: Xcode"
+    name = "Compile"
     description = "scripts/verify-mac-build.sh, verify-ios-build.sh and verify-widget-build.sh: " +
         "the Mac app, the iOS app and the widget extension all compile, unsigned, and the two " +
         "apps again in Release, which is what Ship archives. One configuration rather than " +
-        "three because they share one checkout and one agent."
+        "three because they share one checkout and one agent. Includes compiling the shared package tests without running them."
     onTheAgent("verify-xcode")
     // Per build (mac, ios, widget, and the two Releases): the full xcodebuild log,
     // and the result bundles zipped, since a bundle is a directory. The scripts
@@ -107,8 +107,13 @@ val verifyXcode = BuildType {
     artifactRules = """
         tmp/build-evidence/*/xcodebuild.log => xcodebuild-logs
         tmp/build-evidence/*/build.xcresult/** => xcresult.zip
+        tmp/test-results/swift-build.log => swift-build.log
     """.trimIndent()
     steps {
+        script {
+            name = "shared package and test targets"
+            scriptContent = "./scripts/verify-core-tests.sh --build-only"
+        }
         script {
             name = "mac"
             scriptContent = "./scripts/verify-mac-build.sh"
