@@ -3,6 +3,9 @@
 **Status:** Source research complete; quiz scope and implementation remain planned.
 **Sources checked:** 2026-11-23.
 **Target:** Christmas 2026, assumed from the request; delivery date and host surface are unconfirmed.
+**Question era:** 2000 onward, inclusive (confirmed by the user).
+**Editorial direction:** Fun, creative questions about oddities, outliers, little-known
+trivia and surprising statistics (confirmed by the user).
 
 ## Purpose and scope
 
@@ -130,8 +133,12 @@ These are question categories to explore, not approved product content or drafte
 | Rules and technical knowledge | FIA regulations | Exact season and document issue; avoid presenting a changed rule as timeless. |
 | Unusual history and anecdotes | Wikipedia mirror and its citations, team/circuit archives, biographies, Motor Sport | Trace to an attributable source; corroborate stories and superlatives. |
 
-Proposed editorial target: use several source families and eras, with easy and difficult
-questions. Avoid a pack dominated by recent winners or one team's history. For each future
+Use several source families and a mix of seasons from 2000 onward, with easy and difficult
+questions. The cutoff applies to the subject matter, not the source's publication date;
+broader historical archives remain useful after filtering. Compute statistical questions
+within an explicitly stated period starting no earlier than 2000. Prioritise unusual
+incidents, unexpected connections and surprising numbers, with an entertaining explanation
+after each answer. Avoid a pack dominated by winners or one team's history. For each future
 question retain its exact source page, access date, relevant edition/version, rationale,
 rights status and verification evidence. Resolve ambiguous answers before publication.
 
@@ -160,7 +167,9 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   team heritage and independent references in the catalogue above.
 - [x] Identify a leading data candidate and distinguish data licensing from code licensing.
 - [x] Record the conflict with the current schedule-only product boundary before implementation.
-- [ ] Confirm quiz host surface, intended audience, historical cutoff and Christmas deadline.
+- [x] Confirm the question era (2000 onward) and the user's preference for fun, obscure trivia,
+  outliers and weird statistics.
+- [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Inspect the selected release/schema and exact source pages; author and independently
   verify a varied question pack after the scope decision.
