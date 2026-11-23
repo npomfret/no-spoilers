@@ -7,6 +7,10 @@
 **Editorial direction:** Fun, creative questions about oddities, outliers, little-known
 trivia and surprising statistics (confirmed by the user).
 **Question format:** Four-option multiple choice, following the first approved question.
+**Current-season coverage:** Include 2026 questions, especially Las Vegas. Evidence for
+the current drafts stops after Las Vegas (checked 2026-11-23).
+**Question provenance:** Record direct source links and a checked date for each question
+(explicitly requested by the user).
 **Question bank:** [Christmas quiz questions](../docs/christmas-quiz-questions.md).
 
 ## Purpose and scope
@@ -177,6 +181,9 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   from a sourced statistics table: the five
   lap leaders at the 2007 European Grand Prix. Check the lap ranges and 60-lap total;
   corroborate the unusual one-race career through a driver interview and official editorial.
+- [x] Draft three current-season questions with their sources: Verstappen's Mario Kart
+  comparison, the Las Vegas lap-end leadership statistic, and the Antonelli/Alonso birth-year
+  connection. These remain drafts; only questions 1 and 2 have user approval.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -189,9 +196,20 @@ project rules for an existing quiz task/source mechanism and found none there. R
 reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia access;
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. No API result payloads or datasets
-were imported. The question bank contains two approved questions; the second includes
+were imported. The question bank contains two approved questions and three current-season
+drafts, each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).
 The single-race career was corroborated separately; 100% means one race led in one start,
-not a share of laps or an official pole. These changes affect Markdown only; app builds and automated
+not a share of laps or an official pole. The Las Vegas lap-end table gives 45 + 4 + 1 = 50;
+35 reported lead changes is a separate measure, not a count of lap-end leader changes.
+The FIA transcript supplies the Mario Kart comparison directly, and the official Antonelli
+records article explicitly supplies the 2006 connection. These changes affect Markdown only; app builds and automated
 tests are not needed. Retain this task while the planned quiz work remains.
+
+Independent read-only review of the three current-season drafts found no substantive
+issues. The reviewer independently retrieved the FIA and official series passages;
+STATS F1 returned HTTP 404 through its command-line retrieval, so its review of that
+table relied on the authoring agent's successful web retrieval of the summary and all
+50 lap rows. Source availability differs by access route; the lap-range calculations
+were checked separately.
