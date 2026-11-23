@@ -104,4 +104,7 @@ shows FP3, Quali and Race, with right-aligned live countdown/date text.
 - Independent UI and spoiler-safety reviewers inspected the final diff and all
   six family captures with no substantive findings. IDE inspection could not
   resolve the worktree files; Swift/Xcode compilation provided verification.
-- Landing and push remain.
+- Complete: implementation `44697f8` landed on `main` and was pushed to origin.
+  The final production widget was reinstalled after diagnostic controls and its
+  actual Home Screen capture checked. Durable design notes live in the brand
+  and important-code guides.
