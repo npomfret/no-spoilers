@@ -37,11 +37,11 @@ or what ultimately happened to it.
 
 ## Question 2: Six laps of fame
 
-**Status:** Draft for user review.
+**Status:** Approved by the user.
 **Year:** 2007.
 
-One driver qualified last, led more laps than the winner, then never raced in F1 again.
-Which team was he driving for at the 2007 European Grand Prix?
+In his only F1 race, Markus Winkelhock qualified last and led more laps than the
+eventual winner. Which team was he driving for at the 2007 European Grand Prix?
 
 - **A.** Super Aguri
 - **B.** Toro Rosso

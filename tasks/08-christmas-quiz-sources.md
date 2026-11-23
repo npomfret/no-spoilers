@@ -173,7 +173,8 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   outliers and weird statistics.
 - [x] Save the first user-approved multiple-choice question, answer, explanation and
   checked sources in the question bank. This is editorial material, not app input.
-- [x] Draft a second multiple-choice question from a sourced statistics table: the five
+- [x] Save the user-approved second multiple-choice question, naming Markus Winkelhock,
+  from a sourced statistics table: the five
   lap leaders at the 2007 European Grand Prix. Check the lap ranges and 60-lap total;
   corroborate the unusual one-race career through a driver interview and official editorial.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
@@ -188,7 +189,7 @@ project rules for an existing quiz task/source mechanism and found none there. R
 reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia access;
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. No API result payloads or datasets
-were imported. The question bank contains one approved question and a second draft with
+were imported. The question bank contains two approved questions; the second includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).
 The single-race career was corroborated separately; 100% means one race led in one start,
