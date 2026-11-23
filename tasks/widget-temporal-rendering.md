@@ -55,4 +55,7 @@ format entirely. Live minute progression remains unverified in this simulator.
 - Independent UI review is clean after resolving its inline clipping finding.
   Spoiler review is clean; the final inline delta retains the same start date
   and schedule-only fields. Runtime ticking/accessibility remain unverified.
-- Landing and push remain.
+- Complete: verified and independently reviewed implementation `8b3841f` landed
+  on `main` and was pushed to origin. Final simulator app was installed and the
+  temporary QA app removed. Evidence is in `tmp/ios-widget-evidence`; durable
+  presentation decisions are in the brand guide.
