@@ -6,6 +6,8 @@
 **Question era:** 2000 onward, inclusive (confirmed by the user).
 **Editorial direction:** Fun, creative questions about oddities, outliers, little-known
 trivia and surprising statistics (confirmed by the user).
+**Question format:** Four-option multiple choice, following the first approved question.
+**Question bank:** [Christmas quiz questions](../docs/christmas-quiz-questions.md).
 
 ## Purpose and scope
 
@@ -169,10 +171,12 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
 - [x] Record the conflict with the current schedule-only product boundary before implementation.
 - [x] Confirm the question era (2000 onward) and the user's preference for fun, obscure trivia,
   outliers and weird statistics.
+- [x] Save the first user-approved multiple-choice question, answer, explanation and
+  checked sources in the question bank. This is editorial material, not app input.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
-- [ ] Inspect the selected release/schema and exact source pages; author and independently
-  verify a varied question pack after the scope decision.
+- [ ] Continue authoring and independently verifying a varied question pack. Inspect any
+  selected release/schema and exact source pages before use; settle product scope before integration.
 - [ ] Plan the embedding experience and implementation under the agreed product rules.
 
 Verification for this research: browsed the linked catalogue landing pages and the cited
@@ -181,5 +185,6 @@ project rules for an existing quiz task/source mechanism and found none there. R
 reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia access;
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. No API result payloads or datasets
-were imported. Only this task file changes; app builds and automated tests are not needed
-for this documentation-only change. Retain this task while the planned quiz work remains.
+were imported. The question bank preserves the approved wording and sources already
+checked during authoring. These changes affect Markdown only; app builds and automated
+tests are not needed. Retain this task while the planned quiz work remains.
