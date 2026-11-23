@@ -43,6 +43,43 @@ final class SessionDateTimeFormatTests: XCTestCase {
         XCTAssertTrue(output.contains("09:30") || output.contains("9:30"), "expected 09:30 in: \(output)")
     }
 
+    func testFullPresentationUsesFullMonthAndLocalTwentyFourHourTime() {
+        let output = Strings.Schedule.sessionDateTime(
+            date,
+            locale: Locale(identifier: "en_GB"),
+            timeZone: TimeZone(identifier: "Europe/London")!,
+            style: .full
+        )
+        XCTAssertTrue(output.contains("June"), "expected full month in: \(output)")
+        XCTAssertTrue(output.contains("12"), "expected day 12 in: \(output)")
+        XCTAssertTrue(output.contains("20:00"), "expected London time in: \(output)")
+    }
+
+    func testFullPresentationHonoursTwelveHourLocales() {
+        let output = Strings.Schedule.sessionDateTime(
+            date,
+            locale: Locale(identifier: "en_US"),
+            timeZone: TimeZone(identifier: "America/New_York")!,
+            style: .full
+        )
+        XCTAssertTrue(output.contains("June"), "expected full month in: \(output)")
+        XCTAssertTrue(output.contains("3:00"), "expected New York time in: \(output)")
+        XCTAssertTrue(output.contains("PM"), "expected locale's PM marker in: \(output)")
+    }
+
+    func testFullPresentationKeepsNonHourOffsetsAndLocalDateRollover() {
+        let start = Self.makeUTCDate(year: 2026, month: 9, day: 12, hour: 22, minute: 15)
+        let output = Strings.Schedule.sessionDateTime(
+            start,
+            locale: Locale(identifier: "en_GB"),
+            timeZone: TimeZone(identifier: "Asia/Kathmandu")!,
+            style: .full
+        )
+        XCTAssertTrue(output.contains("13"), "expected local day 13 in: \(output)")
+        XCTAssertTrue(output.contains("September"), "expected full month in: \(output)")
+        XCTAssertTrue(output.contains("04:00") || output.contains("4:00"), "expected UTC+5:45 in: \(output)")
+    }
+
     private static func makeUTCDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!

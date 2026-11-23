@@ -121,20 +121,27 @@ public enum Strings {
         /// "Fri, 12 Jun, 20:00" (en_GB) or "Fri, Jun 12, 8:00 PM" (en_US).
         /// Defaults to `Locale.current` / `TimeZone.current` so a session stored as a
         /// UTC instant renders in the device's local wall-clock time.
+        public enum SessionDateTimeStyle {
+            case compact
+            case full
+        }
+
         public static func sessionDateTime(
             _ date: Date,
             locale: Locale = .current,
-            timeZone: TimeZone = .current
+            timeZone: TimeZone = .current,
+            style: SessionDateTimeStyle = .compact
         ) -> String {
-            var style = Date.FormatStyle()
-                .weekday(.abbreviated)
-                .day()
-                .month(.abbreviated)
-                .hour()
-                .minute()
-            style.locale = locale
-            style.timeZone = timeZone
-            return date.formatted(style)
+            var format = Date.FormatStyle().day().hour().minute()
+            switch style {
+            case .compact:
+                format = format.weekday(.abbreviated).month(.abbreviated)
+            case .full:
+                format = format.month(.wide)
+            }
+            format.locale = locale
+            format.timeZone = timeZone
+            return date.formatted(format)
         }
 
         /// The span a weekend covers, e.g. `6 Jun → 8 Jun`, collapsing to a

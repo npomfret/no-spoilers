@@ -310,6 +310,13 @@ down is about 4.1(a) rather than about letterforms.
 
 `Theme.Motion` — `hover` 0.12s and `press` 0.08s.
 
+The Mac schedule uses `departureBoardFlip` (0.4s ease-in-out) and
+`departureBoardCycle` (5s holds, 0.5s between rows). `NoSpoilersDepartureBoardText`
+turns its two text faces around their horizontal centre without changing their
+layout footprint. Reduce Motion shows both values statically; accessibility
+exposes both independently of the visual cycle. iPhone and widgets keep their
+existing static schedule presentation.
+
 Press is faster than hover, because a press should feel like it has already happened.
 **Both feedback call sites are macOS.** The iOS pager runs its own interactive transition rather
 than an `.animation(_:value:)`.

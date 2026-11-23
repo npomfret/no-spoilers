@@ -977,13 +977,17 @@ public enum Theme {
         }
     }
 
-    /// Pointer feedback. December's isolated drawing timeline does not animate the pager.
+    /// Shared motion decisions. December's drawing timeline does not animate the pager.
     public enum Motion {
         /// Pointer entering or leaving a menu row.
         public static let hover: Animation = .easeInOut(duration: 0.12)
         /// Press-down feedback — faster than `hover`, because a press should
         /// feel like it has already happened.
         public static let press: Animation = .easeInOut(duration: 0.08)
+
+        /// A whole text face turns over before the following schedule row starts.
+        public static let departureBoardFlip: Animation = .easeInOut(duration: 0.4)
+        public static let departureBoardCycle = DepartureBoardCycle(holdDuration: 5, rowInterval: 0.5)
     }
 
     /// Every symbol the product draws, named for what it means rather than what

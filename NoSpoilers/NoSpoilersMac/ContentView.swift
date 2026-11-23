@@ -34,6 +34,7 @@ struct WeekendPopoverView: View {
     private let timeZone: TimeZone
     private let decorationConfiguration: DecemberDecoration.Configuration
     @State private var decorationStartedAt: Date
+    @State private var timingStartedAt: Date
     @State private var now: Date
     @State private var decorationVisible = false
     @State private var footerRowsHeight: CGFloat = 0
@@ -49,6 +50,7 @@ struct WeekendPopoverView: View {
         self.openAbout = openAbout
         let initialDate = clock()
         _decorationStartedAt = State(initialValue: initialDate)
+        _timingStartedAt = State(initialValue: initialDate)
         _now = State(initialValue: initialDate)
     }
 
@@ -138,10 +140,18 @@ struct WeekendPopoverView: View {
                                              startedAt: decorationStartedAt, animated: animateDecoration, contentMargins: EdgeInsets())
             }
         }
-        .onAppear { decorationVisible = true }
+        .onAppear {
+            let openingDate = clock()
+            self.now = openingDate
+            decorationStartedAt = openingDate
+            timingStartedAt = openingDate
+            decorationVisible = true
+        }
         .onDisappear { decorationVisible = false }
+        .onChange(of: displayWeekend) { _, _ in timingStartedAt = now }
         .preferredColorScheme(isDecemberNight ? .dark : nil)
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: Theme.Motion.departureBoardCycle.rowInterval, on: .main, in: .common).autoconnect()) { _ in
+            guard decorationVisible else { return }
             self.now = clock()
         }
     }
@@ -208,23 +218,41 @@ struct WeekendPopoverView: View {
         return VStack(spacing: Theme.Space.xs) {
             ForEach(sessions.indices, id: \.self) { i in
                 let next = i + 1 < sessions.count ? sessions[i + 1] : nil
-                sessionRow(sessions[i], nextSession: next, at: now)
+                sessionRow(sessions[i], nextSession: next, at: now, rowIndex: i, rowCount: sessions.count)
             }
         }
         .padding(.horizontal, Theme.Space.lg)
         .padding(.vertical, Theme.Space.lg)
     }
 
-    private func sessionRow(_ session: Session, nextSession: Session?, at now: Date) -> some View {
+    private func sessionRow(_ session: Session, nextSession: Session?, at now: Date, rowIndex: Int, rowCount: Int) -> some View {
         let status = SessionResolver.status(for: session, at: now, nextSession: nextSession, confirmedEndAt: store.confirmedEndDates[session.id])
         return NoSpoilersSessionRow(
             canvas: .macPopover,
             status: status,
             name: Text(session.kind.displayName),
-            detail: Text(NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt)),
+            detail: sessionTiming(session, status: status, at: now, rowIndex: rowIndex, rowCount: rowCount),
             decemberNight: isDecemberNight
         ) {
             statusBadge(status: status, session: session, nextSession: nextSession, at: now)
+        }
+    }
+
+    @ViewBuilder
+    private func sessionTiming(_ session: Session, status: SessionStatus, at now: Date,
+                               rowIndex: Int, rowCount: Int) -> some View {
+        if status == .upcoming {
+            NoSpoilersDepartureBoardText(
+                primary: Text(verbatim: countdown(to: session.startsAt, from: now)),
+                alternate: Text(verbatim: NoSpoilersCore.Strings.Schedule.sessionDateTime(
+                    session.startsAt, timeZone: timeZone, style: .full
+                )),
+                face: Theme.Motion.departureBoardCycle.face(
+                    after: now.timeIntervalSince(timingStartedAt), rowIndex: rowIndex, rowCount: rowCount
+                )
+            )
+        } else {
+            Text(verbatim: NoSpoilersCore.Strings.Schedule.sessionDateTime(session.startsAt, timeZone: timeZone))
         }
     }
 
@@ -260,11 +288,7 @@ struct WeekendPopoverView: View {
                 canvas: .macPopover
             )
         case .upcoming:
-            NoSpoilersStatusBadge(
-                text: countdown(to: session.startsAt, from: now),
-                style: .upcoming,
-                canvas: .macPopover
-            )
+            EmptyView()
         }
     }
 

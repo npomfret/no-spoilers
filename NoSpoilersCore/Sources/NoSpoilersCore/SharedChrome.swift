@@ -509,19 +509,19 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
 ///
 /// `detail` and `trailing` are both optional in effect — `.widgetLarge` has no
 /// second line at all, and `.widgetSmall` has no trailing badge.
-public struct NoSpoilersSessionRow<Trailing: View>: View {
+public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
     private let canvas: Theme.Canvas
     private let decemberNight: Bool
     private let status: SessionStatus
     private let name: Text
-    private let detail: Text?
+    private let detail: Detail?
     private let trailing: Trailing
 
     public init(
         canvas: Theme.Canvas,
         status: SessionStatus,
         name: Text,
-        detail: Text? = nil,
+        detail: Detail?,
         decemberNight: Bool = false,
         @ViewBuilder trailing: () -> Trailing
     ) {
@@ -585,7 +585,7 @@ extension NoSpoilersSessionRow where Trailing == EmptyView {
         canvas: Theme.Canvas,
         status: SessionStatus,
         name: Text,
-        detail: Text? = nil,
+        detail: Detail?,
         decemberNight: Bool = false
     ) {
         self.init(canvas: canvas, status: status, name: name, detail: detail, decemberNight: decemberNight) {

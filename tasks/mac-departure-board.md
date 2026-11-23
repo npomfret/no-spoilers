@@ -40,4 +40,38 @@ moving the session name or changing the spoiler-free schedule contract.
 
 ## Evidence and remaining work
 
-Implementation and verification pending.
+Implemented in the canonical row detail slot. Upcoming Mac sessions now flip
+between a live countdown and a full local date/time, without changing the other
+four inventoried source call sites. Status badges remain visible for active,
+finish-unconfirmed and finished sessions. Reopening the popover resets its cycle.
+
+- `scripts/verify-core-tests.sh`: PASS, 167 tests, zero failures; the wrapper uses
+  one worker. Five new cycle tests cover readable holds, top-to-bottom sweeps in
+  both directions, six-row and single-row schedules, missed ticks and clock
+  correction. Three date tests cover full months, 12/24-hour conventions, and
+  local day rollover at a non-hour UTC offset.
+- `scripts/verify-mac-build.sh -jobs 1`: PASS, arm64 and x86_64.
+- `scripts/verify-ios-build.sh -jobs 1`: PASS, including Widget extension; this
+  verifies the shared row's generic-detail change reaches its existing callers.
+  All build/test commands ran serially after checking for other active runs.
+- Native visual QA used production shared rows, formatter, cycle and flip view
+  at 300pt width. Inspected countdown, date and partial-sweep states; light,
+  dark and December palettes; long German and Arabic formatted dates. Captured
+  a running native animation. The user observed the preview and accepted it.
+- Independent `ui-change-reviewer` and `spoiler-safety-reviewer`: no substantive
+  findings, including existing-mechanism and existing-pattern checks. The UI
+  reviewer also reviewed the final appearance-reset adjustment after compilation.
+- `git diff --check`: PASS. WebStorm could not inspect the ignored worktree path;
+  Swift/Xcode compilation supplied language checks instead.
+- No added/changed translation IDs or languages: only Foundation-formatted dates
+  were added through the existing string owner. No schema/storage/logging changes.
+
+Reduce Motion and VoiceOver paths were inspected and independently reviewed;
+system-setting toggles and screen-reader interaction were not exercised. Ordinary
+date snapshots are visual format checks, not reviewed app translations. The core
+build still reports the pre-existing Swift 6 isolation warning in
+`SessionEndConfirmer.storageKey`; this change does not touch it.
+
+Implementation is verified and reviewed; land and push, then remove this completed
+task in the required follow-up commit. Temporary evidence is retained under the
+root `tmp/mac-board-evidence/` before removing the isolated worktree.
