@@ -543,7 +543,7 @@ struct NoSpoilersWidgetEntryView: View {
         if case .upcoming(let startsAt) = session.state {
             return Strings.Sessions.sessionUpcomingTiming(session.kind, startsAt: startsAt)
         }
-        return Text(session.shortName) + Text(verbatim: " \u{00B7} ") + accessoryStateText(session.state)
+        return Strings.Sessions.sessionStatus(session.kind, status: accessoryStateText(session.state))
     }
 
     /// A session's state as one line of plain text.
@@ -554,7 +554,7 @@ struct NoSpoilersWidgetEntryView: View {
     private func accessoryStateText(_ state: SessionState) -> Text {
         switch state {
         case .finished(let endedAt):
-            return Text(Strings.Sessions.finished) + Text(verbatim: " \u{00B7} ") + Text(endedAt, style: .relative)
+            return Strings.Sessions.finishedTiming(endedAt)
         case .live:
             return Text(NoSpoilersCore.Strings.Schedule.inProgress)
         case .unconfirmed:
@@ -719,7 +719,7 @@ struct NoSpoilersWidgetEntryView: View {
                 NoSpoilersStatusBadge(textKey: Strings.Sessions.finished, style: .finished, canvas: canvas)
             } else {
                 NoSpoilersStatusBadge(
-                    text: Text(Strings.Sessions.finished) + Text(verbatim: " · ") + Text(endedAt, style: .relative),
+                    text: Strings.Sessions.finishedTiming(endedAt),
                     style: .finished,
                     canvas: canvas
                 )

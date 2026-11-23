@@ -30,7 +30,7 @@ public final class SessionEndConfirmer {
     private var pollingTask: Task<Void, Never>?
     private var sessionKeyCache: [String: Int] = [:]  // session.id → OpenF1 session_key
 
-    private static let storageKey = "no-spoilers.confirmedSessionEndDates"
+    nonisolated private static let storageKey = "no-spoilers.confirmedSessionEndDates"
 
     // MARK: - Init
 

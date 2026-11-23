@@ -117,21 +117,21 @@ enum Strings {
     /// saying so. What is left here is what the intent says at run time, which is not extracted
     /// and follows the ordinary rule.
     enum Intents {
-        static func inProgress(session: String, grandPrix: String) -> String {
+        nonisolated static func inProgress(session: String, grandPrix: String) -> String {
             "\(session) is scheduled now at the \(grandPrix)."
         }
-        static func finishUnconfirmed(session: String, grandPrix: String) -> String {
+        nonisolated static func finishUnconfirmed(session: String, grandPrix: String) -> String {
             "The finish of \(session) at the \(grandPrix) has not been confirmed."
         }
 
-        static func startsAt(session: String, grandPrix: String, when: String) -> String {
+        nonisolated static func startsAt(session: String, grandPrix: String, when: String) -> String {
             "\(session) at the \(grandPrix) starts on \(when)."
         }
 
         /// The off-season and a phone that has never fetched a schedule, answered the same way.
         /// Claiming the season is over when the truth is a failed fetch would be worse than
         /// vague.
-        static let nothingScheduled =
+        nonisolated static let nothingScheduled =
             "There is no session scheduled yet. Open No Spoilers to refresh the calendar."
     }
     enum Error {

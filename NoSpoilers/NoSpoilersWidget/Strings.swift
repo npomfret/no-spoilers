@@ -39,6 +39,12 @@ enum Strings {
             let name = Text(shortName(kind))
             return Text("\(name) \(upcomingTiming(startsAt, concise: true))")
         }
+        static func sessionStatus(_ kind: SessionKind, status: Text) -> Text {
+            Text("\(Text(shortName(kind))) · \(status)")
+        }
+        static func finishedTiming(_ endedAt: Date) -> Text {
+            Text("\(Text(finished)) · \(Text(endedAt, style: .relative))")
+        }
         static let finished: LocalizedStringKey           = "Finished"
         static let statusUnconfirmed: LocalizedStringKey  = "Status unconfirmed"
         static let scheduledStart: LocalizedStringKey     = "Scheduled start"
