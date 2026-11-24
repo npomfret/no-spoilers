@@ -1323,3 +1323,54 @@ while everyone else finished racing. A very literal approach to retirement.
 in the opening laps: the cached result records 50 completed laps. The question
 needs neither an exact retirement lap nor proof of who owned the yacht; keep
 those details out of the wording.
+
+## Question 36: Ten wins, second prize
+
+**Status:** Draft for user review.
+**Period:** Completed seasons 2000–2025.
+
+Which of these drivers won **ten Grands Prix in a single season** and still
+didn't win that year's world championship?
+
+- **A.** Fernando Alonso
+- **B.** Felipe Massa
+- **C.** Lewis Hamilton
+- **D.** Kimi Räikkönen
+
+**Optional clue:** It happened in 2016.
+
+**Correct answer: C — Lewis Hamilton.**
+
+Hamilton won ten races in 2016; Nico Rosberg won nine. Rosberg still took
+the title, 385 points to 380. More wins, more podiums, more pole positions—
+and second in the championship.
+
+### Research table: the other plausible answers
+
+Each driver's most wins in a non-title season within 2000–2025:
+
+| Driver | Season | Wins | Championship finish |
+| --- | ---: | ---: | ---: |
+| Lewis Hamilton | 2016 | 10 | Second |
+| Kimi Räikkönen | 2005 | 7 | Second |
+| Felipe Massa | 2008 | 6 | Second |
+| Fernando Alonso | 2010 | 5 | Second |
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/questions/ten-wins-without-title.sql` and `.csv`:
+  grouped Grand Prix victories by driver/season, joined final driver standings,
+  excluded title-winning seasons and selected each of the four candidates' maxima.
+  Separately checked Rosberg's nine wins and their 385/380 final points.
+- [Formula 1 — 2016 in numbers](https://www.formula1.com/en/latest/article/f1-2016-in-numbers.Gn3uOq0FqytF5VN2npxBa),
+  16 December 2016: explicitly identifies Hamilton's ten-win non-title season.
+  Also records Hamilton/Rosberg totals of 10/9 wins, 17/16 podiums and 12/8 poles.
+- [FIA — Rosberg seals the title as Hamilton wins Abu Dhabi](https://www.fia.com/news/f1-rosberg-seals-f1-drivers-title-second-place-hamilton-wins-abu-dhabi),
+  27 November 2016: confirms Hamilton's tenth win and Rosberg taking the title.
+
+**Fact-check note:** Wins in one particular non-title season, not career wins
+without ever becoming champion. All four candidates have race wins in the
+stated era; only Hamilton reaches ten in a season without that year's title.
+Do not reuse the 2016 article's then-current career or all-time records as
+present-day claims. The other candidate maxima are local calculations.
