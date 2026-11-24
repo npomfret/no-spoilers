@@ -229,3 +229,75 @@ A clean question avoids those ambiguities: Schumacher's 2002 season contained
 11 wins, five seconds and one third, with no retirement reasons or DNF labels.
 His worst result was third. Question 28 records the full-season check and
 corroboration from the official results and his own site's season summary.
+
+### Most and least: comparing team seasons
+
+Use **retirements per car start**, including crashes and late classified
+retirements. This measures retirement frequency, not purely mechanical reliability.
+Compare completed seasons **2000–2025**, with at least **20 car starts** per
+named constructor-season. Keep 2026's unfinished season out of this comparison.
+No constructor-lineage merging is needed for a single-season comparison.
+
+The saved query and complete 274-row ranking are
+`research/quiz-data/questions/team-season-retirements.sql` and `.csv`.
+They reuse the pinned local database rather than another results feed.
+
+| End of ranking | Team and season | Car starts | Recorded retirements | Retirement rate |
+| --- | --- | ---: | ---: | ---: |
+| Lowest | McLaren 2024 | 48 | 1 | 2.083% |
+| Next lowest | Ferrari 2021 | 43 | 1 | 2.326% |
+| Next lowest | Mercedes 2017 | 40 | 1 | 2.500% |
+| Highest | Prost 2000 | 33 | 23 | 69.697% |
+| Next highest | Arrows 2000 | 33 | 20 | 60.606% |
+| Next highest | BAR 2002 | 34 | 20 | 58.824% |
+
+These extrema are calculations from the pinned source under the stated rules,
+not independently published records. Questions 30–31 ask about the two selected
+seasons directly and retain their corroborating sources.
+
+The denominator excludes explicit DNS, DNQ, DNP, DNPQ and EX statuses. DSQ
+starters stay in it; disqualification itself is not a retirement. The numerator
+counts non-null retirement causes, excluding DSQ. The 13 completed-era NC rows
+have no cause: expose their count separately and calculate a second rate treating
+all of them as retirements. The lowest and highest constructor-seasons are
+unchanged under that sensitivity check. Neither selected season has an NC row.
+Do not infer non-starts from missing lap counts: some DSQ starters have null laps.
+
+The selected cases have an additional independent check:
+
+- **McLaren 2024:** [the team's MCL38 profile](https://www.mclaren.com/racing/heritage/formula-1/cars/2024-formula-1-mclaren-mcl38/)
+  reports no mechanical failures during any GP or Sprint. Its sole recorded GP
+  retirement was Norris's Austria collision damage, despite being classified 20th.
+- **Prost 2000:** the official [Alesi](https://www.formula1.com/en/results/2000/drivers/JEAALE01/jean-alesi)
+  and [Heidfeld](https://www.formula1.com/en/results/2000/drivers/NICHEI01/nick-heidfeld)
+  archives corroborate 23 retirements. [Contemporary reporting](https://www.autosport.com/f1/news/prost-reveals-why-heidfeld-was-disqualified-5031230/5031230/)
+  confirms Heidfeld could not start the European GP. There were 34 entries but
+  33 starts, and 22 DNF labels plus one classified retirement in F1DB. Reported
+  causes include 17 component/technical labels and six collision/spin labels;
+  those component labels alone do not establish whether damage caused a failure.
+
+### Further reliability leads
+
+The 236-row `research/quiz-data/questions/reliability-case-studies.csv` and matching
+SQL retain the selected McLaren/Prost seasons alongside these cases:
+
+- **Verstappen 2023:** 22 results, 19 wins, two seconds, one fifth, no retirements.
+  Question 29 follows Schumacher's question 28. Corroborated against the
+  [complete official driver results](https://www.formula1.com/en/results/2023/drivers/MAXVER01/max-verstappen).
+- **Brawn 2009:** 34 starts, only two retirements: Barrichello's Turkish gearbox
+  failure and Button's Belgian collision. The official driver archives for
+  [Barrichello](https://www.formula1.com/en/results/2009/drivers/RUBBAR01/rubens-barrichello)
+  and [Button](https://www.formula1.com/en/results/2009/drivers/JENBUT01/jenson-button)
+  corroborate the two retired results. Potential question: how many retirements
+  across both cars in the team's entire one-season existence? Answer two.
+- **Barrichello 2002:** three DNFs and two DNS results alongside Schumacher's
+  uninterrupted podiums. Do not convert his five non-finishes into five DNFs.
+- **Hamilton 2018–2021:** local results show 62 classified appearances without
+  a retirement cause from Britain 2018 through the Netherlands 2021, bounded
+  by Austria 2018 and Italy 2021 retirements. This is 63 calendar events with
+  Sakhir 2020 missed, and includes Belgium 2021's Safety-Car-only race. Reserve
+  lead, pending primary corroboration and a precise streak definition; do not
+  call it 62 consecutive calendar races or an independently verified global record.
+
+All sources in this reliability extension checked 2026-11-24. No app data,
+fixtures, product models or outcome-bearing logs were added.

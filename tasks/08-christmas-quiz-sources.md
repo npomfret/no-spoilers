@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–28 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–31 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -387,6 +387,27 @@ the official archive. It reviewed questions 20–24's unique answers, sources an
 distinctions. No new helper, network client or app mechanism was introduced. Neither
 the author nor reviewer ran app tests or builds for this research. Markdown diff
 checks passed; the broader authoring task remains open.
+
+The reliability extension reuses the pinned SQLite source and existing SQL/CSV
+evidence convention, with no new helper or provider. Its local constructor-season
+ranking contains 274 rows for completed seasons 2000–2025 with at least 20 car
+starts. McLaren 2024 has the lowest recorded all-cause retirement rate (1/48),
+Prost 2000 the highest (23/33). Explicit non-starts are excluded; late classified
+retirements are included; DSQ does not itself imply retirement. Treating all
+13 cause-less NC results as retirements leaves both extrema unchanged. The
+selected seasons have no NC ambiguity. The 236-row case-study export preserves
+the raw statuses and causes, including Prost's pre-race exclusion and Norris's
+classified Austria retirement. Questions 30–31 use matching all-cause definitions;
+McLaren's zero mechanical failures is a separate, team-corroborated reveal fact.
+Question 29 pairs Verstappen's 2023 worst finish (fifth) with Schumacher's 2002
+question. Sources and checked dates are recorded per question. Brawn's two 2009
+retirements and Hamilton's carefully qualified 62-appearance sequence remain
+research leads. No app code or data changed; no app tests or builds are needed.
+Independent read-only review found no substantive issues: both CSVs reconciled
+exactly with their saved SQL, the retirement extrema survived the NC sensitivity
+check, and official archives corroborated the selected retirement totals and
+Verstappen's 19/2/1 distribution. Question denominators, unique answers and reuse
+of the existing evidence mechanism were checked. Markdown diff checks passed.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and

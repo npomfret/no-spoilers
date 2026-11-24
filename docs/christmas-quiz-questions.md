@@ -1060,3 +1060,113 @@ finishes outside the podium. Third in Malaysia was his worst Sunday result.
 positions. This is a particular driver's complete season, not a claim that every
 Ferrari entry finished. Use the sources' actual 17-race inventory rather than a
 stray season-length typo in the official site's introductory narrative.
+
+## Question 29: Max's bad day
+
+**Status:** Draft; place immediately after question 28.
+**Year:** 2023.
+
+What was Max Verstappen's worst Grand Prix result in his 2023 title season?
+
+- **A.** Second
+- **B.** Third
+- **C.** Fifth
+- **D.** Did not finish
+
+**Optional clue:** It happened in Singapore.
+
+**Correct answer: C — Fifth.**
+
+Nineteen wins, two seconds and one fifth. He finished every race, and his
+worst afternoon still earned ten points. Schumacher's worst result in 2002
+was third; Max's in 2023 was fifth.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  all 22 Verstappen race results, preserved in
+  `research/quiz-data/questions/reliability-case-studies.sql` and `.csv`.
+  Position counts are 19 firsts, two seconds and one fifth, with no retirement causes.
+- [Formula 1 — Verstappen's complete 2023 results](https://www.formula1.com/en/results/2023/drivers/MAXVER01/max-verstappen):
+  corroborates all 22 results, including fifth in Singapore and seconds in Saudi
+  Arabia and Azerbaijan.
+
+**Fact-check note:** Grand Prix classifications only; Sprints excluded. Keep the
+Schumacher/Verstappen comparison in this reveal, after both questions are answered.
+
+## Question 30: Warranty intact
+
+**Status:** Draft; pair with question 31 for the reliability contrast.
+**Year:** 2024.
+
+Across Norris and Piastri's **48 Grand Prix starts** in 2024, how many times
+did a McLaren retire, for any reason?
+
+- **A.** None
+- **B.** Once
+- **C.** Three times
+- **D.** Six times
+
+**Correct answer: B — Once.**
+
+Two cars, 24 Grands Prix, just one retirement: Norris after his collision with
+Verstappen in Austria. Neither driver retired because of a mechanical failure.
+The team says its six Sprints were free of mechanical failures too.
+
+**Sources checked:** 2026-11-24.
+
+- [McLaren — MCL38 heritage profile](https://www.mclaren.com/racing/heritage/formula-1/cars/2024-formula-1-mclaren-mcl38/):
+  explicitly reports no mechanical failure across 24 Grands Prix or six Sprints.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/questions/reliability-case-studies.sql` and `.csv`:
+  48 McLaren race-result rows, no non-starts and one recorded retirement,
+  Norris in Austria, with reason `Collision damage`.
+- [Autosport — the reliability behind McLaren's 2024 title](https://www.autosport.com/f1/news/the-unspoken-major-factor-behind-mclarens-2024-f1-title-win/10681482/):
+  corroborates the mechanical reliability and explains Norris's late classified
+  retirement in Austria.
+
+**Fact-check note:** Count all-cause retirements, including late classified ones,
+rather than only DNF labels. Norris's Austria retirement still received 20th
+place because he had covered enough distance. Do not describe all 48 starts
+as cars running at the finish, or claim McLaren is uniquely best mechanically.
+
+## Question 31: Warranty expired
+
+**Status:** Draft; place immediately after question 30.
+**Year:** 2000.
+
+At the other end of the reliability spectrum, Prost's cars started 33 Grands
+Prix between them in 2000. Roughly what proportion ended in retirement,
+including crashes and breakdowns?
+
+- **A.** One in ten
+- **B.** Three in ten
+- **C.** Five in ten
+- **D.** Seven in ten
+
+**Correct answer: D — Seven in ten.**
+
+Twenty-three retirements from 33 starts: almost 70%. A Prost was more than
+twice as likely to retire as to finish running. Alesi and Heidfeld scored
+no points all year.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/questions/reliability-case-studies.sql` and `.csv`:
+  34 Prost result entries; Heidfeld's European GP exclusion removes one
+  non-start, leaving 33 starts. Twenty-three have retirement causes, including
+  his classified 12th in Germany with an alternator failure. The remaining ten
+  have numerical finishes and no retirement cause; neither driver scored points.
+- Official full-season results for
+  [Alesi](https://www.formula1.com/en/results/2000/drivers/JEAALE01/jean-alesi)
+  and [Heidfeld](https://www.formula1.com/en/results/2000/drivers/NICHEI01/nick-heidfeld):
+  corroborate the 23 retirements and zero points. This archive labels Heidfeld's
+  German GP result DNF, whereas F1DB retains his classified position with its cause.
+- [Autosport — Prost explains Heidfeld's exclusion](https://www.autosport.com/f1/news/prost-reveals-why-heidfeld-was-disqualified-5031230/5031230/),
+  21 May 2000: confirms he was barred from starting after qualifying underweight.
+
+**Fact-check note:** 23 / 33 = 69.697%. Count car starts, not the 17 race weekends
+or 34 entries. Both questions count all-cause retirements; the separate mechanical
+observation belongs in the McLaren reveal.
+The pair contrasts two seasons without asking players to interpret a database ranking.
