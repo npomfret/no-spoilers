@@ -186,9 +186,10 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   connection. Questions 3 and 4 remain drafts.
 - [x] Replace question 5 with the user's approved exact-date version: Alonso had one title
   when Antonelli was born. Record the birth-date and contemporary title-report sources.
-- [x] Group 2026 season points by racing nationality, including substitutes, and draft
-  question 6 from the Leclerc-versus-France/Germany/Spain comparison. Retain the complete
-  25-driver inventory, derived table, calculation and after-Vegas cutoff in the question bank.
+- [x] Replace the rejected current-season nationality-points question with a historical
+  candidate: Finland and Germany each had four different Grand Prix winners in 2000–2025.
+  The user requested historical national statistics. Keep the selected five-nation inventory,
+  period, metric definition and dated sources beside question 6.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -210,16 +211,21 @@ not a share of laps or an official pole. The Las Vegas lap-end table gives 45 + 
 35 reported lead changes is a separate measure, not a count of lap-end leader changes.
 The FIA transcript supplies the Mario Kart comparison directly. The revised fifth question
 uses Antonelli's official birth date (25 August 2006) and the contemporary report of Alonso's
-second title (22 October 2006). The nationality analysis uses official season standings,
-not just the latest grid: 25 unique drivers, 16 racing nationalities and 2,337 points,
-including Sprint points and substitutes. STATS F1 agrees on the individual points;
-grouped totals reconcile and the six comparison drivers score 213 against Leclerc's 250.
+second title (22 October 2006). The historical nationality analysis filters dated Grand Prix
+wins to 2000–2025 and counts each driver once: Germany 4, Finland 4, France 2, Brazil 2,
+Netherlands 1. The question bank contains the 13-name inventory for those five nations,
+not a claim to cover every nation. The official Bottas milestone article corroborates
+the Finnish winner list; pre-2000 winners are excluded by the dated national win records.
 These changes affect Markdown only; app builds and automated
 tests are not needed. Retain this task while the planned quiz work remains.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and
-recomputed the nationality groups from all 25 official standings rows. For question 4,
+reviewed the historical question's metric, fixed period and 13-name inventory. It
+independently checked the official Finnish winner list and Häkkinen's qualifying
+2000/2001 victories. The national win logs returned error pages through the reviewer's
+command-line access; the authoring agent checked their dated rows, unique names and
+exclusion boundaries through the web tool. For question 4,
 STATS F1 returned HTTP 404 through its command-line retrieval, so its review of that
 lap-end table relied on the authoring agent's successful web retrieval of the summary
 and all 50 lap rows. Source availability differs by access route; the lap-range

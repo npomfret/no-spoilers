@@ -188,62 +188,58 @@ yet a double champion.
 **Fact-check note:** Compare the exact dates, not just the calendar year. “Two” is a
 plausible distractor because Alonso won his second title later in Antonelli's birth year.
 
-## Question 6: One against six
+## Question 6: Four of a kind
 
 **Status:** Draft for user review.
-**Year:** 2026 — through the Las Vegas Grand Prix, inclusive.
+**Period:** 2000–2025 inclusive.
 
-By the end of Las Vegas 2026, which of these countries had scored more drivers'
-championship points than France, Germany and Spain combined — with just one driver?
+Between 2000 and 2025, which of these countries produced as many different F1
+Grand Prix winners as Germany?
 
-- **A.** Australia
-- **B.** New Zealand
-- **C.** Monaco
-- **D.** Argentina
+- **A.** France
+- **B.** Finland
+- **C.** Brazil
+- **D.** Netherlands
 
-**Correct answer: C — Monaco.**
+**Correct answer: B — Finland.**
 
-Charles Leclerc had 250 points. France, Germany and Spain's six drivers had 213
-between them. One Monégasque, six opponents, a 37-point advantage.
+Four Finns won during that period: Mika Häkkinen, Kimi Räikkönen, Heikki Kovalainen
+and Valtteri Bottas. Germany's four were Michael Schumacher, Ralf Schumacher,
+Sebastian Vettel and Nico Rosberg. The Schumachers, Vettel and Rosberg sound like
+an intimidating collection — but Finland matched the headcount.
 
-### Research table: 2026 points grouped by racing nationality
+### Research table: different winning drivers, 2000–2025
 
-Snapshot checked on 23 November 2026 after Las Vegas. Use the nationality codes and
-season points in the official drivers' standings, including Sprint points and substitute
-drivers. This is a grouping of 25 drivers listed across the season, not the 22-car Vegas
-grid. Racing nationality is distinct from citizenship, birthplace, ancestry and team nationality.
+Selected nationalities for the question, not a ranking of every nation. Count a driver
+once if they won a World Championship Grand Prix during the period, using their racing
+nationality. Exclude Sprints and victories before 2000 or after 2025.
 
-| Racing nationality | Drivers in the season standings | Driver count | Points |
-| --- | --- | ---: | ---: |
-| Great Britain | Lewis Hamilton, George Russell, Lando Norris, Arvid Lindblad, Oliver Bearman | 5 | 856 |
-| Italy | Kimi Antonelli | 1 | 402 |
-| Netherlands | Max Verstappen | 1 | 304 |
-| Monaco | Charles Leclerc | 1 | 250 |
-| France | Isack Hadjar, Pierre Gasly, Esteban Ocon | 3 | 181 |
-| Australia | Oscar Piastri | 1 | 167 |
-| New Zealand | Liam Lawson | 1 | 89 |
-| Argentina | Franco Colapinto | 1 | 35 |
-| Spain | Carlos Sainz, Fernando Alonso | 2 | 18 |
-| Brazil | Gabriel Bortoleto, Rafael Camara | 2 | 14 |
-| Germany | Nico Hulkenberg | 1 | 14 |
-| Thailand | Alexander Albon | 1 | 5 |
-| Japan | Yuki Tsunoda, Ryo Hirakawa | 2 | 2 |
-| Canada | Lance Stroll | 1 | 0 |
-| Finland | Valtteri Bottas | 1 | 0 |
-| Mexico | Sergio Perez | 1 | 0 |
-| **Total** | | **25** | **2,337** |
+| Racing nationality | Winning drivers in the period | Different winners |
+| --- | --- | ---: |
+| Germany | Michael Schumacher, Ralf Schumacher, Sebastian Vettel, Nico Rosberg | 4 |
+| Finland | Mika Häkkinen, Kimi Räikkönen, Heikki Kovalainen, Valtteri Bottas | 4 |
+| France | Pierre Gasly, Esteban Ocon | 2 |
+| Brazil | Rubens Barrichello, Felipe Massa | 2 |
+| Netherlands | Max Verstappen | 1 |
 
-**Sources checked:** 2026-11-23.
+**Sources checked:** 2026-11-24.
 
-- [Formula 1 — 2026 drivers' standings](https://www.formula1.com/en/results/2026/drivers):
-  controlling source for the 25 driver/nationality/points rows in this snapshot.
-- [STATS F1 — 2026 championship table](https://www.statsf1.com/en/2026.aspx):
-  cross-check of the driver points and the season cutoff; Qatar and Abu Dhabi are blank.
+- [STATS F1 — Finland's wins](https://www.statsf1.com/en/finland/victoire.aspx):
+  filter the dated race rows to 2000–2025; the four Finnish names above remain.
+- [STATS F1 — Germany's wins](https://www.statsf1.com/en/germany/victoire.aspx):
+  the same filter leaves the two Schumachers, Vettel and Rosberg.
+- [STATS F1 — France's wins](https://www.statsf1.com/en/france/victoire.aspx):
+  Gasly's 2020 win and Ocon's 2021 win are the only qualifying entries.
+- [STATS F1 — Brazil's wins](https://www.statsf1.com/en/brazil/victoire.aspx):
+  the qualifying entries belong to Barrichello and Massa.
+- [STATS F1 — Netherlands](https://www.statsf1.com/en/netherlands.aspx):
+  Verstappen is the country's only Grand Prix winner.
+- [Formula 1 — Bottas becomes F1's 107th different winner](https://www.formula1.com/en/latest/article/sochi-stats-bottas-f1-107th-different-winner.4Pmgdj9udaueKIGyeS8a6C),
+  published 30 April 2017; independently lists the Finnish winners, including Keke Rosberg,
+  whose victories are outside our period.
 
-**Calculation and checks:** Group each distinct driver once by the official nationality
-code and sum season points. The 25 unique drivers form 16 nationality groups; both the
-raw and grouped points sum to 2,337. France: 122 + 52 + 7 = 181; Germany: 14; Spain:
-11 + 7 = 18. Comparison: 181 + 14 + 18 = 213, against Leclerc's 250. The other answer
-options have 167, 89 and 35 points respectively, so only Monaco qualifies among them.
-These are derived group totals, not an official championship for nations. Retain the
-after-Vegas cutoff when using the question; later races can change the comparison.
+**Fact-check note:** This counts different winners, not victories or champions. Häkkinen
+qualifies because he won in 2000 and 2001 even though his first win was earlier. Keke
+Rosberg and Heinz-Harald Frentzen are excluded because their wins pre-date 2000. Nico
+Rosberg counts for Germany. The table's 13 named drivers are the full inventory for these
+five selected nations within the fixed period; only Finland matches Germany among the options.
