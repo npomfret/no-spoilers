@@ -145,3 +145,35 @@ corroborate that year's win counts and nationality grouping. The full min/max ta
 from the pinned dataset, not a claim that all 26 seasons were separately checked against
 another publisher. Further independent corroboration is needed before publishing a
 global record question based on the whole comparison.
+
+### Overlap between the two-team and three-driver seasons
+
+The three seasons with only three winning drivers are exactly half of the six
+seasons with only two winning teams. In the other three, both winning teams had
+two winning drivers.
+
+| Season | Winning constructors | Different winning drivers |
+| --- | --- | ---: |
+| 2000 | Ferrari, McLaren | 4 |
+| 2007 | Ferrari, McLaren | 4 |
+| 2014 | Mercedes, Red Bull | 3 |
+| 2015 | Mercedes, Ferrari | 3 |
+| 2016 | Mercedes, Red Bull | 4 |
+| 2023 | Red Bull, Ferrari | 3 |
+
+Across all six seasons there are only **four** winning constructors in total:
+Ferrari, McLaren, Mercedes and Red Bull. Ferrari/McLaren and Mercedes/Red Bull
+each recur twice; Mercedes/Ferrari and Red Bull/Ferrari occur once each.
+
+For a useful reveal after the shared-season question, the only winning driver
+outside the dominant team was Ricciardo in 2014, Vettel in 2015 and Sainz in 2023.
+Do not use the two-team fact as an incorrect option in a three-season question:
+both it and the three-driver statement are true. These overlaps were calculated
+from the saved detailed winning-driver/constructor table, not inferred from
+constructors' championship positions.
+
+A further connection worth checking for a future question: the local race-result
+history shows that all three outsiders raced for Toro Rosso earlier — Vettel in
+2007–2008, Ricciardo in 2012–2013 and Sainz in 2015–2017. This was checked by
+filtering those driver IDs to `constructor_id = 'toro-rosso'` and taking their
+first/last race years. Retain as a lead pending independent editorial corroboration.

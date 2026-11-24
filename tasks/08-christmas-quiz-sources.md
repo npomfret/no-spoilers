@@ -291,7 +291,20 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   Räikkönen's win from 17th with a last-lap pass, Belgium's zero green-flag laps,
   six winning teams in 2012, and only British/German winners in 2015. Each retains
   sources and a checked date; selected questions offer half-point clues.
-- [ ] Obtain user approval of questions 20–24. Independently corroborate broader
+- [x] Record user approval of question 24 and draft the requested shared-season
+  question 26 for 2014, 2015 and 2023. Exactly three different drivers won in each.
+  Verify all distractors, especially avoiding "only two teams won", which is also true.
+  Record the overlap with the six two-team seasons: the other three had four winning
+  drivers; only Ferrari, McLaren, Mercedes and Red Bull won across the six seasons.
+  Retain the further locally checked Toro Rosso link among Ricciardo, Vettel and
+  Sainz as a lead pending an independent editorial source.
+- [x] Add question 25 immediately after question 24: Button is the only non-winner
+  among Hamilton, Button, Rosberg and Vettel in 2015. Verify the 10/0/6/3 counts
+  locally and retain the official results/standings sources. Move the shared-season
+  draft to question 26. Question 24's reveal now withholds winner names, and its clue
+  refers to the 2014 title contenders, protecting the follow-up's answer. Question 25
+  offers the optional McLaren-Honda clue under the established half-point rule.
+- [ ] Obtain user approval of questions 20–23, 25 and 26. Independently corroborate broader
   full-period record claims before converting the research comparison into record questions.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
@@ -306,7 +319,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–24 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23, 25 and 26 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap

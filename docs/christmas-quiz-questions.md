@@ -861,7 +861,7 @@ Hide the team list and clue until the appropriate reveal; use the bank's half-po
 
 ## Question 24: Two flags
 
-**Status:** Draft for user review.
+**Status:** Approved by the user.
 **Year:** 2015.
 
 All 19 Grands Prix in 2015 were won by drivers of just two nationalities. Which two?
@@ -871,12 +871,15 @@ All 19 Grands Prix in 2015 were won by drivers of just two nationalities. Which 
 - **C.** German and Dutch
 - **D.** Spanish and German
 
-**Optional clue:** The three winning drivers were Hamilton, Rosberg and Vettel.
+**Optional clue:** Think of the nationalities of the two 2014 title contenders.
 
 **Correct answer: A — British and German.**
 
-Hamilton won ten races for Britain. Rosberg won six and Vettel three for Germany.
 Two nations took every win, with Britain edging the total 10–9.
+
+**Host note:** Ask question 25 immediately afterward. Save the winning drivers'
+names and their individual win totals until after that follow-up. Research notes
+below are not part of the player-facing reveal.
 
 **Sources checked:** 2026-11-24.
 
@@ -889,7 +892,86 @@ Two nations took every win, with Britain edging the total 10–9.
   independently counted Hamilton's ten wins, Rosberg's six and Vettel's three.
 - [Formula 1 — 2015 driver standings](https://www.formula1.com/en/results/2015/drivers):
   lists their nationalities as GBR, GER and GER respectively.
+- Optional clue: the local 2014 season standings have Hamilton and Rosberg as the
+  two title contenders at the finale, with British and German sporting nationalities.
 
 **Fact-check note:** Drivers' sporting nationality, not engine manufacturer,
 team nationality or birthplace. Both the local counts and the official archive
 give the same 19-race inventory and nationality grouping.
+
+## Question 25: The odd one out
+
+**Status:** Draft wording for the user's requested follow-up to question 24.
+**Year:** 2015.
+
+Which of these British or German drivers did **not** win a Grand Prix in 2015?
+
+- **A.** Lewis Hamilton
+- **B.** Jenson Button
+- **C.** Nico Rosberg
+- **D.** Sebastian Vettel
+
+**Optional clue:** He drove for McLaren-Honda that season.
+
+**Correct answer: B — Jenson Button.**
+
+Hamilton won ten, Rosberg six and Vettel three. Between them, they took all 19
+Grand Prix wins. Button's McLaren-Honda season produced no victories.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  grouped 2015 `race_result` rows for the four named drivers, counting final
+  position 1. Hamilton 10, Rosberg 6, Vettel 3 and Button 0. Button's rows have
+  `constructor_id = 'mclaren'` and `engine_manufacturer_id = 'honda'`.
+- [Formula 1 — 2015 race results](https://www.formula1.com/en/results/2015/races):
+  the complete winner list contains only Hamilton, Rosberg and Vettel.
+- [Formula 1 — 2015 driver standings](https://www.formula1.com/en/results/2015/drivers):
+  confirms the four drivers' British/German nationalities and Button's McLaren-Honda team.
+
+**Host note:** Ask directly after question 24. Its reveal now gives only the
+nationality totals; do not show its research notes or the named winners first.
+Ask question 26 separately, since its research table also identifies the winners.
+
+## Question 26: An exclusive club
+
+**Status:** Draft wording for the user's requested shared-season question.
+**Seasons:** 2014, 2015 and 2023.
+
+What did the 2014, 2015 and 2023 F1 seasons all have in common?
+
+- **A.** Ferrari failed to win a Grand Prix
+- **B.** The drivers' title was decided at the final race
+- **C.** Exactly three different drivers won Grands Prix
+- **D.** Every Grand Prix was won from the front row
+
+**Correct answer: C — Exactly three different drivers won Grands Prix.**
+
+| Season | Winning drivers and their Grand Prix wins |
+| --- | --- |
+| 2014 | Hamilton 11, Rosberg 5, Ricciardo 3 |
+| 2015 | Hamilton 10, Rosberg 6, Vettel 3 |
+| 2023 | Verstappen 19, Pérez 2, Sainz 1 |
+
+In each year, the dominant team had two winning drivers, and just one other
+driver managed to win: Ricciardo in 2014, Vettel in 2015 and Sainz in 2023.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/extremes-v2026.21.0/season_winner_diversity_2000_2025.csv`
+  and `season_winning_driver_teams_2000_plus.csv`: counted distinct winning
+  driver IDs and checked their win totals for the three selected seasons.
+- Official race archives: [2014](https://www.formula1.com/en/results/2014/races),
+  [2015](https://www.formula1.com/en/results/2015/races) and
+  [2023](https://www.formula1.com/en/results/2023/races), corroborating the winner lists.
+
+**Distractor checks:** Ferrari won through Vettel in 2015 and Sainz in 2023.
+The 2015 and 2023 titles were decided before their finales. Each season had a
+winner starting outside the front row: Ricciardo sixth in Canada 2014, Vettel
+third in Hungary 2015 and Verstappen ninth in Miami 2023, checked against local
+race results. Do not offer "only two teams won" as a distractor: that is also
+true of all three seasons.
+
+**Fact-check note:** Grand Prix wins only; Sprints excluded. The question asks
+which offered statement is shared, not whether this is their only common feature.
