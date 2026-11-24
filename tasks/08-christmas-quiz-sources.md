@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–31 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–32 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -408,6 +408,15 @@ exactly with their saved SQL, the retirement extrema survived the NC sensitivity
 check, and official archives corroborated the selected retirement totals and
 Verstappen's 19/2/1 distribution. Question denominators, unique answers and reuse
 of the existing evidence mechanism were checked. Markdown diff checks passed.
+
+Question 32 adds a reliability oddity: Pérez returning to Japan 2023 specifically
+to serve his later five-second penalty, then retiring again. The official series
+report establishes the sequence; Sky's contemporary explanation and Horner interview
+establish the concern about a possible next-race grid penalty. The local result and
+official classification agree on one DNF and 15 completed laps, not two statistical
+retirements. The question avoids inconsistent lap-reference details and does not
+describe a grid drop as automatic. Source links, checked date and an optional
+Qatar clue are retained. Markdown-only addition; no app tests or builds required.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and

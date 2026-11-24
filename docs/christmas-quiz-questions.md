@@ -1170,3 +1170,44 @@ no points all year.
 or 34 entries. Both questions count all-cause retirements; the separate mechanical
 observation belongs in the McLaren reveal.
 The pair contrasts two seasons without asking players to interpret a database ranking.
+
+## Question 32: You only retire twice
+
+**Status:** Draft for user review.
+**Year:** 2023.
+
+At the 2023 Japanese Grand Prix, Sergio Pérez retired, returned to the track,
+then retired again. Why did Red Bull send him back out?
+
+- **A.** To attempt the fastest lap
+- **B.** To serve a time penalty
+- **C.** To give Verstappen a slipstream
+- **D.** To complete enough distance to be classified
+
+**Optional clue:** They were thinking ahead to the next race in Qatar.
+
+**Correct answer: B — To serve a time penalty.**
+
+After his collision with Magnussen, Pérez received a five-second penalty.
+Red Bull brought him back out to serve it, avoiding the risk of it becoming
+a grid penalty at the next race. Then they retired the car again: a comeback
+whose entire purpose was to sit still for five seconds.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Pérez's disastrous Japanese GP](https://www.formula1.com/en/latest/article/perez-frustrated-by-disastrous-weekend-in-japan-but-hails-red-bulls.41m2RHiiij9DmAvimmejaw),
+  26 September 2023: confirms the collision, second five-second penalty,
+  return specifically to serve it, and subsequent retirement.
+- [Sky Sports — why Pérez briefly unretired](https://www.skysports.com/f1/news/12968857/perez-8217-s-8216-shocker-8217-explained-crashes-penalties-and-two-retirements),
+  24 September 2023: explains the possible next-race grid penalty under the
+  contemporary rules and quotes Horner confirming they served it in Japan.
+- [Official Japanese GP result](https://www.formula1.com/en/results/2023/races/1220/japan/race-result)
+  and local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  one Pérez race-result row, DNF, 15 completed laps; F1DB reason `Withdrew`.
+
+**Fact-check note:** This is two withdrawals during one race, not two statistical
+DNFs or two starts. The first five-second penalty, for a Safety Car infringement,
+had already been served; the comeback dealt with the later Magnussen-collision
+penalty. A next-race grid drop was possible, not automatic. Avoid precise lap
+numbers for the comeback: reports use different leader-lap/pit-entry references;
+the official 15 is Pérez's completed-lap total, not the leader's lap at retirement.
