@@ -1249,3 +1249,41 @@ This is a mid-race position, not his seventh-place starting slot. The official
 4:04:39.537 duration includes the rain suspension. The checked accounts establish
 collisions and punctures, not a count of Button's spins; the decisive last-lap
 mistake was Vettel's. Do not turn a recollection of multiple spins into a fact.
+
+## Question 34: Grid for one
+
+**Status:** Draft for user review.
+**Year:** 2021.
+
+When the lights went out for the red-flag restart at the 2021 Hungarian
+Grand Prix, how many cars were on the starting grid?
+
+- **A.** One
+- **B.** Six
+- **C.** Ten
+- **D.** Twenty
+
+**Correct answer: A — One.**
+
+Just Lewis Hamilton. All 14 of his remaining rivals had dived into the pits
+for slick tyres at the end of the formation lap. Hamilton stayed on
+intermediates and took the restart alone; everyone else restarted from
+the pit lane. He pitted for slicks a lap later.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Hamilton explains the restart decision](https://www.formula1.com/en/latest/article/hamilton-explains-decision-not-to-pit-for-dry-tyres-at-restart-as-wolff.2HOX8In1vwdoKgPreh9pXW),
+  1 August 2021: explains the drying conditions, his lone grid restart and
+  pit stop the following lap.
+- [Formula 1 — race director explains the unusual restart](https://www.formula1.com/en/latest/article/race-director-michael-masi-explains-how-hungary-restart-would-have-worked-if.7iCcbfEIN1BfFej2P2BTyh),
+  3 August 2021: explicitly identifies Hamilton alone and his 14 rivals in the
+  pits. Includes the contemporary procedure explained by race director Masi.
+- [Pirelli — 2021 Hungarian GP Sunday report](https://press.pirelli.com/2021-hungarian-grand-prix---sunday/),
+  1 August 2021: independently confirms Hamilton alone kept intermediates and
+  started from the grid while everyone else pitted for medium slick tyres.
+
+**Fact-check note:** Count cars on the grid for the restart, not all cars still
+in the race or the original starting field. There were 15 runners, one on
+the grid and 14 in the pit lane. This intermediate race event comes from
+contemporary reports, not the final classification database. Avoid describing
+it as a one-car race or making an unverified all-time uniqueness claim.

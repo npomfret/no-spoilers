@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–33 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–34 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -426,6 +426,14 @@ The new question asks his position with 30 laps left. Both alternatives are mark
 for final selection rather than using reveals that spoil one another. Confirmed
 collisions and Vettel's final-lap error are retained; no unverified Button spin
 count is asserted. Sources rechecked 2026-11-24; Markdown diff checks passed.
+
+Question 34 adds Hamilton's lone grid restart in Hungary 2021: one car on the
+grid while 14 rivals switched to slick tyres and restarted from the pit lane.
+Contemporary official reporting supplies the driver/race-director accounts;
+Pirelli's Sunday report corroborates the tyre choices and adds a tyre-supplier
+source to the pack. The prompt explicitly counts restart-grid cars, not race
+participants. Source links and checked date are recorded; no all-time uniqueness
+claim is made. Markdown-only work; no app tests or builds required.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and
