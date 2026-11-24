@@ -242,6 +242,11 @@ or builds. The local-data step is complete; the broader quiz task remains open.
 - [x] Build local structured datasets with a pinned source, retained licence, saved queries
   and provenance, independently of the schedule app. Record period and metric limits.
 - [ ] Replace the rejected historical comparison with a simpler nationality singleton question.
+- [x] Draft a simple greatness comparison from the local dataset: Hamilton's 106 Grand
+  Prix wins equal Vettel 53 + Alonso 32 + Räikkönen 21 at the Las Vegas 2026 cutoff.
+  The title totals also match, 7 = 4 + 2 + 1. Question 7 records the calculation,
+  research table, source release and local evidence; no fresh web queries were needed.
+- [ ] Obtain user approval and independent source corroboration for question 7 before publication.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -255,7 +260,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2 and 5 are approved; questions 3 and 4 remain drafts and question 6 was rejected,
+app. Questions 1, 2 and 5 are approved; questions 3, 4 and 7 remain drafts and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).

@@ -243,3 +243,51 @@ qualifies because he won in 2000 and 2001 even though his first win was earlier.
 Rosberg and Heinz-Harald Frentzen are excluded because their wins pre-date 2000. Nico
 Rosberg counts for Germany. The table's 13 named drivers are the full inventory for these
 five selected nations within the fixed period; only Finland matches Germany among the options.
+
+## Question 7: One man, three champions
+
+**Status:** Draft for user review.
+**Cutoff:** End of the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+Add together the F1 Grand Prix wins of Sebastian Vettel, Fernando Alonso and
+Kimi Räikkönen. How does their combined total compare with Lewis Hamilton's?
+
+- **A.** Hamilton leads by one win
+- **B.** The trio leads by one win
+- **C.** They are exactly level
+- **D.** Hamilton leads by ten wins
+
+**Correct answer: C — They are exactly level.**
+
+Vettel's 53 + Alonso's 32 + Räikkönen's 21 = **106**, exactly Hamilton's total.
+One driver matches three world champions combined. And the symmetry goes further:
+their world titles add up to seven too — 4 + 2 + 1, matching Hamilton's seven.
+
+### Research table: career totals at the cutoff
+
+| Driver | Grand Prix wins | World titles |
+| --- | ---: | ---: |
+| Lewis Hamilton | 106 | 7 |
+| Sebastian Vettel | 53 | 4 |
+| Fernando Alonso | 32 | 2 |
+| Kimi Räikkönen | 21 | 1 |
+| Vettel + Alonso + Räikkönen | 106 | 7 |
+
+**Sources checked:** 2026-11-24, using the local snapshot without new web requests.
+
+- [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  retained locally at `research/quiz-data/source/f1db.db`. Counted final
+  `race_result.position_number = 1` rows joined to `race`, filtered to
+  `year >= 2000` and `date <= '2026-11-22'`, for the four named driver IDs.
+  The `driver` table's career win totals agree. Counted
+  `season_driver_standing.championship_won = 1` rows for the title totals;
+  those agree with `driver.total_championship_wins`.
+- Local reusable export: `research/quiz-data/v2026.21.0/driver_stats_2000_plus.csv`,
+  with its saved SQL and checksummed manifest. This is derived from the same source,
+  not independent corroboration. [Local dataset guide](christmas-quiz-data.md).
+
+**Fact-check note:** Grand Prix victories only; Sprints excluded. All four drivers'
+career wins and titles fall within our 2000-onward era, so the period filter does
+not truncate any of their totals. The exact tie is fixed to this cutoff and needs
+rechecking if the question is updated after another race. Retain as a draft pending
+user approval and independent source corroboration before publication.
