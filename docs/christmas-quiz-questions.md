@@ -6,6 +6,12 @@ Use four-option multiple-choice questions with one correct answer. Aim for fun,
 little-known trivia, oddities, outliers and surprising statistics. Each answer should
 come with an entertaining explanation and sources.
 
+Selected questions may have an optional clue; add one where it helps make the
+question fun and approachable. A correct answer earns **1 point unaided**, or
+**½ point after taking a clue**; an incorrect answer earns 0. Offer clues on
+request before the answer is submitted, stating the reduced score before revealing
+the clue. Questions without a clue remain worth 1 point for a correct answer.
+
 Record direct source links and a checked date for every question, including the evidence
 behind any statistic. Current-season drafts below use the 2026 season through Las Vegas;
 they do not assume Qatar or Abu Dhabi has happened.
@@ -365,10 +371,6 @@ Which country has had exactly one F1 Grand Prix podium since 2000 — and it was
 - **D.** Venezuela
 
 **Optional clue:** The driver was Pastor Maldonado.
-
-**Scoring:** A correct answer earns **1 point without the clue**, or **½ point
-after taking the clue**. An incorrect answer earns 0. Offer the clue on request
-before the player submits their answer, and state the reduced score before revealing it.
 
 **Correct answer: D — Venezuela.**
 

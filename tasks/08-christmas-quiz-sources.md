@@ -7,6 +7,8 @@
 **Editorial direction:** Fun, creative questions about oddities, outliers, little-known
 trivia and surprising statistics (confirmed by the user).
 **Question format:** Four-option multiple choice, following the first approved question.
+**Optional clues:** Selected questions may offer a clue. Correct answers earn 1 point
+unaided or ½ point with a clue; offer it before submission and disclose its cost first.
 **Current-season coverage:** Include 2026 questions, especially Las Vegas. Evidence for
 the current drafts stops after Las Vegas (checked 2026-11-23).
 **Question provenance:** Record direct source links and a checked date for each question
