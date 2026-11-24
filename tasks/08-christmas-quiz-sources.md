@@ -264,6 +264,17 @@ or builds. The local-data step is complete; the broader quiz task remains open.
 - [ ] Obtain approval of the new wording and independent source corroboration for questions
   7–10 before publication. Local queries verified the calculations; no new web requests,
   app changes or automated tests were needed for these editorial additions.
+- [x] Continue the user's requested search with eight new sourced drafts, questions 12–19:
+  Vettel's first championship lead at the 2010 finale; Button's six pit-lane visits
+  in Canada 2011; Räikkönen handing the 2003 Brazil trophy to Fisichella; seven winners
+  in the opening seven 2012 races; Heidfeld's 13 podiums with no wins; Pérez going from
+  last after lap one to his first win; Sainz winning 16 days after appendix removal;
+  and Bearman scoring for Ferrari and Haas in his first two Grand Prix starts.
+  Retain each direct source, checked date and local query definition in the bank.
+  Three new questions have optional clues; Sainz's question precedes Bearman's without
+  giving away the substitute's name. The Hamilton pair remains consecutive.
+  These are drafts for selection, not approved additions to an app.
+- [ ] Obtain user approval of questions 11–19 and complete final editorial ordering.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -277,7 +288,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–11 have draft wording,
+app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–19 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -294,6 +305,20 @@ not a claim to cover every nation. The official Bottas milestone article corrobo
 the Finnish winner list; pre-2000 winners are excluded by the dated national win records.
 These changes affect Markdown only; app builds and automated
 tests are not needed. Retain this task while the planned quiz work remains.
+
+For questions 12–19, local verification checked all 19 post-race Vettel standings
+in 2010 (first place only at round 19), Button's six Canada pit records and official
+race duration, the seven named opening winners in 2012, Heidfeld's eight seconds and
+five thirds, the final Brazil 2003/Sakhir 2020/Australia 2024 results, and Bearman's
+chronologically first two results. Published sources supply the intermediate running
+orders, trophy ceremony, surgery and substitution details that the classification
+database cannot establish. The Canada question says six pit-lane visits including
+the penalty, not six tyre stops; the Vettel question says official post-race rank,
+including tiebreakers. Avoided stale claims elsewhere in older record articles and
+the loose time estimate in the trophy retrospective. Sources include official race
+reports, interviews, the results archive, McLaren's detailed team account and ABC's
+contemporary reporting of Sainz's withdrawal.
+No app files, builds or automated tests were involved; Markdown diff checks passed.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and

@@ -456,3 +456,277 @@ This is a separate lead, not part of question 11's prompt.
 **Fact-check note:** The question means his final win within the 2009 season, not
 his last career victory. Points use the contemporary 2009 system. The optional
 clue follows the bank's half-point rule; it gives the race rather than the month.
+
+## Question 12: Just in time
+
+**Status:** Draft for user review.
+**Year:** 2010.
+
+Sebastian Vettel won the 2010 world title. After how many of the season's first
+18 races had he been ranked first in the drivers' championship?
+
+- **A.** None
+- **B.** One
+- **C.** Five
+- **D.** Ten
+
+**Optional clue:** He entered the final race only third in the standings.
+
+**Correct answer: A — None.**
+
+He first topped the official standings after race 19: the season finale in Abu Dhabi.
+His first championship lead of the year was the one that made him world champion.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/source/f1db.db`: joined `race_driver_standing` to `race`,
+  filtered to 2010 and `driver_id = 'sebastian-vettel'`. Of the 19 post-race rows,
+  only round 19 has `position_number = 1`; round 18 has him third.
+- [Formula 1 — First championship leads](https://www.formula1.com/en/latest/article/from-world-champions-to-title-contenders-the-10-youngest-drivers-to-lead-the.7FLHiuceU8abLaiFzVCLio.7FLHiuceU8abLaiFzVCLio),
+  Vettel section: corroborates that Abu Dhabi was his first lead and his only
+  championship lead of the 2010 season.
+
+**Fact-check note:** Official championship rank after each completed Grand Prix,
+including tiebreakers; not the live standings during a race or a tie on points.
+Do not reuse the source's older claim about the current youngest champion.
+
+## Question 13: Frequent visitor
+
+**Status:** Draft for user review.
+**Year:** 2011.
+
+Jenson Button won the 2011 Canadian Grand Prix after how many trips through the
+pit lane, including his drive-through penalty?
+
+- **A.** Three
+- **B.** Four
+- **C.** Six
+- **D.** Eight
+
+**Correct answer: C — Six.**
+
+Five stops plus a drive-through penalty, a spell running last, and still a win.
+He took the lead on the final lap of a race whose official duration was
+4 hours, 4 minutes and 39.537 seconds, including the rain stoppage.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  the 2011 Canada `race_result` row for `jenson-button` has final position 1,
+  `pit_stops = 6` and `time = '4:04:39.537'`. The `pit_stop` view lists six
+  visits, on laps 8, 13, 19, 35, 37 and 51.
+- [McLaren — How Button won in Canada](https://www.mclaren.com/racing/heritage/how-button-won-the-2011-canadian-grand-prix/):
+  team account with the six visits, including the penalty, and his recovery
+  from 21st and last before passing Vettel on the final lap.
+- [Formula 1 — Canada 2011 oral history](https://www.formula1.com/en/latest/article/canada-2011-torrential-rain-a-safety-car-record-and-buttons-charge-the.1ZWPateMlCFLZ8U6KQBNXj):
+  corroborates six pit-lane visits including the drive-through and the long race duration.
+
+**Fact-check note:** Count visits, not six tyre-changing stops. The duration includes
+the suspension, not four hours of continuous racing. Avoid a claim to a unique
+current pit-stop record: the local database also records six for Verstappen's 2023
+Dutch GP win.
+
+## Question 14: The trophy return desk
+
+**Status:** Draft for user review.
+**Year:** 2003.
+
+Which driver received the 2003 Brazilian Grand Prix winner's trophy, then had to
+hand it over to Giancarlo Fisichella at Imola?
+
+- **A.** Michael Schumacher
+- **B.** Kimi Räikkönen
+- **C.** Rubens Barrichello
+- **D.** Ralf Schumacher
+
+**Optional clue:** He became world champion in 2007.
+
+**Correct answer: B — Kimi Räikkönen.**
+
+Räikkönen was initially declared the winner of the rain-hit, red-flagged race.
+Rechecked timing showed that Fisichella should win under the countback rule.
+The trophy changed hands at the following Grand Prix weekend in Imola.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Brazilian GP retrospective](https://www.formula1.com/en/latest/article/moments-in-time-the-brazilian-grand-prix.5dr3Egu9lleFLsheSjlkQ0.5dr3Egu9lleFLsheSjlkQ0),
+  2003 section: initial winner, timing review and trophy handover.
+- [Formula 1 — Final 2003 Brazil result](https://www.formula1.com/en/results/2003/races/739/brazil/race-result):
+  Fisichella first and Räikkönen second.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  the 2003 Brazil `race_result` rows agree with that final order. The 2007
+  `season_driver_standing` championship-won row confirms the optional clue.
+
+**Fact-check note:** A revised result, not a driving penalty or disqualification.
+The source uses a loose estimate for the time until the ceremony; the question
+asks who handed over the trophy rather than a precise number of days.
+
+## Question 15: Everybody gets a turn
+
+**Status:** Draft for user review.
+**Year:** 2012.
+
+The first seven Grands Prix of 2012 produced how many different winners?
+
+- **A.** Four
+- **B.** Five
+- **C.** Six
+- **D.** Seven
+
+**Correct answer: D — Seven.**
+
+Nobody won twice until the eighth race. Button, Alonso, Rosberg, Vettel,
+Maldonado, Webber and Hamilton each took a turn before Alonso repeated in Valencia.
+
+### Research table: the opening seven winners
+
+| Round | Grand Prix | Winner |
+| --- | --- | --- |
+| 1 | Australia | Jenson Button |
+| 2 | Malaysia | Fernando Alonso |
+| 3 | China | Nico Rosberg |
+| 4 | Bahrain | Sebastian Vettel |
+| 5 | Spain | Pastor Maldonado |
+| 6 | Monaco | Mark Webber |
+| 7 | Canada | Lewis Hamilton |
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  selected `race_result.position_number = 1`, with `race.year = 2012` and
+  `race.round <= 7`; seven rows, seven distinct driver IDs.
+- [Formula 1 — 2012 results](https://www.formula1.com/en/results/2012/races):
+  checked the seven named winners and Alonso's second win at round eight.
+
+**Fact-check note:** Different drivers, not teams or nationalities. Do not reveal
+the seven-name research table before players answer.
+
+## Question 16: Thirteen trips
+
+**Status:** Draft for user review.
+**Period:** Nick Heidfeld's F1 career, 2000–2011.
+
+Nick Heidfeld stood on an F1 Grand Prix podium 13 times. How many were wins?
+
+- **A.** None
+- **B.** One
+- **C.** Three
+- **D.** Five
+
+**Correct answer: A — None.**
+
+Eight second places and five thirds. Thirteen podiums, but never the top step.
+All of those podiums fall within our 2000-onward quiz era.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  grouped `race_result` rows for `nick-heidfeld` by final position; eight
+  position-2 finishes, five position-3 finishes and no wins. Career totals agree.
+- [Formula 1 — Unfortunate records](https://www.formula1.com/en/latest/article/unlucky%20for%20some%2013%20of%20f1s%20most%20unfortunate%20records.2MgJsNRazBTqQdZdoVuWZM.2MgJsNRazBTqQdZdoVuWZM),
+  Heidfeld section: corroborates 13 podiums, including eight seconds, and zero wins.
+
+**Fact-check note:** Heidfeld's career is complete. Other entries in the older
+records article have since changed, so do not reuse them without checking.
+
+## Question 17: A very bad start
+
+**Status:** Draft for user review.
+**Year:** 2020.
+
+Sergio Pérez took his first F1 win at the 2020 Sakhir Grand Prix. Where was he
+running at the end of the first lap?
+
+- **A.** First
+- **B.** Fifth
+- **C.** Tenth
+- **D.** Last
+
+**Correct answer: D — Last.**
+
+A collision and a pit visit left him 18th, last of the remaining runners.
+He recovered to win for Racing Point. His first lap offered very little warning
+of his first victory.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Contemporary Sakhir report](https://www.formula1.com/en/latest/article/sergio-perez-takes-sensational-maiden-win-in-sakhir-gp-as-tyre-issues-ruin.2TBf7rg5wpgELNALXJLRHV):
+  explicitly records his first-lap stop and rejoining 18th and last, followed by
+  his maiden victory.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  the 2020 Sakhir `race_result` row for `sergio-perez` is a win for Racing Point,
+  from grid position five; no earlier win appears in his results.
+
+**Fact-check note:** Last after lap one, not last on the starting grid. The
+classification database supports the result; the race report supplies the
+intermediate running order.
+
+## Question 18: Something missing
+
+**Status:** Draft for user review.
+**Year:** 2024.
+
+What had Carlos Sainz had removed just 16 days before winning the 2024 Australian
+Grand Prix?
+
+- **A.** A wisdom tooth
+- **B.** His appendix
+- **C.** His tonsils
+- **D.** His gallbladder
+
+**Correct answer: B — His appendix.**
+
+He missed the Saudi Arabian Grand Prix for the operation, then returned to win
+the very next race in Melbourne. An unusual way to prepare for a Ferrari one-two.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Sainz's comeback](https://www.formula1.com/en/video/smooth-operation-sainzs-incredible-recovery-from-hospital-bed-to-race-win-in-australia.1794511200319287787),
+  published 25 March 2024: the accompanying text explicitly states appendix removal
+  in Saudi Arabia and victory in Australia 16 days later. The text, not just the
+  video title, was checked.
+- [Formula 1 — Injury comebacks](https://www.formula1.com/en/latest/article/10-remarkable-injury-comebacks-f1-history-sainz.1YZIALtluJgDZlpinPrZpy),
+  published 28 March 2024: corroborates the 16-day interval after appendicitis surgery.
+- [ABC News — Sainz ruled out in Saudi Arabia](https://www.abc.net.au/news/2024-03-08/carlos-sainz-out-of-f1-saudi-arabia-grand-prix-with-appendicitis/103306256),
+  published 8 March 2024: contemporary report of his withdrawal and the required surgery.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  2024 Australia final classification has Sainz first and Leclerc second.
+
+**Host note:** Follow with question 19. Save the name of Sainz's substitute for
+that next question's answer.
+
+## Question 19: Two debuts, two employers
+
+**Status:** Draft for user review.
+**Year:** 2024.
+
+Which driver scored points for Ferrari and Haas in his first two F1 Grand Prix starts?
+
+- **A.** Liam Lawson
+- **B.** Franco Colapinto
+- **C.** Oliver Bearman
+- **D.** Oscar Piastri
+
+**Optional clue:** His first start came as Carlos Sainz's substitute at Ferrari.
+
+**Correct answer: C — Oliver Bearman.**
+
+Seventh for Ferrari in Saudi Arabia, then tenth for Haas in Azerbaijan. Two
+Grand Prix starts, two different teams, points for both — before his first full season.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Bearman's Baku milestone](https://www.formula1.com/en/latest/article/its-my-fault-bearman-reflects-on-not-fully-deserved-point-in-baku-despite.MSVNYn1ZvBl4lpyFxL6td),
+  published 16 September 2024: contemporary report records the two points finishes
+  and identifies him as the first driver to achieve this for two teams in his first
+  two starts.
+- [Formula 1 — Ferrari's substitution announcement](https://www.formula1.com/en/latest/article/breaking-sainz-ruled-out-of-saudi-arabian-gp-with-appendicitis-as-f2-racer.2JzIonRBBDEjEb2AlkdVfl),
+  published 8 March 2024: confirms that Bearman replaced Sainz, supporting the clue.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  `race_result` rows for `oliver-bearman`, ordered by race date, begin with
+  2024 Saudi Arabia, Ferrari, seventh, then 2024 Azerbaijan, Haas, tenth.
+
+**Fact-check note:** Grand Prix starts, not practice appearances or Sprint sessions.
+The question asks what Bearman did in 2024, rather than requiring a fresh all-time
+uniqueness claim at the eventual publication date.
