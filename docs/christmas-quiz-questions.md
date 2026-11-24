@@ -527,6 +527,9 @@ the suspension, not four hours of continuous racing. Avoid a claim to a unique
 current pit-stop record: the local database also records six for Verstappen's 2023
 Dutch GP win.
 
+**Selection note:** Question 33 is an alternative angle on this race. Use one
+of the two in the final pack: their reveals give away each other's answers.
+
 ## Question 14: The trophy return desk
 
 **Status:** Draft for user review.
@@ -1211,3 +1214,38 @@ had already been served; the comeback dealt with the later Magnussen-collision
 penalty. A next-race grid drop was possible, not automatic. Avoid precise lap
 numbers for the comeback: reports use different leader-lap/pit-entry references;
 the official 15 is Pérez's completed-lap total, not the leader's lap at retirement.
+
+## Question 33: Leaving it late
+
+**Status:** Draft alternative to question 13; select one for the final pack.
+**Year:** 2011.
+
+With just 30 laps remaining in the 70-lap 2011 Canadian Grand Prix, where
+was eventual winner Jenson Button running?
+
+- **A.** Fifth
+- **B.** Tenth
+- **C.** Fifteenth
+- **D.** Twenty-first and last
+
+**Correct answer: D — Twenty-first and last.**
+
+Last on lap 40, first on the final lap. Even after six pit-lane visits and
+collisions with Hamilton and Alonso, he recovered to win when Vettel made
+a mistake on the last lap.
+
+**Sources checked:** 2026-11-24.
+
+- [McLaren — How Button won in Canada](https://www.mclaren.com/racing/heritage/how-button-won-the-2011-canadian-grand-prix/),
+  12 June 2023: explicitly places Button 21st and last on laps 37–40 and
+  documents the collisions, pit-lane visits and last-lap pass.
+- [Official 2011 Canadian GP result](https://www.formula1.com/en/results/2011/races/34/canada/race-result)
+  and the cached [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0)
+  result confirm 70 laps, Button winning and Vettel second. The intermediate
+  position comes from the team account, not the final classification database.
+
+**Fact-check note:** The race was in 2011; Button's title season was 2009.
+This is a mid-race position, not his seventh-place starting slot. The official
+4:04:39.537 duration includes the rain suspension. The checked accounts establish
+collisions and punctures, not a count of Button's spins; the decisive last-lap
+mistake was Vettel's. Do not turn a recollection of multiple spins into a fact.

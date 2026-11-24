@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–32 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–33 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -417,6 +417,15 @@ official classification agree on one DNF and 15 completed laps, not two statisti
 retirements. The question avoids inconsistent lap-reference details and does not
 describe a grid drop as automatic. Source links, checked date and an optional
 Qatar clue are retained. Markdown-only addition; no app tests or builds required.
+
+Question 33 supplies an alternative to question 13 after the user recalled
+Button's wet Montreal comeback. The event was 2011, not his 2009 title season.
+McLaren's account explicitly places him 21st and last on laps 37–40; the official
+result and cached database confirm the 70-lap race and 4:04:39.537 winning time.
+The new question asks his position with 30 laps left. Both alternatives are marked
+for final selection rather than using reveals that spoil one another. Confirmed
+collisions and Vettel's final-lap error are retained; no unverified Button spin
+count is asserted. Sources rechecked 2026-11-24; Markdown diff checks passed.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and
