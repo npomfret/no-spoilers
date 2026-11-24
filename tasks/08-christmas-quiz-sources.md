@@ -1,7 +1,7 @@
 # Task 08: Christmas Quiz — Facts, Trivia and Data Sources
 
-**Status:** Source research complete; quiz scope and implementation remain planned.
-**Sources checked:** 2026-11-23.
+**Status:** Source catalogue and local statistical datasets built; question authoring continues.
+**Sources checked:** Catalogue 2026-11-23; pinned dataset and nationality analysis 2026-11-24.
 **Target:** Christmas 2026, assumed from the request; delivery date and host surface are unconfirmed.
 **Question era:** 2000 onward, inclusive (confirmed by the user).
 **Editorial direction:** Fun, creative questions about oddities, outliers, little-known
@@ -18,7 +18,8 @@ the current drafts stops after Las Vegas (checked 2026-11-23).
 Find a varied set of reliable sources for an embedded motorsport quiz covering drivers,
 results, circuits, teams, cars, rules and unusual history. The user specifically wants a
 variety of sources, so a statistics database alone is insufficient. This task records
-source discovery and suitability; it does not implement a quiz or import question data.
+source discovery, suitability and local editorial datasets; it does not implement a quiz
+or import data into the app.
 
 ## Recommendation
 
@@ -167,6 +168,54 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
 
 ## Acceptance, evidence and remaining work
 
+### Local dataset result
+
+The user requested local datasets to avoid repeated queries. Built a pinned
+[F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0) SQLite snapshot
+and 17 CSV exports at the gitignored `research/quiz-data/`. See the durable
+[local data inventory and definitions](../docs/christmas-quiz-data.md). Coverage runs
+from March 2000 through Las Vegas on 22 November 2026. The original upstream database
+also retains earlier history and future calendar entries; the quiz exports are filtered.
+
+The source archive, licence, release metadata and actual schema are retained locally.
+Each CSV has saved SQL, and the manifest includes checksums, row counts and attribution.
+Read-only offline queries now cover drivers, countries, circuits, race and qualifying
+results, separate Sprints, standings, pit stops, fastest laps and nationality outliers.
+No app inputs, models, resources, tests or build paths changed.
+
+Searched project scripts and Python/shell files across sibling workspaces for F1DB,
+Jolpica and quiz-data acquisition/export mechanisms; none was found. Kiwix hits were
+the existing mirror operations, which remain the Wikipedia access mechanism. The
+small ad hoc local exporter is under `tmp/ad-hoc-scripts/`, uses Python stdlib SQLite
+and CSV rather than a new HTTP client, and has no network calls. There is no existing
+Python structured logger in this project's scripts; the ad hoc exporter uses fixed
+JSON audit events with timestamp, severity and traceback at its boundary, rather than
+copying older scripts' console-output patterns. Only input/output paths and operation
+metadata enter the log; result data stays in the ignored research directory.
+
+Checks: archive SHA256 matched the release asset digest; extracted database hash matched
+the file inside the verified ZIP; SQLite integrity returned `ok` and foreign-key checking
+returned no violations. The era contains 524 race IDs and 11,024 unique race/driver rows,
+with exactly one winner per race. The exports contain 132 drivers and 39 circuits.
+CSV line counts matched the manifest's 17 row counts plus headers. The builder rejected
+an incorrect archive digest and an existing output directory with exit status 1, preserved
+the original exports, and left no failed-build output or staging directory. These local
+checks were run serially. A second successful build into a temporary directory produced
+byte-identical CSV and SQL files; only manifest build time differed. IDE inspection could not resolve the ignored ad hoc script;
+its successful execution is the Python syntax/runtime evidence. No app tests or builds
+were needed or run.
+Completed-year nationality counts reproduce the earlier Finland/Germany comparison,
+but the user rejected that question as confusing: question 6 is retired as a candidate.
+The local singleton analysis instead finds two countries with exactly one victory in
+2000–2025. This is a lead for the next question, not an approved replacement.
+
+Independent read-only review found no substantive issues: it verified the 17 CSV
+checksums and row counts against the manifest, reconciled four exports with saved SQL,
+checked source provenance and documented missingness, and reviewed the updated builder's
+read-only access, lock, staged publication and failure handling. It confirmed that the
+ignored research paths sit outside app resource boundaries. The reviewer ran no tests
+or builds. The local-data step is complete; the broader quiz task remains open.
+
 - [x] Document a varied shortlist with direct links, topic coverage, access method and
   known reuse restrictions or explicitly unverified permissions.
 - [x] Include our Wikipedia mirror, structured data, official records, biographies, rules, circuit operators,
@@ -190,6 +239,9 @@ do not introduce series-owned names, marks, logos or imagery on product/listing 
   candidate: Finland and Germany each had four different Grand Prix winners in 2000–2025.
   The user requested historical national statistics. Keep the selected five-nation inventory,
   period, metric definition and dated sources beside question 6.
+- [x] Build local structured datasets with a pinned source, retained licence, saved queries
+  and provenance, independently of the schedule app. Record period and metric limits.
+- [ ] Replace the rejected historical comparison with a simpler nationality singleton question.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -201,8 +253,9 @@ licence, terms and API documentation; searched existing `tasks/`, `docs/`, `READ
 project rules for an existing quiz task/source mechanism and found none there. Read and
 reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia access;
 no new research access mechanism is proposed. Read the existing
-task format, README architecture and spoiler rules. No API result payloads or datasets
-were imported. Questions 1, 2 and 5 are approved; questions 3, 4 and 6 remain drafts,
+task format, README architecture and spoiler rules. The initial catalogue pass imported
+no datasets; the later local-data step above retains the research snapshot outside the
+app. Questions 1, 2 and 5 are approved; questions 3 and 4 remain drafts and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).

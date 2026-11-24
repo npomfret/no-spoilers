@@ -190,7 +190,7 @@ plausible distractor because Alonso won his second title later in Antonelli's bi
 
 ## Question 6: Four of a kind
 
-**Status:** Draft for user review.
+**Status:** Rejected by the user as confusing; retained as research, not part of the quiz.
 **Period:** 2000–2025 inclusive.
 
 Between 2000 and 2025, which of these countries produced as many different F1
