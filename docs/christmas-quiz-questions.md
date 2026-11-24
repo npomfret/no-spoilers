@@ -975,3 +975,55 @@ true of all three seasons.
 
 **Fact-check note:** Grand Prix wins only; Sprints excluded. The question asks
 which offered statement is shared, not whether this is their only common feature.
+
+## Question 27: Collecting the set
+
+**Status:** Draft for user review, following the user's team-overlap suggestion.
+**Period:** 2000 through the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+Since 2000, which of these drivers has raced for **all four** of Williams,
+Sauber, Force India and Renault?
+
+- **A.** Nick Heidfeld
+- **B.** Sergio Pérez
+- **C.** Nico Hülkenberg
+- **D.** Giancarlo Fisichella
+
+**Optional clue:** He joined Haas for the 2023 season.
+
+**Correct answer: C — Nico Hülkenberg.**
+
+Williams in 2010, Force India in 2012, Sauber in 2013, back to Force India in
+2014–2016, then Renault in 2017–2019. He collected the full set.
+
+### Research table: the near misses
+
+| Driver | Williams | Sauber | Force India | Renault |
+| --- | --- | --- | --- | --- |
+| Nick Heidfeld | Yes | Yes | No | Yes |
+| Sergio Pérez | No | Yes | Yes | No |
+| Nico Hülkenberg | Yes | Yes | Yes | Yes |
+| Giancarlo Fisichella | No | Yes | Yes | Yes |
+
+Heidfeld is missing Force India; Fisichella is missing Williams. Both get three
+out of four, making them plausible alternatives.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  all 16 candidate/team combinations are saved at
+  `research/quiz-data/questions/hulkenberg-team-overlap.csv`, with the matching
+  `.sql` query. Filtered `race_result` joined to `race` to the stated period and
+  used exact constructor IDs, not engine suppliers or organisation lineages.
+  Each Yes has positive-lap race results; each No has zero race-result entries.
+- [Formula 1 — Hülkenberg's career journey](https://www.formula1.com/en/latest/article/early-promise-home-heartbreak-and-multiple-comebacks-hulkenbergs-f1-journey.7DGPKoEKQedsZyGdFO5kPC),
+  published 10 July 2025: corroborates the Williams debut, Force India spells,
+  Sauber's 2013 season, Renault stint and Haas move in 2023.
+- [Formula 1 — Hülkenberg biography](https://www.formula1.com/en/drivers/nico-hulkenberg):
+  also lists all four named teams and the 2023 full-time return with Haas.
+
+**Fact-check note:** Race appearances since 2000, not testing or reserve contracts.
+The named constructor identities are explicit: Heidfeld's Jordan stint does not
+count as Force India, even though the team's lineage later led there. Sauber's
+engine badge does not make it Renault. This asks for a four-team intersection,
+not an ambiguous record for the most organisations or team names in a career.

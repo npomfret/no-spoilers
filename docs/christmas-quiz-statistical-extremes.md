@@ -177,3 +177,23 @@ history shows that all three outsiders raced for Toro Rosso earlier — Vettel i
 2007–2008, Ricciardo in 2012–2013 and Sainz in 2015–2017. This was checked by
 filtering those driver IDs to `constructor_id = 'toro-rosso'` and taking their
 first/last race years. Retain as a lead pending independent editorial corroboration.
+
+## Drivers who raced for the same set of teams
+
+Prefer named-team overlap to a "most teams" record, since team renames and ownership
+changes make raw constructor-label counts ambiguous. Use Grand Prix race appearances
+since 2000, with test and reserve-only roles excluded. Treat each named constructor
+literally rather than merging engine suppliers or historical team lineages.
+
+The strongest checked set is **Williams, Sauber, Force India and Renault**. Hülkenberg
+matches all four. Heidfeld matches three but not Force India; Fisichella matches three
+but not Williams; Pérez matches Sauber and Force India. The complete 16-pair inventory
+and saved query are at `research/quiz-data/questions/hulkenberg-team-overlap.csv` and
+`.sql`, using the pinned snapshot and the 2000-through-Las-Vegas-2026 cutoff. Each
+positive match has completed race laps; the four negative matches have no result entry.
+Question 27 retains the matrix, dates, source links and optional Haas-2023 clue.
+
+An easier alternative set, checked locally as a lead: **Ferrari, McLaren, Renault and
+Aston Martin** matches Alonso. Among Sainz, Vettel and Ricciardo, none matches all four:
+Sainz has the first three; Vettel Ferrari/Aston Martin; Ricciardo McLaren/Renault.
+Retain for later selection rather than adding another similar question immediately.

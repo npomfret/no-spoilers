@@ -306,6 +306,15 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   offers the optional McLaren-Honda clue under the established half-point rule.
 - [ ] Obtain user approval of questions 20–23, 25 and 26. Independently corroborate broader
   full-period record claims before converting the research comparison into record questions.
+- [x] Investigate the user's team-career avenue, then follow their more specific request
+  for a named-team overlap, always since 2000. Draft question 27: only Hülkenberg among
+  the four options raced for Williams, Sauber, Force India and Renault. The local
+  16-pair CSV/SQL inventory checks every option; Heidfeld and Fisichella each match three,
+  Pérez two. The official biography and career retrospective corroborate the winning
+  answer's four teams, dates and Haas-2023 clue. Use race appearances and exact named
+  constructors, not tests, reserves, engines or merged team lineages. Broader "most
+  teams" rankings remain unsuitable without an agreed renaming convention.
+- [ ] Obtain user approval of question 27. Retain the easier Alonso four-team set as a lead.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -319,7 +328,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23, 25 and 26 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–27 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
