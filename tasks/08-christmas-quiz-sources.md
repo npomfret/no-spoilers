@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–34 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–35 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -434,6 +434,14 @@ Pirelli's Sunday report corroborates the tyre choices and adds a tyre-supplier
 source to the pack. The prompt explicitly counts restart-grid cars, not race
 participants. Source links and checked date are recorded; no all-time uniqueness
 claim is made. Markdown-only work; no app tests or builds required.
+
+Question 35 adds a different kind of retirement: Räikkönen watching the rest of
+Monaco 2006 from a yacht after his McLaren fire. Official series coverage and
+Goodwood's chassis retrospective agree on the yacht episode; the cached database
+confirms DNF, 50 completed laps and `Fire`. Avoided the official retrospective's
+incorrect opening-laps description and unneeded yacht-ownership details. Sources
+and checked date recorded; Markdown diff checks passed. No app tests or builds
+are required for this editorial addition.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and

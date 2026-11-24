@@ -1287,3 +1287,39 @@ in the race or the original starting field. There were 15 runners, one on
 the grid and 14 in the pit lane. This intermediate race event comes from
 contemporary reports, not the final classification database. Avoid describing
 it as a one-car race or making an unverified all-time uniqueness claim.
+
+## Question 35: Taking retirement seriously
+
+**Status:** Draft for user review.
+**Year:** 2006.
+
+After retiring from the 2006 Monaco Grand Prix, where did Kimi Räikkönen
+watch the rest of the race?
+
+- **A.** The McLaren garage
+- **B.** His hotel balcony
+- **C.** A yacht in the harbour
+- **D.** The commentary box
+
+**Correct answer: C — A yacht in the harbour.**
+
+His McLaren caught fire, so Kimi swapped the cockpit for a yacht and relaxed
+while everyone else finished racing. A very literal approach to retirement.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — memorable Monaco moments](https://www.formula1.com/en/latest/article/champagne-showers-dramatic-dives-and-mid-race-yachts-11-viral-moments-from-past-monaco-grands-prix.5qmtxxInj1dlF1k7aYtrXd),
+  1 June 2026, Räikkönen's 2006 section: explicitly describes him watching the
+  remainder of the race from a yacht in the harbour.
+- [Goodwood — Räikkönen's McLaren MP4/21](https://www.goodwood.com/grr/f1/you-could-own-kimi-raikkonens-mclaren-mp421/),
+  15 August 2023: independently describes the fire during a Safety Car period
+  and his subsequent yacht visit for the remainder of the race.
+- Cached [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  the 2006 Monaco `race_result` row for `kimi-raikkonen` records McLaren,
+  DNF, 50 completed laps and retirement reason `Fire`. The yacht episode
+  comes from the narrative sources, not the classification database.
+
+**Fact-check note:** Do not repeat the retrospective's claim that this happened
+in the opening laps: the cached result records 50 completed laps. The question
+needs neither an exact retirement lap nor proof of who owned the yacht; keep
+those details out of the wording.
