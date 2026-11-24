@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Two faces of timing text, sharing their full layout footprint throughout a flip.
+/// Shows both timings when they fit, otherwise sharing their footprint during a flip.
 /// Accessibility and Reduce Motion expose both values without waiting for a cycle.
 public struct NoSpoilersDepartureBoardText: View {
     private let primary: Text
@@ -19,15 +19,23 @@ public struct NoSpoilersDepartureBoardText: View {
             if reduceMotion {
                 accessibleContent
             } else {
-                ZStack(alignment: .leading) {
-                    primary
-                        .modifier(DepartureBoardFaceRotation(degrees: face == .primary ? 0 : -180))
-                    alternate
-                        .modifier(DepartureBoardFaceRotation(degrees: face == .primary ? 180 : 0))
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Space.md) {
+                        primary
+                        alternate
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+
+                    ZStack(alignment: .leading) {
+                        primary
+                            .modifier(DepartureBoardFaceRotation(degrees: face == .primary ? 0 : -180))
+                        alternate
+                            .modifier(DepartureBoardFaceRotation(degrees: face == .primary ? 180 : 0))
+                    }
+                    .animation(Theme.Motion.departureBoardFlip, value: face)
+                    .clipped()
+                    .accessibilityRepresentation { accessibleContent }
                 }
-                .animation(Theme.Motion.departureBoardFlip, value: face)
-                .clipped()
-                .accessibilityRepresentation { accessibleContent }
             }
         }
     }

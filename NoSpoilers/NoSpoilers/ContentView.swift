@@ -425,6 +425,7 @@ struct ContentView: View {
                                 canvas: .iosApp,
                                 status: status,
                                 name: Text(session.kind.displayName),
+                                compactName: Text(session.kind.shortName),
                                 detail: Group {
                                     if status == .upcoming {
                                         NoSpoilersDepartureBoardText(
@@ -723,4 +724,31 @@ struct ContentView: View {
 #Preview {
     ContentView(clock: { Date() }, timeZone: .current, decorationConfiguration: DecemberDecoration.Configuration())
         .environmentObject(ScheduleStore())
+}
+
+#Preview("Adaptive session timing") {
+    VStack(alignment: .leading, spacing: Theme.Space.xl) {
+        ForEach([CGFloat(640), CGFloat(160)], id: \.self) { width in
+            NoSpoilersSessionRow(
+                canvas: .iosApp,
+                status: .upcoming,
+                name: Text(SessionKind.sprintQualifying.displayName),
+                compactName: Text(SessionKind.sprintQualifying.shortName),
+                detail: NoSpoilersDepartureBoardText(
+                    primary: Text(verbatim: Strings.Sessions.countdownIn(
+                        CountdownFormatter(units: 3, floor: .seconds).string(for: DurationBreakdown(
+                            until: Date(timeIntervalSince1970: 1_789_300_800),
+                            from: Date(timeIntervalSince1970: 1_789_120_800)
+                        ))
+                    )),
+                    alternate: Text(verbatim: NoSpoilersCore.Strings.Schedule.sessionDateTime(
+                        Date(timeIntervalSince1970: 1_789_300_800), style: .full
+                    )),
+                    face: .primary
+                )
+            )
+            .frame(width: width, alignment: .leading)
+        }
+    }
+    .padding()
 }

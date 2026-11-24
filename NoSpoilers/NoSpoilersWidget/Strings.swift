@@ -15,7 +15,7 @@ enum Strings {
         static func shortName(_ kind: SessionKind) -> String {
             kind == .sprintQualifying ? sprintQualifyingAbbreviation : kind.shortName
         }
-        static func upcomingTiming(_ startsAt: Date, dateOnNewLine: Bool = false, concise: Bool = false) -> Text {
+        static func upcomingTiming(_ startsAt: Date, dateOnNewLine: Bool = false, concise: Bool = false, includeTime: Bool = false) -> Text {
             let countdown: Text
             if concise {
                 countdown = Text(
@@ -29,7 +29,9 @@ enum Strings {
             } else {
                 countdown = Text("in \(Text(startsAt, style: .relative))")
             }
-            let date = NoSpoilersCore.Strings.Schedule.sessionDateTime(startsAt, style: .widget)
+            let date = NoSpoilersCore.Strings.Schedule.sessionDateTime(
+                startsAt, style: includeTime ? .widgetWithTime : .widget
+            )
             if dateOnNewLine {
                 return Text("\(countdown)\n(\(date))")
             }

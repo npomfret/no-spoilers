@@ -125,6 +125,7 @@ public enum Strings {
             case compact
             case full
             case widget
+            case widgetWithTime
         }
 
         public static func sessionDateTime(
@@ -141,10 +142,12 @@ public enum Strings {
                 format = .dateTime.day().month(.wide).hour().minute()
             case .widget:
                 format = .dateTime.weekday(.abbreviated).day()
+            case .widgetWithTime:
+                format = .dateTime.weekday(.abbreviated).day().hour().minute()
             }
             format.locale = locale
             format.timeZone = timeZone
-            if style == .widget {
+            if style == .widget || style == .widgetWithTime {
                 var calendar = format.calendar
                 calendar.timeZone = timeZone
                 let day = calendar.component(.day, from: date)

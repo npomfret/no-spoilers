@@ -262,6 +262,7 @@ struct NoSpoilersWidgetEntryView: View {
     @Environment(\.showsWidgetContainerBackground) private var showsBackground
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+    @ScaledMetric(relativeTo: .caption) private var expandedTimingMinimumWidth = Theme.Badge.expandedTimingMinimumWidth
     let entry: NoSpoilersEntry
 
     private var isDecemberNight: Bool {
@@ -295,7 +296,9 @@ struct NoSpoilersWidgetEntryView: View {
         case .accessoryRectangular: accessoryRectangularView
         case .accessoryInline:      accessoryInlineView
         default:
-            systemFamilyView
+            GeometryReader { geometry in
+                systemFamilyView(availableWidth: geometry.size.width)
+            }
                 .padding(.top, isDecemberNight ? Theme.December.topInset(canvas) : 0)
                 .padding(.bottom, isDecemberNight ? Theme.December.bottomInset(canvas) : 0)
         }
@@ -303,17 +306,17 @@ struct NoSpoilersWidgetEntryView: View {
 
     /// `systemSmall` through `systemExtraLarge` — the Home Screen and Today view.
     @ViewBuilder
-    private var systemFamilyView: some View {
+    private func systemFamilyView(availableWidth: CGFloat) -> some View {
         if let weekend = entry.weekend {
             switch family {
             case .systemSmall:
                 smallView(weekend)
             case .systemLarge:
-                largeView(weekend)
+                largeView(weekend, availableWidth: availableWidth)
             case .systemExtraLarge:
-                extraLargeView(weekend)
+                extraLargeView(weekend, availableWidth: availableWidth)
             default:
-                mediumView(weekend)
+                mediumView(weekend, availableWidth: availableWidth)
             }
         } else if entry.isOffSeason {
             offSeasonView
@@ -359,7 +362,8 @@ struct NoSpoilersWidgetEntryView: View {
         NoSpoilersSessionRow(
             canvas: .widgetSmall,
             status: session.state.status,
-            name: Text(session.shortName),
+            name: Text(session.kind.displayName),
+            compactName: Text(session.shortName),
             detail: smallSessionTime(session.state)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -399,13 +403,13 @@ struct NoSpoilersWidgetEntryView: View {
     /// next-weekend footer used to; with the footer gone, two rows left the
     /// bottom third of the family empty.
     @ViewBuilder
-    private func mediumView(_ weekend: RaceWeekend) -> some View {
+    private func mediumView(_ weekend: RaceWeekend, availableWidth: CGFloat) -> some View {
         let sessions = closingSessions(limit: 3)
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
             widgetHeader(weekend, canvas: .widgetMedium)
             VStack(spacing: Theme.Space.xs) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
-                    widgetSessionRow(session, canvas: .widgetMedium, rowIndex: index)
+                    widgetSessionRow(session, canvas: .widgetMedium, rowIndex: index, availableWidth: availableWidth)
                 }
             }
             Spacer(minLength: 0)
@@ -425,7 +429,7 @@ struct NoSpoilersWidgetEntryView: View {
     /// the earliest sessions, and a caption under the race reads as sessions
     /// still to come.
     @ViewBuilder
-    private func largeView(_ weekend: RaceWeekend) -> some View {
+    private func largeView(_ weekend: RaceWeekend, availableWidth: CGFloat) -> some View {
         let visibleSessions = closingSessions(limit: 5)
         let hiddenCount = max(0, entry.sessions.count - visibleSessions.count)
         VStack(alignment: .leading, spacing: Theme.Space.md) {
@@ -439,7 +443,7 @@ struct NoSpoilersWidgetEntryView: View {
                         .padding(.horizontal, Theme.Space.md)
                 }
                 ForEach(Array(visibleSessions.enumerated()), id: \.element.id) { index, session in
-                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index)
+                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index, availableWidth: availableWidth)
                 }
             }
             Spacer(minLength: 0)
@@ -457,13 +461,13 @@ struct NoSpoilersWidgetEntryView: View {
     /// `largeView` because that one caps the list at five and says "+N more"
     /// for the rest; this family has the height for a sprint weekend's six.
     @ViewBuilder
-    private func extraLargeView(_ weekend: RaceWeekend) -> some View {
+    private func extraLargeView(_ weekend: RaceWeekend, availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             widgetHeader(weekend, canvas: .widgetLarge)
             Divider()
             VStack(spacing: Theme.Space.xs) {
                 ForEach(Array(entry.sessions.enumerated()), id: \.element.id) { index, session in
-                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index)
+                    widgetSessionRow(session, canvas: .widgetLarge, rowIndex: index, availableWidth: availableWidth)
                 }
             }
             Spacer(minLength: 0)
@@ -511,7 +515,7 @@ struct NoSpoilersWidgetEntryView: View {
                 Text(weekend.grandPrixName)
                     .font(.headline)
                     .lineLimit(1)
-                Text(session.shortName)
+                NoSpoilersSessionName(full: Text(session.kind.displayName), compact: Text(session.shortName))
                     .font(.caption)
                     .lineLimit(1)
                 accessoryStateText(session.state)
@@ -645,15 +649,17 @@ struct NoSpoilersWidgetEntryView: View {
     /// The medium and large families' session row.
     ///
     /// The timing badge owns one compact, right-aligned countdown/date reading.
-    private func widgetSessionRow(_ session: SessionViewModel, canvas: Theme.Canvas, rowIndex: Int) -> some View {
+    private func widgetSessionRow(_ session: SessionViewModel, canvas: Theme.Canvas, rowIndex: Int, availableWidth: CGFloat) -> some View {
+        let isRoomy = availableWidth >= expandedTimingMinimumWidth
         return NoSpoilersSessionRow(
             canvas: canvas,
             status: session.state.status,
-            name: Text(session.shortName),
+            name: Text(isRoomy ? session.kind.displayName : session.shortName),
             detail: Optional<Text>.none,
             decemberNight: isDecemberNight
         ) {
-            stateLabel(session.state, canvas: canvas)
+            stateLabel(session.state, canvas: canvas, includeTime: isRoomy)
+                .frame(width: canvas == .widgetMedium ? Theme.Badge.timingColumnWidth(canvas) : nil, alignment: .trailing)
                 .frame(maxWidth: Theme.Badge.timingColumnWidth(canvas), alignment: .trailing)
                 .multilineTextAlignment(.trailing)
                 .contentTransition(.numericText(countsDown: true))
@@ -712,7 +718,7 @@ struct NoSpoilersWidgetEntryView: View {
     /// width to say how long ago as well, which is the one place the badge's
     /// *text* varies by family rather than just its size.
     @ViewBuilder
-    private func stateLabel(_ state: SessionState, canvas: Theme.Canvas) -> some View {
+    private func stateLabel(_ state: SessionState, canvas: Theme.Canvas, includeTime: Bool) -> some View {
         switch state {
         case .finished(let endedAt):
             if canvas == .widgetMedium {
@@ -738,7 +744,7 @@ struct NoSpoilersWidgetEntryView: View {
             )
         case .upcoming(let startsAt):
             NoSpoilersStatusBadge(
-                text: Strings.Sessions.upcomingTiming(startsAt),
+                text: Strings.Sessions.upcomingTiming(startsAt, includeTime: includeTime),
                 style: .upcoming,
                 canvas: canvas
             )

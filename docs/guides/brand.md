@@ -310,7 +310,9 @@ down is about 4.1(a) rather than about letterforms.
 
 `Theme.Motion` — `hover` 0.12s and `press` 0.08s.
 
-The Mac and iPhone schedules use `departureBoardFlip` (0.4s ease-in-out) and
+The Mac and iPhone schedules show countdown and local date/time together when
+both fit the detail's proposed width. Compact details use
+`departureBoardFlip` (0.4s ease-in-out) and
 `departureBoardCycle` (5s holds, 0.5s between rows). `NoSpoilersDepartureBoardText`
 turns its two text faces around their horizontal centre without changing their
 layout footprint. Reduce Motion shows both values statically; accessibility
@@ -319,8 +321,12 @@ drawing timeline so the half-second cadence does not invalidate its weekend page
 Only its selected page animates, while active and without a sheet over it.
 Widgets show a right-aligned native relative countdown prefixed with "in", with
 the local weekday/ordinal day in parentheses. The original `Text(date, style: .relative)`
-keeps updating without periodic reloads. All widget families use short session
-names, including SQ for Sprint Qualifying. List rows use the canonical caption size.
+keeps updating without periodic reloads. Widget lists use full session names and
+include the local clock time when content width reaches 500pt, scaled with the
+caption text size. Compact lists use short names, including SQ for Sprint
+Qualifying. Small and rectangular widgets choose the full name whenever it fits
+the name's actual proposed width. Inline keeps its compact name. The app rows use
+the same shared adaptive name view. List rows use the canonical caption size.
 Timing columns use the available row width up to 172pt in medium and 300pt in
 large/extra-large: archived temporal Text must not request an ideal width with
 horizontal `fixedSize`. Small widgets put the parenthesised date on its own line;

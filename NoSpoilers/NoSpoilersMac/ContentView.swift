@@ -231,6 +231,7 @@ struct WeekendPopoverView: View {
             canvas: .macPopover,
             status: status,
             name: Text(session.kind.displayName),
+            compactName: Text(session.kind.shortName),
             detail: sessionTiming(session, status: status, at: now, rowIndex: rowIndex, rowCount: rowCount),
             decemberNight: isDecemberNight
         ) {

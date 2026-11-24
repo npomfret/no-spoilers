@@ -118,6 +118,44 @@ final class SessionDateTimeFormatTests: XCTestCase {
         )
     }
 
+    func testRoomyWidgetIncludesLocalOrdinalDateAndClockTime() {
+        let start = Self.makeUTCDate(year: 2026, month: 11, day: 27, hour: 14, minute: 30)
+        let output = Strings.Schedule.sessionDateTime(
+            start,
+            locale: Locale(identifier: "en_GB"),
+            timeZone: TimeZone(identifier: "Europe/London")!,
+            style: .widgetWithTime
+        )
+        XCTAssertTrue(output.contains("Fri"), output)
+        XCTAssertTrue(output.contains("27th"), output)
+        XCTAssertTrue(output.contains("14:30"), output)
+    }
+
+    func testRoomyWidgetHonoursTwelveHourLocale() {
+        let output = Strings.Schedule.sessionDateTime(
+            date,
+            locale: Locale(identifier: "en_US"),
+            timeZone: TimeZone(identifier: "America/New_York")!,
+            style: .widgetWithTime
+        )
+        XCTAssertTrue(output.contains("12th"), output)
+        XCTAssertTrue(output.contains("3:00"), output)
+        XCTAssertTrue(output.contains("PM"), output)
+    }
+
+    func testRoomyWidgetKeepsDateAndTimeOnTheSameLocalDay() {
+        let start = Self.makeUTCDate(year: 2026, month: 6, day: 12, hour: 23, minute: 30)
+        let output = Strings.Schedule.sessionDateTime(
+            start,
+            locale: Locale(identifier: "en_GB"),
+            timeZone: TimeZone(identifier: "Europe/London")!,
+            style: .widgetWithTime
+        )
+        XCTAssertTrue(output.contains("Sat"), output)
+        XCTAssertTrue(output.contains("13th"), output)
+        XCTAssertTrue(output.contains("00:30"), output)
+    }
+
     private static func makeUTCDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "UTC")!

@@ -507,6 +507,28 @@ public struct NoSpoilersNextUpFooter<Trailing: View>: View {
 /// which is what makes one component possible: the parts that differ were never
 /// the geometry.
 ///
+/// Keep the full session label whenever its actual text fits the proposed width.
+public struct NoSpoilersSessionName: View {
+    private let full: Text
+    private let compact: Text?
+
+    public init(full: Text, compact: Text? = nil) {
+        self.full = full
+        self.compact = compact
+    }
+
+    public var body: some View {
+        if let compact {
+            ViewThatFits(in: .horizontal) {
+                full.fixedSize(horizontal: true, vertical: false)
+                compact
+            }
+        } else {
+            full
+        }
+    }
+}
+
 /// `detail` and `trailing` are both optional in effect — `.widgetLarge` has no
 /// second line at all, and `.widgetSmall` has no trailing badge.
 public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
@@ -514,6 +536,7 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
     private let decemberNight: Bool
     private let status: SessionStatus
     private let name: Text
+    private let compactName: Text?
     private let detail: Detail?
     private let trailing: Trailing
 
@@ -521,6 +544,7 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
         canvas: Theme.Canvas,
         status: SessionStatus,
         name: Text,
+        compactName: Text? = nil,
         detail: Detail?,
         decemberNight: Bool = false,
         @ViewBuilder trailing: () -> Trailing
@@ -529,6 +553,7 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
         self.decemberNight = decemberNight
         self.status = status
         self.name = name
+        self.compactName = compactName
         self.detail = detail
         self.trailing = trailing()
     }
@@ -555,7 +580,7 @@ public struct NoSpoilersSessionRow<Detail: View, Trailing: View>: View {
                 .frame(width: Theme.Row.accentWidth, height: Theme.Row.accentHeight(canvas))
 
             VStack(alignment: .leading, spacing: Theme.Row.labelSpacing(canvas)) {
-                name
+                NoSpoilersSessionName(full: name, compact: compactName)
                     .font(Theme.Typography.rowLabel(canvas))
                     .foregroundStyle(Theme.Palette.textPrimary(decemberNight: decemberNight))
 
@@ -585,10 +610,11 @@ extension NoSpoilersSessionRow where Trailing == EmptyView {
         canvas: Theme.Canvas,
         status: SessionStatus,
         name: Text,
+        compactName: Text? = nil,
         detail: Detail?,
         decemberNight: Bool = false
     ) {
-        self.init(canvas: canvas, status: status, name: name, detail: detail, decemberNight: decemberNight) {
+        self.init(canvas: canvas, status: status, name: name, compactName: compactName, detail: detail, decemberNight: decemberNight) {
             EmptyView()
         }
     }
