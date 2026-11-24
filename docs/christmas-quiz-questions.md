@@ -246,8 +246,11 @@ five selected nations within the fixed period; only Finland matches Germany amon
 
 ## Question 7: One man, three champions
 
-**Status:** Draft for user review.
+**Status:** Approved by the user; followed immediately by question 8.
 **Cutoff:** End of the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+**Host note:** Reveal only the win comparison after this question. Save the title
+comparison for question 8; research notes are not player-facing copy.
 
 Add together the F1 Grand Prix wins of Sebastian Vettel, Fernando Alonso and
 Kimi Räikkönen. How does their combined total compare with Lewis Hamilton's?
@@ -260,18 +263,17 @@ Kimi Räikkönen. How does their combined total compare with Lewis Hamilton's?
 **Correct answer: C — They are exactly level.**
 
 Vettel's 53 + Alonso's 32 + Räikkönen's 21 = **106**, exactly Hamilton's total.
-One driver matches three world champions combined. And the symmetry goes further:
-their world titles add up to seven too — 4 + 2 + 1, matching Hamilton's seven.
+One driver matches three world champions combined.
 
 ### Research table: career totals at the cutoff
 
-| Driver | Grand Prix wins | World titles |
-| --- | ---: | ---: |
-| Lewis Hamilton | 106 | 7 |
-| Sebastian Vettel | 53 | 4 |
-| Fernando Alonso | 32 | 2 |
-| Kimi Räikkönen | 21 | 1 |
-| Vettel + Alonso + Räikkönen | 106 | 7 |
+| Driver | Grand Prix wins |
+| --- | ---: |
+| Lewis Hamilton | 106 |
+| Sebastian Vettel | 53 |
+| Fernando Alonso | 32 |
+| Kimi Räikkönen | 21 |
+| Vettel + Alonso + Räikkönen | 106 |
 
 **Sources checked:** 2026-11-24, using the local snapshot without new web requests.
 
@@ -279,15 +281,114 @@ their world titles add up to seven too — 4 + 2 + 1, matching Hamilton's seven.
   retained locally at `research/quiz-data/source/f1db.db`. Counted final
   `race_result.position_number = 1` rows joined to `race`, filtered to
   `year >= 2000` and `date <= '2026-11-22'`, for the four named driver IDs.
-  The `driver` table's career win totals agree. Counted
-  `season_driver_standing.championship_won = 1` rows for the title totals;
-  those agree with `driver.total_championship_wins`.
+  The `driver` table's career win totals agree.
 - Local reusable export: `research/quiz-data/v2026.21.0/driver_stats_2000_plus.csv`,
   with its saved SQL and checksummed manifest. This is derived from the same source,
   not independent corroboration. [Local dataset guide](christmas-quiz-data.md).
 
 **Fact-check note:** Grand Prix victories only; Sprints excluded. All four drivers'
-career wins and titles fall within our 2000-onward era, so the period filter does
+career wins fall within our 2000-onward era, so the period filter does
 not truncate any of their totals. The exact tie is fixed to this cutoff and needs
-rechecking if the question is updated after another race. Retain as a draft pending
-user approval and independent source corroboration before publication.
+rechecking if the question is updated after another race. Independent source
+corroboration remains pending before publication.
+
+## Question 8: Surely not twice?
+
+**Status:** User requested this follow-up immediately after question 7; wording drafted.
+**Cutoff:** End of the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+Now add together Vettel, Alonso and Räikkönen's F1 world titles. How does their
+combined total compare with Hamilton's?
+
+- **A.** Hamilton leads by two titles
+- **B.** The trio leads by one title
+- **C.** Hamilton leads by one title
+- **D.** They are exactly level
+
+**Correct answer: D — They are exactly level.**
+
+Vettel's four + Alonso's two + Räikkönen's one = **seven**, matching Hamilton.
+The same three champions equal his total for both wins and world titles.
+
+**Sources checked:** 2026-11-24, using the local snapshot without new web requests.
+
+- [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  local `research/quiz-data/source/f1db.db`: counted
+  `season_driver_standing.championship_won = 1` rows from 2000 onward for the
+  four named drivers. Hamilton 7, Vettel 4, Alonso 2, Räikkönen 1; the
+  `driver.total_championship_wins` fields agree. All their titles are since 2000.
+  [Local dataset guide](christmas-quiz-data.md).
+
+**Host note:** Ask directly after question 7. Do not reveal this comparison in
+question 7's explanation. Independent source corroboration remains pending.
+
+## Question 9: The British title cabinet
+
+**Status:** Draft following the user's request for British world titles since 2000.
+**Period:** 2000 through the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+British drivers have won how many F1 drivers' world titles since 2000?
+
+- **A.** Seven
+- **B.** Eight
+- **C.** Nine
+- **D.** Ten
+
+**Correct answer: C — Nine.**
+
+Hamilton contributed seven, Jenson Button one in 2009, and Lando Norris one in 2025.
+Three drivers, nine titles — seven of them belonging to Hamilton.
+
+**Sources checked:** 2026-11-24, using the local snapshot without new web requests.
+
+- [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  local `research/quiz-data/source/f1db.db`: counted
+  `season_driver_standing.championship_won = 1` rows with `year >= 2000`, joined
+  to drivers whose `nationality_country_id = 'united-kingdom'`. The nine years
+  are 2008, 2009, 2014, 2015, 2017, 2018, 2019, 2020 and 2025. Count titles,
+  not different champions, and use the championship-won flag rather than provisional
+  standing position. [Local dataset guide](christmas-quiz-data.md).
+
+**Fact-check note:** This draft uses the same fixed snapshot as the preceding pair;
+independent source corroboration remains pending before publication.
+
+## Question 10: Straight to the top
+
+**Status:** Draft following the user's request for rare countries and events.
+**Period:** 2000 through the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+Which country has had exactly one F1 Grand Prix podium since 2000 — and it was a win?
+
+- **A.** Poland
+- **B.** Portugal
+- **C.** Denmark
+- **D.** Venezuela
+
+**Correct answer: D — Venezuela.**
+
+Pastor Maldonado's victory at the 2012 Spanish Grand Prix is Venezuela's only
+podium in this period. One trip to the podium, straight to the top step.
+
+### Research table: the four options
+
+| Country | Grand Prix podiums | Grand Prix wins |
+| --- | ---: | ---: |
+| Poland | 12 | 1 |
+| Portugal | 1 | 0 |
+| Denmark | 1 | 0 |
+| Venezuela | 1 | 1 |
+
+**Sources checked:** 2026-11-24, using the local snapshot without new web requests.
+
+- [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  local export `research/quiz-data/v2026.21.0/nationality_stats_2000_plus.csv`,
+  its saved SQL and manifest. Queried the underlying `race_result`, `race`,
+  `driver` and `country` tables separately for podiums (final positions 1–3)
+  from 2000 through 22 November 2026. Venezuela is the only nation with exactly
+  one podium and one win. The individual podium rows identify Maldonado in Spain
+  2012, Tiago Monteiro third in the USA in 2005, and Kevin Magnussen second in
+  Australia in 2014. [Local dataset guide](christmas-quiz-data.md).
+
+**Fact-check note:** Grand Prix podium finishes only; Sprints excluded. Nationality
+uses F1DB's primary driver nationality, not birthplace or the country hosting the
+race. Independent source corroboration remains pending before publication.

@@ -241,12 +241,18 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   period, metric definition and dated sources beside question 6.
 - [x] Build local structured datasets with a pinned source, retained licence, saved queries
   and provenance, independently of the schedule app. Record period and metric limits.
-- [ ] Replace the rejected historical comparison with a simpler nationality singleton question.
+- [x] Draft a simpler nationality singleton as question 10: Venezuela's sole Grand Prix
+  podium since 2000 was a win. Retain the four-option comparison table, period and source.
 - [x] Draft a simple greatness comparison from the local dataset: Hamilton's 106 Grand
   Prix wins equal Vettel 53 + Alonso 32 + Räikkönen 21 at the Las Vegas 2026 cutoff.
-  The title totals also match, 7 = 4 + 2 + 1. Question 7 records the calculation,
-  research table, source release and local evidence; no fresh web queries were needed.
-- [ ] Obtain user approval and independent source corroboration for question 7 before publication.
+  The user approved question 7 and requested the title comparison immediately afterward.
+  Question 8 asks about the matching title totals, 7 = 4 + 2 + 1; question 7's reveal
+  now saves that fact for question 8. Both retain the fixed cutoff and local evidence.
+- [x] Draft the requested British-title question as question 9: nine titles since 2000,
+  from Hamilton seven, Button one and Norris one, using championship-won flags.
+- [ ] Obtain approval of the new wording and independent source corroboration for questions
+  7–10 before publication. Local queries verified the calculations; no new web requests,
+  app changes or automated tests were needed for these editorial additions.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -260,7 +266,8 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2 and 5 are approved; questions 3, 4 and 7 remain drafts and question 6 was rejected,
+app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–10 have draft wording,
+and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
 leader sequence and recomputed from inclusive lap ranges (47 + 6 + 5 + 1 + 1 = 60).
