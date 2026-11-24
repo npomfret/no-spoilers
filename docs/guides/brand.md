@@ -323,8 +323,8 @@ keeps updating without periodic reloads. All widget families use short session
 names, including SQ for Sprint Qualifying. List rows use the canonical caption size.
 Timing columns use the available row width up to 172pt in medium and 300pt in
 large/extra-large: archived temporal Text must not request an ideal width with
-horizontal `fixedSize`. Small and large widgets put the parenthesised date on
-its own line; the wider extra-large family keeps both timings on one line.
+horizontal `fixedSize`. Small widgets put the parenthesised date on its own line;
+large and extra-large keep the countdown and date together on one line.
 The single-line Lock Screen family uses native `Date.AnchoredRelativeFormatStyle`
 for a shorter natural phrase, for example "Sprint in 3 days (Sat 15th)"; the detailed
 two-unit relative phrase can otherwise crowd out the date there. Its abbreviated

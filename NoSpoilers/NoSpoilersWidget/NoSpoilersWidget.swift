@@ -738,14 +738,11 @@ struct NoSpoilersWidgetEntryView: View {
             )
         case .upcoming(let startsAt):
             NoSpoilersStatusBadge(
-                text: Strings.Sessions.upcomingTiming(
-                    startsAt,
-                    dateOnNewLine: family == .systemLarge
-                ),
+                text: Strings.Sessions.upcomingTiming(startsAt),
                 style: .upcoming,
                 canvas: canvas
             )
-            .lineLimit(family == .systemLarge ? 2 : family == .systemExtraLarge ? 1 : nil)
+            .lineLimit(canvas == .widgetLarge ? 1 : nil)
         }
     }
 }
