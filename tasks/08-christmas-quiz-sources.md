@@ -315,6 +315,16 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   constructors, not tests, reserves, engines or merged team lineages. Broader "most
   teams" rankings remain unsuitable without an agreed renaming convention.
 - [ ] Obtain user approval of question 27. Retain the easier Alonso four-team set as a lead.
+- [x] Audit reliability data already present locally: DNF status, laps and reported
+  retirement causes. Retain a status/reason CSV and SQL inventory; distinguish the
+  2,117 explicit DNF labels from 253 numbered classifications with a retirement reason,
+  and keep non-starts/disqualifications separate. No blanket mechanical-failure
+  classification or misleading starts-based rate was added. Draft question 28 from
+  Schumacher's complete 2002 season: worst result third, with 11 wins, five seconds
+  and one third across 17 races. Check local rows, the official race archive and the
+  driver's official site. These edits are editorial; no app tests/builds are needed.
+- [ ] Obtain user approval of question 28; explore further reliability questions using
+  explicit retirement and mechanical-failure definitions.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -328,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–27 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–28 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap

@@ -1027,3 +1027,36 @@ The named constructor identities are explicit: Heidfeld's Jordan stint does not
 count as Force India, even though the team's lineage later led there. Sauber's
 engine badge does not make it Renault. This asks for a four-team intersection,
 not an ambiguous record for the most organisations or team names in a career.
+
+## Question 28: A bad day at the office
+
+**Status:** Draft following the user's reliability/DNF suggestion.
+**Year:** 2002.
+
+What was Michael Schumacher's worst Grand Prix result in his 2002 title season?
+
+- **A.** Third
+- **B.** Fifth
+- **C.** Eighth
+- **D.** Did not finish
+
+**Correct answer: A — Third.**
+
+Seventeen races: eleven wins, five seconds and one third. No retirements, no
+finishes outside the podium. Third in Malaysia was his worst Sunday result.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  grouped the 17 `race_result` rows for `michael-schumacher` with `race.year = 2002`.
+  Eleven position-1 rows, five position-2 rows and one position-3 row; all have
+  `reason_retired IS NULL` and none has a DNF or other special status.
+- [Formula 1 — Schumacher's 2002 results](https://www.formula1.com/en/results/2002/drivers/MICSCH01/michael-schumacher):
+  checked the complete 17-race sequence; Malaysia was his sole third place.
+- [Michael Schumacher's official site — 2002](https://www.michael-schumacher.de/en/saison/11/2002):
+  its season summary explicitly records 17 finishes, 17 podiums and the 11/5/1 split.
+
+**Fact-check note:** Final race classifications, not qualifying or fastest-lap
+positions. This is a particular driver's complete season, not a claim that every
+Ferrari entry finished. Use the sources' actual 17-race inventory rather than a
+stray season-length typo in the official site's introductory narrative.

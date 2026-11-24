@@ -197,3 +197,35 @@ An easier alternative set, checked locally as a lead: **Ferrari, McLaren, Renaul
 Aston Martin** matches Alonso. Among Sainz, Vettel and Ricciardo, none matches all four:
 Sainz has the first three; Vettel Ferrari/Aston Martin; Ricciardo McLaren/Renault.
 Retain for later selection rather than adding another similar question immediately.
+
+## Reliability and did-not-finish statistics
+
+The existing local `race_result` view and `gp_results_2000_plus.csv` already contain
+`position_text`, `position_number`, `laps` and `reason_retired`. No new external
+data is needed to explore retirement counts by driver, constructor, season or race,
+or to inspect the provider's reported causes. The audit query and CSV are retained
+at `research/quiz-data/questions/retirement-status-audit.sql` and `.csv`.
+
+Across the 11,024 result rows since 2000 through Las Vegas 2026:
+
+- 2,117 rows explicitly have `position_text = 'DNF'`; each has a reported reason.
+- 253 rows have a numeric classified position and a non-null retirement reason.
+  For example, Häkkinen was classified ninth in Spain 2001 despite his last-lap
+  clutch failure. Bourdais and Räikkönen were classified seventh and eighth in
+  Australia 2008 with engine failures recorded.
+- DNS, DNQ, DNP, EX, NC and DSQ are separate source statuses; preserve them.
+  A non-start or disqualification is not automatically a race retirement.
+- Reasons include Engine, Gearbox, Hydraulics, Brakes, Collision, Collision damage,
+  Accident and Spun off. DNF is not a synonym for mechanical failure; keep the
+  original categories instead of silently treating every retirement as car unreliability.
+
+Do not infer "finished running" just from a numbered classification, or build a
+reliability rate using result entries as if they were race starts. A published
+mechanical-failure rate needs an explicit cause classification and a checked
+denominator. Finish/retirement streaks also need a decision about non-starts and
+late classified retirements before they can support a record claim.
+
+A clean question avoids those ambiguities: Schumacher's 2002 season contained
+11 wins, five seconds and one third, with no retirement reasons or DNF labels.
+His worst result was third. Question 28 records the full-season check and
+corroboration from the official results and his own site's season summary.
