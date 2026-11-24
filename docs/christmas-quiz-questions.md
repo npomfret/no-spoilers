@@ -1374,3 +1374,50 @@ without ever becoming champion. All four candidates have race wins in the
 stated era; only Hamilton reaches ten in a season without that year's title.
 Do not reuse the 2016 article's then-current career or all-time records as
 present-day claims. The other candidate maxima are local calculations.
+
+## Question 37: A small field, a big moment
+
+**Status:** Draft for user review.
+**Period:** 2000 through the 2026 Las Vegas Grand Prix, 22 November 2026.
+
+Which country's **only F1 Grand Prix podium since 2000** came in a race
+with just **six starters**?
+
+- **A.** Denmark
+- **B.** Portugal
+- **C.** Poland
+- **D.** Venezuela
+
+**Optional clue:** The driver was Tiago Monteiro.
+
+**Correct answer: B — Portugal.**
+
+Monteiro finished third for Jordan at Indianapolis in 2005. Fourteen cars
+withdrew over Michelin tyre safety concerns, leaving just six to race.
+Portugal's only podium in our period came behind the two Ferraris in one
+of the strangest Grands Prix ever held.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  reused `research/quiz-data/v2026.21.0/nationality_stats_2000_plus.csv` and
+  its saved SQL. The four options have Denmark 1, Portugal 1, Poland 12 and
+  Venezuela 1 GP podiums. A direct query of dated Portuguese podium rows
+  returns only Monteiro's third at the 2005 United States GP. That race has
+  six numbered results and 14 explicit DNS records.
+- [Official 2005 United States GP result](https://www.formula1.com/en/results/2005/races/779/united-states/race-result):
+  corroborates Monteiro third for Jordan behind Schumacher and Barrichello.
+- [Motorsport.com — Monteiro's historic Portuguese podium](https://au.motorsport.com/f1/news/historical-podium-for-portugal-from-monteiro/1245071/),
+  21 June 2005: contemporary account identifies the Portuguese driver and
+  explains the 14 Michelin withdrawals after the formation lap, leaving
+  the Bridgestone-equipped cars to race.
+
+**Distractor checks:** Denmark's sole podium was Magnussen's second in
+Australia 2014; Venezuela's was Maldonado's Spanish GP win in 2012, neither
+a six-starter race. Poland has 12 podiums, so fails the single-podium condition.
+These reuse question 10's checked local country inventory.
+
+**Fact-check note:** Driver nationality, not the host country; GP podiums only,
+excluding Sprints. Count actual starters rather than the 20 entrants or cars
+that began the formation lap. Retain the fixed snapshot cutoff for the
+single-podium claim; this is not an open-ended claim about future results.

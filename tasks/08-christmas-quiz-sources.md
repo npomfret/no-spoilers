@@ -338,7 +338,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–36 have draft wording,
+app. Questions 1, 2, 5, 7 and 24 are approved; questions 3, 4, 8–23 and 25–37 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -451,6 +451,16 @@ Alonso 5. Official season statistics and the FIA finale report corroborate the
 Hamilton/Rosberg story. The clue supplies 2016; wording distinguishes losing
 that season's title from never becoming champion. Source dates and provenance
 are recorded. Markdown diff checks passed; no app tests or builds are required.
+
+Question 37 returns to rare nationalities: Portugal's sole GP podium since
+2000 came through Monteiro in the six-starter USA 2005 race. Reused the existing
+nationality export; checked the single dated Portuguese podium and six numerical
+results plus 14 DNS rows in the pinned database. Official results corroborate
+the podium, and contemporary reporting explains the Michelin withdrawals.
+Distractors use the same four-country inventory as question 10; the optional
+half-point clue supplies Monteiro's name. The fixed Las Vegas 2026 cutoff and
+actual-start versus formation-lap distinction are explicit. No new data feed,
+helper or app changes; Markdown diff checks passed, with no app tests needed.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and
