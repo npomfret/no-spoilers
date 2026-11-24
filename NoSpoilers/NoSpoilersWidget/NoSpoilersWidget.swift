@@ -654,7 +654,7 @@ struct NoSpoilersWidgetEntryView: View {
             decemberNight: isDecemberNight
         ) {
             stateLabel(session.state, canvas: canvas)
-                .frame(width: Theme.Badge.timingColumnWidth(canvas), alignment: .trailing)
+                .frame(maxWidth: Theme.Badge.timingColumnWidth(canvas), alignment: .trailing)
                 .multilineTextAlignment(.trailing)
                 .contentTransition(.numericText(countsDown: true))
                 .animation(
@@ -737,7 +737,15 @@ struct NoSpoilersWidgetEntryView: View {
                 canvas: canvas
             )
         case .upcoming(let startsAt):
-            NoSpoilersStatusBadge(text: Strings.Sessions.upcomingTiming(startsAt), style: .upcoming, canvas: canvas)
+            NoSpoilersStatusBadge(
+                text: Strings.Sessions.upcomingTiming(
+                    startsAt,
+                    dateOnNewLine: family == .systemLarge
+                ),
+                style: .upcoming,
+                canvas: canvas
+            )
+            .lineLimit(family == .systemLarge ? 2 : family == .systemExtraLarge ? 1 : nil)
         }
     }
 }

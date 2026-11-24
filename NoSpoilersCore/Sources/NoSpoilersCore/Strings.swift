@@ -144,6 +144,21 @@ public enum Strings {
             }
             format.locale = locale
             format.timeZone = timeZone
+            if style == .widget {
+                var calendar = format.calendar
+                calendar.timeZone = timeZone
+                let day = calendar.component(.day, from: date)
+                let ordinalFormatter = NumberFormatter()
+                ordinalFormatter.locale = locale
+                ordinalFormatter.numberStyle = .ordinal
+                guard let ordinal = ordinalFormatter.string(from: NSNumber(value: day)) else {
+                    preconditionFailure("Unable to format the session's ordinal day")
+                }
+                let attributed = date.formatted(format.attributed)
+                return attributed.runs.map { run in
+                    run.dateField == .day ? ordinal : String(attributed[run.range].characters)
+                }.joined()
+            }
             return date.formatted(format)
         }
 

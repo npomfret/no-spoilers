@@ -90,7 +90,32 @@ final class SessionDateTimeFormatTests: XCTestCase {
         )
         XCTAssertTrue(output.contains("13"), "expected local day 13 in: \(output)")
         XCTAssertTrue(output.contains("Sat"), "expected local Saturday in: \(output)")
+        XCTAssertTrue(output.contains("13th"), "expected local ordinal day 13th in: \(output)")
         XCTAssertFalse(output.contains("Jun"), "month must not crowd the widget: \(output)")
+    }
+
+    func testWidgetPresentationIncludesEnglishOrdinalSuffixes() {
+        for (day, expected) in [(1, "1st"), (2, "2nd"), (3, "3rd"), (11, "11th"), (12, "12th"), (13, "13th"), (21, "21st"), (22, "22nd"), (23, "23rd"), (27, "27th"), (31, "31st")] {
+            let output = Strings.Schedule.sessionDateTime(
+                Self.makeUTCDate(year: 2026, month: 7, day: day, hour: 12, minute: 0),
+                locale: Locale(identifier: "en_GB"),
+                timeZone: TimeZone(identifier: "UTC")!,
+                style: .widget
+            )
+            XCTAssertTrue(output.contains(expected), "expected \(expected) in: \(output)")
+        }
+    }
+
+    func testWidgetPresentationMatchesRequestedFridayDate() {
+        XCTAssertEqual(
+            Strings.Schedule.sessionDateTime(
+                Self.makeUTCDate(year: 2026, month: 11, day: 27, hour: 12, minute: 0),
+                locale: Locale(identifier: "en_GB"),
+                timeZone: TimeZone(identifier: "UTC")!,
+                style: .widget
+            ),
+            "Fri 27th"
+        )
     }
 
     private static func makeUTCDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {

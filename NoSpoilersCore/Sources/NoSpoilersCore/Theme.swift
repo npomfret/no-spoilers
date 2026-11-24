@@ -590,11 +590,12 @@ public enum Theme {
     /// session's state on the row's second line instead, which is why
     /// `NoSpoilersSessionRow` has an `EmptyView` trailing overload for it.
     public enum Badge {
-        /// Widget temporal Text is horizontally flexible after archiving. Give
-        /// it a finite column rather than asking fixedSize for an ideal width.
+        /// The timing column's maximum width. Large widgets can use more of
+        /// the row without stretching a temporal Text pill across the iPad.
         public static func timingColumnWidth(_ canvas: Canvas) -> CGFloat {
             switch canvas {
-            case .widgetMedium, .widgetLarge: return 172
+            case .widgetMedium: return 172
+            case .widgetLarge: return 300
             default: preconditionFailure("only list widgets have a fixed timing column")
             }
         }

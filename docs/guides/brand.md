@@ -318,13 +318,15 @@ exposes both independently of the visual cycle. The iPhone list owns an isolated
 drawing timeline so the half-second cadence does not invalidate its weekend pager.
 Only its selected page animates, while active and without a sheet over it.
 Widgets show a right-aligned native relative countdown prefixed with "in", with
-the local weekday/day in parentheses. The original `Text(date, style: .relative)`
+the local weekday/ordinal day in parentheses. The original `Text(date, style: .relative)`
 keeps updating without periodic reloads. All widget families use short session
-names, including SQ for Sprint Qualifying. List rows use the canonical caption size and a finite 172pt
-timing column: archived temporal Text must not request an ideal width with
-horizontal `fixedSize`. Small widgets put the parenthesised date on its own line.
+names, including SQ for Sprint Qualifying. List rows use the canonical caption size.
+Timing columns use the available row width up to 172pt in medium and 300pt in
+large/extra-large: archived temporal Text must not request an ideal width with
+horizontal `fixedSize`. Small and large widgets put the parenthesised date on
+its own line; the wider extra-large family keeps both timings on one line.
 The single-line Lock Screen family uses native `Date.AnchoredRelativeFormatStyle`
-for a shorter natural phrase, for example "Sprint in 3 days (Sat 15)"; the detailed
+for a shorter natural phrase, for example "Sprint in 3 days (Sat 15th)"; the detailed
 two-unit relative phrase can otherwise crowd out the date there. Its abbreviated
 unit style also keeps "in 59 min" visible beside the date. Both forms are
 composed by the same widget string factory and keep native clock updates.
