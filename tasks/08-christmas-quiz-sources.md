@@ -275,6 +275,24 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   giving away the substitute's name. The Hamilton pair remains consecutive.
   These are drafts for selection, not approved additions to an app.
 - [ ] Obtain user approval of questions 11–19 and complete final editorial ordering.
+- [x] Investigate the user's four further avenues: close qualifying, last-lap winning
+  lead changes, race duration/distance/lap extremes, and most/fewest different seasonal
+  winners by driver, constructor and nationality. Save definitions, sources, ties and
+  coverage in [Statistical extremes](../docs/christmas-quiz-statistical-extremes.md).
+  Build five additional local CSV/SQL tables with their own manifest using the existing
+  exporter unchanged; retain a separate six-example sourced last-lap CSV, explicitly
+  nonexhaustive. No new acquisition client or app ingestion path was introduced.
+  Scope inventory: 524 completed race weekends through Las Vegas 2026 for qualifying
+  and race dimensions; all 26 completed seasons 2000–2025 for seasonal extrema,
+  with unfinished 2026 held separately. Sources corroborate the Canada 2024 tie,
+  the USA 2015 Q2 exception, selected last-lap changes, Spa's final classification,
+  Monza's 2025 result, and the 2012/2015 winner inventories.
+- [x] Draft questions 20–24 from those findings: Canada's identical qualifying laps,
+  Räikkönen's win from 17th with a last-lap pass, Belgium's zero green-flag laps,
+  six winning teams in 2012, and only British/German winners in 2015. Each retains
+  sources and a checked date; selected questions offer half-point clues.
+- [ ] Obtain user approval of questions 20–24. Independently corroborate broader
+  full-period record claims before converting the research comparison into record questions.
 - [ ] Confirm quiz host surface, intended audience, final data cutoff and Christmas deadline.
 - [ ] Select sources and establish permission for the actual distribution and any media.
 - [ ] Continue authoring and independently verifying a varied question pack. Inspect any
@@ -288,7 +306,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–19 have draft wording,
+app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–24 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap
@@ -319,6 +337,24 @@ the loose time estimate in the trophy retrospective. Sources include official ra
 reports, interviews, the results archive, McLaren's detailed team account and ABC's
 contemporary reporting of Sainz's withdrawal.
 No app files, builds or automated tests were involved; Markdown diff checks passed.
+
+The statistical-extremes investigation reused the existing exporter and pinned source.
+Its five CSV exports have 524 qualifying pairs, 524 race-dimension rows, 26 completed
+season rows, one 2026 snapshot row and 137 season/driver/constructor winner rows.
+CSV line counts agree with the manifest plus headers. USA 2015's explicit Q2 exception
+is corroborated by its contemporary report; the other timing rows use Q3 or their
+legacy classification time. Every pair has comparable timing data, with no negative
+gaps. The six curated last-lap examples have matching final winners in the database;
+their lead-change mechanisms come from the separately cited reports.
+
+Independent read-only review found no substantive issues. It reconciled all five
+exports with saved SQL and checked their hashes and counts; recomputed qualifying
+coverage, race extrema, seasonal minima/maxima with tied years and 2012 constructor
+totals; and independently corroborated the 2015 win counts/nationalities against
+the official archive. It reviewed questions 20–24's unique answers, sources and metric
+distinctions. No new helper, network client or app mechanism was introduced. Neither
+the author nor reviewer ran app tests or builds for this research. Markdown diff
+checks passed; the broader authoring task remains open.
 
 Independent read-only reviews found no substantive issues. The reviewer independently
 retrieved the FIA and official series passages, checked question 5's exact dates, and

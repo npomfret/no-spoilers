@@ -96,3 +96,8 @@ the local SQL filename, and a separate corroborating source where appropriate. T
 database is the numeric research base, not an independent second source for its own CSVs.
 The existing Wikipedia mirror remains the broad offline editorial source; access is
 documented in the sibling workspace's `docs/KIWIX.md`.
+
+Additional local analysis tables for qualifying margins, race dimensions and seasonal
+winner counts are documented in [Statistical extremes](christmas-quiz-statistical-extremes.md).
+They have their own manifest under `research/quiz-data/extremes-v2026.21.0/`;
+the original 17-table snapshot remains fixed.

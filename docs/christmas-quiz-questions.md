@@ -730,3 +730,166 @@ Grand Prix starts, two different teams, points for both — before his first ful
 **Fact-check note:** Grand Prix starts, not practice appearances or Sprint sessions.
 The question asks what Bearman did in 2024, rather than requiring a fresh all-time
 uniqueness claim at the eventual publication date.
+
+## Question 20: A dead heat, one pole
+
+**Status:** Draft for user review.
+**Year:** 2024.
+
+George Russell and Max Verstappen both clocked 1:12.000 in Q3 in Canada.
+What gave Russell pole position?
+
+- **A.** He set the time first
+- **B.** He had the quicker second-fastest lap
+- **C.** He was faster in Q2
+- **D.** He had the fastest individual sector
+
+**Correct answer: A — He set the time first.**
+
+Their best Q3 laps tied to the recorded thousandth of a second. Russell's lap
+came first, so Verstappen had to settle for second. Norris was just 0.021 s
+behind both of them in third.
+
+**Sources checked:** 2026-11-24.
+
+- [FIA — Canada 2024 qualifying](https://api.fia.com/news/f1-russell-claims-pole-canadian-grand-prix-verstappen-sets-identical-lap-time):
+  contemporary report confirms the times, first-set tiebreak and Norris's margin.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/extremes-v2026.21.0/qualifying_front_pair_times_2000_plus.csv`:
+  Canada 2024 has 72,000 ms for both first qualifiers and a zero gap.
+
+**Fact-check note:** A tie at the published precision; do not invent a hidden
+extra decimal place or use a driver's quicker Q2 lap to break it.
+
+## Question 21: Leave it late
+
+**Status:** Draft for user review.
+**Year:** 2005.
+
+Kimi Räikkönen won the 2005 Japanese Grand Prix by overtaking Giancarlo Fisichella
+on the final lap. Where had Räikkönen started?
+
+- **A.** Seventh
+- **B.** Eleventh
+- **C.** Seventeenth
+- **D.** Twentieth
+
+**Correct answer: C — Seventeenth.**
+
+Rain in single-lap qualifying put him deep in the field. He recovered through
+the race, then went around the outside of Fisichella into Turn 1 on the final lap
+to take the win.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — Japan retrospective](https://www.formula1.com/en/latest/article/moments-in-time-the-japanese-grand-prix.5M4HpgAHNmMjn15iW7nAXO.5M4HpgAHNmMjn15iW7nAXO),
+  2005 section: confirms 17th on the grid and the final-lap pass.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0):
+  the Japan 2005 `race_result` row for `kimi-raikkonen` has final position 1
+  and `grid_position_number = 17`.
+
+**Fact-check note:** The decisive lead change occurred on the last lap. This
+does not establish that he led only one lap during the race.
+
+## Question 22: Points without racing
+
+**Status:** Draft for user review.
+**Year:** 2021.
+
+The 2021 Belgian Grand Prix awarded championship points. How many laps of
+green-flag racing took place?
+
+- **A.** One
+- **B.** Two
+- **C.** Three
+- **D.** None
+
+**Optional clue:** Every lap was behind the Safety Car.
+
+**Correct answer: D — None.**
+
+Rain and visibility prevented racing. Safety Car running and the countback
+produced a one-lap final classification, an official winning time of 3:27.071,
+and half points. A very long afternoon produced a very short official race.
+
+**Sources checked:** 2026-11-24.
+
+- [FIA — Final Belgium classification](https://www.fia.com/sites/default/files/doc_43_-_2021_belgian_grand_prix_-_final_race_classification.pdf):
+  states one classified lap, 6.880 km and Verstappen's time of 3:27.071.
+- [Formula 1 — Contemporary race report](https://www.formula1.com/en/latest/article/verstappen-takes-victory-in-severely-shortened-rain-affected-belgian-gp-as.4AqGhiKQfFaqr7KZjyDjPZ):
+  describes the running behind the Safety Car and half points.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/extremes-v2026.21.0/race_time_distance_laps_2000_plus.csv`:
+  the classified lap count, distance and winning time agree.
+
+**Fact-check note:** Zero green-flag racing laps is different from the one lap
+used in the final classification. Cars circulated more than once; the official
+winning time is not the afternoon's total wall-clock duration.
+
+## Question 23: Room at the top
+
+**Status:** Draft for user review.
+**Year:** 2012.
+
+How many different teams won an F1 Grand Prix during 2012?
+
+- **A.** Four
+- **B.** Six
+- **C.** Seven
+- **D.** Eight
+
+**Optional clue:** Maldonado's Williams victory and Räikkönen's Lotus victory both count.
+
+**Correct answer: B — Six.**
+
+Red Bull, McLaren, Ferrari, Mercedes, Williams and Lotus all won. Eight different
+drivers shared the wins, with Räikkönen adding Lotus to the winning teams late
+in the year in Abu Dhabi.
+
+**Sources checked:** 2026-11-24.
+
+- [Formula 1 — 2012 results](https://www.formula1.com/en/results/2012/races):
+  counted six constructors from the full race-winner table. Red Bull and McLaren
+  seven wins each, Ferrari three, Mercedes one, Williams one and Lotus one.
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/extremes-v2026.21.0/season_winner_diversity_2000_2025.csv`
+  and `season_winning_driver_teams_2000_plus.csv`: six distinct winning constructor
+  IDs and eight winning driver IDs in 2012; team win counts sum to 20 races.
+
+**Host note:** This can follow question 15's seven different opening winners.
+Hide the team list and clue until the appropriate reveal; use the bank's half-point rule.
+
+## Question 24: Two flags
+
+**Status:** Draft for user review.
+**Year:** 2015.
+
+All 19 Grands Prix in 2015 were won by drivers of just two nationalities. Which two?
+
+- **A.** British and German
+- **B.** British and Finnish
+- **C.** German and Dutch
+- **D.** Spanish and German
+
+**Optional clue:** The three winning drivers were Hamilton, Rosberg and Vettel.
+
+**Correct answer: A — British and German.**
+
+Hamilton won ten races for Britain. Rosberg won six and Vettel three for Germany.
+Two nations took every win, with Britain edging the total 10–9.
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0),
+  `research/quiz-data/extremes-v2026.21.0/season_winner_diversity_2000_2025.csv`
+  and `season_winning_driver_teams_2000_plus.csv`: the 2015 winner inventory has
+  Hamilton 10, Rosberg 6 and Vettel 3, with primary nationality IDs
+  `united-kingdom`, `germany` and `germany`.
+- [Formula 1 — 2015 race results](https://www.formula1.com/en/results/2015/races):
+  independently counted Hamilton's ten wins, Rosberg's six and Vettel's three.
+- [Formula 1 — 2015 driver standings](https://www.formula1.com/en/results/2015/drivers):
+  lists their nationalities as GBR, GER and GER respectively.
+
+**Fact-check note:** Drivers' sporting nationality, not engine manufacturer,
+team nationality or birthplace. Both the local counts and the official archive
+give the same 19-race inventory and nationality grouping.
