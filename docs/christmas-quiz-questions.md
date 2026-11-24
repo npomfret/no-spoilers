@@ -364,6 +364,12 @@ Which country has had exactly one F1 Grand Prix podium since 2000 — and it was
 - **C.** Denmark
 - **D.** Venezuela
 
+**Optional clue:** The driver was Pastor Maldonado.
+
+**Scoring:** A correct answer earns **1 point without the clue**, or **½ point
+after taking the clue**. An incorrect answer earns 0. Offer the clue on request
+before the player submits their answer, and state the reduced score before revealing it.
+
 **Correct answer: D — Venezuela.**
 
 Pastor Maldonado's victory at the 2012 Spanish Grand Prix is Venezuela's only

@@ -243,6 +243,9 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   and provenance, independently of the schedule app. Record period and metric limits.
 - [x] Draft a simpler nationality singleton as question 10: Venezuela's sole Grand Prix
   podium since 2000 was a win. Retain the four-option comparison table, period and source.
+  Add the user-requested optional clue, "The driver was Pastor Maldonado": a correct
+  unaided answer earns 1 point; using the clue reduces it to ½ point. Offer it before
+  the answer is submitted and disclose the reduced score before revealing the clue.
 - [x] Draft a simple greatness comparison from the local dataset: Hamilton's 106 Grand
   Prix wins equal Vettel 53 + Alonso 32 + Räikkönen 21 at the Las Vegas 2026 cutoff.
   The user approved question 7 and requested the title comparison immediately afterward.
