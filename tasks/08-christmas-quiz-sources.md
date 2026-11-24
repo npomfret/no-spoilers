@@ -255,6 +255,12 @@ or builds. The local-data step is complete; the broader quiz task remains open.
   now saves that fact for question 8. Both retain the fixed cutoff and local evidence.
 - [x] Draft the requested British-title question as question 9: nine titles since 2000,
   from Hamilton seven, Button one and Norris one, using championship-won flags.
+- [x] Draft question 11 from Button's 2009 title season: he last won in June and
+  clinched the title in October. Local results split into six wins in the opening seven
+  races and zero in the final ten, with 61 + 34 = 95 points. Corroborated the full
+  sequence in the official results archive and checked the official biography and
+  McLaren retrospective. Added the optional Turkish GP clue and retained a further
+  lead: 15 points in the first two 2009 races exceeded 6 + 3 in 2007–2008 combined.
 - [ ] Obtain approval of the new wording and independent source corroboration for questions
   7–10 before publication. Local queries verified the calculations; no new web requests,
   app changes or automated tests were needed for these editorial additions.
@@ -271,7 +277,7 @@ reuse the user-supplied sibling workspace's Kiwix documentation for Wikipedia ac
 no new research access mechanism is proposed. Read the existing
 task format, README architecture and spoiler rules. The initial catalogue pass imported
 no datasets; the later local-data step above retains the research snapshot outside the
-app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–10 have draft wording,
+app. Questions 1, 2, 5 and 7 are approved; questions 3, 4 and 8–11 have draft wording,
 and question 6 was rejected,
 each with source links and checked dates; the second question includes
 its research table and source checks. Research counts were checked against the lap-by-lap

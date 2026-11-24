@@ -400,3 +400,59 @@ podium in this period. One trip to the podium, straight to the top step.
 **Fact-check note:** Grand Prix podium finishes only; Sprints excluded. Nationality
 uses F1DB's primary driver nationality, not birthplace or the country hosting the
 race. Independent source corroboration remains pending before publication.
+
+## Question 11: An early finish
+
+**Status:** Draft following the user's request for facts about Button's title season.
+**Year:** 2009.
+
+Jenson Button clinched the 2009 world title in October. In which month had he
+last won a Grand Prix that season?
+
+- **A.** June
+- **B.** August
+- **C.** September
+- **D.** October
+
+**Optional clue:** His last win was at the Turkish Grand Prix.
+
+**Correct answer: A — June.**
+
+Button won in Turkey on 7 June, then did not win any of the season's remaining
+ten races. Six wins in the first seven Grands Prix had given him a head start
+that he converted into the title in Brazil on 18 October.
+
+### Research table: a season of two parts
+
+| Period | Races | Wins | Podiums | Points |
+| --- | ---: | ---: | ---: | ---: |
+| Opening seven races | 7 | 6 | 7 | 61 |
+| Remaining ten races | 10 | 0 | 2 | 34 |
+| Full season | 17 | 6 | 9 | 95 |
+
+**Sources checked:** 2026-11-24.
+
+- Local [F1DB v2026.21.0](https://github.com/f1db/f1db/releases/tag/v2026.21.0)
+  snapshot at `research/quiz-data/source/f1db.db`: filter `race.year = 2009` and
+  `race_result.driver_id = 'jenson-button'`; final position 1 identifies wins,
+  positions 1–3 identify podiums. Split the 17 rows at round 7. The last win is
+  Turkey, 7 June; the season standing has 95 points and `championship_won = 1`.
+- [Formula 1 — Button's 2009 results](https://www.formula1.com/en/results/2009/drivers/JENBUT01/jenson-button):
+  independently checked all 17 rows, including the dates, six wins and ten-race
+  winless finish.
+- [Formula 1 — Jenson Button Hall of Fame](https://www.formula1.com/en/information/drivers-hall-of-fame-jenson-button.3BuV7MDE7ykNAThxxLr8vT):
+  confirms six wins in the first seven races, no further wins that season, and the
+  title secured at the penultimate race.
+- [McLaren — Jenson: World Champion at last](https://www.mclaren.com/racing/heritage/formula-1/drivers/jenson-button/jenson-world-champion-at-last/),
+  published 13 December 2013: corroborates the winless run after Turkey and the
+  title secured with fifth place in Brazil.
+
+**Further question lead:** His first two races in 2009 earned 15 points — more than
+his entire 2007 and 2008 seasons combined (6 + 3 = 9). Malaysia paid half points,
+so this was 10 + 5 rather than two full ten-point wins. Checked against local race
+and season-standing rows; the McLaren retrospective explicitly notes the comparison.
+This is a separate lead, not part of question 11's prompt.
+
+**Fact-check note:** The question means his final win within the 2009 season, not
+his last career victory. Points use the contemporary 2009 system. The optional
+clue follows the bank's half-point rule; it gives the race rather than the month.
