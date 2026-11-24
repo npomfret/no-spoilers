@@ -1,2 +1,2 @@
-• A new app icon
-• A session that runs late is no longer marked finished early. Past its expected end it shows "Finish not confirmed" until the finish is confirmed, and the safe-to-watch alert waits for that too
+• See the local date and time alongside the countdown in the schedule
+• Compact layouts switch between the countdown and local time with animated departure-board transitions. Wider layouts show both, with full session names where space allows

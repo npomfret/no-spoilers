@@ -1,1 +1,2 @@
-• The Live Activity in the Dynamic Island now shows the app's mark clearly and its countdown in full
+• See the local date and time alongside the countdown in the app. Compact layouts switch between them with animated departure-board transitions
+• Widgets now show a countdown and local date together, with clearer timing, full session names where space allows, and an improved iPad layout
