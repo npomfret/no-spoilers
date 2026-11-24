@@ -33,9 +33,9 @@ enum Strings {
                 startsAt, style: includeTime ? .widgetWithTime : .widget
             )
             if dateOnNewLine {
-                return Text("\(countdown)\n(\(date))")
+                return Text("\(countdown)\n· \(date)")
             }
-            return Text("\(countdown) (\(date))")
+            return Text("\(countdown) · \(date)")
         }
         static func sessionUpcomingTiming(_ kind: SessionKind, startsAt: Date) -> Text {
             let name = Text(shortName(kind))
