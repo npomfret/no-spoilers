@@ -75,12 +75,12 @@ Decided by the user (2026-11-19):
 - D4: No single web library is mandated. Existing projects keep theirs; new projects choose one already used in the fleet (i18next or react-intl).
 - D5/D6: Admin and internal interfaces are in scope. Player-visible game HUD text is in scope; debug-only overlays are not.
 
-Open; until decided, no new requirement applies and each project's existing practice stands:
+Decided by the managing agent under the owner's delegation (2026-11-27: agents get the freedom a regular developer has in the project):
 
-- D2: Whether untranslated or `new` catalogue entries block a build or release.
-- D7: Whether server-owned display text migrates to codes or receives the viewer's locale.
-- D8: Whether shared structural-check tooling is provided, or only project tooling is recommended.
-- D9: Whether App Store listing and metadata localization is in this skill's scope.
-- D10: Whether wake-me-up's deferred layout CI leg and super-funmax-music's real-translation layout approach become shared policy.
+- D2: This standard adds no gate on untranslated or `new` catalogue entries; the report lists them. Project checks that already fail on them stand. Whether a release needs every supported language complete is the project's call.
+- D7: No migration of existing server text is required. New server display text follows the form the server already uses; where it uses neither or both, send codes the client renders when the client has a catalogue, otherwise localize for the viewer's locale.
+- D8: No shared structural-check tooling. Use the project's own checks; where a change needs a check the project lacks, add it to the project's existing test suite.
+- D9: App Store listing and metadata are release content, outside this standard; the project's release tooling and owner handle them.
+- D10: Workflow step 7 is the shared rule: real-translation layout checks for delivered languages, with pseudo-locales as smoke tests only. How and where each project runs them, including whether there is a CI leg (wake-me-up's is deferred), is the project's call.
 
 *Generated from `npomfret/agent-standards`. Edit the standard there, not this copy.*
